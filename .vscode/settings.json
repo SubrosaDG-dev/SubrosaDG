@@ -4,7 +4,7 @@
         "@copyright Copyright (c) 2022 - {year} by SubrosaDG developers"
     ],
     "doxdocgen.generic.authorTag": "@author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com",
-    "doxdocgen.file.versionTag": "@version 0.0.1",
+    "doxdocgen.file.versionTag": "@version 0.1.0",
     "doxdocgen.file.fileOrder": [
         "file",
         "brief",
@@ -26,7 +26,6 @@
 
     // C++
     "C_Cpp.intelliSenseEngine": "Disabled",
-    "C_Cpp.codeAnalysis.clangTidy.enabled": true,
 
     // clangd
     "clangd.arguments": [
@@ -34,13 +33,12 @@
         "--all-scopes-completion",
         "--completion-style=detailed",
         "--enable-config",
-        "--fallback-style=Google",
-        "--header-insertion=never",
-        "--log=error",
+        "--function-arg-placeholders",
+        "--header-insertion=iwyu",
         "--pch-storage=memory",
         "--j=4",
         "--background-index"
-      ],
+    ],
     "[c, cpp]": {
         "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
     },

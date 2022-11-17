@@ -1,0 +1,33 @@
+/**
+ * @file cmake.h.in
+ * @brief The template file to get variables from cmake.
+ *
+ * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
+ * @date 2022-11-07
+ *
+ * @version 0.1.0
+ * @copyright Copyright (c) 2022 - 2022 by SubrosaDG developers
+ */
+
+#ifndef SUBROSA_DG_CMAKE_H_
+#define SUBROSA_DG_CMAKE_H_
+
+#include <filesystem>
+#include <string_view>
+
+#include "core/basic.h"
+
+namespace SubrosaDG {
+
+inline constexpr std::string_view SubrosaDgVersion{"@SUBROSA_DG_VERSION@"};
+inline const std::filesystem::path ProjectSourceDir{"@PROJECT_SOURCE_DIR@"};
+
+// clang-format off
+#ifndef SUBROSA_DG_WITH_OPENMP
+inline constexpr index NumberOfPhysicalCores{@NUMBER_OF_PHYSICAL_CORES@};
+#endif
+// clang-format on
+
+}  // namespace SubrosaDG
+
+#endif  // SUBROSA_DG_CMAKE_H_

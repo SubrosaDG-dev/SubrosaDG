@@ -1,0 +1,52 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+    "name": "subrosadg",
+    "version": "0.1.0",
+    "description": [
+        "A discontinuous galerkin method project",
+        "Optionally can build with mpi and tests"
+    ],
+    "$default-features-explanation": "The minimum dependencies required for the project to run",
+    "default-features": [
+        "main"
+    ],
+    "features": {
+        "main": {
+            "description": "Build main dependencies",
+            "dependencies": [
+                {
+                    "name": "libconfig"
+                },
+                {
+                    "name": "fmt"
+                },
+                {
+                    "name": "spdlog"
+                },
+                {
+                    "name": "eigen3"
+                },
+                {
+                    "name": "cgns"
+                }
+            ]
+        },
+        "mpi": {
+            "description": "Build with MPI",
+            "dependencies": [
+                {
+                    "name": "cgns",
+                    "features": [
+                        "mpi"
+                    ]
+                }
+            ]
+        },
+        "tests": {
+            "description": "Build Tests",
+            "dependencies": [
+                "gtest"
+            ]
+        }
+    }
+}

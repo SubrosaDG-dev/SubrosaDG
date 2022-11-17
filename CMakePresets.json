@@ -1,8 +1,8 @@
 {
-    "version": 2,
+    "version": 5,
     "cmakeMinimumRequired": {
         "major": 3,
-        "minor": 22,
+        "minor": 24,
         "patch": 0
     },
     "configurePresets": [
@@ -16,11 +16,42 @@
                 "DEVELOP_COMPILER": true,
                 "SUBROSA_DG_BUILD_ALL": true,
                 "CMAKE_C_COMPILER": "/usr/bin/clang",
-                "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
-                "CMAKE_TOOLCHAIN_FILE": {
-                    "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-                    "type": "FILEPATH"
-                }
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++"
+            }
+        },
+        {
+            "name": "Release without MPI",
+            "displayName": "Release without MPI",
+            "description": "Using compilers: C = /usr/bin/clang, CXX = /usr/bin/clang++",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "SUBROSA_DG_BUILD_ALL": true,
+                "CMAKE_C_COMPILER": "/usr/bin/clang",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "default",
+            "description": "Develop without MPI",
+            "displayName": "default",
+            "configurePreset": "Develop without MPI"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "default",
+            "description": "Develop without MPI",
+            "displayName": "default",
+            "configurePreset": "Develop without MPI",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "stopOnFailure": true
             }
         }
     ]

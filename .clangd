@@ -1,0 +1,21 @@
+If:
+  PathMatch: [
+    build/.*,
+    libs/.*,
+  ]
+CompileFlags:
+  Remove: [
+    -W*,
+    ]
+Diagnostics:
+  ClangTidy:
+    Remove: [
+      clang-*,
+      clang-diagnostic-*,
+      clang-analyzer-*,
+      performance-*,
+      modernize-*,
+      readability-*,
+      mpi-*,
+      openmp-*,
+    ]

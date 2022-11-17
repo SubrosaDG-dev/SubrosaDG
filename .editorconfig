@@ -14,3 +14,6 @@ insert_final_newline = true
 
 [*.{c,h,cpp,hpp}]
 indent_size = 2
+
+[.clang*]
+indent_size = 2

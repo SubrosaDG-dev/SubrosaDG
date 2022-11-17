@@ -5,11 +5,11 @@
 # @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
 # @date 2022-11-01
 #
-# @version 0.0.1
+# @version 0.1.0
 # @copyright Copyright (c) 2022 - 2022 by SubrosaDG developers
 #]]
 
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 
 project(subrosa_dg_examples)
 

@@ -18,7 +18,8 @@
             \
              C ---- D  dev (your work)
 ```
-这需要在将远端master分支更新后同时更新本地的dev分支，由于上次合并处理成了一次提交，这里可以使用 `cherry-pick` ，也就是重复上次提交的内容
+此时如果在将dev分支合并到master分支前master分支都没有人修改过，那么master分支和dev分支上的内容是相同的，此时不需要再操作。
+但是如果有人在合并前修改了master分支上的内容，那么两个分支上的内容就会有差异，就需要在将远端master分支更新后同时更新本地的dev分支，由于上次合并处理成了一次提交，这里可以使用 `cherry-pick` ，也就是重复上次提交的内容
 ```bash
 git cherry-pick ${branch master merge commit id}
 ```
@@ -39,3 +40,24 @@ git cherry-pick ${branch master merge commit id}
 "git.showPushSuccessNotification": true,
 "git.autoRepositoryDetection": false,
 ```
+
+### build toolchain
+
+1. 使用cmake生成Makefile并用Ninja进行编译，编译器为clang，并使用ccache进行编译加速。
+
+2. 使用vcpkg引入第三方库，这里使用到的库有libconfig、fmt、spdlog、eigen3、hdf5、cgns、openmp（编译器自带）和openmpi（暂未链接）。虽然项目在cmake集成了vcpkg，但建议还是先在本地安装过一遍，项目构建的时候会直接将编译缓存复制进来。这里需要`vcpkg install libconfig fmt spdlog eigen3 cgns`，某些组件之间会相互依赖，例如cgns依赖hdf5，vcpkg会自动处理这些依赖。对于mpi，目前还没有链接。
+
+3. 整体风格这里参考[Google开源风格指南](https://zh-google-styleguide.readthedocs.io/en/latest/google-cpp-styleguide/contents/)，文件使用clang-format进行格式化，变量命名大体上参考了Google开源风格指南，部分也使用了clang-tidy进行检查，代码的静态检查也是clang-tidy实现的。
+
+4. 代码文档使用Doxygen进行生成，这里使用插件cschlosser.doxdocgen来生成每个函数的注释，同时生成文件头。
+
+5. 测试框架选用的是google-test，部分的测试需要集成mpi。
+
+6. 这里intelliSenseEngine使用的是clangd，因此需要屏蔽ms-vscode.cpptools插件本身的intelliSenseEngine。
+```json
+"C_Cpp.intelliSenseEngine": "Disabled"
+```
+
+7. 以上所有的工具均使用cmake进行了集成，基本都可以在cmake中通过更改target的方式直接运行。
+
+### C/C++ detail
