@@ -16,6 +16,10 @@
 
 #include <Eigen/Dense>
 #include <array>
+#include <memory>
+#include <vector>
+
+#include "mesh/mesh_structure.h"
 
 namespace SubrosaDG {
 
