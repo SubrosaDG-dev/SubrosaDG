@@ -2,9 +2,8 @@
 # clang-format -i --style=file <file>
 Language: Cpp
 BasedOnStyle: Google
-IndentPPDirectives: AfterHash
 IndentCaseLabels: false
 PointerAlignment: Left
-AlwaysBreakTemplateDeclarations: false
 DerivePointerAlignment: false
+AlwaysBreakTemplateDeclarations: true
 ColumnLimit: 120

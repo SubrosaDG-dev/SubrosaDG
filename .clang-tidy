@@ -6,46 +6,62 @@ Checks: ' -*
   readability-*,
   mpi-*,
   openmp-*,
-  -modernize-return-braced-init-list,
   -modernize-use-trailing-return-type,
-  -modernize-avoid-c-arrays,
-  -performance-move-const-arg,
   -readability-magic-numbers,
-  -readability-identifier-length,
-  -readability-braces-around-statements,
-  -readability-named-parameter,
-  -readability-redundant-declaration,
-  -readability-function-cognitive-complexity'
+  -readability-identifier-length,'
+
+WarningsAsErrors: false
 
 HeaderFilterRegex: 'SubrosaDG\/(include|src|examples|tests)\/.*?\.(h|hpp|c|cpp)$'
 
 FormatStyle: file
 
 CheckOptions:
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+
   - key: readability-identifier-naming.NamespaceCase
     value: CamelCase
-  - key: readability-identifier-naming.ConstantCase
-    value: CamelCase
+
   - key: readability-identifier-naming.ClassCase
-    value: CamelCase
-  - key: readability-identifier-naming.StructCase
-    value: CamelCase
-  - key: readability-identifier-naming.EnumCase
-    value: CamelCase
-  - key: readability-identifier-naming.TemplateParameterCase
     value: CamelCase
   - key: readability-identifier-naming.ClassMethodCase
     value: camelBack
-  - key: readability-identifier-naming.FunctionCase
-    value: camelBack
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.UnionCase
+    value: CamelCase
   - key: readability-identifier-naming.MemberCase
     value: lower_case
   - key: readability-identifier-naming.MemberSuffix
     value: _
+
+  - key: readability-identifier-naming.TemplateParameterCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypedefCase
+    value: CamelCase
+
+  - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.GlobalConstantPrefix
+    value: k
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConstexprVariablePrefix
+    value: k
+  - key: readability-identifier-naming.LocalConstantCase
+    value: lower_case
+
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
   - key: readability-identifier-naming.ParameterCase
     value: lower_case
   - key: readability-identifier-naming.VariableCase
     value: lower_case
+
 # clang-tidy's bug in https://github.com/llvm/llvm-project/issues/46097
   - key: readability-identifier-naming.TypeTemplateParameterIgnoredRegexp
     value: expr-type

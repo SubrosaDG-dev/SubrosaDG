@@ -105,36 +105,42 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # open color compiler information
 set(CMAKE_COLOR_DIAGNOSTICS ON)
 
-# export compile commands
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-# use clangd for intellisense else use clang-tidy
 if(DEVELOP_COMPILER)
-    find_program(CLANGD NAMES clangd)
-    find_program(CLANG_TIDY NAMES clang-tidy)
-    if(CLANGD)
-        message_tool_version(clangd ${CLANGD})
-        if(CLANG_TIDY)
-            message(STATUS "Found clang-tidy in ${CLANG_TIDY}")
-        else()
-            message(FATAL_ERROR "You have clangd but no clang-tidy. Please install clang-tidy.")
-        endif()
-    else()
-        if(CLANG_TIDY)
-            set(CMAKE_C_CLANG_TIDY ${CLANG_TIDY})
-            set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY})
-            message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
-        endif()
+    set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
+endif()
+
+# use clang lld to link
+find_program(LLD "ld.lld")
+if(LLD)
+    set(CMAKE_LINKER ${LLD})
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
+    message_tool_version(lld ${LLD})
+endif()
+
+# use clang-tidy to check file
+if(DEVELOP_COMPILER)
+    find_program(CLANG_TIDY "clang-tidy")
+    if(CLANG_TIDY)
+        set(CMAKE_C_CLANG_TIDY ${CLANG_TIDY})
+        set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY})
+        message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
     endif()
 endif()
 
-# use clang-format to check file
+# use clang-format to format file
 if(DEVELOP_COMPILER)
-    find_program(CLANG_FORMAT NAMES clang-format)
+    find_program(CLANG_FORMAT "clang-format")
     if(CLANG_FORMAT)
         include(${PROJECT_SOURCE_DIR}/cmake/clang-format.cmake)
         message_tool_version(clang-format ${CLANG_FORMAT})
     endif()
+endif()
+
+# use clangd for intellisense
+find_program(CLANGD "clangd")
+if(CLANGD)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+    message_tool_version(clangd ${CLANGD})
 endif()
 
 # use iwyu to check header file
@@ -203,6 +209,7 @@ set(SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO)
 # add cxx compilation option
 string(APPEND SUBROSA_DG_CXX_FLAGS "-mfma -Wno-narrowing")
 string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation")
+# NOTE: -glldb seems not work here
 string(APPEND SUBROSA_DG_CXX_FLAGS_DEBUG "${SUBROSA_DG_CXX_FLAGS} ${SUBROSA_DG_CXX_WARNING_FLAGS} -O0 -g3")
 string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "${SUBROSA_DG_CXX_FLAGS} -O3 -DNDEBUG -march=native")
 
@@ -249,23 +256,21 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES spdlog::spdlog)
 find_package(Eigen3 CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES Eigen3::Eigen)
 
-# find hdf5
-# if(SUBROSA_DG_WITH_MPI)
-#     set(HDF5_PREFER_PARALLEL TRUE)
-# endif()
-# set(HDF5_USE_STATIC_LIBRARIES ON)
-# include(FindHDF5)
-# find_package(HDF5 COMPONENTS C REQUIRED)
-# list(APPEND SUBROSA_DG_LINK_LIBRARIES hdf5::hdf5-static)
-# if(SUBROSA_DG_WITH_MPI)
-#     list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS H5_HAVE_PARALLEL)
-# endif()
-
-# find cgns and enable hdf5
+# find cgns
 find_path(CGNS_DIR NAMES cgnslib.h)
 find_library(CGNS_LIBRARY NAMES cgns)
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${CGNS_DIR})
 list(APPEND SUBROSA_DG_LINK_LIBRARIES ${CGNS_LIBRARY})
+
+# find hdf5
+set(HDF5_USE_STATIC_LIBRARIES ON)
+include(FindHDF5)
+find_package(HDF5 COMPONENTS C REQUIRED)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES hdf5::hdf5-static)
+if(SUBROSA_DG_WITH_MPI)
+    set(HDF5_PREFER_PARALLEL TRUE)
+    list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS H5_HAVE_PARALLEL)
+endif()
 
 # set for openmp
 if(SUBROSA_DG_WITH_OPENMP)
@@ -298,7 +303,7 @@ target_compile_options(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_OPTIONS})
 # target_compile_features(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_FEATURES})
 target_compile_definitions(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_DEFINITIONS})
 
-# TODO: use install and XXXXConfig.cmake to link
+# TODO: use cmake install and XXXXConfig.cmake to link
 
 # ALLCI = ALLExamples + AllTests
 add_custom_target(AllCI)

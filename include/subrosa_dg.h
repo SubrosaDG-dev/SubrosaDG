@@ -14,6 +14,7 @@
 
 #include "cmake.h"
 #include "core/basic.h"
+#include "mesh/mesh_structure.h"
 #include "mesh/read_mesh.h"
 
 namespace SubrosaDG {}  // namespace SubrosaDG

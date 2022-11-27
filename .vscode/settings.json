@@ -34,7 +34,7 @@
         "--completion-style=detailed",
         "--enable-config",
         "--function-arg-placeholders",
-        "--header-insertion=iwyu",
+        "--header-insertion=never",
         "--pch-storage=memory",
         "--j=4",
         "--background-index"

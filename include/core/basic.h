@@ -25,8 +25,8 @@ using real = float;
 using real = double;
 #endif
 
-inline constexpr real Pi = std::numbers::pi_v<real>;
-inline constexpr real E = std::numbers::e_v<real>;
+inline constexpr real kPi = std::numbers::pi_v<real>;
+inline constexpr real kE = std::numbers::e_v<real>;
 
 }  // namespace SubrosaDG
 

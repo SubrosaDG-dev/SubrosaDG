@@ -23,7 +23,7 @@
 ```bash
 git cherry-pick ${branch master merge commit id}
 ```
-如果之前进行过冲突处理这里需要再进行一遍，以master分支中的为准，这之后git的提交路线应该为
+如果之前进行过冲突处理这里需要再进行一遍，这时候你可以使用`git checkout master ${filename}`，以master分支中的代码为准，这之后git的提交路线应该为
 ```bash
 ... o ---- A ---- B ---- C  origin/master (upstream work)
             \

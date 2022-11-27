@@ -5,6 +5,7 @@
     "version": "2",
     "configurations": [
         {
+            // NOTE: vscode not native support lldb yet
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
@@ -32,6 +33,13 @@
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "Python: Current File (Integrated Terminal)",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
         }
     ]
 }
