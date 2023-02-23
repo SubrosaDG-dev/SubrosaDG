@@ -42,7 +42,7 @@ struct MeshStructure {
   std::array<cgsize_t, 3> zone_size_;
 
   std::vector<std::string> coord_name_;
-  std::vector<DataType_t> coord_type_;
+  std::vector<CG_DataType_t> coord_type_;
   std::vector<std::unique_ptr<Eigen::Vector<real, Eigen::Dynamic>>> coord_;
 
   std::vector<std::array<cgsize_t, 2>> points_index_;

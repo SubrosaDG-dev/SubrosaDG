@@ -10,8 +10,8 @@
 #]]
 
 # set input and output files
-set(DOXYGEN_IN ${PROJECT_SOURCE_DIR}/docs/Doxyfile.in)
-set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+set(DOXYGEN_IN "${PROJECT_SOURCE_DIR}/docs/Doxyfile.in")
+set(DOXYGEN_OUT "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile")
 
 # request to configure the file
 configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)

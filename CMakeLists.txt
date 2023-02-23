@@ -9,7 +9,7 @@
 # @copyright Copyright (c) 2022 - 2022 by SubrosaDG developers
 #]]
 
-cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 
 # add cmake module path
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/files.cmake)
@@ -22,6 +22,9 @@ define_colors()
 
 # extract version from version.h
 subrosa_dg_extract_version()
+
+# set option for develop build
+option(SUBROSA_DG_DEVELOP "Build SubrosaDG in Develop" OFF)
 
 # set option to build different target
 option(SUBROSA_DG_BUILD_ALL "Build all artifacts" OFF)
@@ -44,6 +47,11 @@ endif()
 # set vcpkg feature mpi
 if(SUBROSA_DG_WITH_MPI)
     list(APPEND VCPKG_MANIFEST_FEATURES "mpi")
+endif()
+
+# set vcpkg feature develop
+if(SUBROSA_DG_DEVELOP)
+    list(APPEND VCPKG_MANIFEST_FEATURES "develop")
 endif()
 
 # query the system cores number without openmp
@@ -70,25 +78,25 @@ include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 message(STATUS "Build SubrosaDG: ${SUBROSA_DG_VERSION}")
 
 # set compilation option for develop
-if(DEVELOP_COMPILER)
+if(SUBROSA_DG_DEVELOP)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose Release or Debug" FORCE)
 else()
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug" FORCE)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# check cxx20 support
+# check cxx23 support
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-std=c++20 cxx_std_20_support)
-if (NOT cxx_std_20_support)
-    message(FATAL_ERROR "SubrosaDG requires C++20 to compile.")
+check_cxx_compiler_flag(-std=c++2b cxx_std_23_support)
+if (NOT cxx_std_23_support)
+    message(FATAL_ERROR "SubrosaDG requires C++23 to compile.")
 endif ()
 
 # set c and cxx standard for all target
-set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -105,7 +113,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # open color compiler information
 set(CMAKE_COLOR_DIAGNOSTICS ON)
 
-if(DEVELOP_COMPILER)
+if(SUBROSA_DG_DEVELOP)
     set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
 endif()
 
@@ -114,25 +122,25 @@ find_program(LLD "ld.lld")
 if(LLD)
     set(CMAKE_LINKER ${LLD})
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
-    message_tool_version(lld ${LLD})
+    message_tool_version(lld "${LLD}")
 endif()
 
 # use clang-tidy to check file
-if(DEVELOP_COMPILER)
+if(SUBROSA_DG_DEVELOP)
     find_program(CLANG_TIDY "clang-tidy")
     if(CLANG_TIDY)
-        set(CMAKE_C_CLANG_TIDY ${CLANG_TIDY})
-        set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY})
+        set(CMAKE_C_CLANG_TIDY "${CLANG_TIDY}")
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
         message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
     endif()
 endif()
 
 # use clang-format to format file
-if(DEVELOP_COMPILER)
+if(SUBROSA_DG_DEVELOP)
     find_program(CLANG_FORMAT "clang-format")
     if(CLANG_FORMAT)
         include(${PROJECT_SOURCE_DIR}/cmake/clang-format.cmake)
-        message_tool_version(clang-format ${CLANG_FORMAT})
+        message_tool_version(clang-format "${CLANG_FORMAT}")
     endif()
 endif()
 
@@ -140,32 +148,32 @@ endif()
 find_program(CLANGD "clangd")
 if(CLANGD)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-    message_tool_version(clangd ${CLANGD})
+    message_tool_version(clangd "${CLANGD}")
 endif()
 
 # use iwyu to check header file
-if(DEVELOP_COMPILER)
+if(SUBROSA_DG_DEVELOP)
     find_program(IWYU NAMES include-what-you-use)
     if(IWYU)
-        set(CMAKE_C_INCLUDE_WHAT_YOU_USE ${IWYU})
-        set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE ${IWYU})
-        message_tool_version(include-what-you-use ${IWYU})
+        set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU}")
+        set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU}")
+        message_tool_version(include-what-you-use "${IWYU}")
     endif()
 endif()
 
 # use ccache to speed up compilation
 find_program(CCACHE NAMES ccache)
 if(CCACHE)
-    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
-    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
-    message_tool_version(ccache ${CCACHE})
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE}")
+    message_tool_version(ccache "${CCACHE}")
 endif()
 
 # set output path
-set(CMAKE_INCLUDE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/include)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/libs)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/libs)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_INCLUDE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/include")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/libs")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/libs")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 # set library compiler variable
 set(SUBROSA_DG_INCLUDE_DIRS)
@@ -182,7 +190,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${SUBROSA_DG_LIB_VERSIO
     SOVERSION ${SUBROSA_DG_VERSION_MAJOR})
 
 # set c and cxx standard
-# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_17 cxx_std_20)
+# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_23 cxx_std_23)
 # set_target_properties(
 #     ${PROJECT_NAME} PROPERTIES
 #     C_EXTENSIONS OFF
@@ -238,6 +246,12 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_path(TQDM_DIR NAMES tqdm.hpp PATHS ${PROJECT_SOURCE_DIR}/libs/tqdm-cpp)
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${TQDM_DIR})
 
+# find dbg-macro
+if(SUBROSA_DG_DEVELOP)
+    find_path(DBG_MACRO_DIR NAMES dbg.h)
+    list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${DBG_MACRO_DIR})
+endif()
+
 # find libconfig
 find_path(LIBCONFIG_DIR NAMES libconfig.h++)
 find_library(LIBCONFIG_LIBRARY NAMES libconfig)
@@ -286,13 +300,16 @@ endif()
 
 # set compilation definitions
 foreach(SUBROSA_DG_OPTION IN ITEMS
+        SUBROSA_DG_DEVELOP
         SUBROSA_DG_SINGLE_PRECISION
         SUBROSA_DG_WITH_OPENMP
         SUBROSA_DG_WITH_MPI)
     if(${SUBROSA_DG_OPTION})
         list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS ${SUBROSA_DG_OPTION})
+        message(STATUS "Option: ${SUBROSA_DG_OPTION}: ON")
+    else()
+        message(STATUS "Option: ${SUBROSA_DG_OPTION}: OFF")
     endif()
-    message(STATUS "Option: ${SUBROSA_DG_OPTION}: ${${SUBROSA_DG_OPTION}}")
 endforeach()
 
 # set library compiler option

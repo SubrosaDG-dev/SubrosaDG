@@ -16,6 +16,7 @@
 
 #include <Eigen/Dense>
 #include <array>
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -25,7 +26,7 @@ namespace SubrosaDG {
 
 inline constexpr cgsize_t kIndex1 = 1;
 
-void openCgnsFile(const std::shared_ptr<MeshStructure>& mesh, const std::string& filename);
+void openCgnsFile(const std::shared_ptr<MeshStructure>& mesh, const std::filesystem::path& meshfile);
 
 void readBasicData(const std::shared_ptr<MeshStructure>& mesh);
 

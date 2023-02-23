@@ -1,51 +1,81 @@
 {
-    "version": 5,
+    "version": 6,
     "cmakeMinimumRequired": {
         "major": 3,
-        "minor": 24,
+        "minor": 26,
         "patch": 0
     },
     "configurePresets": [
         {
-            "name": "Develop without MPI",
-            "displayName": "Develop without MPI",
-            "description": "Using compilers: C = /usr/bin/clang, CXX = /usr/bin/clang++",
+            "name": "Base",
+            "hidden": true,
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
-                "DEVELOP_COMPILER": true,
-                "SUBROSA_DG_BUILD_ALL": true,
                 "CMAKE_C_COMPILER": "/usr/bin/clang",
                 "CMAKE_CXX_COMPILER": "/usr/bin/clang++"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
             }
         },
         {
-            "name": "Release without MPI",
-            "displayName": "Release without MPI",
-            "description": "Using compilers: C = /usr/bin/clang, CXX = /usr/bin/clang++",
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build",
+            "name": "maximum Build",
+            "displayName": "maximum Build",
+            "description": "Build all in release without MPI",
+            "inherits": "Base",
+            "cacheVariables": {
+                "SUBROSA_DG_BUILD_ALL": true
+            }
+        },
+        {
+            "name": "maximum Build with MPI",
+            "displayName": "maximum Build with MPI",
+            "description": "Build all in release",
+            "inherits": "Base",
             "cacheVariables": {
                 "SUBROSA_DG_BUILD_ALL": true,
-                "CMAKE_C_COMPILER": "/usr/bin/clang",
-                "CMAKE_CXX_COMPILER": "/usr/bin/clang++"
+                "SUBROSA_DG_WITH_MPI": true
+            }
+        },
+        {
+            "name": "maximum Develop",
+            "displayName": "maximum Develop",
+            "description": "Build all in develop without MPI",
+            "inherits": "Base",
+            "cacheVariables": {
+                "SUBROSA_DG_BUILD_ALL": true,
+                "SUBROSA_DG_DEVELOP": true
+            }
+        },
+        {
+            "name": "maximum Develop with MPI",
+            "displayName": "maximum Develop with MPI",
+            "description": "Build all in develop",
+            "inherits": "Base",
+            "cacheVariables": {
+                "SUBROSA_DG_BUILD_ALL": true,
+                "SUBROSA_DG_DEVELOP": true,
+                "SUBROSA_DG_WITH_MPI": true
             }
         }
     ],
     "buildPresets": [
         {
             "name": "default",
-            "description": "Develop without MPI",
+            "description": "Build all in develop without MPI",
             "displayName": "default",
-            "configurePreset": "Develop without MPI"
+            "configurePreset": "maximum Develop"
         }
     ],
     "testPresets": [
         {
             "name": "default",
-            "description": "Develop without MPI",
+            "description": "Build all and test in develop without MPI",
             "displayName": "default",
-            "configurePreset": "Develop without MPI",
+            "configurePreset": "maximum Develop",
             "output": {
                 "outputOnFailure": true
             },

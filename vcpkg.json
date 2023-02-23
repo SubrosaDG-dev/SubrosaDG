@@ -43,9 +43,15 @@
             ]
         },
         "tests": {
-            "description": "Build Tests",
+            "description": "Build tests",
             "dependencies": [
                 "gtest"
+            ]
+        },
+        "develop": {
+            "description": "Build in develop",
+            "dependencies": [
+                "dbg-macro"
             ]
         }
     }

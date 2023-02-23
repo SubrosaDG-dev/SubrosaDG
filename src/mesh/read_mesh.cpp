@@ -15,10 +15,10 @@
 
 namespace SubrosaDG {
 
-void openCgnsFile(const std::shared_ptr<MeshStructure>& mesh, const std::string& filename) {
+void openCgnsFile(const std::shared_ptr<MeshStructure>& mesh, const std::filesystem::path& meshfile) {
   // TODO: throw error in open file
-  cg_is_cgns(filename.c_str(), &mesh->filetype_);
-  cg_open(filename.c_str(), CG_MODE_READ, &mesh->fn_);
+  cg_is_cgns(meshfile.c_str(), &mesh->filetype_);
+  cg_open(meshfile.c_str(), CG_MODE_READ, &mesh->fn_);
 }
 
 void readBasicData(const std::shared_ptr<MeshStructure>& mesh) {
@@ -48,11 +48,11 @@ void readCoord(const std::shared_ptr<MeshStructure>& mesh) {
   mesh->coord_.reserve(static_cast<index>(mesh->ncoords_));
   for (int i = 1; i <= mesh->ncoords_; i++) {
     std::array<char, 33> coord_name;
-    DataType_t coord_type;
+    CG_DataType_t coord_type;
     cg_coord_info(mesh->fn_, 1, 1, i, &coord_type, coord_name.data());
     mesh->coord_name_.emplace_back(coord_name.data());
     mesh->coord_type_.emplace_back(coord_type);
-    auto coord = std::make_unique<Eigen::Vector<double, Eigen::Dynamic>>(mesh->zone_size_[0]);
+    auto coord = std::make_unique<Eigen::VectorXd>(mesh->zone_size_[0]);
     cg_coord_read(mesh->fn_, 1, 1, coord_name.data(), coord_type, &kIndex1, mesh->zone_size_.data(),
                   static_cast<void*>(coord->data()));
 #ifdef SUBROSA_DG_SINGLE_PRECISION
@@ -88,7 +88,7 @@ void readElement(const std::shared_ptr<MeshStructure>& mesh) {
   mesh->element_connectivity_.reserve(static_cast<index>(mesh->nsections_));
   for (int i = 1; i <= mesh->nsections_; i++) {
     std::array<char, 33> section_name;
-    ElementType_t element_type;
+    CG_ElementType_t element_type;
     cgsize_t element_start;
     cgsize_t element_end;
     int element_type_num;
@@ -112,7 +112,7 @@ void readFamily(const std::shared_ptr<MeshStructure>& mesh) {
   cg_nfamilies(mesh->fn_, 1, &mesh->nfamilies_);
   mesh->family_name_.reserve(static_cast<index>(mesh->nfamilies_));
   mesh->family_.reserve(static_cast<index>(mesh->nfamilies_));
-  // MARK: std::ranges::views::iota can not be used in clang now, it is avilable in gcc 11.3 (P2325R3)
+  // MARK: std::ranges::views::iota can be used in clang-16 now (P2325R3)
   // for (int i : std::views::iota(1, &mesh->nfamilies_))
   for (int i = 1; i <= mesh->nfamilies_; i++) {
     int nboco;

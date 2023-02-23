@@ -12,6 +12,7 @@
 #include <fmt/color.h>
 #include <fmt/format.h>
 
+#include <filesystem>
 #include <iostream>
 
 #include "subrosa_dg.h"
@@ -19,12 +20,11 @@
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  std::cout << fmt::format("SubrosaDG Version: {}",
-                           fmt::styled(SubrosaDG::kSubrosaDgVersion, fmt::fg(fmt::color::red)))
+  std::cout << fmt::format("SubrosaDG Version: {}", fmt::styled(SubrosaDG::kSubrosaDgVersion, fmt::fg(fmt::color::red)))
             << std::endl;
-  const std::string filename{"naca0012_mesh.cgns"};
+  const std::filesystem::path meshfile{SubrosaDG::kProjectSourceDir / "examples/naca0012/mesh/naca0012_mesh.cgns"};
   auto mesh = std::make_shared<SubrosaDG::MeshStructure>();
-  SubrosaDG::openCgnsFile(mesh, filename);
+  SubrosaDG::openCgnsFile(mesh, meshfile);
   SubrosaDG::readBasicData(mesh);
   SubrosaDG::readBaseNode(mesh);
   SubrosaDG::readZone(mesh);

@@ -17,6 +17,10 @@
 
 namespace SubrosaDG {
 
+#ifndef SUBROSA_DG_DEVELOP
+#define DBG_MACRO_DISABLE
+#endif
+
 using index = std::size_t;
 
 #ifdef SUBROSA_DG_SINGLE_PRECISION

@@ -18,9 +18,9 @@ add_custom_target(AllTests)
 
 # set main file for mpi
 if(SUBROSA_DG_WITH_MPI)
-    set(TEST_MAIN_CPP ${CMAKE_CURRENT_LIST_DIR}/test_main_mpi.cpp)
+    set(TEST_MAIN_CPP "${CMAKE_CURRENT_LIST_DIR}/test_main_mpi.cpp")
 else()
-    set(TEST_MAIN_CPP ${CMAKE_CURRENT_LIST_DIR}/test_main.cpp)
+    set(TEST_MAIN_CPP "${CMAKE_CURRENT_LIST_DIR}/test_main.cpp")
 endif()
 
 # add function to compiler test
