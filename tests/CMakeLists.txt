@@ -6,10 +6,10 @@
 # @date 2022-11-02
 #
 # @version 0.1.0
-# @copyright Copyright (c) 2022 - 2022 by SubrosaDG developers
+# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers
 #]]
 
-cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 
 project(subrosa_dg_tests)
 

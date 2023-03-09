@@ -6,7 +6,7 @@
  * @date 2022-11-02
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2022 by SubrosaDG developers
+ * @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers
  */
 
 #ifndef SUBROSA_DG_BASIC_H_

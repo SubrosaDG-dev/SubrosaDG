@@ -2,7 +2,7 @@
 
 ### git collaborate
 
-1. 本项目拉取方式为 `git clone ssh://git@101.34.44.55:50050/~/SubrosaDG.git` 。
+1. 本项目拉取方式为 `git clone git@github.com:callm1101/SubrosaDG.git` 。
 
 2. 服务器端项目分支为 `master` ，建议拉取后自己创建本地 `dev` 分支（这个分支不需要上传），主要提交在本地 `dev` 分支上进行， `dev` 分支上的 `commit` 可以随意提交，在部分模块完成后再合并到本地 `master` 分支即可。
 

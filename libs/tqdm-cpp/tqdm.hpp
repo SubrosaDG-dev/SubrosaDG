@@ -156,7 +156,7 @@ private:
 
     std::ostream* os_{&std::cerr};
 
-    index bar_size_{40};
+    index bar_size_{60};
     index term_cols_{1};
 
     std::string prefix_{};

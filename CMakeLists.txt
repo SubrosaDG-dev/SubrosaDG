@@ -6,7 +6,7 @@
 # @date 2022-11-01
 #
 # @version 0.1.0
-# @copyright Copyright (c) 2022 - 2022 by SubrosaDG developers
+# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers
 #]]
 
 cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
@@ -85,18 +85,18 @@ else()
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# check cxx23 support
+# check cxx20 support
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-std=c++2b cxx_std_23_support)
-if (NOT cxx_std_23_support)
-    message(FATAL_ERROR "SubrosaDG requires C++23 to compile.")
+check_cxx_compiler_flag(-std=c++20 cxx_std_20_support)
+if (NOT cxx_std_20_support)
+    message(FATAL_ERROR "SubrosaDG requires C++20 to compile.")
 endif ()
 
 # set c and cxx standard for all target
-set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -190,7 +190,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${SUBROSA_DG_LIB_VERSIO
     SOVERSION ${SUBROSA_DG_VERSION_MAJOR})
 
 # set c and cxx standard
-# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_23 cxx_std_23)
+# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_17 cxx_std_20)
 # set_target_properties(
 #     ${PROJECT_NAME} PROPERTIES
 #     C_EXTENSIONS OFF
