@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            // NOTE: vscode not native support lldb yet
+            // NOTE: vscode does not natively support lldb
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
