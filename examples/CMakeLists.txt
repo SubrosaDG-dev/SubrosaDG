@@ -17,7 +17,7 @@ project(subrosa_dg_examples)
 add_custom_target(AllExamples)
 
 # mkdir output folder
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/out)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out)
 
 # add example subdirectory
 add_subdirectory(naca0012)

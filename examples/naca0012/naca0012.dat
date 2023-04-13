@@ -1,26 +1,4 @@
-# -*- coding: utf-8 -*-
-#!/usr/bin/env python3
-
-"""
-" @file naca0012_gmsh.py
-" @brief The python file to generate naca0012 mesh with gmsh.
-"
-" @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
-" @date 2022-11-18
-"
-" @version 0.1.0
-" @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers
-"""
-
-import os
-from io import StringIO
-import numpy as np
-import numpy.typing as npt
-import gmsh
-
-path: str = os.path.split(os.path.realpath(__file__))[0]
-
-naca0012_dat: StringIO = StringIO("""
+200
 1.000000  0.000000 0
 0.999753  0.000036 0
 0.999013  0.000143 0
@@ -221,57 +199,3 @@ naca0012_dat: StringIO = StringIO("""
 0.997781 -0.000322 0
 0.999013 -0.000143 0
 0.999753 -0.000036 0
-""")
-
-farfield_dat: StringIO = StringIO("""
--10 -10 0
-10 -10 0
-10 10 0
--10 10 0
-""")
-
-lc1: float = 0.01
-lc2: float = 1.0
-
-
-def main() -> None:
-    farfield_points: npt.NDArray[np.double] = np.loadtxt(farfield_dat, dtype=np.double)
-    airfoil_points_xyz: npt.NDArray[np.double] = np.loadtxt(naca0012_dat, dtype=np.double)
-
-    farfield_points_index: list[int] = []
-    airfoil_points_index: list[int] = []
-
-    farfield_lines_index: list[int] = []
-
-    gmsh.initialize()
-    gmsh.model.add("naca0012")
-
-    for point in farfield_points:
-        farfield_points_index.append(gmsh.model.geo.addPoint(point[0], point[1], point[2], meshSize=lc2))
-    for point in airfoil_points_xyz:
-        airfoil_points_index.append(gmsh.model.geo.addPoint(point[0], point[1], point[2], meshSize=lc1))
-
-    for index in range(len(farfield_points_index)):
-        farfield_lines_index.append(gmsh.model.geo.addLine(farfield_points_index[index-1], farfield_points_index[index]))
-    airfoil_line: int = gmsh.model.geo.addSpline(airfoil_points_index + [airfoil_points_index[0]])
-
-    farfield_line_loop: int = gmsh.model.geo.addCurveLoop(farfield_lines_index)
-    airfoil_line_loop: int = gmsh.model.geo.addCurveLoop([airfoil_line])
-
-    naca0012_plane_surface: int = gmsh.model.geo.addPlaneSurface([farfield_line_loop, airfoil_line_loop])
-
-    gmsh.model.geo.synchronize()
-
-    farfield: int = gmsh.model.addPhysicalGroup(dim=1, tags=farfield_lines_index, name="farfield")
-    wall: int = gmsh.model.addPhysicalGroup(dim=1, tags=[airfoil_line], name="wall")
-    fluid: int = gmsh.model.addPhysicalGroup(dim=2, tags=[naca0012_plane_surface], name="fluid")
-
-    gmsh.model.mesh.generate(2)
-
-    gmsh.model.mesh.optimize()
-
-    gmsh.write(rf"{path}/naca0012_mesh.cgns")
-
-
-if __name__ == "__main__":
-    main()

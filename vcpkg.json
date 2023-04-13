@@ -1,5 +1,5 @@
 {
-    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
     "name": "subrosadg",
     "version": "0.1.0",
     "description": [
@@ -14,32 +14,16 @@
         "main": {
             "description": "Build main dependencies",
             "dependencies": [
-                {
-                    "name": "libconfig"
-                },
-                {
-                    "name": "fmt"
-                },
-                {
-                    "name": "spdlog"
-                },
-                {
-                    "name": "eigen3"
-                },
-                {
-                    "name": "cgns"
-                }
+                "libconfig",
+                "fmt",
+                "spdlog",
+                "eigen3"
             ]
         },
         "mpi": {
             "description": "Build with MPI",
             "dependencies": [
-                {
-                    "name": "cgns",
-                    "features": [
-                        "mpi"
-                    ]
-                }
+                    "openmpi"
             ]
         },
         "tests": {

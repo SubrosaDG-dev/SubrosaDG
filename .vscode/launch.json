@@ -2,7 +2,7 @@
     // Use IntelliSense to learn about possible attributes.
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "2",
+    "version": "0.2.0",
     "configurations": [
         {
             // NOTE: vscode not native support lldb yet
@@ -35,11 +35,13 @@
             "miDebuggerPath": "/usr/bin/gdb"
         },
         {
-            "name": "Python: Current File (Integrated Terminal)",
-            "type": "python",
+            "type": "lldb",
             "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal"
+            "name": "(lldb) Launch",
+            // Resolved by CMake Tools:
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [],
+            "cwd": "${workspaceFolder}",
         }
     ]
 }

@@ -15,8 +15,6 @@
 #include <filesystem>
 #include <string_view>
 
-#include "core/basic.h"
-
 namespace SubrosaDG {
 
 inline constexpr std::string_view kSubrosaDgVersion{"@SUBROSA_DG_VERSION@"};

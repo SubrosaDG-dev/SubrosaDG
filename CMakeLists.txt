@@ -118,18 +118,18 @@ if(SUBROSA_DG_DEVELOP)
 endif()
 
 # use clang lld to link
-find_program(LLD "ld.lld")
+find_program(LLD NAMES ld.lld)
 if(LLD)
-    set(CMAKE_LINKER ${LLD})
+    set(CMAKE_LINKER "${LLD}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
     message_tool_version(lld "${LLD}")
 endif()
 
 # use clang-tidy to check file
 if(SUBROSA_DG_DEVELOP)
-    find_program(CLANG_TIDY "clang-tidy")
+    find_program(CLANG_TIDY NAMES clang-tidy)
     if(CLANG_TIDY)
-        set(CMAKE_C_CLANG_TIDY "${CLANG_TIDY}")
+        # set(CMAKE_C_CLANG_TIDY "${CLANG_TIDY}")
         set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
         message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
     endif()
@@ -137,7 +137,7 @@ endif()
 
 # use clang-format to format file
 if(SUBROSA_DG_DEVELOP)
-    find_program(CLANG_FORMAT "clang-format")
+    find_program(CLANG_FORMAT NAMES clang-format)
     if(CLANG_FORMAT)
         include(${PROJECT_SOURCE_DIR}/cmake/clang-format.cmake)
         message_tool_version(clang-format "${CLANG_FORMAT}")
@@ -145,7 +145,7 @@ if(SUBROSA_DG_DEVELOP)
 endif()
 
 # use clangd for intellisense
-find_program(CLANGD "clangd")
+find_program(CLANGD NAMES clangd)
 if(CLANGD)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     message_tool_version(clangd "${CLANGD}")
@@ -153,9 +153,9 @@ endif()
 
 # use iwyu to check header file
 if(SUBROSA_DG_DEVELOP)
-    find_program(IWYU NAMES include-what-you-use)
+    find_program(IWYU NAMES include-what-you-use iwyu)
     if(IWYU)
-        set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU}")
+        # set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU}")
         set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU}")
         message_tool_version(include-what-you-use "${IWYU}")
     endif()
@@ -270,21 +270,11 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES spdlog::spdlog)
 find_package(Eigen3 CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES Eigen3::Eigen)
 
-# find cgns
-find_path(CGNS_DIR NAMES cgnslib.h)
-find_library(CGNS_LIBRARY NAMES cgns)
-list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${CGNS_DIR})
-list(APPEND SUBROSA_DG_LINK_LIBRARIES ${CGNS_LIBRARY})
-
-# find hdf5
-set(HDF5_USE_STATIC_LIBRARIES ON)
-include(FindHDF5)
-find_package(HDF5 COMPONENTS C REQUIRED)
-list(APPEND SUBROSA_DG_LINK_LIBRARIES hdf5::hdf5-static)
-if(SUBROSA_DG_WITH_MPI)
-    set(HDF5_PREFER_PARALLEL TRUE)
-    list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS H5_HAVE_PARALLEL)
-endif()
+# find gmsh
+find_path(GMSH_DIR NAMES gmsh.h)
+find_library(GMSH_LIBRARY NAMES libgmsh.so)
+list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${GMSH_DIR})
+list(APPEND SUBROSA_DG_LINK_LIBRARIES ${GMSH_LIBRARY})
 
 # set for openmp
 if(SUBROSA_DG_WITH_OPENMP)
