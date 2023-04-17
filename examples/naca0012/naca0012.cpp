@@ -34,10 +34,6 @@ void generateMesh(const int order) {
   std::vector<int> farfield_points_index;
   std::vector<int> naca0012_points_index;
   std::vector<int> farfield_lines_index;
-  std::string version;
-  gmsh::initialize();
-  gmsh::option::getString("General.Version", version);
-  std::cout << fmt::format("Gmsh Version: {}", fmt::styled(version, fmt::fg(fmt::color::red))) << std::endl;
   gmsh::model::add("naca0012");
   for (const auto& row : farfield_points->rowwise()) {
     farfield_points_index.emplace_back(gmsh::model::geo::addPoint(row(0), row(1), row(2), kLc1));
@@ -61,14 +57,12 @@ void generateMesh(const int order) {
   gmsh::model::mesh::setOrder(order);
   gmsh::model::mesh::optimize("Netgen");
   gmsh::write((SubrosaDG::kProjectSourceDir / "build/out/naca0012.msh").string());
-  gmsh::finalize();
 }
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  std::cout << fmt::format("SubrosaDG Version: {}", fmt::styled(SubrosaDG::kSubrosaDgVersion, fmt::fg(fmt::color::red)))
-            << std::endl;
+  SubrosaDG::EnvironmentGardian environment_gardian;
   generateMesh(1);
   return EXIT_SUCCESS;
 }

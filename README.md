@@ -45,21 +45,39 @@ git cherry-pick ${branch master merge commit id}
 
 1. 使用 `cmake` 生成 `build.ninja` 并用 `ninja` 进行编译,编译器为 `clang` ,并使用 `ccache` 进行编译加速.
 
-2. 项目部分使用 `vcpkg` 引入第三方库,这里使用到的库有 `libconfig` , `fmt` ,`spdlog` , `eigen3` , `openmp` （编译器自带）, `openmpi` 和 `dbg-macro` .虽然项目在 `cmake` 中集成了 `vcpkg` ,但建议还是先在本地安装过一遍,项目构建的时候会直接将编译缓存复制进来.这里需要 `vcpkg install libconfig fmt spdlog eigen3 dbg-macro` ,某些组件之间会相互依赖, `vcpkg` 会自动处理这些依赖.
+2. 项目部分使用 `vcpkg` 引入第三方库,这里使用到的库有 `libconfig` , `fmt` ,`spdlog` , `eigen3` , `openmp` （编译器自带）, `openmpi` 和 `dbg-macro` .虽然项目在 `cmake` 中集成了 `vcpkg` ,但建议还是先在本地安装过一遍,项目构建的时候会直接将编译缓存复制进来,某些组件之间会相互依赖, `vcpkg` 会自动处理这些依赖.
 
-3. 对于 `gmsh` 库的引入,这里并没有使用 `vcpkg` 中封装好的 `gmsh` ,而是使用 `linux` 系统中的包管理器来引入 `gmsh` ,主要是由于 `vcpkg` 引入的 `gmsh` 开启的编译选项过少,很多功能并不能使用,这里其实正确的方式是在项目中手动编译 `gmsh` ,但是 `gmsh` 本身的依赖多且复杂,目前暂时不打算这样操作.
+3. 对于 `gmsh` 库的引入,这里并没有使用 `vcpkg` 中封装好的 `gmsh` ,而是使用 linux 系统中的包管理器来引入 `gmsh` (这里也可以去下载 `gmsh` 官方的 sdk),主要是由于 `vcpkg` 引入的 `gmsh` 开启的编译选项过少,很多功能并不能使用,这里其实正确的方式是在项目中手动编译 `gmsh` ,但是 `gmsh` 本身的依赖多且复杂,目前暂时不打算这样操作.
 
-4. 整体风格这里参考[ Google 开源风格指南](https://zh-google-styleguide.readthedocs.io/en/latest/google-cpp-styleguide/contents/),文件使用 `clang-format` 进行格式化,变量命名大体上参考了 Google 开源风格指南,部分也使用了 `clang-tidy` 进行检查,代码的静态检查也是 `clang-tidy` 实现的.
+4. 测试框架选用的是 `google-test` ,部分的测试需要集成 `mpi` .
 
 5. 代码文档使用 `Doxygen` 进行生成,这里使用插件 `cschlosser.doxdocgen` 来生成每个函数的注释,同时生成文件头.
 
-6. 测试框架选用的是 `google-test` ,部分的测试需要集成 `mpi` .
+### develop specification
 
-7. 这里 `intelliSenseEngine` 使用的是 `clangd` ,因此需要屏蔽 `ms-vscode.cpptools` 插件本身的 `intelliSenseEngine` .
+1. 代码的命名规范这里参考 [Google 开源风格指南](https://zh-google-styleguide.readthedocs.io/en/latest/google-cpp-styleguide/contents/),文件使用 `clang-format` 进行格式化,变量命名大体上参考了 Google 开源风格指南,部分也使用了 `clang-tidy` 进行检查,代码的静态检查也是 `clang-tidy` 实现的.同样文件的 `format` 格式也是参考的 `Google` 的格式,并且将最大行宽调整到了 120 ,这里用 `clang-format` 进行代码的格式化.
+
+2. 这里 `intelliSenseEngine` 使用的是 `clangd` ,因此需要屏蔽 `ms-vscode.cpptools` 插件本身的 `intelliSenseEngine` .
 ```json
 "C_Cpp.intelliSenseEngine": "Disabled"
 ```
+`clangd` 相较于 `ms-vscode.cpptools` 的 `intelliSenseEngine` 来说可以支持跨文件的代码补全以及错误提示,这里 `clangd` 的配置写在 `settings.json` 中
+```json
+"clangd.arguments": [
+    "--all-scopes-completion",
+    "--background-index",
+    "--clang-tidy",
+    "--completion-style=detailed",
+    "--enable-config",
+    "--function-arg-placeholders=false",
+    "--header-insertion=never",
+    "--j=4",
+    "--pch-storage=memory"
+]
+```
 
-8. 以上所有的工具均使用 `cmake` 进行了集成,基本都可以在 `vscode` 的 `cmake` 插件中通过更改 `target` 的方式直接运行.
+3. 头文件检查采用了 `include-what-you-use` ,这部分集成在了 `cmake` 中,编译时会检查多余的包含头文件,从 2023-03-19 开始 [`iwyu`](https://src.fedoraproject.org/rpms/iwyu) 有了 rpm 包,不用在手动编译了.
+
+3. 上述部分开发工具使用 `cmake` 进行了集成,可以在 `vscode` 的 `cmake` 插件中通过更改 `target` 的方式运行.
 
 ### C/C++ detail

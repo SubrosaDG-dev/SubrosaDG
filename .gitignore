@@ -71,6 +71,11 @@ bld/
 [Ll]og/
 build/
 
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
 # Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
@@ -111,6 +116,9 @@ build/
 *.synctex.gz
 *.synctex.gz(busy)
 *.pdfsync
+
+#gdb
+.gdbinit
 
 /.idea
 *.DS_Store

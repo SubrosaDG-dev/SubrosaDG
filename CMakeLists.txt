@@ -54,11 +54,6 @@ if(SUBROSA_DG_DEVELOP)
     list(APPEND VCPKG_MANIFEST_FEATURES "develop")
 endif()
 
-# query the system cores number without openmp
-if(NOT SUBROSA_DG_WITH_OPENMP)
-    cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
-endif()
-
 # set project
 project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
 
@@ -226,6 +221,9 @@ set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
     $<$<CONFIG:Release>:${SUBROSA_DG_CXX_FLAGS_RELEASE}> \
     $<$<CONFIG:RelWithDebInfo>:${SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO}>")
 string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
+
+# create .gdbinit file
+configure_file(${PROJECT_SOURCE_DIR}/cmake/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb_eigen_pretty_print/.gdbinit @ONLY)
 
 # create and include the cmake header
 configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake.h.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/cmake.h @ONLY)

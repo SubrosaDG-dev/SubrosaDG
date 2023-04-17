@@ -28,6 +28,10 @@
                     "description": "Enable pretty-printing for gdb",
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
+                },
+                {
+                    "description": "Enable gdbinit file",
+                    "text": "source ${workspaceFolder}/utils/gdb_eigen_pretty_print/.gdbinit",
                 }
             ],
             "externalConsole": false,

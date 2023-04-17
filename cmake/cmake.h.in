@@ -17,14 +17,8 @@
 
 namespace SubrosaDG {
 
-inline constexpr std::string_view kSubrosaDgVersion{"@SUBROSA_DG_VERSION@"};
+inline constexpr std::string_view kSubrosaDGVersion{"@SUBROSA_DG_VERSION@"};
 inline const std::filesystem::path kProjectSourceDir{"@PROJECT_SOURCE_DIR@"};
-
-// clang-format off
-#ifndef SUBROSA_DG_WITH_OPENMP
-inline constexpr index kNumberOfPhysicalCores{@NUMBER_OF_PHYSICAL_CORES@};
-#endif
-// clang-format on
 
 }  // namespace SubrosaDG
 

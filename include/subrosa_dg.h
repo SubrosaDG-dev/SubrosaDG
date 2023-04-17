@@ -12,8 +12,10 @@
 #ifndef SUBROSA_DG_H_
 #define SUBROSA_DG_H_
 
-#include "cmake.h"
 #include "basic/data_type.h"
+#include "basic/environments.h"
+#include "basic/macros.h"
+#include "cmake.h"
 #include "mesh/mesh_structure.h"
 #include "mesh/read_mesh.h"
 

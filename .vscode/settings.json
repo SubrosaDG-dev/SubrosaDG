@@ -29,15 +29,15 @@
 
     // clangd
     "clangd.arguments": [
-        "--clang-tidy",
         "--all-scopes-completion",
+        "--background-index",
+        "--clang-tidy",
         "--completion-style=detailed",
         "--enable-config",
-        "--function-arg-placeholders",
+        "--function-arg-placeholders=false",
         "--header-insertion=never",
-        "--pch-storage=memory",
         "--j=4",
-        "--background-index"
+        "--pch-storage=memory"
     ],
     "[c, cpp]": {
         "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
