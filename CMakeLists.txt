@@ -17,12 +17,19 @@ include(${CMAKE_CURRENT_LIST_DIR}/cmake/files.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/utils.cmake)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
+# get git revision
+include(GetGitRevisionDescription)
+get_git_head_revision(GIT_REFSPEC GIT_SHA1)
+string(SUBSTRING ${GIT_SHA1} 0 8 SHORT_SHA1)
+git_local_changes(GIT_CHANGE)
+
 # define color
 # TODO: vscode output do not support ansi color until now
 define_colors()
 
-# extract version from version.h
+# extract version from version.h and set version string
 subrosa_dg_extract_version()
+set(SUBROSA_DG_VERSION_STRING "${SUBROSA_DG_VERSION} - ${SHORT_SHA1} - ${GIT_CHANGE}")
 
 # set option for develop build
 option(SUBROSA_DG_DEVELOP "Build SubrosaDG in Develop" OFF)
@@ -74,7 +81,7 @@ endif()
 include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 
 # message build version
-message(STATUS "Build SubrosaDG: ${SUBROSA_DG_VERSION}")
+message(STATUS "Build SubrosaDG: ${SUBROSA_DG_VERSION_STRING}")
 
 # set compilation option for develop
 if(SUBROSA_DG_DEVELOP)
@@ -227,7 +234,7 @@ set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
 string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
 
 # create .gdbinit file
-configure_file(${PROJECT_SOURCE_DIR}/cmake/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb_eigen_pretty_print/.gdbinit @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/cmake/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-eigen-pretty-print/.gdbinit @ONLY)
 
 # create and include the cmake header
 configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake.h.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/cmake.h @ONLY)
@@ -314,8 +321,10 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_DEFINITIO
 
 # TODO: use cmake install and XXXXConfig.cmake to link
 
-# ALLCI = ALLExamples + AllTests
-add_custom_target(AllCI)
+# all_ci = all_examples + all_tests
+add_custom_target(all_ci
+    COMMENT "Build all examples and tests"
+)
 
 # build examples
 if(SUBROSA_DG_BUILD_EXAMPLES OR SUBROSA_DG_BUILD_ALL)
@@ -330,12 +339,13 @@ if(SUBROSA_DG_BUILD_TESTS OR SUBROSA_DG_BUILD_ALL)
     message(STATUS "Generating tests")
 endif()
 
-# build document
+# build documents
 if(SUBROSA_DG_BUILD_DOCS OR SUBROSA_DG_BUILD_ALL)
-    find_package(Doxygen REQUIRED)
+    find_package(Doxygen REQUIRED dot)
     if(DOXYGEN_FOUND)
         include(cmake/Doxygen.cmake)
-        message(STATUS "Generating document")
+        message(STATUS "Found Doxygen: ${DOXYGEN_VERSION}")
+        message(STATUS "Generating documents")
     else()
         message(FATAL_ERROR "Doxygen not found. Please install doxygen.")
     endif()

@@ -16,7 +16,7 @@ namespace SubrosaDG::Internal {
 
 void printEnvironmentInfo() {
   std::cout << "SubrosaDG Info:" << std::endl;
-  std::cout << fmt::format("Version: {}", kSubrosaDGVersion) << std::endl << std::endl;
+  std::cout << fmt::format("Version: {}", kSubrosaDGVersionString) << std::endl << std::endl;
   std::cout << "Gmsh Info:" << std::endl;
   for (const auto& line : getGmshInfo()) {
     std::cout << line << std::endl;

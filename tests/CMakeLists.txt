@@ -15,7 +15,7 @@ cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 project(subrosa_dg_tests)
 
 # add custom target
-add_custom_target(AllTests)
+add_custom_target(all_tests)
 
 # set main file for mpi
 if(SUBROSA_DG_WITH_MPI)
@@ -28,9 +28,9 @@ endif()
 function(add_gtest testname testfile)
     add_executable(${testname} EXCLUDE_FROM_ALL ${testfile} ${ARGN} ${TEST_MAIN_CPP})
     target_link_libraries(${testname} gtest::gtest lib::subrosa_dg)
-    add_dependencies(AllTests ${testname})
+    add_dependencies(all_tests ${testname})
     add_test(NAME ${testname} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${testname})
 endfunction()
 
-# make ALLCI depend on ALLTests
-add_dependencies(AllCI AllTests)
+# make all_ci depend on ALLTests
+add_dependencies(all_ci all_tests)

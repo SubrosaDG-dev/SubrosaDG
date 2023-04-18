@@ -1,5 +1,5 @@
 /**
- * @file cmake.h.in
+ * @file cmake.h
  * @brief The template file to get variables from cmake.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -18,7 +18,7 @@
 
 namespace SubrosaDG {
 
-inline constexpr std::string_view kSubrosaDGVersion{"@SUBROSA_DG_VERSION@"};
+inline constexpr std::string_view kSubrosaDGVersionString{"@SUBROSA_DG_VERSION_STRING@"};
 inline const std::filesystem::path kProjectSourceDir{"@PROJECT_SOURCE_DIR@"};
 
 }  // namespace SubrosaDG

@@ -2,36 +2,35 @@
 
 ### git collaborate
 
-1. 本项目拉取方式为 `git clone git@github.com:callm1101/SubrosaDG.git` .
+1. The way to clone this project is `git clone git@github.com:SubrosaDG-dev/SubrosaDG.git` .
 
-2. 服务器端项目分支为 `master` ,建议拉取后自己创建本地 `dev` 分支（这个分支不需要上传）,主要提交在本地 `dev` 分支上进行, `dev` 分支上的 `commit` 可以随意提交,在部分模块完成后再合并到本地 `master` 分支即可.
+2. The branch for the server-side project is master . It is recommended to create a local dev branch after cloning (this branch does not need to be uploaded). Most of the commits should be made on the local dev branch. The commits on the dev branch can be made freely, and they can be merged into the local master branch after completing certain modules.
 
-3. 拉取远端代码可以直接切换到 `master` 分支并 `git pull` 即可.
+3. You can switch to the master branch and use `git pull` to fetch the remote code.
 
-4. 建议在将本地 `dev` 分支合并到本地 `master` 分支之前先拉取远端的 `master` 分支进行更新,以免合并后将本地 `master` 分支推送到远端 `master` 分支时产生冲突.
+4. It is recommended to fetch the remote master branch and update it before merging the local dev branch into the local master branch to avoid conflicts when pushing the local master branch to the remote master branch.
 
-5. 在使用 `master` 分支合并 `dev` 分支建议 `git merge --squash dev` ,这里加上`--squash` 的选项是为了把本地 `dev` 分支前产生的一系列 `commit` 统一成一个 `commit` 再合并到 `master` 分支.
+5. When merging the dev branch into the master branch, it is recommended to use `git merge --squash dev` . Adding the `--squash` option here is to unify the series of commits generated on the local dev branch into a single commit before merging them into the master branch.
 
-6. 在使用 `master` 分支合并 `dev` 分支并推送到远端 `master` 分支后 `dev` 分支会落后 `master` 分支一次提交
+6. After merging the dev branch into the master branch and pushing it to the remote master branch, the dev branch will be one commit behind the master branch.
 ```bash
 ... o ---- A ---- B ---- C  origin/master (upstream work)
             \
              C ---- D  dev (your work)
 ```
-此时如果在将 `dev` 分支合并到 `master` 分支前 `master` 分支都没有人修改过,那么 `master` 分支和 `dev` 分支上的内容是相同的,此时不需要再操作.
-但是如果有人在合并前修改了 `master` 分支上的内容,那么两个分支上的内容就会有差异,就需要在将远端 `master` 分支更新后同时更新本地的 `dev` 分支,由于上次合并处理成了一次提交,这里可以使用 `cherry-pick` ,也就是重复上次提交的内容
+If no one has modified the master branch before merging, the content of the master branch and the dev branch will be the same, and no further operation is needed. However, if someone has modified the master branch before merging, there will be differences between the content of the two branches. In this case, the remote master branch needs to be updated, and the local dev branch needs to be updated at the same time. Since the last merge was processed as one commit, `cherry-pick` can be used to repeat the previous commit.
 ```bash
 git cherry-pick ${branch master merge commit id}
 ```
-如果之前进行过冲突处理这里需要再进行一遍,这时候你可以使用 `git checkout master ${filename}` ,以 `master` 分支中的代码为准,这之后 `git` 的提交路线应该为
+If there was a conflict resolution before, it needs to be done again. At this point, you can use `git checkout master ${filename}` to use the code in the master branch as a reference. The submission line of git should be:
 ```bash
 ... o ---- A ---- B ---- C  origin/master (upstream work)
             \
              C ---- D ---- M dev (your work)
 ```
-这样操作是为了保护 `dev` 分之以前的提交,使用其他方法均会对 `dev` 分支的提交历史造成影响.
+This operation is to protect the previous commits on the dev branch. Using other methods may affect the commit history of the dev branch.
 
-7. 建议在 `vscode` 的 `setting.json` 中加上下面这个设置以避免上传 `dev` 分支,第三个设置可以防止 `vscode` 搜索上层 `git` 库.
+7. It is recommended to add the following settings in the setting.json of vscode to avoid uploading the dev branch. The third setting can prevent vscode from searching the upper-level git repository.
 ```json
 "git.showActionButton": {
     "publish": false,
@@ -43,25 +42,25 @@ git cherry-pick ${branch master merge commit id}
 
 ### build toolchain
 
-1. 使用 `cmake` 生成 `build.ninja` 并用 `ninja` 进行编译,编译器为 `clang` ,并使用 `ccache` 进行编译加速.
+1. Use cmake to generate build.ninja and compile with clang using ccache for speedup.
 
-2. 项目部分使用 `vcpkg` 引入第三方库,这里使用到的库有 `libconfig` , `fmt` ,`spdlog` , `eigen3` , `openmp` （编译器自带）, `openmpi` 和 `dbg-macro` .虽然项目在 `cmake` 中集成了 `vcpkg` ,但建议还是先在本地安装过一遍,项目构建的时候会直接将编译缓存复制进来,某些组件之间会相互依赖, `vcpkg` 会自动处理这些依赖.
+2. The project uses vcpkg to import third-party libraries, including libconfig, fmt, spdlog, eigen3, openmp (compiler-provided), openmpi, and dbg-macro. Although vcpkg is integrated into cmake, it is recommended to install the libraries locally first. During the project build, the compilation cache will be copied directly. Some components depend on each other, and vcpkg will automatically handle these dependencies.
 
-3. 对于 `gmsh` 库的引入,这里并没有使用 `vcpkg` 中封装好的 `gmsh` ,而是使用 linux 系统中的包管理器来引入 `gmsh` (这里也可以去下载 `gmsh` 官方的 sdk),主要是由于 `vcpkg` 引入的 `gmsh` 开启的编译选项过少,很多功能并不能使用,这里其实正确的方式是在项目中手动编译 `gmsh` ,但是 `gmsh` 本身的依赖多且复杂,目前暂时不打算这样操作.
+3. For the gmsh library, the vcpkg-wrapped version is not used here. Instead, the system package manager on Linux is used to import gmsh (you can also download the official gmsh SDK). This is mainly because the gmsh version imported by vcpkg has too few compilation options enabled, and many features cannot be used. The correct way is to manually compile gmsh in the project, but the dependencies of gmsh are numerous and complex, so it is not currently planned to do so.
 
-4. 测试框架选用的是 `google-test` ,部分的测试需要集成 `mpi` .
+4. The testing framework used is google-test, and some tests require integration with mpi.
 
-5. 代码文档使用 `Doxygen` 进行生成(使用 `Doxygen` 生成文档时同时使用到了 [`Graphviz`](https://www.graphviz.org) 中的 `dot` 组件来生成关系图),这里使用插件 `cschlosser.doxdocgen` 来生成每个函数的注释,同时生成文件头.
+5. Doxygen is used to generate code documentation (which uses the dot component of [Graphviz](https://www.graphviz.org) to generate relationship diagrams). The plugin cschlosser.doxdocgen is used to generate comments for each function, as well as file headers.
 
 ### develop specification
 
-1. 代码的命名规范这里参考 [Google 开源风格指南](https://zh-google-styleguide.readthedocs.io/en/latest/google-cpp-styleguide/contents/),文件使用 `clang-format` 进行格式化,变量命名大体上参考了 Google 开源风格指南,部分也使用了 `clang-tidy` 进行检查,代码的静态检查也是 `clang-tidy` 实现的.同样文件的 `format` 格式也是参考的 Google 的格式,并且将最大行宽调整到了 120 ,这里用 `clang-format` 进行代码的格式化.
+1. The naming conventions for the code are based on the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html), and files are formatted using clang-format. Variable naming largely follows the Google C++ Style Guide, and clang-tidy is used for some checks. Static code analysis is also implemented with clang-tidy. The formatting style for files follows Google's style guide, and the maximum line width has been adjusted to 120, with clang-format used for code formatting.
 
-2. 这里 `intelliSenseEngine` 使用的是 `clangd` ,因此需要屏蔽 `ms-vscode.cpptools` 插件本身的 `intelliSenseEngine` .
+2. clangd is used as the intelliSenseEngine, so the intelliSenseEngine in the ms-vscode.cpptools plugin needs to be disabled.
 ```json
 "C_Cpp.intelliSenseEngine": "Disabled"
 ```
-`clangd` 相较于 `ms-vscode.cpptools` 的 `intelliSenseEngine` 来说可以支持跨文件的代码补全以及错误提示,这里 `clangd` 的配置写在 `settings.json` 中
+Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports code completion and error prompts across files. The configuration for clangd is written in settings.json.
 ```json
 "clangd.arguments": [
     "--all-scopes-completion",
@@ -76,8 +75,10 @@ git cherry-pick ${branch master merge commit id}
 ]
 ```
 
-3. 头文件检查采用了 `include-what-you-use` ,这部分集成在了 `cmake` 中,编译时会检查多余的包含头文件,从 2023-03-19 开始 [`iwyu`](https://src.fedoraproject.org/rpms/iwyu) 有了 rpm 包,不用在手动编译了.
+3. Header file checking uses include-what-you-use, which is integrated in cmake. During compilation, excess header files are checked. Starting from 2023-03-19, there is an rpm package available for [iwyu](https://src.fedoraproject.org/rpms/iwyu) , so manual compilation is no longer required.
 
-4. 上述部分开发工具使用 `cmake` 进行了集成,可以在 `vscode` 的 `cmake` 插件中通过更改 `target` 的方式运行.
+4. Here, the [eigendbg](https://github.com/dmillard/eigengdb) library was used to optimize the display of matrices while debugging eigen using gdb.
+
+5. The development tools mentioned above are integrated with cmake, and can be run through vscode's cmake plugin by changing the target.
 
 ### C/C++ detail

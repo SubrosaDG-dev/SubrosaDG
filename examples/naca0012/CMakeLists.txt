@@ -28,4 +28,4 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_EXAMPLE_RUNTIME_OUTPUT_DIRECTORY}"
 )
 target_link_libraries(${PROJECT_NAME} lib::subrosa_dg)
-add_dependencies(AllExamples ${PROJECT_NAME})
+add_dependencies(all_examples ${PROJECT_NAME})

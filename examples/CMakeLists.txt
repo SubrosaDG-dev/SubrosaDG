@@ -15,7 +15,7 @@ cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 project(subrosa_dg_examples)
 
 # add custom target
-add_custom_target(AllExamples)
+add_custom_target(all_examples)
 
 # mkdir output folder
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out)
@@ -23,5 +23,5 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out)
 # add example subdirectory
 add_subdirectory(naca0012)
 
-# make ALLCI depend on ALLExamples
-add_dependencies(AllCI AllExamples)
+# make all_ci depend on all_examples
+add_dependencies(all_ci all_examples)
