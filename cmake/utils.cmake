@@ -6,7 +6,8 @@
 # @date 2022-11-03
 #
 # @version 0.1.0
-# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers
+# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers. All rights reserved.
+# SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
 # function to extract version from version.h

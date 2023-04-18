@@ -6,7 +6,8 @@
 # @date 2022-11-01
 #
 # @version 0.1.0
-# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers
+# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers. All rights reserved.
+# SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
 cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
@@ -53,6 +54,9 @@ endif()
 if(SUBROSA_DG_DEVELOP)
     list(APPEND VCPKG_MANIFEST_FEATURES "develop")
 endif()
+
+# query the system cores number
+cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
 
 # set project
 project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")

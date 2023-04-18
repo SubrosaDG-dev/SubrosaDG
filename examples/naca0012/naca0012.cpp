@@ -6,24 +6,18 @@
  * @date 2022-11-02
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers
+ * @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers. All rights reserved.
+ * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#include <fmt/color.h>
-#include <fmt/format.h>
 #include <gmsh.h>
 
 #include <Eigen/Dense>
 #include <fstream>
-#include <iostream>
 
 #include "subrosa_dg.h"
 
 void generateMesh(const int order) {
-  std::ifstream fin{(SubrosaDG::kProjectSourceDir / "examples/naca0012/naca0012.dat"), std::ios_base::in};
-  SubrosaDG::Index number{(fin >> number, number)};
-  auto naca0012_points = std::make_unique<Eigen::Matrix<double, 3, Eigen::Dynamic>>(3, number);
-  for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(number); i++) {
     fin >> (*naca0012_points)(0, i) >> (*naca0012_points)(1, i) >> (*naca0012_points)(2, i);
   }
   fin.close();

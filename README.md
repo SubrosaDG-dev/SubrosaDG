@@ -51,11 +51,11 @@ git cherry-pick ${branch master merge commit id}
 
 4. 测试框架选用的是 `google-test` ,部分的测试需要集成 `mpi` .
 
-5. 代码文档使用 `Doxygen` 进行生成,这里使用插件 `cschlosser.doxdocgen` 来生成每个函数的注释,同时生成文件头.
+5. 代码文档使用 `Doxygen` 进行生成(使用 `Doxygen` 生成文档时同时使用到了 [`Graphviz`](https://www.graphviz.org) 中的 `dot` 组件来生成关系图),这里使用插件 `cschlosser.doxdocgen` 来生成每个函数的注释,同时生成文件头.
 
 ### develop specification
 
-1. 代码的命名规范这里参考 [Google 开源风格指南](https://zh-google-styleguide.readthedocs.io/en/latest/google-cpp-styleguide/contents/),文件使用 `clang-format` 进行格式化,变量命名大体上参考了 Google 开源风格指南,部分也使用了 `clang-tidy` 进行检查,代码的静态检查也是 `clang-tidy` 实现的.同样文件的 `format` 格式也是参考的 `Google` 的格式,并且将最大行宽调整到了 120 ,这里用 `clang-format` 进行代码的格式化.
+1. 代码的命名规范这里参考 [Google 开源风格指南](https://zh-google-styleguide.readthedocs.io/en/latest/google-cpp-styleguide/contents/),文件使用 `clang-format` 进行格式化,变量命名大体上参考了 Google 开源风格指南,部分也使用了 `clang-tidy` 进行检查,代码的静态检查也是 `clang-tidy` 实现的.同样文件的 `format` 格式也是参考的 Google 的格式,并且将最大行宽调整到了 120 ,这里用 `clang-format` 进行代码的格式化.
 
 2. 这里 `intelliSenseEngine` 使用的是 `clangd` ,因此需要屏蔽 `ms-vscode.cpptools` 插件本身的 `intelliSenseEngine` .
 ```json
@@ -78,6 +78,6 @@ git cherry-pick ${branch master merge commit id}
 
 3. 头文件检查采用了 `include-what-you-use` ,这部分集成在了 `cmake` 中,编译时会检查多余的包含头文件,从 2023-03-19 开始 [`iwyu`](https://src.fedoraproject.org/rpms/iwyu) 有了 rpm 包,不用在手动编译了.
 
-3. 上述部分开发工具使用 `cmake` 进行了集成,可以在 `vscode` 的 `cmake` 插件中通过更改 `target` 的方式运行.
+4. 上述部分开发工具使用 `cmake` 进行了集成,可以在 `vscode` 的 `cmake` 插件中通过更改 `target` 的方式运行.
 
 ### C/C++ detail

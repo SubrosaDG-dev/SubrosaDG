@@ -8,7 +8,8 @@
 # @date 2023-04-17
 #
 # @version 0.1.0
-# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers
+# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers. All rights reserved.
+# SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
 if test ! -d include -o ! -d src ; then
@@ -24,6 +25,7 @@ FILES="
   $(find -L ./src | grep -E '\.(c|cpp)$')
   $(find -L ./examples | grep -E '\.(c|cpp|cfg)$')
   $(find -L ./tests | grep -E '\.(c|cpp)$')
+  $(find -L ./cmake | grep -E '\.(cmake|in)$')
   $(find -L ./docs | grep -E '\.(tex)$')
   $(find -L ./utils | grep -E '\.(sh)$')
 "
