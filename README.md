@@ -1,4 +1,6 @@
 ## SubrosaDG Project Specification
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FSubrosaDG-dev%2FSubrosaDG.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FSubrosaDG-dev%2FSubrosaDG?ref=badge_shield)
+
 
 ### git collaborate
 
@@ -82,3 +84,7 @@ Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports cod
 5. The development tools mentioned above are integrated with cmake, and can be run through vscode's cmake plugin by changing the target.
 
 ### C/C++ detail
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FSubrosaDG-dev%2FSubrosaDG.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FSubrosaDG-dev%2FSubrosaDG?ref=badge_large)
