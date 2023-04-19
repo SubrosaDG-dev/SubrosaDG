@@ -13,7 +13,6 @@
 #ifndef SUBROSA_DG_MESH_STRUCTURE_H_
 #define SUBROSA_DG_MESH_STRUCTURE_H_
 
-#include <Eigen/Core>
 #include <memory>
 #include <string>
 #include <vector>

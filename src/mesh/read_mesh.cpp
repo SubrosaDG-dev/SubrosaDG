@@ -12,6 +12,4 @@
 
 #include "mesh/read_mesh.h"
 
-#include "mesh/mesh_structure.h"
-
 namespace SubrosaDG {}  // namespace SubrosaDG

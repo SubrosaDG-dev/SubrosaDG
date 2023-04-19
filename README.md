@@ -46,7 +46,7 @@ This operation is to protect the previous commits on the dev branch. Using other
 
 2. The project uses vcpkg to import third-party libraries, including libconfig, fmt, spdlog, eigen3, openmp (compiler-provided), openmpi, and dbg-macro. Although vcpkg is integrated into cmake, it is recommended to install the libraries locally first. During the project build, the compilation cache will be copied directly. Some components depend on each other, and vcpkg will automatically handle these dependencies.
 
-3. For the gmsh library, the vcpkg-wrapped version is not used here. Instead, the system package manager on Linux is used to import gmsh (you can also download the official gmsh SDK). This is mainly because the gmsh version imported by vcpkg has too few compilation options enabled, and many features cannot be used. The correct way is to manually compile gmsh in the project, but the dependencies of gmsh are numerous and complex, so it is not currently planned to do so.
+3. For the gmsh library, the vcpkg-wrapped version is not used here. Instead, the system package manager on Linux is used to import gmsh (you can also download the official gmsh SDK). This is mainly because the gmsh version imported by vcpkg has too few compilation options enabled, and many features cannot be used. Furthermore, the gmsh library is released under the GPL v2 open source license. If the source code is included in this project, then it also needs to be open-sourced under the GPL license. However, whether the use of the dynamic link library requires compliance with the GPL license is still a controversial issue.
 
 4. The testing framework used is google-test, and some tests require integration with mpi.
 
@@ -77,7 +77,7 @@ Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports cod
 
 3. Header file checking uses include-what-you-use, which is integrated in cmake. During compilation, excess header files are checked. Starting from 2023-03-19, there is an rpm package available for [iwyu](https://src.fedoraproject.org/rpms/iwyu) , so manual compilation is no longer required.
 
-4. Here, the [eigendbg](https://github.com/dmillard/eigengdb) library was used to optimize the display of matrices while debugging eigen using gdb.
+4. Here, the [eigendbg](https://github.com/dmillard/eigengdb) library is used to optimize the display of matrices while debugging eigen using gdb.
 
 5. The development tools mentioned above are integrated with cmake, and can be run through vscode's cmake plugin by changing the target.
 

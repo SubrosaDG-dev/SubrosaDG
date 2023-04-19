@@ -10,7 +10,18 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
+#ifdef SUBROSA_DG_WITH_OPENMP
+#include <omp.h>
+#endif
+
+#include <fmt/core.h>
+
+#include <iostream>
+#include <regex>
+#include <string_view>
+
 #include "basic/environments.h"
+#include "cmake.h"
 
 namespace SubrosaDG::Internal {
 

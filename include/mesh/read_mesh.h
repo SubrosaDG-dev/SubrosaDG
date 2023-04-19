@@ -13,14 +13,6 @@
 #ifndef SUBROSA_DG_READ_MESH_H_
 #define SUBROSA_DG_READ_MESH_H_
 
-#include <Eigen/Dense>
-#include <array>
-#include <filesystem>
-#include <memory>
-#include <vector>
-
-#include "mesh/mesh_structure.h"
-
 namespace SubrosaDG {}  // namespace SubrosaDG
 
 #endif  // SUBROSA_DG_READ_MESH_H_

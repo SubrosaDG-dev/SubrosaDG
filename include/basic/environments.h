@@ -13,19 +13,10 @@
 #ifndef SUBROSA_DG_ENVIRONMENTS_H_
 #define SUBROSA_DG_ENVIRONMENTS_H_
 
-#ifdef SUBROSA_DG_WITH_OPENMP
-#include <omp.h>
-#endif
-
-#include <fmt/format.h>
 #include <gmsh.h>
 
-#include <iostream>
 #include <string>
 #include <vector>
-#include <regex>
-
-#include "cmake.h"
 
 namespace SubrosaDG {
 
