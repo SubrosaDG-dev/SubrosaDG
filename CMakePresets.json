@@ -3,7 +3,7 @@
     "cmakeMinimumRequired": {
         "major": 3,
         "minor": 26,
-        "patch": 0
+        "patch": 3
     },
     "configurePresets": [
         {

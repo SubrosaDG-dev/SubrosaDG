@@ -10,7 +10,7 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.3 FATAL_ERROR)
 
 # add cmake module path
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/files.cmake)
