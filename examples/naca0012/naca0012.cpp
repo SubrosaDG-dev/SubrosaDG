@@ -62,54 +62,10 @@ void generateMesh() {
   gmsh::write((SubrosaDG::kProjectSourceDir / "build/out/naca0012.msh").string());
 }
 
-void generateMesh(const int order) {
-  std::ifstream fin{(SubrosaDG::kProjectSourceDir / "examples/naca0012/naca0012.dat"), std::ios_base::in};
-  SubrosaDG::Index number{(fin >> number, number)};
-  auto naca0012_points = std::make_unique<Eigen::Matrix<double, 3, Eigen::Dynamic>>(3, number);
-  for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(number); i++) {
-    fin >> (*naca0012_points)(0, i) >> (*naca0012_points)(1, i) >> (*naca0012_points)(2, i);
-  }
-  fin.close();
-  auto farfield_points = std::make_unique<Eigen::Matrix<double, 4, 3, Eigen::RowMajor>>();
-  (*farfield_points) << -10, -10, 0, 10, -10, 0, 10, 10, 0, -10, 10, 0;
-  constexpr double kLc1 = 1.0;
-  constexpr double kLc2 = 1e-2;
-  std::vector<int> farfield_points_index;
-  std::vector<int> naca0012_points_index;
-  std::vector<int> farfield_lines_index;
-  gmsh::model::add("naca0012");
-  for (const auto& row : farfield_points->rowwise()) {
-    farfield_points_index.emplace_back(gmsh::model::geo::addPoint(row(0), row(1), row(2), kLc1));
-  }
-  for (const auto& col : naca0012_points->colwise()) {
-    naca0012_points_index.emplace_back(gmsh::model::geo::addPoint(col(0), col(1), col(2), kLc2));
-  }
-  for (SubrosaDG::Index i = 0; i < farfield_points_index.size(); i++) {
-    farfield_lines_index.emplace_back(gmsh::model::geo::addLine(
-        farfield_points_index[i], farfield_points_index[(i + 1) % farfield_points_index.size()]));
-  }
-  naca0012_points_index.emplace_back(naca0012_points_index.front());
-  const int naca0012_line = gmsh::model::geo::addSpline(naca0012_points_index);
-  const int farfield_line_loop = gmsh::model::geo::addCurveLoop(farfield_lines_index);
-  const int naca0012_line_loop = gmsh::model::geo::addCurveLoop({naca0012_line});
-  gmsh::model::geo::addPlaneSurface({farfield_line_loop, naca0012_line_loop});
-  gmsh::model::geo::synchronize();
-  gmsh::model::addPhysicalGroup(1, farfield_lines_index, -1, "farfield");
-  gmsh::model::addPhysicalGroup(1, {naca0012_line}, -1, "wall");
-  gmsh::model::mesh::generate(2);
-  gmsh::model::mesh::setOrder(order);
-  gmsh::model::mesh::optimize("Netgen");
-  gmsh::write((SubrosaDG::kProjectSourceDir / "build/out/naca0012.msh").string());
-}
-
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::EnvironmentGardian environment_gardian;
-<<<<<<< HEAD
-  generateMesh(1);
-=======
   generateMesh();
->>>>>>> dev
   return EXIT_SUCCESS;
 }
