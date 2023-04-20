@@ -91,18 +91,18 @@ else()
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# check cxx20 support
+# check cxx23 support
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-std=c++20 cxx_std_20_support)
-if (NOT cxx_std_20_support)
-    message(FATAL_ERROR "SubrosaDG requires C++20 to compile.")
+check_cxx_compiler_flag(-std=c++2b cxx_std_23_support)
+if (NOT cxx_std_23_support)
+    message(FATAL_ERROR "SubrosaDG requires C++23 to compile.")
 endif ()
 
 # set c and cxx standard for all target
-set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -135,7 +135,7 @@ endif()
 if(SUBROSA_DG_DEVELOP)
     find_program(CLANG_TIDY NAMES clang-tidy)
     if(CLANG_TIDY)
-        # set(CMAKE_C_CLANG_TIDY "${CLANG_TIDY}")
+        set(CMAKE_C_CLANG_TIDY "${CLANG_TIDY}")
         set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
         message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
     endif()
@@ -161,7 +161,7 @@ endif()
 if(SUBROSA_DG_DEVELOP)
     find_program(IWYU NAMES include-what-you-use iwyu)
     if(IWYU)
-        # set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU}")
+        set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU}")
         set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU}")
         message_tool_version(include-what-you-use "${IWYU}")
     endif()
@@ -203,7 +203,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${SUBROSA_DG_LIB_VERSIO
     SOVERSION ${SUBROSA_DG_VERSION_MAJOR})
 
 # set c and cxx standard
-# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_17 cxx_std_20)
+# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_23 cxx_std_23)
 # set_target_properties(
 #     ${PROJECT_NAME} PROPERTIES
 #     C_EXTENSIONS OFF

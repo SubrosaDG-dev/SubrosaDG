@@ -74,20 +74,6 @@ Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports cod
     "--pch-storage=memory"
 ]
 ```
-Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports code completion and error prompts across files. The configuration for clangd is written in settings.json.
-```json
-"clangd.arguments": [
-    "--all-scopes-completion",
-    "--background-index",
-    "--clang-tidy",
-    "--completion-style=detailed",
-    "--enable-config",
-    "--function-arg-placeholders=false",
-    "--header-insertion=never",
-    "--j=4",
-    "--pch-storage=memory"
-]
-```
 
 3. Header file checking uses include-what-you-use, which is integrated in cmake. During compilation, excess header files are checked. Starting from 2023-03-19, there is an rpm package available for [iwyu](https://src.fedoraproject.org/rpms/iwyu) , so manual compilation is no longer required.
 
