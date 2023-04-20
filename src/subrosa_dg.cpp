@@ -10,6 +10,10 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
+// clang-format off
+
 #include "subrosa_dg.h"
+
+// clang-format on
 
 namespace SubrosaDG {}  // namespace SubrosaDG

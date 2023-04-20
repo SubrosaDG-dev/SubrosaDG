@@ -13,10 +13,13 @@
 #ifndef SUBROSA_DG_ENVIRONMENTS_H_
 #define SUBROSA_DG_ENVIRONMENTS_H_
 
-#include <gmsh.h>
+// clang-format off
 
-#include <string>
-#include <vector>
+#include <gmsh.h>  // for finalize, initialize
+#include <string>  // for string
+#include <vector>  // for vector
+
+// clang-format on
 
 namespace SubrosaDG {
 

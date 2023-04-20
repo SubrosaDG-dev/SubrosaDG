@@ -13,7 +13,11 @@
 #ifndef SUBROSA_DG_DATA_TYPE_H_
 #define SUBROSA_DG_DATA_TYPE_H_
 
-#include <cstddef>
+// clang-format off
+
+#include <cstddef>  // for size_t
+
+// clang-format on
 
 namespace SubrosaDG {
 

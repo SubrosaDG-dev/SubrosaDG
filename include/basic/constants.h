@@ -13,9 +13,13 @@
 #ifndef SUBROSA_DG_CONSTANTS_H_
 #define SUBROSA_DG_CONSTANTS_H_
 
+// clang-format off
+
 #include <numbers>
 
 #include "basic/data_type.h"
+
+// clang-format on
 
 namespace SubrosaDG {
 

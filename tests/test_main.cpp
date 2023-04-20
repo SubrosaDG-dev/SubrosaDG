@@ -10,9 +10,13 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
+// clang-format off
+
 #include <gtest/gtest.h>
 
 #include "subrosa_dg.h"
+
+// clang-format on
 
 int main(int argc, char* argv[]) {
   testing::InitGoogleTest(&argc, argv);

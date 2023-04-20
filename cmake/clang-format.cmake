@@ -10,25 +10,15 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-# Find all source files
-set(ALL_SOURCE_FILES ${SUBROSA_DG_HEADERS} ${SUBROSA_DG_SOURCES}
+# get all source files
+set(CLANG_FORMAT_SOURCE_FILES ${SUBROSA_DG_HEADERS} ${SUBROSA_DG_SOURCES}
     ${SUBROSA_DG_EXAMPLES} ${SUBROSA_DG_TESTS} ${SUBROSA_DG_CMAKE_IN})
-
-# get all project files file
-foreach(SOURCE_FILE ${ALL_SOURCE_FILES})
-    foreach(EXCLUDE_PATTERN ${CLANG_FORMAT_EXCLUDE_PATTERNS})
-        string(FIND ${SOURCE_FILE} ${EXCLUDE_PATTERN} EXCLUDE_FOUND)
-        if(NOT ${EXCLUDE_FOUND} EQUAL -1)
-            list(REMOVE_ITEM ALL_SOURCE_FILES ${SOURCE_FILE})
-        endif()
-    endforeach()
-endforeach()
 
 # add clang-format target
 add_custom_target(clang-format
-    COMMENT "Running clang-format to change files"
+    COMMENT "Running clang-format to format file"
     COMMAND ${CLANG_FORMAT}
     -style=file
     -i
-    ${ALL_SOURCE_FILES}
+    ${CLANG_FORMAT_SOURCE_FILES}
 )

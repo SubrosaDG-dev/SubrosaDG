@@ -58,7 +58,21 @@ This operation is to protect the previous commits on the dev branch. Using other
 
 2. clangd is used as the intelliSenseEngine, so the intelliSenseEngine in the ms-vscode.cpptools plugin needs to be disabled.
 ```json
-"C_Cpp.intelliSenseEngine": "Disabled"
+"C_Cpp.intelliSenseEngine": "disabled"
+```
+Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports code completion and error prompts across files. The configuration for clangd is written in settings.json.
+```json
+"clangd.arguments": [
+    "--all-scopes-completion",
+    "--background-index",
+    "--clang-tidy",
+    "--completion-style=detailed",
+    "--enable-config",
+    "--function-arg-placeholders=false",
+    "--header-insertion=never",
+    "--j=4",
+    "--pch-storage=memory"
+]
 ```
 Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports code completion and error prompts across files. The configuration for clangd is written in settings.json.
 ```json

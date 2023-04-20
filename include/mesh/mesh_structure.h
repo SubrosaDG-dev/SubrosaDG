@@ -13,12 +13,6 @@
 #ifndef SUBROSA_DG_MESH_STRUCTURE_H_
 #define SUBROSA_DG_MESH_STRUCTURE_H_
 
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "basic/data_type.h"
-
 namespace SubrosaDG {
 
 struct MeshStructure {};

@@ -4,3 +4,6 @@
 [submodule "utils/doxygen-awesome-css"]
 	path = utils/doxygen-awesome-css
 	url = https://github.com/jothepro/doxygen-awesome-css.git
+[submodule "utils/include-what-you-use"]
+	path = utils/include-what-you-use
+	url = https://github.com/include-what-you-use/include-what-you-use.git

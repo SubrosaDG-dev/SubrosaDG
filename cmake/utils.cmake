@@ -1,5 +1,5 @@
 #[[
-# @file clang-format.cmake
+# @file utils.cmake
 # @brief The cmake file to build some utils.
 #
 # @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com

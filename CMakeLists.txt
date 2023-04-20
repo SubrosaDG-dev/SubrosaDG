@@ -165,6 +165,13 @@ if(SUBROSA_DG_DEVELOP)
         set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU}")
         message_tool_version(include-what-you-use "${IWYU}")
     endif()
+    find_program(IWYU_TOOL NAMES iwyu_tool.py HINTS ${PROJECT_SOURCE_DIR}/utils/include-what-you-use)
+    find_program(IWYU_FIX_TOOL NAMES fix_includes.py HINTS ${PROJECT_SOURCE_DIR}/utils/include-what-you-use)
+    if(IWYU_TOOL AND IWYU_FIX_TOOL)
+        include(${PROJECT_SOURCE_DIR}/cmake/iwyu.cmake)
+        list(APPEND CMAKE_CXX_INCLUDE_WHAT_YOU_USE "-Xiwyu"
+            "--mapping_file=${CMAKE_CURRENT_LIST_DIR}/.iwyu.imp")
+    endif()
 endif()
 
 # use ccache to speed up compilation

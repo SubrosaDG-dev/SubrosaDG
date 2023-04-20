@@ -10,18 +10,21 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
+// clang-format off
+
 #ifdef SUBROSA_DG_WITH_OPENMP
-#include <omp.h>
+#include <omp.h>        // for omp_get_max_threads, omp_set_num_threads
 #endif
 
-#include <fmt/core.h>
-
-#include <iostream>
-#include <regex>
-#include <string_view>
+#include <fmt/core.h>   // for format
+#include <iostream>     // for endl, basic_ostream, operator<<, cout
+#include <string_view>  // for basic_string_view
+#include <regex>        // for sregex_token_iterator, regex
 
 #include "basic/environments.h"
-#include "cmake.h"
+#include "cmake.h"      // for kSubrosaDGVersionString
+
+// clang-format on
 
 namespace SubrosaDG::Internal {
 
