@@ -1,6 +1,6 @@
 python
 import sys
-sys.path.insert(0, '@PROJECT_SOURCE_DIR@/utils/gdb_eigen_pretty_print')
+sys.path.insert(0, '@PROJECT_SOURCE_DIR@/utils/gdb-eigen-pretty-print')
 from printers import register_eigen_printers
 register_eigen_printers(None)
 end

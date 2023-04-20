@@ -31,7 +31,7 @@
                 },
                 {
                     "description": "Enable gdbinit file",
-                    "text": "source ${workspaceFolder}/utils/gdb_eigen_pretty_print/.gdbinit",
+                    "text": "source ${workspaceFolder}/utils/gdb-eigen-pretty-print/.gdbinit",
                 }
             ],
             "externalConsole": false,
