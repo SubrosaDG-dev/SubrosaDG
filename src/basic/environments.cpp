@@ -26,7 +26,9 @@
 
 // clang-format on
 
-namespace SubrosaDG::Internal {
+namespace SubrosaDG {
+
+namespace Internal {
 
 void printEnvironmentInfo() {
   std::cout << "SubrosaDG Info:" << std::endl;
@@ -56,4 +58,9 @@ void setMaxThreads() {
 int getMaxThreads() { return omp_get_max_threads(); }
 #endif
 
-}  // namespace SubrosaDG::Internal
+}  // namespace Internal
+
+EnvironmentGardian::EnvironmentGardian() { initializeEnvironment(); }
+EnvironmentGardian::~EnvironmentGardian() { finalizeEnvironment(); }
+
+}  // namespace SubrosaDG

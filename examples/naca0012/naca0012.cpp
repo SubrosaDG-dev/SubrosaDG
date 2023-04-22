@@ -12,7 +12,7 @@
 
 // clang-format off
 
-#include <gmsh.h>                // for addCurveLoop, addPhysicalGroup, addPoint, add, addLine, addPlaneSurface, add...
+#include <gmsh.h>                // for addPhysicalGroup, addCurveLoop, addPoint, add, addLine, addPlaneSurface, add...
 #include <Eigen/Core>            // for Matrix, CommaInitializer, DenseCoeffsBase, Block, indexed_based_stl_iterator...
 #include <filesystem>            // for operator/, path
 #include <fstream>               // for basic_istream, ifstream, ios_base
@@ -56,10 +56,11 @@ void generateMesh() {
   const int naca0012_line = gmsh::model::geo::addSpline(naca0012_points_index);
   const int farfield_line_loop = gmsh::model::geo::addCurveLoop(farfield_lines_index);
   const int naca0012_line_loop = gmsh::model::geo::addCurveLoop({naca0012_line});
-  gmsh::model::geo::addPlaneSurface({farfield_line_loop, naca0012_line_loop});
+  const int naca0012_plane_surface = gmsh::model::geo::addPlaneSurface({farfield_line_loop, naca0012_line_loop});
   gmsh::model::geo::synchronize();
   gmsh::model::addPhysicalGroup(1, farfield_lines_index, -1, "farfield");
   gmsh::model::addPhysicalGroup(1, {naca0012_line}, -1, "wall");
+  gmsh::model::addPhysicalGroup(2, {naca0012_plane_surface}, -1, "air");
   gmsh::model::mesh::generate(2);
   gmsh::model::mesh::optimize("Netgen");
   gmsh::write((SubrosaDG::kProjectSourceDir / "build/out/naca0012.msh").string());

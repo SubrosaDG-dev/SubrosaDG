@@ -39,12 +39,15 @@ int getMaxThreads();
 
 class EnvironmentGardian {
  public:
-  EnvironmentGardian() { initializeEnvironment(); }
-  ~EnvironmentGardian() { finalizeEnvironment(); }
+  EnvironmentGardian();
+  ~EnvironmentGardian();
 
  private:
   void static initializeEnvironment() {
     gmsh::initialize();
+#ifndef SUBROSA_DG_DEVELOP
+    gmsh::option::setNumber("Mesh.Binary", 1);
+#endif
     Internal::printEnvironmentInfo();
 #ifdef SUBROSA_DG_WITH_OPENMP
     Internal::setMaxThreads();

@@ -227,6 +227,14 @@ set(SUBROSA_DG_CXX_FLAGS_DEBUG)
 set(SUBROSA_DG_CXX_FLAGS_RELEASE)
 set(SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO)
 
+# link to libc++ if available
+# TODO link to libc++ if gmsh is also link to libc++
+# find_library(LIBCXX NAMES libc++.so libc++abi.so)
+# if(LIBCXX)
+#     string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ ")
+#     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
+# endif()
+
 # add cxx compilation option
 string(APPEND SUBROSA_DG_CXX_FLAGS "-mfma -Wno-narrowing")
 string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation")

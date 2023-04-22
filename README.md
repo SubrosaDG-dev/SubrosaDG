@@ -6,7 +6,7 @@
 
 2. The branch for the server-side project is master . It is recommended to create a local dev branch after cloning (this branch does not need to be uploaded). Most of the commits should be made on the local dev branch. The commits on the dev branch can be made freely, and they can be merged into the local master branch after completing certain modules.
 
-3. You can switch to the master branch and use `git pull` to fetch the remote code.
+3. You can switch to the master branch and use `git pull` to fetch the remote code.Here, `git pull` will not cause conflicts as long as you haven't modified the code in the master branch. In other words, you need to remember to fetch the remote master branch before git merge.
 
 4. It is recommended to fetch the remote master branch and update it before merging the local dev branch into the local master branch to avoid conflicts when pushing the local master branch to the remote master branch.
 
@@ -18,19 +18,22 @@
             \
              C ---- D  dev (your work)
 ```
-If no one has modified the master branch before merging, the content of the master branch and the dev branch will be the same, and no further operation is needed. However, if someone has modified the master branch before merging, there will be differences between the content of the two branches. In this case, the remote master branch needs to be updated, and the local dev branch needs to be updated at the same time. Since the last merge was processed as one commit, `cherry-pick` can be used to repeat the previous commit.
+
+7. If no one has modified the master branch before merging, the content of the master branch and the dev branch will be the same, and no further operation is needed. However, if someone has modified the master branch before merging, there will be differences between the content of the two branches. In this case, the remote master branch needs to be updated, and the local dev branch needs to be updated at the same time.Therefore, here you need to merge the master branch back into the dev branch again.If there was a conflict resolution before, it needs to be done again. At this point, you can use `git checkout master ${filename}` to use the code in the master branch as a reference. The submission line of git should be:
 ```bash
-git cherry-pick ${branch master merge commit id}
+... o ---- A ---- B ---- C  origin/master (upstream work)
+            \             \
+             C ---- D ---- M dev (your work)
 ```
-If there was a conflict resolution before, it needs to be done again. At this point, you can use `git checkout master ${filename}` to use the code in the master branch as a reference. The submission line of git should be:
+
+8. Remember to use the diff tool to compare the dev branch and the master branch. `git merge` is not based on the differences in files, but on the differences in commits. Sometimes, conflicts in commits can result in inconsistent code.It is better not to use `git cherry-pick` here, because git merge uses the last common version, which is the previous merge point, as the base point for merging. If you use `git cherry-pick` to update the dev branch, this merge base point will disappear. If the master branch modifies a certain part in the next update, and this part is different from the dev branch and the merge base point, it will cause conflicts that need to be manually merged. You can refer to the three-way merge principle of git for more information. If you use `git cherry-pick`, the submission line of git should be:
 ```bash
 ... o ---- A ---- B ---- C  origin/master (upstream work)
             \
              C ---- D ---- M dev (your work)
 ```
-This operation is to protect the previous commits on the dev branch. Using other methods may affect the commit history of the dev branch.
 
-7. It is recommended to add the following settings in the setting.json of vscode to avoid uploading the dev branch. The third setting can prevent vscode from searching the upper-level git repository.
+9. It is recommended to add the following settings in the setting.json of vscode to avoid uploading the dev branch. The third setting can prevent vscode from searching the upper-level git repository.
 ```json
 "git.showActionButton": {
     "publish": false,
@@ -48,19 +51,17 @@ This operation is to protect the previous commits on the dev branch. Using other
 
 3. For the gmsh library, the vcpkg-wrapped version is not used here. Instead, the system package manager on Linux is used to import gmsh (you can also download the official gmsh SDK). This is mainly because the gmsh version imported by vcpkg has too few compilation options enabled, and many features cannot be used. Furthermore, the gmsh library is released under the GPL v2 open source license. If the source code is included in this project, then it also needs to be open-sourced under the GPL license. However, whether the use of the dynamic link library requires compliance with the GPL license is still a controversial issue.
 
-4. The testing framework used is google-test, and some tests require integration with mpi.
+4. Here, I originally intended to link to libc++ instead of libstdc++. However, the gmsh dynamic library itself is linked to libstdc++. If the program is also linked to libstdc++, it will cause symbol errors. Therefore, for now, I will not link to libc++. If I manually compile gmsh in the future, I will consider linking the program to libc++.
 
-5. Doxygen is used to generate code documentation (which uses the dot component of [Graphviz](https://www.graphviz.org) to generate relationship diagrams). The plugin cschlosser.doxdocgen is used to generate comments for each function, as well as file headers.
+5. The testing framework used is google-test, and some tests require integration with mpi.
+
+6. Doxygen is used to generate code documentation (which uses the dot component of [Graphviz](https://www.graphviz.org) to generate relationship diagrams). The plugin cschlosser.doxdocgen is used to generate comments for each function, as well as file headers.
 
 ### develop specification
 
 1. The naming conventions for the code are based on the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html), and files are formatted using clang-format. Variable naming largely follows the Google C++ Style Guide, and clang-tidy is used for some checks. Static code analysis is also implemented with clang-tidy. The formatting style for files follows Google's style guide, and the maximum line width has been adjusted to 120, with clang-format used for code formatting.
 
-2. clangd is used as the intelliSenseEngine, so the intelliSenseEngine in the ms-vscode.cpptools plugin needs to be disabled.
-```json
-"C_Cpp.intelliSenseEngine": "disabled"
-```
-Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports code completion and error prompts across files. The configuration for clangd is written in settings.json.
+2. clangd is used as the intelliSenseEngine, so the intelliSenseEngine in the ms-vscode.cpptools plugin needs to be disabled( `"C_Cpp.intelliSenseEngine": "disabled"` ). Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports code completion and error prompts across files. The configuration for clangd is written in settings.json.
 ```json
 "clangd.arguments": [
     "--all-scopes-completion",
