@@ -1,5 +1,5 @@
 /**
- * @file data_type.h
+ * @file data_types.h
  * @brief The data type head file to define some aliases.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -10,18 +10,19 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_DATA_TYPE_H_
-#define SUBROSA_DG_DATA_TYPE_H_
+#ifndef SUBROSA_DG_DATA_TYPES_H_
+#define SUBROSA_DG_DATA_TYPES_H_
 
 // clang-format off
 
-#include <cstddef>  // for size_t
+#include <cstddef>  // for ptrdiff_t, size_t
 
 // clang-format on
 
 namespace SubrosaDG {
 
-using Index = std::size_t;
+using Usize = std::size_t;
+using Isize = std::ptrdiff_t;
 
 #ifdef SUBROSA_DG_SINGLE_PRECISION
 using Real = float;
@@ -31,4 +32,4 @@ using Real = double;
 
 }  // namespace SubrosaDG
 
-#endif  // SUBROSA_DG_DATA_TYPE_H_
+#endif  // SUBROSA_DG_DATA_TYPES_H_

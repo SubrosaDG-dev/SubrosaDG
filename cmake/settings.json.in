@@ -40,7 +40,7 @@
         "--enable-config",
         "--function-arg-placeholders=false",
         "--header-insertion=never",
-        "--j=4",
+        "--j=@NUMBER_OF_PHYSICAL_CORES@",
         "--pch-storage=memory"
     ],
     "[c, cpp]": {

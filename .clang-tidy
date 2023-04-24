@@ -8,7 +8,13 @@ Checks: ' -*
   openmp-*,
   -modernize-use-trailing-return-type,
   -readability-magic-numbers,
-  -readability-identifier-length,'
+  -readability-identifier-length,
+
+  -readability-simplify-boolean-expr,
+  -readability-braces-around-statements'
+
+# clang-tidy crush for readability-simplify-boolean-expr
+# and readability-braces-around-statements
 
 WarningsAsErrors: false
 
@@ -59,6 +65,9 @@ CheckOptions:
 
   - key: readability-identifier-naming.EnumCase
     value: CamelCase
+  - key: readability-identifier-naming.EnumConstantCase
+    value: CamelCase
+
   - key: readability-identifier-naming.ParameterCase
     value: lower_case
   - key: readability-identifier-naming.VariableCase

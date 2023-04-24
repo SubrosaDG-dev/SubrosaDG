@@ -49,19 +49,27 @@
 
 2. The project uses vcpkg to import third-party libraries, including libconfig, fmt, spdlog, eigen3, openmp (compiler-provided), openmpi, and dbg-macro. Although vcpkg is integrated into cmake, it is recommended to install the libraries locally first. During the project build, the compilation cache will be copied directly. Some components depend on each other, and vcpkg will automatically handle these dependencies.
 
-3. For the gmsh library, the vcpkg-wrapped version is not used here. Instead, the system package manager on Linux is used to import gmsh (you can also download the official gmsh SDK). This is mainly because the gmsh version imported by vcpkg has too few compilation options enabled, and many features cannot be used. Furthermore, the gmsh library is released under the GPL v2 open source license. If the source code is included in this project, then it also needs to be open-sourced under the GPL license. However, whether the use of the dynamic link library requires compliance with the GPL license is still a controversial issue.
+3. In the project, the import of vcpkg depends on the environment variable VCPKG_ROOT, so you need to define it in the environment variables:
+```bash
+export VCPKG_ROOT='${your vcpkg path}'
+```
+4. It is recommended to build vcpkg from its source code. Since the project uses a manifest for package management, the bootstrap script is used to build the binary version of vcpkg. Even if you download the binary version of vcpkg from a Linux package manager, the project will still forcefully build vcpkg during compilation.
 
-4. Here, I originally intended to link to libc++ instead of libstdc++. However, the gmsh dynamic library itself is linked to libstdc++. If the program is also linked to libstdc++, it will cause symbol errors. Therefore, for now, I will not link to libc++. If I manually compile gmsh in the future, I will consider linking the program to libc++.
+5. For the gmsh library, the vcpkg-wrapped version is not used here. Instead, the system package manager on Linux is used to import gmsh (you can also download the official gmsh SDK). This is mainly because the gmsh version imported by vcpkg has too few compilation options enabled, and many features cannot be used. Furthermore, the gmsh library is released under the GPL v2 open source license. If the source code is included in this project, then it also needs to be open-sourced under the GPL license. However, whether the use of the dynamic link library requires compliance with the GPL license is still a controversial issue.
 
-5. The testing framework used is google-test, and some tests require integration with mpi.
+6. Here, I originally intended to link to libc++ instead of libstdc++. However, the gmsh dynamic library itself is linked to libstdc++. If the program is linked to libc++, it will cause symbol errors. Therefore, for now, I will not link to libc++. If I manually compile gmsh in the future, I will consider linking the program to libc++.
 
-6. Doxygen is used to generate code documentation (which uses the dot component of [Graphviz](https://www.graphviz.org) to generate relationship diagrams). The plugin cschlosser.doxdocgen is used to generate comments for each function, as well as file headers.
+7. The testing framework used is google-test, and some tests require integration with mpi.
+
+8. Doxygen is used to generate code documentation (which uses the dot component of [Graphviz](https://www.graphviz.org) to generate relationship diagrams). The plugin cschlosser.doxdocgen is used to generate comments for each function, as well as file headers.
 
 ### develop specification
 
-1. The naming conventions for the code are based on the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html), and files are formatted using clang-format. Variable naming largely follows the Google C++ Style Guide, and clang-tidy is used for some checks. Static code analysis is also implemented with clang-tidy. The formatting style for files follows Google's style guide, and the maximum line width has been adjusted to 120, with clang-format used for code formatting.
+1. The naming conventions for the code are based on the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html), and files are formatted using clang-format. Variable naming largely follows the Google C++ Style Guide, and clang-tidy is used for some checks. The difference here from Google C++ Style is that the naming convention for namespaces is set to be CamelCase, and the naming of enums does not follow the convention of starting with "k" as constants, but instead omits the "k" prefix.
 
-2. clangd is used as the intelliSenseEngine, so the intelliSenseEngine in the ms-vscode.cpptools plugin needs to be disabled( `"C_Cpp.intelliSenseEngine": "disabled"` ). Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports code completion and error prompts across files. The configuration for clangd is written in settings.json.
+2. Static code analysis is also implemented with clang-tidy. The formatting style for files follows Google's style guide, and the maximum line width has been adjusted to 120, with clang-format used for code formatting.
+
+3. clangd is used as the intelliSenseEngine, so the intelliSenseEngine in the ms-vscode.cpptools plugin needs to be disabled( `"C_Cpp.intelliSenseEngine": "disabled"` ). Compared to the intelliSenseEngine in `ms-vscode.cpptools` , clangd supports code completion and error prompts across files. The configuration for clangd is written in settings.json.in.
 ```json
 "clangd.arguments": [
     "--all-scopes-completion",
@@ -71,15 +79,15 @@
     "--enable-config",
     "--function-arg-placeholders=false",
     "--header-insertion=never",
-    "--j=4",
+    "--j=@NUMBER_OF_PHYSICAL_CORES@",
     "--pch-storage=memory"
 ]
 ```
 
-3. Header file checking uses include-what-you-use, which is integrated in cmake. During compilation, excess header files are checked. Starting from 2023-03-19, there is an rpm package available for [iwyu](https://src.fedoraproject.org/rpms/iwyu) , so manual compilation is no longer required.
+4. Header file checking uses include-what-you-use, which is integrated in cmake. During compilation, excess header files are checked. Starting from 2023-03-19, there is an rpm package available for [iwyu](https://src.fedoraproject.org/rpms/iwyu) , so manual compilation is no longer required.
 
-4. Here, the [eigendbg](https://github.com/dmillard/eigengdb) library is used to optimize the display of matrices while debugging eigen using gdb.
+5. Here, the [eigendbg](https://github.com/dmillard/eigengdb) library is used to optimize the display of matrices while debugging eigen using gdb.
 
-5. The development tools mentioned above are integrated with cmake, and can be run through vscode's cmake plugin by changing the target.
+6. The development tools mentioned above are integrated with cmake, and can be run through vscode's cmake plugin by changing the target.
 
 ### C/C++ detail

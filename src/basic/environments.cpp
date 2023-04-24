@@ -17,13 +17,13 @@
 #endif
 
 #include <fmt/core.h>   // for format
-#include <iostream>     // for endl, basic_ostream, operator<<, cout
+#include <iostream>     // for endl, operator<<, cout, ostream, basic_ostream
 #include <string_view>  // for basic_string_view
 #include <regex>        // for sregex_token_iterator, regex
 
 #include "basic/environments.h"
 #include "cmake.h"      // for kSubrosaDGVersionString
-
+#include "dbg.h"
 // clang-format on
 
 namespace SubrosaDG {
@@ -52,10 +52,11 @@ std::vector<std::string> getGmshInfo() {
 #ifdef SUBROSA_DG_WITH_OPENMP
 void setMaxThreads() {
   omp_set_num_threads(getMaxThreads());
+  dbg(getMaxThreads());
   gmsh::option::setNumber("General.NumThreads", getMaxThreads());
 }
 
-int getMaxThreads() { return omp_get_max_threads(); }
+int getMaxThreads() { return omp_get_num_procs(); }
 #endif
 
 }  // namespace Internal

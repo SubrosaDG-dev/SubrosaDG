@@ -13,9 +13,25 @@
 #ifndef SUBROSA_DG_MESH_STRUCTURE_H_
 #define SUBROSA_DG_MESH_STRUCTURE_H_
 
+// clang-format off
+
+#include <Eigen/Core>
+#include <memory>
+#include "basic/data_types.h"
+
+// clang-format on
+
 namespace SubrosaDG {
 
-struct MeshStructure {};
+struct Mesh {
+  Isize num_nodes_;
+  Isize num_edges_;
+  Isize num_elements_;
+
+  std::unique_ptr<Eigen::Matrix2Xd> nodes_;
+  std::unique_ptr<Eigen::Matrix<Isize, 4, Eigen::Dynamic>> edges_;
+  std::unique_ptr<Eigen::Matrix<Isize, 3, Eigen::Dynamic>> elements_;
+};
 
 }  // namespace SubrosaDG
 

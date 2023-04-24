@@ -6,11 +6,11 @@
 # @date 2022-11-01
 #
 # @version 0.1.0
-# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers. All rights reserved.
+# @copyright Copyright (c) 2022 - 2020 by SubrosaDG developers. All rights reserved.
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-cmake_minimum_required(VERSION 3.26.3 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.25)
 
 # add cmake module path
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/files.cmake)
@@ -22,6 +22,15 @@ include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 string(SUBSTRING ${GIT_SHA1} 0 8 SHORT_SHA1)
 git_local_changes(GIT_CHANGE)
+
+# update submodules
+find_package(Git REQUIRED)
+if(NOT EXISTS ${CMAKE_BINARY_DIR}/.identify)
+  execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+    COMMAND_ERROR_IS_FATAL ANY)
+  file(WRITE ${CMAKE_BINARY_DIR}/.identify "SubrosaDG")
+endif()
 
 # define color
 # TODO: vscode output do not support ansi color until now
@@ -64,6 +73,7 @@ endif()
 
 # query the system cores number
 cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
+message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 
 # set project
 project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
@@ -91,18 +101,18 @@ else()
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# check cxx23 support
+# check cxx20 support
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-std=c++2b cxx_std_23_support)
-if (NOT cxx_std_23_support)
-    message(FATAL_ERROR "SubrosaDG requires C++23 to compile.")
+check_cxx_compiler_flag(-std=c++2b cxx_std_20_support)
+if (NOT cxx_std_20_support)
+    message(FATAL_ERROR "SubrosaDG requires C++20 to compile.")
 endif ()
 
 # set c and cxx standard for all target
-set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -119,8 +129,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # open color compiler information
 set(CMAKE_COLOR_DIAGNOSTICS ON)
 
+# set
 if(SUBROSA_DG_DEVELOP)
     set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
+endif()
+
+# create .gdbinit file
+configure_file(${PROJECT_SOURCE_DIR}/cmake/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-eigen-pretty-print/.gdbinit @ONLY)
+
+if(SUBROSA_DG_DEVELOP)
+    file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/.vscode)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/launch.json.in ${PROJECT_SOURCE_DIR}/.vscode/launch.json @ONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/settings.json.in ${PROJECT_SOURCE_DIR}/.vscode/settings.json @ONLY)
 endif()
 
 # use clang lld to link
@@ -203,7 +223,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${SUBROSA_DG_LIB_VERSIO
     SOVERSION ${SUBROSA_DG_VERSION_MAJOR})
 
 # set c and cxx standard
-# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_23 cxx_std_23)
+# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_20 cxx_std_20)
 # set_target_properties(
 #     ${PROJECT_NAME} PROPERTIES
 #     C_EXTENSIONS OFF
@@ -248,8 +268,7 @@ set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
     $<$<CONFIG:RelWithDebInfo>:${SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO}>")
 string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
 
-# create .gdbinit file
-configure_file(${PROJECT_SOURCE_DIR}/cmake/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-eigen-pretty-print/.gdbinit @ONLY)
+
 
 # create and include the cmake header
 configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake.h.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/cmake.h @ONLY)

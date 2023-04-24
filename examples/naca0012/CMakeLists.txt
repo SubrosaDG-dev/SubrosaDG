@@ -10,18 +10,14 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-cmake_minimum_required(VERSION 3.26.3 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.25)
 
 project(subrosa_dg_example_naca0012)
 
 set(CMAKE_EXAMPLE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}")
 
-# file(COPY ${CMAKE_CURRENT_LIST_DIR}/naca0012.cfg
-#     DESTINATION ${CMAKE_EXAMPLE_RUNTIME_OUTPUT_DIRECTORY}
-# )
-# file(COPY ${CMAKE_CURRENT_LIST_DIR}/mesh/naca0012.msh
-#     DESTINATION ${CMAKE_EXAMPLE_RUNTIME_OUTPUT_DIRECTORY}
-# )
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/naca0012/mesh)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/naca0012/result)
 
 add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/naca0012.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES
