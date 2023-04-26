@@ -24,7 +24,7 @@ namespace SubrosaDG::Internal {
 // Element types in .msh file format (numbers should not be changed)
 // copy from gmsh/src/common/GmshDefines.h, should be updated when gmsh is updated
 // NOLINTBEGIN(readability-identifier-naming)
-enum class ElementType : SubrosaDG::Usize {
+enum class ElementType : Usize {
   MSH_LIN_2 = 1,
   MSH_TRI_3,
   MSH_QUA_4,

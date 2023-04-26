@@ -23,7 +23,7 @@
         "mpi": {
             "description": "Build with MPI",
             "dependencies": [
-                    "openmpi"
+                "openmpi"
             ]
         },
         "tests": {

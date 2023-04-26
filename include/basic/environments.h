@@ -32,7 +32,7 @@ std::vector<std::string> getGmshInfo();
 #ifdef SUBROSA_DG_WITH_OPENMP
 void setMaxThreads();
 
-int getMaxThreads();
+int getMaxCores();
 #endif
 
 }  // namespace Internal

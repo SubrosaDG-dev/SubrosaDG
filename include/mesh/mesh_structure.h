@@ -28,7 +28,7 @@ struct Mesh {
   Isize num_edges_;
   Isize num_elements_;
 
-  std::unique_ptr<Eigen::Matrix2Xd> nodes_;
+  std::unique_ptr<Eigen::Matrix<Real, 2, Eigen::Dynamic>> nodes_;
   std::unique_ptr<Eigen::Matrix<Isize, 4, Eigen::Dynamic>> edges_;
   std::unique_ptr<Eigen::Matrix<Isize, 3, Eigen::Dynamic>> elements_;
 };

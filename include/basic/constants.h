@@ -26,32 +26,6 @@ namespace SubrosaDG {
 inline constexpr Real kPi = std::numbers::pi_v<Real>;
 inline constexpr Real kEuler = std::numbers::e_v<Real>;
 
-enum class SimulationType : Usize {
-  Euler = 0,
-  NavierStokes = 1,
-};
-
-enum class TimeIntegrationType : Usize {
-  ExplicitEuler = 0,
-  ImplicitEuler = 1,
-  RungeKutta3 = 2,
-};
-
-enum class ConstitutiveModelType : Usize {
-  IdealGas = 0,
-  Viscous = 1,
-};
-
-enum class BoundaryType : Isize {
-  Farfield = -1,
-  Wall = -2,
-};
-
-enum class NoVisFluxType : Usize {
-  Central = 0,
-  Roe = 1,
-};
-
 }  // namespace SubrosaDG
 
 #endif  // SUBROSA_DG_CONSTANTS_H_

@@ -13,14 +13,21 @@
 #ifndef SUBROSA_DG_CMAKE_H_
 #define SUBROSA_DG_CMAKE_H_
 
+// clang-format off
+
 #include <filesystem>
 #include <string_view>
+
+#include "basic/data_types.h"
 
 namespace SubrosaDG {
 
 inline constexpr std::string_view kSubrosaDGVersionString{"@SUBROSA_DG_VERSION_STRING@"};
 inline const std::filesystem::path kProjectSourceDir{"@PROJECT_SOURCE_DIR@"};
+inline const Usize kNumberOfPhysicalCores {@NUMBER_OF_PHYSICAL_CORES@};
 
 }  // namespace SubrosaDG
+
+// clang-format on
 
 #endif  // SUBROSA_DG_CMAKE_H_

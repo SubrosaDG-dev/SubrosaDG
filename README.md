@@ -51,7 +51,7 @@
 
 3. In the project, the import of vcpkg depends on the environment variable VCPKG_ROOT, so you need to define it in the environment variables:
 ```bash
-export VCPKG_ROOT='${your vcpkg path}'
+export VCPKG_ROOT="${your vcpkg path}"
 ```
 4. It is recommended to build vcpkg from its source code. Since the project uses a manifest for package management, the bootstrap script is used to build the binary version of vcpkg. Even if you download the binary version of vcpkg from a Linux package manager, the project will still forcefully build vcpkg during compilation.
 

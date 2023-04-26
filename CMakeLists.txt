@@ -71,10 +71,6 @@ if(SUBROSA_DG_DEVELOP)
     list(APPEND VCPKG_MANIFEST_FEATURES "develop")
 endif()
 
-# query the system cores number
-cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
-message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
-
 # set project
 project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
 
@@ -100,6 +96,10 @@ else()
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug" FORCE)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
+# query the system cores number
+cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
+message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 
 # check cxx20 support
 include(CheckCXXCompilerFlag)
@@ -248,7 +248,7 @@ set(SUBROSA_DG_CXX_FLAGS_RELEASE)
 set(SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO)
 
 # link to libc++ if available
-# TODO link to libc++ if gmsh is also link to libc++
+# TODO: link to libc++ if gmsh is also link to libc++
 # find_library(LIBCXX NAMES libc++.so libc++abi.so)
 # if(LIBCXX)
 #     string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ ")
@@ -267,8 +267,6 @@ set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
     $<$<CONFIG:Release>:${SUBROSA_DG_CXX_FLAGS_RELEASE}> \
     $<$<CONFIG:RelWithDebInfo>:${SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO}>")
 string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
-
-
 
 # create and include the cmake header
 configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake.h.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/cmake.h @ONLY)
@@ -296,10 +294,12 @@ if(SUBROSA_DG_DEVELOP)
 endif()
 
 # find libconfig
+# TODO: vcpkg add libconfigConfig.cmake in https://github.com/microsoft/vcpkg/pull/30980
 find_path(LIBCONFIG_DIR NAMES libconfig.h++)
-find_library(LIBCONFIG_LIBRARY NAMES libconfig)
+find_library(LIBCONFIG_LIBRARY NAMES liblibconfig.a)
+find_library(LIBCONFIXX_LIBRARY NAMES liblibconfig++.a)
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${LIBCONFIG_DIR})
-list(APPEND SUBROSA_DG_LINK_LIBRARIES ${LIBCONFIG_LIBRARY})
+list(APPEND SUBROSA_DG_LINK_LIBRARIES ${LIBCONFIG_LIBRARY} ${LIBCONFIXX_LIBRARY})
 
 # find fmt
 find_package(fmt CONFIG REQUIRED)
@@ -314,7 +314,7 @@ find_package(Eigen3 CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES Eigen3::Eigen)
 
 # find gmsh
-find_path(GMSH_DIR NAMES gmsh.h)
+find_path(GMSH_DIR NAMES gmsh.h PATH)
 find_library(GMSH_LIBRARY NAMES libgmsh.so)
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${GMSH_DIR})
 list(APPEND SUBROSA_DG_LINK_LIBRARIES ${GMSH_LIBRARY})
