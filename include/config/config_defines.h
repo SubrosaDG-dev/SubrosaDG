@@ -15,7 +15,7 @@
 
 // clang-format off
 
-#include "basic/data_types.h"
+#include "basic/data_types.h"  // for Usize
 
 // clang-format on
 
@@ -32,19 +32,19 @@ enum class TimeIntegrationType : Usize {
   RungeKutta3,
 };
 
-enum class ConstitutiveModelType : Usize {
+enum class EquationOfState : Usize {
   IdealGas = 0,
-  Viscous,
 };
 
 enum class BoundaryType : Usize {
-  Farfield = 1,
+  Farfield = 0,
   Wall,
 };
 
 enum class NoVisFluxType : Usize {
   Central = 0,
   Roe,
+  HLLC,
 };
 
 }  // namespace SubrosaDG::Internal

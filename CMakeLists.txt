@@ -355,6 +355,9 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_DEFINITIO
 
 # TODO: use cmake install and XXXXConfig.cmake to link
 
+# modify the compile definitions to string for doxygen
+string(REPLACE ";" " " SUBROSA_DG_COMPILE_DEFINITIONS "${SUBROSA_DG_COMPILE_DEFINITIONS}")
+
 # all_ci = all_examples + all_tests
 add_custom_target(all_ci
     COMMENT "Build all examples and tests"

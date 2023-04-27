@@ -15,24 +15,30 @@
 
 // clang-format off
 
-#include <Eigen/Core>
-#include <memory>
-#include "basic/data_types.h"
+#include <Eigen/Core>          // for Matrix, Dynamic
+#include <memory>              // for unique_ptr
+#include <vector>              // for vector
+
+#include "basic/data_types.h"  // for Usize, Real
 
 // clang-format on
 
-namespace SubrosaDG {
+namespace SubrosaDG::Internal {
 
-struct Mesh {
-  Isize num_nodes_;
-  Isize num_edges_;
-  Isize num_elements_;
+struct Mesh2d {
+  Usize num_nodes_;
+  Usize num_edges_interior_;
+  std::vector<Usize> num_edges_boundary_;
+  Usize num_cells_tri_;
+  Usize num_cells_quad_;
 
   std::unique_ptr<Eigen::Matrix<Real, 2, Eigen::Dynamic>> nodes_;
-  std::unique_ptr<Eigen::Matrix<Isize, 4, Eigen::Dynamic>> edges_;
-  std::unique_ptr<Eigen::Matrix<Isize, 3, Eigen::Dynamic>> elements_;
+  std::unique_ptr<Eigen::Matrix<Usize, 4, Eigen::Dynamic>> iedges_interior_;
+  std::vector<Eigen::Matrix<Usize, 3, Eigen::Dynamic>> iedges_boundary_;
+  std::unique_ptr<Eigen::Matrix<Usize, 3, Eigen::Dynamic>> icell_tri_;
+  std::unique_ptr<Eigen::Matrix<Usize, 4, Eigen::Dynamic>> icell_quad_;
 };
 
-}  // namespace SubrosaDG
+}  // namespace SubrosaDG::Internal
 
 #endif  // SUBROSA_DG_MESH_STRUCTURE_H_

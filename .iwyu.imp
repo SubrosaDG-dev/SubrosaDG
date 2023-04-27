@@ -7,6 +7,14 @@
             "public"
         ]
     },
+    {
+        "include": [
+            "@<Eigen/src/Sparse/.*>",
+            "private",
+            "<Eigen/Sparse>",
+            "public"
+        ]
+    },
     {   "symbol": [
             "NULL",
             "private",

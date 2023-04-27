@@ -13,6 +13,13 @@
 #ifndef SUBROSA_DG_READ_MESH_H_
 #define SUBROSA_DG_READ_MESH_H_
 
-namespace SubrosaDG {}  // namespace SubrosaDG
+namespace SubrosaDG::Internal {
+
+struct Config;
+struct Mesh2d;
+
+void readMesh(const Config& config, Mesh2d& mesh);
+
+}  // namespace SubrosaDG
 
 #endif  // SUBROSA_DG_READ_MESH_H_
