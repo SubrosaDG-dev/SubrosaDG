@@ -15,7 +15,7 @@
 
 // clang-format off
 
-#include "basic/data_types.h"  // for Usize
+#include "basic/data_types.h"  // for Usize, Isize
 
 // clang-format on
 
@@ -36,9 +36,9 @@ enum class EquationOfState : Usize {
   IdealGas = 0,
 };
 
-enum class BoundaryType : Usize {
-  Farfield = 0,
-  Wall,
+enum class BoundaryType : Isize {
+  Farfield = -1,
+  Wall = -2,
 };
 
 enum class NoVisFluxType : Usize {

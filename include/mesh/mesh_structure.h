@@ -27,16 +27,14 @@ namespace SubrosaDG::Internal {
 
 struct Mesh2d {
   Usize num_nodes_;
-  Usize num_edges_interior_;
-  std::vector<Usize> num_edges_boundary_;
+  Usize num_edges_;
   Usize num_cells_tri_;
   Usize num_cells_quad_;
 
   std::unique_ptr<Eigen::Matrix<Real, 2, Eigen::Dynamic>> nodes_;
-  std::unique_ptr<Eigen::Matrix<Usize, 4, Eigen::Dynamic>> iedges_interior_;
-  std::vector<Eigen::Matrix<Usize, 3, Eigen::Dynamic>> iedges_boundary_;
-  std::unique_ptr<Eigen::Matrix<Usize, 3, Eigen::Dynamic>> icell_tri_;
-  std::unique_ptr<Eigen::Matrix<Usize, 4, Eigen::Dynamic>> icell_quad_;
+  std::unique_ptr<Eigen::Matrix<Isize, 4, Eigen::Dynamic>> iedges_;
+  std::unique_ptr<Eigen::Matrix<Usize, 3, Eigen::Dynamic>> icells_tri_;
+  std::unique_ptr<Eigen::Matrix<Usize, 4, Eigen::Dynamic>> icells_quad_;
 };
 
 }  // namespace SubrosaDG::Internal

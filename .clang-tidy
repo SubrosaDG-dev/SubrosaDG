@@ -5,6 +5,7 @@ Checks: ' -*
   modernize-*,
   readability-*,
   mpi-*,
+  openmp-*,
   -modernize-use-trailing-return-type,
   -modernize-avoid-c-arrays,
   -readability-magic-numbers,

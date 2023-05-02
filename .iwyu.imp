@@ -1,39 +1,19 @@
 [
-    {
-        "include": [
-            "@<Eigen/src/Core/.*>",
-            "private",
-            "<Eigen/Core>",
-            "public"
-        ]
-    },
-    {
-        "include": [
-            "@<Eigen/src/Sparse/.*>",
-            "private",
-            "<Eigen/Sparse>",
-            "public"
-        ]
-    },
-    {   "symbol": [
-            "NULL",
-            "private",
-            "<cstddef>",
-            "public"
-        ]
-    },
-    {   "symbol": [
-            "EXIT_SUCCESS",
-            "private",
-            "<cstddef>",
-            "public"
-        ]
-    },
-    {   "symbol": [
-            "EXIT_FAILURE",
-            "private",
-            "<cstddef>",
-            "public"
-        ]
-    }
+    { "include": ["@<Eigen/src/Core/.*>", "private", "<Eigen/Core>", "public"] },
+    { "include": ["@<Eigen/src/LU/.*>", "private", "<Eigen/LU>", "public"] },
+    { "include": ["@<Eigen/src/Cholesky/.*>", "private", "<Eigen/Cholesky>", "public"] },
+    { "include": ["@<Eigen/src/QR/.*>", "private", "<Eigen/QR>", "public"] },
+    { "include": ["@<Eigen/src/SVD/.*>", "private", "<Eigen/SVD>", "public"] },
+    { "include": ["@<Eigen/src/Geometry/.*>", "private", "<Eigen/Geometry>", "public"] },
+    { "include": ["@<Eigen/src/Eigenvalues/.*>", "private", "<Eigen/Eigenvalues>", "public"] },
+    { "include": ["@<Eigen/src/SparseCore/.*>", "private", "<Eigen/SparseCore>", "public"] },
+    { "include": ["@<Eigen/src/SparseCholesky/.*>", "private", "<Eigen/SparseCholesky>", "public"] },
+    { "include": ["@<Eigen/src/SparseLU/.*>", "private", "<Eigen/SparseLU>", "public"] },
+    { "include": ["@<Eigen/src/SparseQR/.*>", "private", "<Eigen/SparseQR>", "public"] },
+    { "include": ["@<Eigen/src/IterativeLinearSolvers/.*>", "private", "<Eigen/IterativeLinearSolvers>", "public"] },
+    { "include": ["@<Eigen/src/plugins/.*>", "private", "<Eigen/Core>", "public"] },
+    { "symbol": ["malloc", "private", "<cstddef>", "public"] },
+    { "symbol": ["free", "private", "<cstddef>", "public"] },
+    { "symbol": ["EXIT_SUCCESS", "private", "<cstddef>", "public"] },
+    { "symbol": ["EXIT_FAILURE", "private", "<cstddef>", "public"] },
 ]

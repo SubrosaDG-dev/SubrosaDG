@@ -33,7 +33,12 @@
              C ---- D ---- M dev (your work)
 ```
 
-9. It is recommended to add the following settings in the setting.json of vscode to avoid uploading the dev branch. The third setting can prevent vscode from searching the upper-level git repository.
+9. In the project, some folders are managed using git submodule. During the initial configuration, cmake will automatically fetch them. If you need to update them later, you can use the command
+```bash
+git submodule update --remote
+```
+
+10. It is recommended to add the following settings in the setting.json of vscode to avoid uploading the dev branch. The third setting can prevent vscode from searching the upper-level git repository.
 ```json
 "git.showActionButton": {
     "publish": false,

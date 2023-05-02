@@ -39,19 +39,19 @@ void readConfig(const std::filesystem::path& config_file, Config& config) {
   std::string simulation_type;
   cfg.lookupValue("SimulationType", simulation_type);
   if (simulation_type == "Euler") {
-    config.simulation_type_ = Internal::SimulationType::Euler;
+    config.simulation_type_ = SimulationType::Euler;
   } else if (simulation_type == "NavierStokes") {
-    config.simulation_type_ = Internal::SimulationType::NavierStokes;
+    config.simulation_type_ = SimulationType::NavierStokes;
   }
 
   std::string no_vis_flux_type;
   cfg.lookupValue("NoVisFluxType", no_vis_flux_type);
   if (no_vis_flux_type == "Central") {
-    config.no_vis_flux_type_ = Internal::NoVisFluxType::Central;
+    config.no_vis_flux_type_ = NoVisFluxType::Central;
   } else if (no_vis_flux_type == "Roe") {
-    config.no_vis_flux_type_ = Internal::NoVisFluxType::Roe;
+    config.no_vis_flux_type_ = NoVisFluxType::Roe;
   } else if (no_vis_flux_type == "HLLC") {
-    config.no_vis_flux_type_ = Internal::NoVisFluxType::HLLC;
+    config.no_vis_flux_type_ = NoVisFluxType::HLLC;
   }
 
   std::string mesh_file;
@@ -61,11 +61,11 @@ void readConfig(const std::filesystem::path& config_file, Config& config) {
   std::string time_integration_type;
   cfg.lookupValue("TimeIntegration.type", time_integration_type);
   if (time_integration_type == "ExplicitEuler") {
-    config.time_integration_.time_integration_type_ = Internal::TimeIntegrationType::ExplicitEuler;
+    config.time_integration_.time_integration_type_ = TimeIntegrationType::ExplicitEuler;
   } else if (time_integration_type == "ImplicitEuler") {
-    config.time_integration_.time_integration_type_ = Internal::TimeIntegrationType::ImplicitEuler;
+    config.time_integration_.time_integration_type_ = TimeIntegrationType::ImplicitEuler;
   } else if (time_integration_type == "RungeKutta3") {
-    config.time_integration_.time_integration_type_ = Internal::TimeIntegrationType::RungeKutta3;
+    config.time_integration_.time_integration_type_ = TimeIntegrationType::RungeKutta3;
   }
   int iteration;
   cfg.lookupValue("TimeIntegration.iteration", iteration);
@@ -79,9 +79,9 @@ void readConfig(const std::filesystem::path& config_file, Config& config) {
     std::string boundary_type;
     cfg.lookupValue("BoundaryCondition." + boundary_name + ".type", boundary_type);
     if (boundary_type == "Farfield") {
-      config.boundary_condition_[boundary_name] = Internal::BoundaryType::Farfield;
+      config.boundary_condition_[boundary_name] = BoundaryType::Farfield;
     } else if (boundary_type == "Wall") {
-      config.boundary_condition_[boundary_name] = Internal::BoundaryType::Wall;
+      config.boundary_condition_[boundary_name] = BoundaryType::Wall;
     }
   }
 
@@ -91,7 +91,7 @@ void readConfig(const std::filesystem::path& config_file, Config& config) {
     std::string equation_of_state;
     cfg.lookupValue("ThermodynamicModel." + thermodynamic_model_name + ".EquationOfState", equation_of_state);
     if (equation_of_state == "IdealGas") {
-      config.thermodynamic_model_[thermodynamic_model_name].equation_of_state_ = Internal::EquationOfState::IdealGas;
+      config.thermodynamic_model_[thermodynamic_model_name].equation_of_state_ = EquationOfState::IdealGas;
     }
     cfg.lookupValue("ThermodynamicModel." + thermodynamic_model_name + ".gamma",
                     config.thermodynamic_model_[thermodynamic_model_name].gamma_);
@@ -99,7 +99,7 @@ void readConfig(const std::filesystem::path& config_file, Config& config) {
                     config.thermodynamic_model_[thermodynamic_model_name].c_p_);
     cfg.lookupValue("ThermodynamicModel." + thermodynamic_model_name + ".R",
                     config.thermodynamic_model_[thermodynamic_model_name].r_);
-    if (config.simulation_type_ == Internal::SimulationType::NavierStokes) {
+    if (config.simulation_type_ == SimulationType::NavierStokes) {
       cfg.lookupValue("ThermodynamicModel." + thermodynamic_model_name + ".mu",
                       config.thermodynamic_model_[thermodynamic_model_name].mu_);
     }
@@ -130,4 +130,4 @@ void readConfig(const std::filesystem::path& config_file, Config& config) {
   cfg.clear();
 }
 
-}  // namespace SubrosaDG
+}  // namespace SubrosaDG::Internal

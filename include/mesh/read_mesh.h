@@ -20,6 +20,6 @@ struct Mesh2d;
 
 void readMesh(const Config& config, Mesh2d& mesh);
 
-}  // namespace SubrosaDG
+}  // namespace SubrosaDG::Internal
 
 #endif  // SUBROSA_DG_READ_MESH_H_

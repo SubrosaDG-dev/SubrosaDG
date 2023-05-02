@@ -79,6 +79,7 @@ if(${PROJECT_SOURCE_DIR} STREQUAL ${PROJECT_BINARY_DIR})
     message(FATAL_ERROR "In-source builds not allowed. Please make a new directory (called a build directory) and run CMake from there.")
 endif()
 
+# message error if not build with clang
 if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     message(FATAL_ERROR "This project is build with clang.")
 endif()
@@ -117,19 +118,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # check for interprocedural optimization
-# if(CMAKE_BUILD_TYPE STREQUAL "Release")
-#     include(CheckIPOSupported)
-#     check_ipo_supported(RESULT IPO_SUPPORT)
-#     if(IPO_SUPPORT)
-#         message(STATUS "Enable interprocedural optimization")
-#         set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
-#     endif()
-# endif()
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT IPO_SUPPORT)
+    if(IPO_SUPPORT)
+        message(STATUS "Enable interprocedural optimization")
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+#       set_target_properties(${PROJECT_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
+endif()
 
 # open color compiler information
 set(CMAKE_COLOR_DIAGNOSTICS ON)
 
-# set
+# set cmake output verbose on
 if(SUBROSA_DG_DEVELOP)
     set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
 endif()
@@ -137,6 +139,7 @@ endif()
 # create .gdbinit file
 configure_file(${PROJECT_SOURCE_DIR}/cmake/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-eigen-pretty-print/.gdbinit @ONLY)
 
+# create vscode launch.json and settings.json
 if(SUBROSA_DG_DEVELOP)
     file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/.vscode)
     configure_file(${PROJECT_SOURCE_DIR}/cmake/launch.json.in ${PROJECT_SOURCE_DIR}/.vscode/launch.json @ONLY)
@@ -218,12 +221,12 @@ set(SUBROSA_DG_COMPILE_DEFINITIONS)
 
 # set library and add compile option
 add_library(${PROJECT_NAME} SHARED ${SUBROSA_DG_SOURCES})
-add_library(lib::subrosa_dg ALIAS ${PROJECT_NAME})
+add_library(lib::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${SUBROSA_DG_LIB_VERSION}
     SOVERSION ${SUBROSA_DG_VERSION_MAJOR})
 
 # set c and cxx standard
-# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_20 cxx_std_20)
+# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_17 cxx_std_20)
 # set_target_properties(
 #     ${PROJECT_NAME} PROPERTIES
 #     C_EXTENSIONS OFF
@@ -235,11 +238,6 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${SUBROSA_DG_LIB_VERSIO
 #     CXX_STANDARD_REQUIRED ON
 # )
 
-# set for interprocedural optimization
-# if(ipo_support)
-#     set_target_properties(${PROJECT_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
-# endif()
-
 # set cxx compilation option
 set(SUBROSA_DG_CXX_FLAGS)
 set(SUBROSA_DG_CXX_WARNING_FLAGS)
@@ -249,10 +247,12 @@ set(SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO)
 
 # link to libc++ if available
 # TODO: link to libc++ if gmsh is also link to libc++
-# find_library(LIBCXX NAMES libc++.so libc++abi.so)
+# find_library(LIBCXX NAMES libc++.so)
 # if(LIBCXX)
-#     string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ ")
-#     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
+#       string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ ")
+##      the following two lines choose one of them
+#       set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+#       set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-stdlib=libc++")
 # endif()
 
 # add cxx compilation option
@@ -348,7 +348,7 @@ endforeach()
 # set library compiler option
 target_include_directories(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${SUBROSA_DG_INCLUDE_SYSTEM_DIRS})
-target_link_libraries(${PROJECT_NAME} ${SUBROSA_DG_LINK_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_LINK_LIBRARIES})
 target_compile_options(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_OPTIONS})
 # target_compile_features(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_FEATURES})
 target_compile_definitions(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_DEFINITIONS})

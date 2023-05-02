@@ -20,13 +20,13 @@
 #include <filesystem>          // for path
 #include <string>              // for string
 
-#include "basic/data_types.h"  // for Real, Usize
+#include "basic/data_types.h"  // for Real, Usize, Isize
 
 // clang-format on
 
 namespace SubrosaDG::Internal {
 
-enum class BoundaryType : SubrosaDG::Usize;
+enum class BoundaryType : SubrosaDG::Isize;
 enum class EquationOfState : SubrosaDG::Usize;
 enum class NoVisFluxType : SubrosaDG::Usize;
 enum class SimulationType : SubrosaDG::Usize;
@@ -57,14 +57,14 @@ struct FlowParameter {
 struct Config {
   int dimension_;
   int polynomial_order_;
-  Internal::SimulationType simulation_type_;
-  Internal::NoVisFluxType no_vis_flux_type_;
+  SimulationType simulation_type_;
+  NoVisFluxType no_vis_flux_type_;
   std::filesystem::path mesh_file_;
-  Internal::TimeIntegration time_integration_;
-  std::map<std::string, Internal::BoundaryType> boundary_condition_;
-  std::map<std::string, Internal::ThermodynamicModel> thermodynamic_model_;
-  std::map<std::string, Internal::FlowParameter> initial_condition_;
-  Internal::FlowParameter farfield_parameter_;
+  TimeIntegration time_integration_;
+  std::map<std::string, BoundaryType> boundary_condition_;
+  std::map<std::string, ThermodynamicModel> thermodynamic_model_;
+  std::map<std::string, FlowParameter> initial_condition_;
+  FlowParameter farfield_parameter_;
 };
 
 }  // namespace SubrosaDG::Internal
