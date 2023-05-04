@@ -293,13 +293,9 @@ if(SUBROSA_DG_DEVELOP)
     list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${DBG_MACRO_DIR})
 endif()
 
-# find libconfig
-# TODO: vcpkg add libconfigConfig.cmake in https://github.com/microsoft/vcpkg/pull/30980
-find_path(LIBCONFIG_DIR NAMES libconfig.h++)
-find_library(LIBCONFIG_LIBRARY NAMES liblibconfig.a)
-find_library(LIBCONFIXX_LIBRARY NAMES liblibconfig++.a)
-list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${LIBCONFIG_DIR})
-list(APPEND SUBROSA_DG_LINK_LIBRARIES ${LIBCONFIG_LIBRARY} ${LIBCONFIXX_LIBRARY})
+# find tomlplusplus
+find_package(tomlplusplus CONFIG REQUIRED)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES tomlplusplus::tomlplusplus)
 
 # find fmt
 find_package(fmt CONFIG REQUIRED)

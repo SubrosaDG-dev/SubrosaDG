@@ -16,9 +16,9 @@
 // clang-format off
 
 #include <Eigen/Core>          // for Vector
-#include <map>                 // for map
 #include <filesystem>          // for path
-#include <string>              // for string
+#include <string_view>         // for string_view, hash
+#include <unordered_map>       // for unordered_map
 
 #include "basic/data_types.h"  // for Real, Usize, Isize
 
@@ -61,9 +61,9 @@ struct Config {
   NoVisFluxType no_vis_flux_type_;
   std::filesystem::path mesh_file_;
   TimeIntegration time_integration_;
-  std::map<std::string, BoundaryType> boundary_condition_;
-  std::map<std::string, ThermodynamicModel> thermodynamic_model_;
-  std::map<std::string, FlowParameter> initial_condition_;
+  std::unordered_map<std::string_view, BoundaryType> boundary_condition_;
+  std::unordered_map<std::string_view, ThermodynamicModel> thermodynamic_model_;
+  std::unordered_map<std::string_view, FlowParameter> initial_condition_;
   FlowParameter farfield_parameter_;
 };
 

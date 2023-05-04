@@ -15,13 +15,40 @@
 
 // clang-format off
 
-#include <filesystem>  // for path
+#include <fmt/core.h>     // for format
+#include <toml++/toml.h>  // for table, array, node_view, node
+#include <filesystem>     // for path
+#include <optional>       // for optional
+#include <stdexcept>      // for out_of_range
+#include <string_view>    // for basic_string_view, string_view
 
 // clang-format on
 
 namespace SubrosaDG::Internal {
 
 struct Config;
+
+template <typename T>
+T getValueFromToml(const toml::table& config_table, const std::string_view& key) {
+  std::optional<T> optional_value = config_table.at_path(key).value<T>();
+  if (optional_value.has_value()) {
+    return optional_value.value();
+  }
+  throw std::out_of_range(fmt::format("Error: {} is not found in config file.", key));
+}
+
+template <>
+toml::array getValueFromToml<toml::array>(const toml::table& config_table, const std::string_view& key) {
+  toml::node_view<const toml::node> value_node_view = config_table.at_path(key);
+  if (value_node_view.is_array()) {
+    toml::array value_array = *value_node_view.as_array();
+    if (!value_array.empty()) {
+      return value_array;
+    }
+    throw std::out_of_range(fmt::format("Error: {} is empty in config file.", key));
+  }
+  throw std::out_of_range(fmt::format("Error: {} is not found in config file.", key));
+}
 
 void readConfig(const std::filesystem::path& config_file, Config& config);
 

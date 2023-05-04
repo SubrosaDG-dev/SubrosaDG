@@ -14,7 +14,7 @@
         "main": {
             "description": "Build main dependencies",
             "dependencies": [
-                "libconfig",
+                "tomlplusplus",
                 "fmt",
                 "spdlog",
                 "eigen3"

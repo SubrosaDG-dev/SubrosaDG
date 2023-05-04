@@ -26,14 +26,16 @@ enum class SimulationType : Usize {
   NavierStokes,
 };
 
+enum class NoVisFluxType : Usize {
+  Central = 0,
+  Roe,
+  HLLC,
+};
+
 enum class TimeIntegrationType : Usize {
   ExplicitEuler = 0,
   ImplicitEuler,
   RungeKutta3,
-};
-
-enum class EquationOfState : Usize {
-  IdealGas = 0,
 };
 
 enum class BoundaryType : Isize {
@@ -41,10 +43,8 @@ enum class BoundaryType : Isize {
   Wall = -2,
 };
 
-enum class NoVisFluxType : Usize {
-  Central = 0,
-  Roe,
-  HLLC,
+enum class EquationOfState : Usize {
+  IdealGas = 0,
 };
 
 }  // namespace SubrosaDG::Internal
