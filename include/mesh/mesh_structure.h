@@ -15,26 +15,43 @@
 
 // clang-format off
 
-#include <Eigen/Core>          // for Matrix, Dynamic
+#include <Eigen/Core>          // for Matrix, Dynamic, Vector, VectorXd
+#include <filesystem>          // for path
 #include <memory>              // for unique_ptr
-#include <vector>              // for vector
+#include <utility>             // for pair
 
-#include "basic/data_types.h"  // for Usize, Real
+#include "basic/data_types.h"  // for Usize, Isize, Real
 
 // clang-format on
 
 namespace SubrosaDG::Internal {
 
+struct IElement {
+  std::pair<Usize, Usize> num_elements_;
+  std::unique_ptr<Eigen::Matrix<Isize, Eigen::Dynamic, Eigen::Dynamic>> ielements_;
+};
+
 struct Mesh2d {
   Usize num_nodes_;
   Usize num_edges_;
-  Usize num_cells_tri_;
-  Usize num_cells_quad_;
+  Usize num_elements_;
 
-  std::unique_ptr<Eigen::Matrix<Real, 2, Eigen::Dynamic>> nodes_;
+  IElement ielement_triangle_;
+  IElement ielement_quadrangle_;
+
+  std::unique_ptr<Eigen::Matrix<Real, 3, Eigen::Dynamic>> nodes_;
   std::unique_ptr<Eigen::Matrix<Isize, 4, Eigen::Dynamic>> iedges_;
-  std::unique_ptr<Eigen::Matrix<Usize, 3, Eigen::Dynamic>> icells_tri_;
-  std::unique_ptr<Eigen::Matrix<Usize, 4, Eigen::Dynamic>> icells_quad_;
+  std::unique_ptr<Eigen::VectorXd> element_area_;
+
+  Mesh2d(const std::filesystem::path& mesh_file);
+};
+
+struct MeshSupplementalInfo {
+  std::pair<Usize, Usize> num_boundary_;
+  std::pair<Usize, Usize> num_region_;
+
+  std::unique_ptr<Eigen::Vector<Isize, Eigen::Dynamic>> iboundary_;
+  std::unique_ptr<Eigen::Vector<Isize, Eigen::Dynamic>> iregion_;
 };
 
 }  // namespace SubrosaDG::Internal

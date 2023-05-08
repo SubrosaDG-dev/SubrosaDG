@@ -6,7 +6,7 @@
 # @date 2022-11-01
 #
 # @version 0.1.0
-# @copyright Copyright (c) 2022 - 2020 by SubrosaDG developers. All rights reserved.
+# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers. All rights reserved.
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
@@ -129,6 +129,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 # open color compiler information
+# NOTE: the output still not colorized due to ninja
+# https://github.com/ninja-build/ninja/wiki/FAQ#why-does-my-program-with-colored-output-not-have-color-under-ninja
 set(CMAKE_COLOR_DIAGNOSTICS ON)
 
 # set cmake output verbose on
@@ -296,6 +298,10 @@ endif()
 # find tomlplusplus
 find_package(tomlplusplus CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES tomlplusplus::tomlplusplus)
+
+# find magic-enum
+find_package(magic_enum CONFIG REQUIRED)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES magic_enum::magic_enum)
 
 # find fmt
 find_package(fmt CONFIG REQUIRED)

@@ -35,14 +35,14 @@ type = "Farfield"
 [BoundaryCondition.bc-2]
 type = "Wall"
 
-[Domain]
-name = ["vc-1"]
-
-[ThermodynamicModel.vc-1]
+[ThermodynamicModel]
 EquationOfState = "IdealGas"
 gamma = 1.4
 c_p = 1.0  # dimensionless e to \bar { e } = 1 - 1 / gamma
 R = 0.7142857142857143  # 1.0 / 1.4
+
+[Region]
+name = ["vc-1"]
 
 [InitialCondition.vc-1]
 U = [0.7998096216639273, 0.017451908027648896, 0.0]  # Ma = 0.8, alpha = 1.25

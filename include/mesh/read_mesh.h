@@ -13,12 +13,31 @@
 #ifndef SUBROSA_DG_READ_MESH_H_
 #define SUBROSA_DG_READ_MESH_H_
 
+// clang-format off
+
+#include <string>   // for string
+#include <vector>   // for vector
+#include <cstddef>  // for size_t
+#include <tuple>    // for tuple
+
+// clang-format on
+
 namespace SubrosaDG::Internal {
 
 struct Config;
+struct IElement;
 struct Mesh2d;
+struct MeshSupplementalInfo;
 
-void readMesh(const Config& config, Mesh2d& mesh);
+void readMesh(Mesh2d& mesh);
+
+void readMeshSupplementalInfo(const Config& config, MeshSupplementalInfo& mesh_supplemental_info);
+
+std::tuple<int, std::string, std::vector<std::size_t>> getPhysicalGroups(int dim, int physical_group_tag);
+
+void getNodes(Mesh2d& mesh);
+
+void getElements(IElement& i_element, const std::string& element_name);
 
 }  // namespace SubrosaDG::Internal
 

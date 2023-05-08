@@ -17,7 +17,7 @@
 #endif
 
 #include <fmt/core.h>   // for format
-#include <iostream>     // for endl, cout, operator<<, ostream, basic_ostream
+#include <iostream>     // for endl, operator<<, basic_ostream, cout, ostream
 #include <string_view>  // for basic_string_view
 #include <regex>        // for sregex_token_iterator, regex
 
@@ -38,7 +38,6 @@ void printEnvironmentInfo() {
   for (const auto& line : getGmshInfo()) {
     std::cout << line << std::endl;
   }
-  std::cout << std::endl;
 };
 
 std::vector<std::string> getGmshInfo() {

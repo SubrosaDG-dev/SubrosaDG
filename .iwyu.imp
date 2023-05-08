@@ -13,8 +13,8 @@
     { "include": ["@<Eigen/src/SparseQR/.*>", "private", "<Eigen/SparseQR>", "public"] },
     { "include": ["@<Eigen/src/IterativeLinearSolvers/.*>", "private", "<Eigen/IterativeLinearSolvers>", "public"] },
     { "include": ["@<Eigen/src/plugins/.*>", "private", "<Eigen/Core>", "public"] },
-    { "symbol": ["malloc", "private", "<cstddef>", "public"] },
-    { "symbol": ["free", "private", "<cstddef>", "public"] },
-    { "symbol": ["EXIT_SUCCESS", "private", "<cstddef>", "public"] },
-    { "symbol": ["EXIT_FAILURE", "private", "<cstddef>", "public"] },
+    { "symbol": ["malloc", "private", "<cstdlib>", "public"] },
+    { "symbol": ["free", "private", "<cstdlib>", "public"] },
+    { "symbol": ["EXIT_SUCCESS", "private", "<cstdlib>", "public"] },
+    { "symbol": ["EXIT_FAILURE", "private", "<cstdlib>", "public"] },
 ]

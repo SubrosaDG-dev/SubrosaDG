@@ -13,12 +13,12 @@
 // clang-format off
 
 #include <gmsh.h>                // for addPhysicalGroup, addCurveLoop, addPoint, add, addLine, addPlaneSurface, add...
-#include <Eigen/Core>            // for Matrix, StorageOptions, CommaInitializer, DenseCoeffsBase, Block, indexed_ba...
+#include <Eigen/Core>            // for Matrix, StorageOptions, Block, CommaInitializer, indexed_based_stl_iterator_...
 #include <filesystem>            // for operator/, path
 #include <fstream>               // for ifstream, basic_istream, ios_base
 #include <memory>                // for allocator, make_unique, unique_ptr
 #include <vector>                // for vector
-#include <cstddef>               // for EXIT_SUCCESS
+#include <cstdlib>               // for EXIT_SUCCESS
 
 #include "basic/data_types.h"    // for Isize, Usize
 #include "basic/environments.h"  // for EnvironmentGardian
@@ -31,7 +31,7 @@ void generateMesh() {
   SubrosaDG::Isize number{(fin >> number, number)};
   auto naca0012_points = std::make_unique<Eigen::Matrix<double, 3, Eigen::Dynamic>>(3, number);
   for (SubrosaDG::Isize i = 0; i < number; i++) {
-    fin >> (*naca0012_points)(0, i) >> (*naca0012_points)(1, i) >> (*naca0012_points)(2, i);
+    fin >> naca0012_points->operator()(0, i) >> naca0012_points->operator()(1, i) >> naca0012_points->operator()(2, i);
   }
   fin.close();
   auto farfield_points = std::make_unique<Eigen::Matrix<double, 4, 3, Eigen::RowMajor>>();
@@ -43,10 +43,10 @@ void generateMesh() {
   std::vector<int> farfield_lines_index;
   gmsh::model::add("naca0012");
   for (const auto& row : farfield_points->rowwise()) {
-    farfield_points_index.emplace_back(gmsh::model::geo::addPoint(row(0), row(1), row(2), kLc1));
+    farfield_points_index.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), kLc1));
   }
   for (const auto& col : naca0012_points->colwise()) {
-    naca0012_points_index.emplace_back(gmsh::model::geo::addPoint(col(0), col(1), col(2), kLc2));
+    naca0012_points_index.emplace_back(gmsh::model::geo::addPoint(col.x(), col.y(), col.z(), kLc2));
   }
   for (SubrosaDG::Usize i = 0; i < farfield_points_index.size(); i++) {
     farfield_lines_index.emplace_back(gmsh::model::geo::addLine(
@@ -64,6 +64,7 @@ void generateMesh() {
   gmsh::model::mesh::generate(2);
   gmsh::model::mesh::optimize("Netgen");
   gmsh::write((SubrosaDG::kProjectSourceDir / "build/out/naca0012/mesh/naca0012.msh").string());
+  gmsh::clear();
 }
 
 int main(int argc, char* argv[]) {

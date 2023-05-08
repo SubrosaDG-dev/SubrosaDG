@@ -15,24 +15,37 @@
 #include "config/read_config.h"
 
 #include <fmt/core.h>                 // for format
-#include <toml++/toml.h>              // for array, operator!=, array_iterator, node, parse_error, operator<<, parse...
-#include <iostream>                   // for endl, basic_ostream, ostream, cerr, operator<<
-#include <string>                     // for string, basic_string, operator<<
+#include <toml++/toml.h>              // for array, operator!=, array_iterator, parse_error, table, node, operator<<
+#include <iostream>                   // for endl, operator<<, basic_ostream, ostream, cerr
+#include <string>                     // for string, basic_string, operator<<, operator==, hash
 #include <Eigen/Core>                 // for DenseCoeffsBase, Vector
-#include <string_view>                // for string_view, operator""sv, basic_string_view, operator==, hash, string_...
-#include <cstddef>                    // for EXIT_FAILURE
-#include <cstdlib>                    // for exit
+#include <string_view>                // for string_view, operator""sv, basic_string_view, string_view_literals
+#include <cstdlib>                    // for exit, EXIT_FAILURE
 #include <memory>                     // for __shared_ptr_access
 #include <unordered_map>              // for unordered_map
+#include <vector>                     // for vector
 
+#include "cmake.h"                    // for kProjectSourceDir
 #include "config/config_structure.h"  // for Config, FlowParameter, ThermodynamicModel, TimeIntegration
 #include "basic/data_types.h"         // for Real, Usize, Isize
 #include "config/config_defines.h"    // for BoundaryType (ptr only), EquationOfState (ptr only), NoVisFluxType (ptr...
-#include "config/config_map.h"        // for kConfigMap
 
 // clang-format on
 
 namespace SubrosaDG::Internal {
+
+template <>
+toml::array getValueFromToml<toml::array>(const toml::table& config_table, const std::string_view& key) {
+  auto value_node_view = config_table.at_path(key);
+  if (value_node_view.is_array()) {
+    toml::array value_array = *value_node_view.as_array();
+    if (!value_array.empty()) {
+      return value_array;
+    }
+    throw std::out_of_range(fmt::format("Error: {} is empty in config file.", key));
+  }
+  throw std::out_of_range(fmt::format("Error: {} is not found in config file.", key));
+}
 
 void readConfig(const std::filesystem::path& config_file, Config& config) {
   using namespace std::string_view_literals;
@@ -40,59 +53,58 @@ void readConfig(const std::filesystem::path& config_file, Config& config) {
   try {
     toml::table config_table = toml::parse_file(config_file.string());
 
+    config.config_file_ = config_file;
+
     config.dimension_ = getValueFromToml<int>(config_table, "Dimension"sv);
 
     config.polynomial_order_ = getValueFromToml<int>(config_table, "PolynomialOrder"sv);
 
     config.simulation_type_ =
-        kConfigMap<SimulationType>.at(getValueFromToml<std::string_view>(config_table, "SimulationType"sv));
+        castStringToEnum<SimulationType>(getValueFromToml<std::string_view>(config_table, "SimulationType"sv));
 
     config.no_vis_flux_type_ =
-        kConfigMap<NoVisFluxType>.at(getValueFromToml<std::string_view>(config_table, "NoVisFluxType"sv));
+        castStringToEnum<NoVisFluxType>(getValueFromToml<std::string_view>(config_table, "NoVisFluxType"sv));
 
-    config.mesh_file_ = getValueFromToml<std::string_view>(config_table, "MeshFile"sv);
+    config.mesh_file_ = kProjectSourceDir / getValueFromToml<std::string_view>(config_table, "MeshFile"sv);
 
-    config.time_integration_.time_integration_type_ =
-        kConfigMap<TimeIntegrationType>.at(getValueFromToml<std::string_view>(config_table, "TimeIntegration.type"sv));
+    config.time_integration_.time_integration_type_ = castStringToEnum<TimeIntegrationType>(
+        getValueFromToml<std::string_view>(config_table, "TimeIntegration.type"sv));
     config.time_integration_.iteration_ = getValueFromToml<Usize>(config_table, "TimeIntegration.iteration"sv);
     config.time_integration_.cfl_ = getValueFromToml<Real>(config_table, "TimeIntegration.CFL"sv);
     config.time_integration_.tolerance_ = getValueFromToml<int>(config_table, "TimeIntegration.tolerance"sv);
 
     for (const auto& boundary_iter : getValueFromToml<toml::array>(config_table, "Boundary.name"sv)) {
-      std::string_view boundary_name = boundary_iter.as_string()->get();
-      config.boundary_condition_[boundary_name] = kConfigMap<BoundaryType>.at(
-          getValueFromToml<std::string_view>(config_table, fmt::format("BoundaryCondition.{}.type"sv, boundary_name)));
+      std::string boundary_name = boundary_iter.as_string()->get();
+      config.boundary_condition_[boundary_name] = castStringToEnum<BoundaryType>(
+          getValueFromToml<std::string_view>(config_table, fmt::format("BoundaryCondition.{}.type", boundary_name)));
     }
 
-    for (const auto& domain_iter : getValueFromToml<toml::array>(config_table, "Domain.name"sv)) {
-      std::string_view domain_name = domain_iter.as_string()->get();
-      config.thermodynamic_model_[domain_name].equation_of_state_ =
-          kConfigMap<EquationOfState>.at(getValueFromToml<std::string_view>(
-              config_table, fmt::format("ThermodynamicModel.{}.EquationOfState"sv, domain_name)));
-      config.thermodynamic_model_[domain_name].gamma_ =
-          getValueFromToml<Real>(config_table, fmt::format("ThermodynamicModel.{}.gamma"sv, domain_name));
-      config.thermodynamic_model_[domain_name].c_p_ =
-          getValueFromToml<Real>(config_table, fmt::format("ThermodynamicModel.{}.c_p"sv, domain_name));
-      config.thermodynamic_model_[domain_name].r_ =
-          getValueFromToml<Real>(config_table, fmt::format("ThermodynamicModel.{}.R"sv, domain_name));
-      if (config.simulation_type_ == SimulationType::NavierStokes) {
-        config.thermodynamic_model_[domain_name].mu_ =
-            getValueFromToml<Real>(config_table, fmt::format("ThermodynamicModel.{}.mu"sv, domain_name));
-      }
+    config.thermodynamic_model_.equation_of_state_ = castStringToEnum<EquationOfState>(
+        getValueFromToml<std::string_view>(config_table, "ThermodynamicModel.EquationOfState"sv));
+    config.thermodynamic_model_.gamma_ = getValueFromToml<Real>(config_table, "ThermodynamicModel.gamma"sv);
+    config.thermodynamic_model_.c_p_ = getValueFromToml<Real>(config_table, "ThermodynamicModel.c_p"sv);
+    config.thermodynamic_model_.r_ = getValueFromToml<Real>(config_table, "ThermodynamicModel.R"sv);
+    if (config.simulation_type_ == SimulationType::NavierStokes) {
+      config.thermodynamic_model_.mu_ = getValueFromToml<Real>(config_table, "ThermodynamicModel.mu"sv);
     }
 
-    for (const auto& domain_iter : getValueFromToml<toml::array>(config_table, "Domain.name"sv)) {
-      std::string_view domain_name = domain_iter.as_string()->get();
+    for (Usize i = 1; const auto& region_iter : getValueFromToml<toml::array>(config_table, "Region.name"sv)) {
+      std::string region_name = region_iter.as_string()->get();
+      config.region_name_map_[region_name] = i++;
+      config.region_name_.emplace_back(region_name);
+    }
+
+    for (const auto& region_name : config.region_name_) {
       for (Isize i = 0; const auto& u_iter : getValueFromToml<toml::array>(
-                            config_table, fmt::format("InitialCondition.{}.U"sv, domain_name))) {
-        config.initial_condition_[domain_name].u_[i++] = u_iter.as<Real>()->get();
+                            config_table, fmt::format("InitialCondition.{}.U", region_name))) {
+        config.initial_condition_[region_name].u_[i++] = u_iter.as<Real>()->get();
       }
-      config.initial_condition_[domain_name].rho_ =
-          getValueFromToml<Real>(config_table, fmt::format("InitialCondition.{}.rho"sv, domain_name));
-      config.initial_condition_[domain_name].p_ =
-          getValueFromToml<Real>(config_table, fmt::format("InitialCondition.{}.p"sv, domain_name));
-      config.initial_condition_[domain_name].t_ =
-          getValueFromToml<Real>(config_table, fmt::format("InitialCondition.{}.T"sv, domain_name));
+      config.initial_condition_[region_name].rho_ =
+          getValueFromToml<Real>(config_table, fmt::format("InitialCondition.{}.rho", region_name));
+      config.initial_condition_[region_name].p_ =
+          getValueFromToml<Real>(config_table, fmt::format("InitialCondition.{}.p", region_name));
+      config.initial_condition_[region_name].t_ =
+          getValueFromToml<Real>(config_table, fmt::format("InitialCondition.{}.T", region_name));
     }
 
     for (Isize i = 0; const auto& u_iter : getValueFromToml<toml::array>(config_table, "FarfieldParameter.U"sv)) {
@@ -109,7 +121,7 @@ void readConfig(const std::filesystem::path& config_file, Config& config) {
     std::exit(EXIT_FAILURE);
   } catch (const std::out_of_range& error) {
     std::cerr << std::endl << fmt::format("Error parsing file '{}':", config_file.string()) << std::endl;
-    std::cerr << fmt::format("{}", error.what()) << std::endl;
+    std::cerr << error.what() << std::endl;
     std::exit(EXIT_FAILURE);
   }
 }

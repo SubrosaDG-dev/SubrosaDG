@@ -15,6 +15,7 @@
             "description": "Build main dependencies",
             "dependencies": [
                 "tomlplusplus",
+                "magic-enum",
                 "fmt",
                 "spdlog",
                 "eigen3"

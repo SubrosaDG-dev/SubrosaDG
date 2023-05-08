@@ -15,12 +15,13 @@
 
 // clang-format off
 
-#include <fmt/core.h>     // for format
-#include <toml++/toml.h>  // for table, array, node_view, node
-#include <filesystem>     // for path
-#include <optional>       // for optional
-#include <stdexcept>      // for out_of_range
-#include <string_view>    // for basic_string_view, string_view
+#include <fmt/core.h>      // for format
+#include <toml++/toml.h>   // for table
+#include <magic_enum.hpp>  // for enum_cast
+#include <filesystem>      // for path
+#include <optional>        // for optional
+#include <stdexcept>       // for out_of_range
+#include <string_view>     // for basic_string_view, string_view
 
 // clang-format on
 
@@ -37,17 +38,13 @@ T getValueFromToml(const toml::table& config_table, const std::string_view& key)
   throw std::out_of_range(fmt::format("Error: {} is not found in config file.", key));
 }
 
-template <>
-toml::array getValueFromToml<toml::array>(const toml::table& config_table, const std::string_view& key) {
-  toml::node_view<const toml::node> value_node_view = config_table.at_path(key);
-  if (value_node_view.is_array()) {
-    toml::array value_array = *value_node_view.as_array();
-    if (!value_array.empty()) {
-      return value_array;
-    }
-    throw std::out_of_range(fmt::format("Error: {} is empty in config file.", key));
+template <typename T>
+T castStringToEnum(const std::string_view& enum_string) {
+  std::optional<T> enum_value = magic_enum::enum_cast<T>(enum_string);
+  if (enum_value.has_value()) {
+    return enum_value.value();
   }
-  throw std::out_of_range(fmt::format("Error: {} is not found in config file.", key));
+  throw std::out_of_range(fmt::format("Error: {} does not have a valid value in config file.", enum_string));
 }
 
 void readConfig(const std::filesystem::path& config_file, Config& config);

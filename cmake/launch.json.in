@@ -5,7 +5,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            // NOTE: vscode does not natively support lldb
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
@@ -39,6 +38,7 @@
             "miDebuggerPath": "/usr/bin/gdb"
         },
         {
+            // NOTE: vscode does not natively support lldb
             "type": "lldb",
             "request": "launch",
             "name": "(lldb) Launch",

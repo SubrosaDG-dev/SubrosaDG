@@ -17,8 +17,9 @@
 
 #include <Eigen/Core>          // for Vector
 #include <filesystem>          // for path
-#include <string_view>         // for string_view, hash
 #include <unordered_map>       // for unordered_map
+#include <string>              // for string, hash
+#include <vector>              // for vector
 
 #include "basic/data_types.h"  // for Real, Usize, Isize
 
@@ -55,15 +56,18 @@ struct FlowParameter {
 };
 
 struct Config {
+  std::filesystem::path config_file_;
   int dimension_;
   int polynomial_order_;
   SimulationType simulation_type_;
   NoVisFluxType no_vis_flux_type_;
   std::filesystem::path mesh_file_;
   TimeIntegration time_integration_;
-  std::unordered_map<std::string_view, BoundaryType> boundary_condition_;
-  std::unordered_map<std::string_view, ThermodynamicModel> thermodynamic_model_;
-  std::unordered_map<std::string_view, FlowParameter> initial_condition_;
+  std::unordered_map<std::string, BoundaryType> boundary_condition_;
+  ThermodynamicModel thermodynamic_model_;
+  std::unordered_map<std::string, Usize> region_name_map_;
+  std::vector<std::string> region_name_;
+  std::unordered_map<std::string, FlowParameter> initial_condition_;
   FlowParameter farfield_parameter_;
 };
 
