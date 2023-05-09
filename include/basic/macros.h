@@ -13,12 +13,11 @@
 #ifndef SUBROSA_DG_MACROS_H_
 #define SUBROSA_DG_MACROS_H_
 
-namespace SubrosaDG {
-
 #ifndef SUBROSA_DG_DEVELOP
-#define DBG_MACRO_DISABLE
-#endif
 
-}  // namespace SubrosaDG
+#define DBG_MACRO_DISABLE
+#define EIGEN_NO_DEBUG
+
+#endif  // SUBROSA_DG_DEVELOP
 
 #endif  // SUBROSA_DG_MACROS_H_

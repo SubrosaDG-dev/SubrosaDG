@@ -29,6 +29,23 @@ namespace SubrosaDG::Internal {
 
 struct Config;
 
+/**
+ * @brief Get the Value From Toml object
+ *
+ * @tparam T The type of value.
+ * @param config_table The toml object.
+ * @param key The key of value.
+ * @return T The value.
+ *
+ * @exception std::out_of_range The key is not found in config file.
+ *
+ * @details This function is a template function that gets the value from the toml::table object. The function accepts a
+ * toml::table object and a key corresponding to the value. If the acquisition fails (that is, the std::optional
+ * variable has no value), an std::out_of_range exception will be thrown. Because the tomlplusplus library does not
+ * write a module that throws an exception, a template function can only be used to manually throw an exception. And
+ * because the array is a very special type, this template function explicitly instantiates the template function of the
+ * toml::array type.
+ */
 template <typename T>
 T getValueFromToml(const toml::table& config_table, const std::string_view& key) {
   std::optional<T> optional_value = config_table.at_path(key).value<T>();

@@ -14,76 +14,100 @@
 
 #include "mesh/reconstruct_edge.h"
 
-#include <gmsh.h>                 // for getElementType, createEdges, getEdges, getElementEdgeNodes, getElementsByType
+#include <gmsh.h>                 // for createEdges, getEdges, getElementEdgeNodes, getElementType, getElementsByType
 #include <map>                    // for map, operator==, _Rb_tree_iterator
 #include <Eigen/Core>             // for Matrix, Dynamic
 #include <cstddef>                // for size_t
-#include <memory>                 // for unique_ptr, make_unique
-#include <string>                 // for allocator, string
-#include <unordered_map>          // for unordered_map
+#include <memory>                 // for make_unique, unique_ptr, allocator, shared_ptr, __shared_ptr_access
 #include <vector>                 // for vector
-#include <algorithm>              // for max_element
-#include <utility>                // for move, pair
-#include <string_view>            // for string_view, hash, operator==
+#include <algorithm>              // for max_element, min_element, max
+#include <utility>                // for pair, make_pair
+#include <string_view>            // for string_view, basic_string_view
 
-#include "mesh/mesh_map.h"        // for kElementPointNumMap
-#include "basic/data_types.h"     // for Usize, Isize
-#include "mesh/mesh_structure.h"  // for Mesh2d, MeshSupplementalInfo
+#include "basic/data_types.h"     // for Isize, Usize, Real
+#include "mesh/mesh_structure.h"  // for Edge, MeshSupplementalInfo
 
 // clang-format on
 
 namespace SubrosaDG::Internal {
 
-void reconstructEdge(Mesh2d& mesh, const MeshSupplementalInfo& mesh_supplemental_info) {
+// NOTE: use std::make_pair(std::ref(a), std::ref(b)) to avoid copy
+Isize reconstructEdge(const std::shared_ptr<Eigen::Matrix<Real, 3, Eigen::Dynamic>>& nodes,
+                      std::pair<Edge&, Edge&> edge, const MeshSupplementalInfo& mesh_supplemental_info) {
   gmsh::model::mesh::createEdges();
-  EdgeInfo triangle_edge_info{"Triangle"};
-  EdgeInfo quadrangle_edge_info{"Quadrangle"};
-  std::vector<Usize> num_edges{getMaxEdgeTag(triangle_edge_info), getMaxEdgeTag(quadrangle_edge_info)};
-  mesh.num_edges_ = *std::max_element(num_edges.begin(), num_edges.end());
-  mesh.iedges_ = std::make_unique<Eigen::Matrix<Isize, 4, Eigen::Dynamic>>(4, mesh.num_edges_);
-  std::map<Usize, bool> edges2_elements;
-  reconstructElementEdge(edges2_elements, triangle_edge_info, mesh);
-  reconstructElementEdge(edges2_elements, quadrangle_edge_info, mesh);
-  for (const auto& [tag, flag] : edges2_elements) {
-    if (!flag) {
-      mesh.iedges_->operator()(3, static_cast<Isize>(tag - 1)) = mesh_supplemental_info.iboundary_->operator()(
-          static_cast<Isize>(tag - mesh_supplemental_info.num_boundary_.first));
+  std::map<Usize, std::pair<bool, std::vector<Isize>>> edge_element_map;
+  getEdgeElementMap(edge_element_map, std::make_pair("Triangle", 3));
+  getEdgeElementMap(edge_element_map, std::make_pair("Quadrangle", 4));
+  std::vector<Usize> interior_edge_tag;
+  std::vector<Usize> boundary_edge_tag;
+  for (const auto& [edge_tag, element_pair] : edge_element_map) {
+    const auto& [flag, element_index] = element_pair;
+    if (flag) {
+      interior_edge_tag.push_back(edge_tag);
+    } else {
+      boundary_edge_tag.push_back(edge_tag);
     }
   }
-}
-
-EdgeInfo::EdgeInfo(std::string element_name) : element_name_(std::move(element_name)) {}
-
-Usize getMaxEdgeTag(EdgeInfo& edge_info) {
-  Usize max_edge_tag = 0;
-  std::vector<int> edge_orientations;
-  int element_type = gmsh::model::mesh::getElementType(edge_info.element_name_, 1);
-  gmsh::model::mesh::getElementEdgeNodes(element_type, edge_info.edge_nodes_);
-  if (!edge_info.edge_nodes_.empty()) {
-    gmsh::model::mesh::getEdges(edge_info.edge_nodes_, edge_info.edge_tags_, edge_orientations);
-    max_edge_tag = *std::max_element(edge_info.edge_tags_.begin(), edge_info.edge_tags_.end());
+  edge.first.edge_num_ = std::make_pair(*std::min_element(interior_edge_tag.begin(), interior_edge_tag.end()),
+                                        *std::max_element(interior_edge_tag.begin(), interior_edge_tag.end()));
+  edge.second.edge_num_ = std::make_pair(*std::min_element(boundary_edge_tag.begin(), boundary_edge_tag.end()),
+                                         *std::max_element(boundary_edge_tag.begin(), boundary_edge_tag.end()));
+  Isize interior_edge_num = edge.first.edge_num_.second - edge.first.edge_num_.first + 1;
+  Isize boundary_edge_num = edge.second.edge_num_.second - edge.second.edge_num_.first + 1;
+  edge.first.edge_nodes_ = std::make_unique<Eigen::Matrix<Real, 6, Eigen::Dynamic>>(6, interior_edge_num);
+  edge.second.edge_nodes_ = std::make_unique<Eigen::Matrix<Real, 6, Eigen::Dynamic>>(6, boundary_edge_num);
+  edge.first.edge_index_ = std::make_unique<Eigen::Matrix<Isize, 4, Eigen::Dynamic>>(4, interior_edge_num);
+  edge.second.edge_index_ = std::make_unique<Eigen::Matrix<Isize, 4, Eigen::Dynamic>>(4, boundary_edge_num);
+  for (const auto& edge_tag : interior_edge_tag) {
+    const auto& [flag, element_index] = edge_element_map[edge_tag];
+    for (Isize i = 0; i < 6; i++) {
+      edge.first.edge_nodes_->operator()(i, static_cast<Isize>(edge_tag) - edge.first.edge_num_.first) =
+          nodes->operator()(i / 3, element_index[static_cast<Usize>(i / 3)] - 1);
+    }
+    for (Isize i = 0; i < 4; i++) {
+      edge.first.edge_index_->operator()(i, static_cast<Isize>(edge_tag) - edge.first.edge_num_.first) =
+          element_index[static_cast<Usize>(i)];
+    }
   }
-  return max_edge_tag;
+  for (const auto& edge_tag : boundary_edge_tag) {
+    const auto& [flag, element_index] = edge_element_map[edge_tag];
+    for (Isize i = 0; i < 6; i++) {
+      edge.second.edge_nodes_->operator()(i, static_cast<Isize>(edge_tag) - edge.second.edge_num_.first) =
+          nodes->operator()(i / 3, element_index[static_cast<Usize>(i / 3)] - 1);
+    }
+    for (Isize i = 0; i < 3; i++) {
+      edge.second.edge_index_->operator()(i, static_cast<Isize>(edge_tag) - edge.second.edge_num_.first) =
+          element_index[static_cast<Usize>(i)];
+    }
+    edge.second.edge_index_->operator()(3, static_cast<Isize>(edge_tag) - edge.second.edge_num_.first) =
+        mesh_supplemental_info.boundary_index_->operator()(static_cast<Isize>(edge_tag) -
+                                                           mesh_supplemental_info.boundary_num_.first);
+  }
+  return std::max(edge.first.edge_num_.second, edge.second.edge_num_.second);
 }
 
-void reconstructElementEdge(std::map<Usize, bool>& edges2_elements, EdgeInfo& edge_info, Mesh2d& mesh) {
-  int element_type = gmsh::model::mesh::getElementType(edge_info.element_name_, 1);
-  Usize element_point_num = kElementPointNumMap.at(edge_info.element_name_);
+void getEdgeElementMap(std::map<Usize, std::pair<bool, std::vector<Isize>>>& edge_element_map,
+                       const std::pair<std::string_view, Usize>& element_type_info) {
+  std::vector<std::size_t> edge_nodes_tags;
+  int element_type = gmsh::model::mesh::getElementType(element_type_info.first.data(), 1);
+  gmsh::model::mesh::getElementEdgeNodes(element_type, edge_nodes_tags);
+  std::vector<int> edge_orientations;
+  std::vector<std::size_t> edge_tags;
+  gmsh::model::mesh::getEdges(edge_nodes_tags, edge_tags, edge_orientations);
+  std::vector<std::size_t> element_tags;
   std::vector<std::size_t> element_node_tags;
-  gmsh::model::mesh::getElementsByType(element_type, edge_info.element_tags_, element_node_tags);
-  for (std::size_t i = 0; i < edge_info.edge_tags_.size(); i++) {
-    if (!edges2_elements.contains(edge_info.edge_tags_[i])) {
-      edges2_elements[edge_info.edge_tags_[i]] = false;
-      mesh.iedges_->operator()(0, static_cast<Isize>(edge_info.edge_tags_[i] - 1)) =
-          static_cast<Isize>(edge_info.edge_nodes_[2 * i]);
-      mesh.iedges_->operator()(1, static_cast<Isize>(edge_info.edge_tags_[i] - 1)) =
-          static_cast<Isize>(edge_info.edge_nodes_[2 * i + 1]);
-      mesh.iedges_->operator()(2, static_cast<Isize>(edge_info.edge_tags_[i] - 1)) =
-          static_cast<Isize>(edge_info.element_tags_[i / element_point_num]);
+  gmsh::model::mesh::getElementsByType(element_type, element_tags, element_node_tags);
+  for (std::size_t i = 0; i < edge_tags.size(); i++) {
+    if (!edge_element_map.contains(edge_tags[i])) {
+      edge_element_map[edge_tags[i]].first = false;
+      edge_element_map[edge_tags[i]].second.emplace_back(static_cast<Isize>(edge_nodes_tags[2 * i]));
+      edge_element_map[edge_tags[i]].second.emplace_back(static_cast<Isize>(edge_nodes_tags[2 * i + 1]));
+      edge_element_map[edge_tags[i]].second.emplace_back(
+          static_cast<Isize>(element_tags[i / element_type_info.second]));
     } else {
-      edges2_elements[edge_info.edge_tags_[i]] = true;
-      mesh.iedges_->operator()(3, static_cast<Isize>(edge_info.edge_tags_[i] - 1)) =
-          static_cast<Isize>(edge_info.element_tags_[i / element_point_num]);
+      edge_element_map[edge_tags[i]].first = true;
+      edge_element_map[edge_tags[i]].second.emplace_back(
+          static_cast<Isize>(element_tags[i / element_type_info.second]));
     }
   }
 }

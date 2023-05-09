@@ -1,5 +1,5 @@
 #[[
-# @file clang-format.cmake
+# @file ClangFormat.cmake
 # @brief The cmake file to enable clang-format automaticly during compilation.
 #
 # @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com

@@ -13,6 +13,12 @@
 #ifndef SUBROSA_DG_H_
 #define SUBROSA_DG_H_
 
+// clang-format off
+
+#include "basic/macros.h"  // IWYU pragma: keep
+
+// clang-format on
+
 namespace SubrosaDG {}  // namespace SubrosaDG
 
 #endif  // SUBROSA_DG_H_

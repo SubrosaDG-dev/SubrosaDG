@@ -20,26 +20,28 @@
 #include <cstddef>                    // for size_t
 #include <cstdlib>                    // for exit, EXIT_FAILURE
 #include <iostream>                   // for endl, operator<<, basic_ostream, cerr, ostream
-#include <memory>                     // for make_unique, unique_ptr
+#include <memory>                     // for make_unique, unique_ptr, allocator, shared_ptr, make_shared, __shared_p...
 #include <stdexcept>                  // for out_of_range
 #include <unordered_map>              // for unordered_map
 #include <utility>                    // for pair, make_pair
-#include <string_view>                // for string_view, hash, operator==
+#include <string_view>                // for string_view, basic_string_view
 #include <filesystem>                 // for path
 
 #include "config/config_structure.h"  // for Config
-#include "mesh/mesh_map.h"            // for kElementPointNumMap
-#include "mesh/mesh_structure.h"      // for MeshSupplementalInfo, IElement, Mesh2d
+#include "mesh/mesh_structure.h"      // for Element, MeshSupplementalInfo, Mesh2d
 #include "basic/data_types.h"         // for Isize, Real, Usize
 
 // clang-format on
+
 namespace SubrosaDG::Internal {
 
 void readMesh(Mesh2d& mesh) {
   getNodes(mesh);
-  gmsh::model::mesh::getMaxElementTag(mesh.num_elements_);
-  getElements(mesh.ielement_triangle_, "Triangle");
-  getElements(mesh.ielement_quadrangle_, "Quadrangle");
+  std::size_t element_num;
+  gmsh::model::mesh::getMaxElementTag(element_num);
+  mesh.element_num_ = static_cast<Isize>(element_num);
+  getElements(mesh.nodes_, mesh.triangle_element_);
+  getElements(mesh.nodes_, mesh.quadrangle_element_);
 }
 
 void readMeshSupplementalInfo(const Config& config, MeshSupplementalInfo& mesh_supplemental_info) {
@@ -59,24 +61,24 @@ void readMeshSupplementalInfo(const Config& config, MeshSupplementalInfo& mesh_s
       elem_entity_tags_2d.insert(elem_entity_tags_2d.end(), elem_entity_tags.begin(), elem_entity_tags.end());
     }
   }
-  mesh_supplemental_info.num_boundary_ = std::make_pair(elem_entity_tags_1d.front(), elem_entity_tags_1d.back());
-  mesh_supplemental_info.num_region_ = std::make_pair(elem_entity_tags_2d.front(), elem_entity_tags_2d.back());
-  mesh_supplemental_info.iboundary_ = std::make_unique<Eigen::Vector<Isize, Eigen::Dynamic>>(
-      mesh_supplemental_info.num_boundary_.second - mesh_supplemental_info.num_boundary_.first + 1);
-  mesh_supplemental_info.iregion_ = std::make_unique<Eigen::Vector<Isize, Eigen::Dynamic>>(
-      mesh_supplemental_info.num_region_.second - mesh_supplemental_info.num_region_.first + 1);
+  mesh_supplemental_info.boundary_num_ = std::make_pair(elem_entity_tags_1d.front(), elem_entity_tags_1d.back());
+  mesh_supplemental_info.region_num_ = std::make_pair(elem_entity_tags_2d.front(), elem_entity_tags_2d.back());
+  mesh_supplemental_info.boundary_index_ = std::make_unique<Eigen::Vector<Isize, Eigen::Dynamic>>(
+      mesh_supplemental_info.boundary_num_.second - mesh_supplemental_info.boundary_num_.first + 1);
+  mesh_supplemental_info.region_index_ = std::make_unique<Eigen::Vector<Isize, Eigen::Dynamic>>(
+      mesh_supplemental_info.region_num_.second - mesh_supplemental_info.region_num_.first + 1);
   try {
     for (const auto& [dim, name, elem_entity_tags] : physical_groups) {
       if (dim == 1) {
         for (const auto& elem_entity_tag : elem_entity_tags) {
-          mesh_supplemental_info.iboundary_->operator()(
-              static_cast<Isize>(elem_entity_tag - mesh_supplemental_info.num_boundary_.first)) =
+          mesh_supplemental_info.boundary_index_->operator()(static_cast<Isize>(elem_entity_tag) -
+                                                             mesh_supplemental_info.boundary_num_.first) =
               static_cast<Isize>(config.boundary_condition_.at(name));
         }
       } else if (dim == 2) {
         for (const auto& elem_entity_tag : elem_entity_tags) {
-          mesh_supplemental_info.iregion_->operator()(
-              static_cast<Isize>(elem_entity_tag - mesh_supplemental_info.num_region_.first)) =
+          mesh_supplemental_info.region_index_->operator()(static_cast<Isize>(elem_entity_tag) -
+                                                           mesh_supplemental_info.region_num_.first) =
               static_cast<Isize>(config.region_name_map_.at(name));
         }
       }
@@ -88,37 +90,43 @@ void readMeshSupplementalInfo(const Config& config, MeshSupplementalInfo& mesh_s
   }
 }
 
+/**
+ * @details
+ * This function's purpose is to get all the element tags of the physical group and store it into a vector. It takes in
+ * `dimension` and a `physical_group_tag`. It uses `getPhysicalName` function to get the `physical_group_name` and
+ * `getEntitiesForPhysicalGroup` function to get the `physical_group_entity_tag`. Then, it uses the
+ * `concatenateElementEntityTags` function to put all the entity tags in `physical_group_entity_tag` into
+ * `elem_entity_tags`, which refers to all the element tags bound to this entity. For entities with a dimension of 1,
+ * `elem_entity_tags` include the Line tags. For entities with a dimension of 2, `elem_entity_tags` include Triangle and
+ * Quadrangle tags. Finally, it returns a tuple containing `dimension`, `physical_group_name`, and `elem_entity_tags`.
+ */
 std::tuple<int, std::string, std::vector<std::size_t>> getPhysicalGroups(const int dim, const int physical_group_tag) {
   std::string physical_group_name;
   std::vector<int> physical_group_entity_tag;
   gmsh::model::getPhysicalName(dim, physical_group_tag, physical_group_name);
   gmsh::model::getEntitiesForPhysicalGroup(dim, physical_group_tag, physical_group_entity_tag);
-  std::vector<std::size_t> elem_tags;
-  std::vector<std::size_t> elem_node_tags;
   std::vector<std::size_t> elem_entity_tags;
   if (dim == 1) {
-    int element_type_line = gmsh::model::mesh::getElementType("Line", 1);
-    for (const auto& entity_tag : physical_group_entity_tag) {
-      gmsh::model::mesh::getElementsByType(element_type_line, elem_tags, elem_node_tags, entity_tag);
-      elem_entity_tags.insert(elem_entity_tags.end(), elem_tags.begin(), elem_tags.end());
-    }
+    concatenateElementEntityTags(elem_entity_tags, physical_group_entity_tag, "Line");
   } else if (dim == 2) {
-    int element_type_tri = gmsh::model::mesh::getElementType("Triangle", 1);
-    for (const auto& entity_tag : physical_group_entity_tag) {
-      gmsh::model::mesh::getElementsByType(element_type_tri, elem_tags, elem_node_tags, entity_tag);
-      if (!elem_tags.empty()) {
-        elem_entity_tags.insert(elem_entity_tags.end(), elem_tags.begin(), elem_tags.end());
-      }
-    }
-    int element_type_quad = gmsh::model::mesh::getElementType("Quadrangle", 1);
-    for (const auto& entity_tag : physical_group_entity_tag) {
-      gmsh::model::mesh::getElementsByType(element_type_quad, elem_tags, elem_node_tags, entity_tag);
-      if (!elem_tags.empty()) {
-        elem_entity_tags.insert(elem_entity_tags.end(), elem_tags.begin(), elem_tags.end());
-      }
-    }
+    concatenateElementEntityTags(elem_entity_tags, physical_group_entity_tag, "Triangle");
+    concatenateElementEntityTags(elem_entity_tags, physical_group_entity_tag, "Quadrangle");
   }
   return {dim, physical_group_name, elem_entity_tags};
+}
+
+void concatenateElementEntityTags(std::vector<std::size_t>& elem_entity_tags,
+                                  const std::vector<int>& physical_group_entity_tag,
+                                  const std::string_view& element_type_name) {
+  std::vector<std::size_t> elem_tags;
+  std::vector<std::size_t> elem_node_tags;
+  int element_type = gmsh::model::mesh::getElementType(element_type_name.data(), 1);
+  for (const auto& entity_tag : physical_group_entity_tag) {
+    gmsh::model::mesh::getElementsByType(element_type, elem_tags, elem_node_tags, entity_tag);
+    if (!elem_tags.empty()) {
+      elem_entity_tags.insert(elem_entity_tags.end(), elem_tags.begin(), elem_tags.end());
+    }
+  }
 }
 
 void getNodes(Mesh2d& mesh) {
@@ -126,32 +134,39 @@ void getNodes(Mesh2d& mesh) {
   std::vector<double> node_coords;
   std::vector<double> node_params;
   gmsh::model::mesh::getNodes(node_tags, node_coords, node_params);
-  gmsh::model::mesh::getMaxNodeTag(mesh.num_nodes_);
-  mesh.nodes_ = std::make_unique<Eigen::Matrix<Real, 3, Eigen::Dynamic>>(3, mesh.num_nodes_);
+  std::size_t node_num;
+  gmsh::model::mesh::getMaxNodeTag(node_num);
+  mesh.node_num_ = static_cast<Isize>(node_num);
+  mesh.nodes_ = std::make_shared<Eigen::Matrix<Real, 3, Eigen::Dynamic>>(3, mesh.node_num_);
   for (const auto& node_tag : node_tags) {
     mesh.nodes_->col(static_cast<Isize>(node_tag - 1)) << static_cast<Real>(node_coords[3 * (node_tag - 1)]),
         static_cast<Real>(node_coords[3 * (node_tag - 1) + 1]), static_cast<Real>(node_coords[3 * (node_tag - 1) + 2]);
   }
 }
 
-void getElements(IElement& i_element, const std::string& element_name) {
-  int element_type = gmsh::model::mesh::getElementType(element_name, 1);
-  Usize element_point_num = kElementPointNumMap.at(element_name);
+void getElements(const std::shared_ptr<Eigen::Matrix<Real, 3, Eigen::Dynamic>>& nodes, Element& element) {
+  int element_type = gmsh::model::mesh::getElementType(element.element_type_info_.first.data(), 1);
   std::vector<std::size_t> elem_tags;
   std::vector<std::size_t> elem_node_tag;
   gmsh::model::mesh::getElementsByType(element_type, elem_tags, elem_node_tag);
   if (elem_tags.empty()) {
-    i_element.num_elements_ = std::make_pair(0, 0);
-    i_element.ielements_ = nullptr;
+    element.element_num_ = std::make_pair(0, 0);
+    element.element_index_ = nullptr;
   } else {
-    i_element.num_elements_ = std::make_pair(elem_tags.front(), elem_tags.back());
-    i_element.ielements_ =
-        std::make_unique<Eigen::Matrix<Isize, Eigen::Dynamic, Eigen::Dynamic>>(element_point_num, elem_tags.size());
+    element.element_num_ = std::make_pair(elem_tags.front(), elem_tags.back());
+    element.element_index_ = std::make_unique<Eigen::Matrix<Isize, Eigen::Dynamic, Eigen::Dynamic>>(
+        element.element_type_info_.second, elem_tags.size());
+    element.element_nodes_ = std::make_unique<Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>>(
+        element.element_type_info_.second * 3, elem_tags.size());
     for (const auto& elem_tag : elem_tags) {
-      for (Usize i = 0; i < element_point_num; i++) {
-        i_element.ielements_->operator()(static_cast<Isize>(i),
-                                         static_cast<Isize>(elem_tag - i_element.num_elements_.first)) =
-            static_cast<Isize>(elem_node_tag[(elem_tag - i_element.num_elements_.first) * element_point_num + i]);
+      for (Isize i = 0; i < element.element_type_info_.second; i++) {
+        auto node_tag = static_cast<Isize>(elem_node_tag[static_cast<Usize>(
+            (static_cast<Isize>(elem_tag) - element.element_num_.first) * element.element_type_info_.second + i)]);
+        element.element_index_->operator()(i, static_cast<Isize>(elem_tag) - element.element_num_.first) = node_tag;
+        for (Isize j = 0; j < 3; j++) {
+          element.element_nodes_->operator()(i * 3 + j, static_cast<Isize>(elem_tag) - element.element_num_.first) =
+              nodes->operator()(j, node_tag - 1);
+        }
       }
     }
   }

@@ -1,5 +1,5 @@
 #[[
-# @file files.cmake
+# @file GlobFiles.cmake
 # @brief The cmake file to search all files automaticly during compilation.
 #
 # @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com

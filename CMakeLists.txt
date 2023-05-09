@@ -13,8 +13,8 @@
 cmake_minimum_required(VERSION 3.25)
 
 # add cmake module path
-include(${CMAKE_CURRENT_LIST_DIR}/cmake/files.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/cmake/utils.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/GlobFiles.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/Utils.cmake)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 # get git revision
@@ -170,7 +170,7 @@ endif()
 if(SUBROSA_DG_DEVELOP)
     find_program(CLANG_FORMAT NAMES clang-format)
     if(CLANG_FORMAT)
-        include(${PROJECT_SOURCE_DIR}/cmake/clang-format.cmake)
+        include(${PROJECT_SOURCE_DIR}/cmake/ClangFormat.cmake)
         message_tool_version(clang-format "${CLANG_FORMAT}")
     endif()
 endif()
@@ -193,7 +193,7 @@ if(SUBROSA_DG_DEVELOP)
     find_program(IWYU_TOOL NAMES iwyu_tool.py HINTS ${PROJECT_SOURCE_DIR}/utils/include-what-you-use)
     find_program(IWYU_FIX_TOOL NAMES fix_includes.py HINTS ${PROJECT_SOURCE_DIR}/utils/include-what-you-use)
     if(IWYU_TOOL AND IWYU_FIX_TOOL)
-        include(${PROJECT_SOURCE_DIR}/cmake/iwyu.cmake)
+        include(${PROJECT_SOURCE_DIR}/cmake/Iwyu.cmake)
         list(APPEND CMAKE_CXX_INCLUDE_WHAT_YOU_USE "-Xiwyu"
             "--mapping_file=${CMAKE_CURRENT_LIST_DIR}/.iwyu.imp")
     endif()

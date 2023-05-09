@@ -1,5 +1,5 @@
 #[[
-# @file iwyu.cmake
+# @file Iwyu.cmake
 # @brief The cmake file to enable iwyu automaticly during compilation.
 #
 # @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com

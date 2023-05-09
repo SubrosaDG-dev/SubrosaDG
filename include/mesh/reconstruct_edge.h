@@ -16,33 +16,26 @@
 // clang-format off
 
 #include <map>                 // for map
-#include <string>              // for string
+#include <memory>              // for shared_ptr
+#include <Eigen/Core>          // for Dynamic, Matrix
 #include <vector>              // for vector
-#include <cstddef>             // for size_t
+#include <string_view>         // for string_view
+#include <utility>             // for pair
 
-#include "basic/data_types.h"  // for Usize
+#include "basic/data_types.h"  // for Isize, Usize, Real
 
 // clang-format on
 
 namespace SubrosaDG::Internal {
 
-struct Mesh2d;
+struct Edge;
 struct MeshSupplementalInfo;
 
-struct EdgeInfo {
-  std::string element_name_;
-  std::vector<std::size_t> edge_nodes_;
-  std::vector<std::size_t> edge_tags_;
-  std::vector<std::size_t> element_tags_;
+Isize reconstructEdge(const std::shared_ptr<Eigen::Matrix<Real, 3, Eigen::Dynamic>>& nodes,
+                      std::pair<Edge&, Edge&> edge, const MeshSupplementalInfo& mesh_supplemental_info);
 
-  EdgeInfo(std::string element_name);
-};
-
-void reconstructEdge(Mesh2d& mesh, const MeshSupplementalInfo& mesh_supplemental_info);
-
-Usize getMaxEdgeTag(EdgeInfo& edge_info);
-
-void reconstructElementEdge(std::map<Usize, bool>& edges2_elements, EdgeInfo& edge_info, Mesh2d& mesh);
+void getEdgeElementMap(std::map<Usize, std::pair<bool, std::vector<Isize>>>& edge_element_map,
+                       const std::pair<std::string_view, Usize>& element_type_info);
 
 }  // namespace SubrosaDG::Internal
 

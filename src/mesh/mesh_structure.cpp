@@ -20,6 +20,10 @@
 
 namespace SubrosaDG::Internal {
 
+Element::Element(std::string_view element_name, Isize element_num) {
+  this->element_type_info_ = std::make_pair(element_name, element_num);
+}
+
 Mesh2d::Mesh2d(const std::filesystem::path& mesh_file) { gmsh::open(mesh_file.string()); }
 
 }  // namespace SubrosaDG::Internal
