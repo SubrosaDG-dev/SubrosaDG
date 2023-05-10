@@ -29,14 +29,14 @@ void calculateMeshMeasure(Element& element) {
                                                                                 element.element_num_.first + 1);
   Eigen::Matrix<Real, 3, Eigen::Dynamic> nodes;
   nodes.resize(3, element.element_type_info_.second);
-  for (Isize i = element.element_num_.first; i < element.element_num_.second; i++) {
+  for (Isize i = element.element_num_.first; i < element.element_num_.second + 1; i++) {
     nodes = element.element_nodes_->col(i - element.element_num_.first).reshaped(3, element.element_type_info_.second);
     element.element_area_->operator()(i - element.element_num_.first) = calculatePolygonArea(nodes);
   }
 }
 
 Real calculatePolygonArea(Eigen::Matrix<Real, 3, Eigen::Dynamic>& nodes) {
-  Eigen::Vector<Real, 3> cross_product = nodes.col(0).cross(nodes.col(nodes.cols() - 1));
+  Eigen::Vector<Real, 3> cross_product = nodes.col(nodes.cols() - 1).cross(nodes.col(0));
   for (Isize i = 0; i < nodes.cols() - 1; i++) {
     cross_product += nodes.col(i).cross(nodes.col(i + 1));
   }

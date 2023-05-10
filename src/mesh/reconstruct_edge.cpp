@@ -20,9 +20,10 @@
 #include <cstddef>                // for size_t
 #include <memory>                 // for make_unique, unique_ptr, allocator, shared_ptr, __shared_ptr_access
 #include <vector>                 // for vector
-#include <algorithm>              // for max_element, min_element, max
+#include <algorithm>              // for minmax_element_result, __minmax_element_fn, minmax_element, __max_fn, max
 #include <utility>                // for pair, make_pair
 #include <string_view>            // for string_view, basic_string_view
+#include <functional>             // for identity, less
 
 #include "basic/data_types.h"     // for Isize, Usize, Real
 #include "mesh/mesh_structure.h"  // for Edge, MeshSupplementalInfo
@@ -32,8 +33,9 @@
 namespace SubrosaDG::Internal {
 
 // NOTE: use std::make_pair(std::ref(a), std::ref(b)) to avoid copy
-Isize reconstructEdge(const std::shared_ptr<Eigen::Matrix<Real, 3, Eigen::Dynamic>>& nodes,
-                      std::pair<Edge&, Edge&> edge, const MeshSupplementalInfo& mesh_supplemental_info) {
+[[nodiscard("Return edge num.")]] Isize reconstructEdge(
+    const std::shared_ptr<Eigen::Matrix<Real, 3, Eigen::Dynamic>>& nodes, std::pair<Edge&, Edge&> edge,
+    const MeshSupplementalInfo& mesh_supplemental_info) {
   gmsh::model::mesh::createEdges();
   std::map<Usize, std::pair<bool, std::vector<Isize>>> edge_element_map;
   getEdgeElementMap(edge_element_map, std::make_pair("Triangle", 3));
@@ -42,16 +44,16 @@ Isize reconstructEdge(const std::shared_ptr<Eigen::Matrix<Real, 3, Eigen::Dynami
   std::vector<Usize> boundary_edge_tag;
   for (const auto& [edge_tag, element_pair] : edge_element_map) {
     const auto& [flag, element_index] = element_pair;
-    if (flag) {
+    if (flag) [[likely]] {
       interior_edge_tag.push_back(edge_tag);
-    } else {
+    } else [[unlikely]] {
       boundary_edge_tag.push_back(edge_tag);
     }
   }
-  edge.first.edge_num_ = std::make_pair(*std::min_element(interior_edge_tag.begin(), interior_edge_tag.end()),
-                                        *std::max_element(interior_edge_tag.begin(), interior_edge_tag.end()));
-  edge.second.edge_num_ = std::make_pair(*std::min_element(boundary_edge_tag.begin(), boundary_edge_tag.end()),
-                                         *std::max_element(boundary_edge_tag.begin(), boundary_edge_tag.end()));
+  const auto& [interior_min, interior_max] = std::ranges::minmax_element(interior_edge_tag);
+  edge.first.edge_num_ = std::make_pair(*interior_min, *interior_max);
+  const auto& [boundary_min, boundary_max] = std::ranges::minmax_element(boundary_edge_tag);
+  edge.second.edge_num_ = std::make_pair(*boundary_min, *boundary_max);
   Isize interior_edge_num = edge.first.edge_num_.second - edge.first.edge_num_.first + 1;
   Isize boundary_edge_num = edge.second.edge_num_.second - edge.second.edge_num_.first + 1;
   edge.first.edge_nodes_ = std::make_unique<Eigen::Matrix<Real, 6, Eigen::Dynamic>>(6, interior_edge_num);
@@ -83,7 +85,7 @@ Isize reconstructEdge(const std::shared_ptr<Eigen::Matrix<Real, 3, Eigen::Dynami
         mesh_supplemental_info.boundary_index_->operator()(static_cast<Isize>(edge_tag) -
                                                            mesh_supplemental_info.boundary_num_.first);
   }
-  return std::max(edge.first.edge_num_.second, edge.second.edge_num_.second);
+  return std::ranges::max(edge.first.edge_num_.second, edge.second.edge_num_.second);
 }
 
 void getEdgeElementMap(std::map<Usize, std::pair<bool, std::vector<Isize>>>& edge_element_map,

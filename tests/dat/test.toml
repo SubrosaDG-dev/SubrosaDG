@@ -1,0 +1,42 @@
+Dimension = 2
+
+PolynomialOrder = 2
+
+SimulationType = "Euler"
+
+NoVisFluxType = "Central"
+
+MeshFile = "build/out/test/mesh/test.msh"
+
+[TimeIntegration]
+type = "ExplicitEuler"
+iteration = 2000
+CFL = 0.1
+tolerance = -10
+
+[Boundary]
+name = ["bc-1"]
+
+[BoundaryCondition.bc-1]
+type = "Farfield"
+
+[ThermodynamicModel]
+EquationOfState = "IdealGas"
+gamma = 1.4
+c_p = 1.0
+R = 0.7142857142857143
+
+[Region]
+name = ["vc-1"]
+
+[InitialCondition.vc-1]
+U = [1.0, 0.5, 0.0]
+rho = 1.4
+p = 1.0
+T = 1.0
+
+[FarfieldParameter]
+U = [1.0, 0.5, 0.0]
+rho = 1.4
+p = 1.0
+T = 1.0

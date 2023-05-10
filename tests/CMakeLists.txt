@@ -14,6 +14,11 @@ cmake_minimum_required(VERSION 3.25)
 
 project(subrosa_dg_tests)
 
+set(CMAKE_EXAMPLE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}")
+
+# find gtest
+find_package(GTest CONFIG REQUIRED)
+
 # add custom target
 add_custom_target(all_tests)
 
@@ -24,13 +29,21 @@ else()
     set(TEST_MAIN_CPP "${CMAKE_CURRENT_LIST_DIR}/test_main.cpp")
 endif()
 
+# mkdir mesh output folder
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/test/mesh)
+
 # add function to compiler test
 function(add_gtest testname testfile)
     add_executable(${testname} EXCLUDE_FROM_ALL ${testfile} ${ARGN} ${TEST_MAIN_CPP})
-    target_link_libraries(${testname} gtest::gtest lib::subrosa_dg)
+    target_link_libraries(${testname} GTest::gtest lib::subrosa_dg)
+    set_target_properties(${testname} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_EXAMPLE_RUNTIME_OUTPUT_DIRECTORY}"
+    )
     add_dependencies(all_tests ${testname})
     add_test(NAME ${testname} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${testname})
 endfunction()
 
 # make all_ci depend on ALLTests
 add_dependencies(all_ci all_tests)
+
+add_gtest(test_main "")

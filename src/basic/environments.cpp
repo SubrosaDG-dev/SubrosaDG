@@ -12,6 +12,8 @@
 
 // clang-format off
 
+#include "basic/environments.h"
+
 #ifdef SUBROSA_DG_WITH_OPENMP
 #include <omp.h>        // for omp_set_num_threads
 #endif
@@ -21,7 +23,6 @@
 #include <string_view>  // for basic_string_view
 #include <regex>        // for sregex_token_iterator, regex
 
-#include "basic/environments.h"
 #include "cmake.h"      // for kNumberOfPhysicalCores, kSubrosaDGVersionString
 
 // clang-format on
@@ -33,6 +34,11 @@ namespace Internal {
 void printEnvironmentInfo() {
   std::cout << "SubrosaDG Info:" << std::endl;
   std::cout << fmt::format("Version: {}", kSubrosaDGVersionString) << std::endl;
+#ifdef SUBROSA_DG_DEVELOP
+  std::cout << "Build type: Debug" << std::endl;
+#else
+  std::cout << "Build type: Release" << std::endl;
+#endif
   std::cout << fmt::format("Number of physical cores: {}", kNumberOfPhysicalCores) << std::endl << std::endl;
   std::cout << "Gmsh Info:" << std::endl;
   for (const auto& line : getGmshInfo()) {
