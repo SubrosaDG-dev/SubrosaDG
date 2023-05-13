@@ -31,10 +31,9 @@
 #include "basic/data_types.h"         // for Isize, Real
 #include "config/config_defines.h"    // for BoundaryType, EquationOfState, NoVisFluxType, SimulationType, TimeInteg...
 #include "config/config_structure.h"  // for Config, FlowParameter, ThermodynamicModel, TimeIntegration
-#include "config/read_config.h"       // for readConfig
+#include "config/get_config.h"        // for getConfig
 #include "mesh/calculate_measure.h"   // for calculateElementMeasure
-#include "mesh/get_integration.h"     // for getElementJacobian
-#include "mesh/mesh_structure.h"      // for Mesh2d, Element, AdjanencyElement
+#include "mesh/mesh_structure.h"      // for Mesh2d, AdjanencyElement, Element
 #include "mesh/get_mesh.h"            // for getMesh
 
 // clang-format on
@@ -43,7 +42,7 @@
 
 TEST(TestMain, TestMain) {
   SubrosaDG::Internal::Config config;
-  SubrosaDG::Internal::readConfig(SubrosaDG::kProjectSourceDir / "tests/dat/test.toml", config);
+  SubrosaDG::Internal::getConfig(SubrosaDG::kProjectSourceDir / "tests/dat/test.toml", config);
 
   ASSERT_EQ(dbg(config.dimension_), 2);
   ASSERT_EQ(dbg(config.polynomial_order_), 2);

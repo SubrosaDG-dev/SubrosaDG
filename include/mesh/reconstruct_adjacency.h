@@ -10,8 +10,8 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_RECONSTRUCT_EDGE_H_
-#define SUBROSA_DG_RECONSTRUCT_EDGE_H_
+#ifndef SUBROSA_DG_RECONSTRUCT_ADJACENCY_H_
+#define SUBROSA_DG_RECONSTRUCT_ADJACENCY_H_
 
 // clang-format off
 
@@ -38,4 +38,4 @@ void getEdgeElementMap(std::map<Usize, std::pair<bool, std::vector<Isize>>>& edg
 
 }  // namespace SubrosaDG::Internal
 
-#endif  // SUBROSA_DG_RECONSTRUCT_EDGE_H_
+#endif  // SUBROSA_DG_RECONSTRUCT_ADJACENCY_H_

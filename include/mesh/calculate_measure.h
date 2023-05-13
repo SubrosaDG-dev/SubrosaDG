@@ -10,8 +10,8 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_CAL_MESH_MEASURE_H_
-#define SUBROSA_DG_CAL_MESH_MEASURE_H_
+#ifndef SUBROSA_DG_CALCULATE_MEASURE_H_
+#define SUBROSA_DG_CALCULATE_MEASURE_H_
 
 // clang-format off
 
@@ -32,4 +32,4 @@ Real calculatePolygonArea(const Eigen::Matrix<Real, 3, Eigen::Dynamic>& nodes);
 
 }  // namespace SubrosaDG::Internal
 
-#endif  // SUBROSA_DG_CAL_MESH_MEASURE_H_
+#endif  // SUBROSA_DG_CALCULATE_MEASURE_H_

@@ -259,6 +259,8 @@ struct ElementGradIntegral : ElementIntegral {
  * dimensions, and tetrahedrons and hexahedrons in three dimensions). The calculated element needs to know the
  * `grad_basis_functions_` to calculate the volume integral using gauss quadrature. Therefore, we derive the `Element`
  * structure from the `ElementGradIntegral` structure, not the `ElementIntegral` structure.
+ *
+ * @todo // TODO: Maybe here we will use template to distinguish the element type.
  */
 struct Element : ElementMesh, ElementGradIntegral {
   Element(const std::string_view& name, Isize nodes_num_per_element);
@@ -326,22 +328,22 @@ struct Mesh2d {
   /**
    * @brief The triangle element of the mesh.
    */
-  Element triangle_;
+  Element triangle_{"Triangle", 3};
 
   /**
    * @brief The quadrangle element of the mesh.
    */
-  Element quadrangle_;
+  Element quadrangle_{"Quadrangle", 4};
 
   /**
    * @brief The interior line element of the mesh.
    */
-  AdjanencyElement interior_line_;
+  AdjanencyElement interior_line_{"Line", 2};
 
   /**
    * @brief The boundary line element of the mesh.
    */
-  AdjanencyElement boundary_line_;
+  AdjanencyElement boundary_line_{"Line", 2};
 
   Mesh2d(const std::filesystem::path& mesh_file, Isize polynomial_order);
 };

@@ -1,6 +1,6 @@
 /**
- * @file read_config.cpp
- * @brief The source file for reading config.
+ * @file get_config.cpp
+ * @brief The source file to get config.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-04-27
@@ -12,7 +12,7 @@
 
 // clang-format off
 
-#include "config/read_config.h"
+#include "config/get_config.h"
 
 #include <fmt/core.h>                 // for format
 #include <toml++/toml.h>              // for array, operator!=, array_iterator, parse_error, table, node, operator<<
@@ -47,7 +47,7 @@ toml::array getValueFromToml<toml::array>(const toml::table& config_table, const
   throw std::out_of_range(fmt::format("Error: {} is not found in config file.", key));
 }
 
-void readConfig(const std::filesystem::path& config_file, Config& config) {
+void getConfig(const std::filesystem::path& config_file, Config& config) {
   using namespace std::string_view_literals;
 
   try {

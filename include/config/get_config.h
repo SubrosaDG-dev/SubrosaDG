@@ -1,6 +1,6 @@
 /**
- * @file read_config.h
- * @brief The head file for reading config.
+ * @file get_config.h
+ * @brief The head file to get config.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-04-27
@@ -10,8 +10,8 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_READ_CONFIG_H_
-#define SUBROSA_DG_READ_CONFIG_H_
+#ifndef SUBROSA_DG_GET_CONFIG_H_
+#define SUBROSA_DG_GET_CONFIG_H_
 
 // clang-format off
 
@@ -64,8 +64,8 @@ T castStringToEnum(const std::string_view& enum_string) {
   throw std::out_of_range(fmt::format("Error: {} does not have a valid value in config file.", enum_string));
 }
 
-void readConfig(const std::filesystem::path& config_file, Config& config);
+void getConfig(const std::filesystem::path& config_file, Config& config);
 
 }  // namespace SubrosaDG::Internal
 
-#endif  // SUBROSA_DG_READ_CONFIG_H_
+#endif  // SUBROSA_DG_GET_CONFIG_H_

@@ -46,12 +46,7 @@ AdjanencyElement::AdjanencyElement(const std::string_view& name, const Isize nod
       ElementIntegral(name, nodes_num_per_element) {}
 
 Mesh2d::Mesh2d(const std::filesystem::path& mesh_file, const Isize polynomial_order)
-    : polynomial_order_(polynomial_order),
-      gauss_integral_accuracy_(2 * polynomial_order + 1),
-      triangle_("Triangle", 3),
-      quadrangle_("Quadrangle", 4),
-      interior_line_("Line", 2),
-      boundary_line_("Line", 2) {
+    : polynomial_order_(polynomial_order), gauss_integral_accuracy_(2 * polynomial_order + 1) {
   gmsh::open(mesh_file.string());
 }
 

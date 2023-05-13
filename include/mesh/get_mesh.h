@@ -10,8 +10,8 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_READ_MESH_H_
-#define SUBROSA_DG_READ_MESH_H_
+#ifndef SUBROSA_DG_GRT_MESH_H_
+#define SUBROSA_DG_GRT_MESH_H_
 
 // clang-format off
 
@@ -71,4 +71,4 @@ void getElement(const Eigen::Matrix<Real, 3, Eigen::Dynamic>& nodes, ElementMesh
 
 }  // namespace SubrosaDG::Internal
 
-#endif  // SUBROSA_DG_READ_MESH_H_
+#endif  // SUBROSA_DG_GRT_MESH_H_

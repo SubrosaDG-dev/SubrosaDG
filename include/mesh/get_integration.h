@@ -10,8 +10,8 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_GET_MESH_INTEGRATION_H_
-#define SUBROSA_DG_GET_MESH_INTEGRATION_H_
+#ifndef SUBROSA_DG_GET_INTEGRATION_H_
+#define SUBROSA_DG_GET_INTEGRATION_H_
 
 // clang-format off
 
@@ -37,4 +37,4 @@ void getElementGradIntegral(Isize polynomial_order, Isize gauss_integral_accurac
 
 }  // namespace SubrosaDG::Internal
 
-#endif  // SUBROSA_DG_GET_MESH_INTEGRATION_H_
+#endif  // SUBROSA_DG_GET_INTEGRATION_H_
