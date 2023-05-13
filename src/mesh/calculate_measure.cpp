@@ -1,5 +1,5 @@
 /**
- * @file cal_mesh_measure.cpp
+ * @file calculate_measure.cpp
  * @brief The source file to calculate mesh measure.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -12,11 +12,10 @@
 
 // clang-format off
 
-#include "mesh/cal_mesh_measure.h"
+#include "mesh/calculate_measure.h"
 
 #include <Eigen/Geometry>         // for MatrixBase::cross
 #include <memory>                 // for make_unique, unique_ptr
-#include <utility>                // for pair
 
 #include "mesh/mesh_structure.h"  // for Element
 
@@ -24,18 +23,18 @@
 
 namespace SubrosaDG::Internal {
 
-void calculateMeshMeasure(Element& element) {
-  element.element_area_ = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(element.element_num_.second -
-                                                                                element.element_num_.first + 1);
+std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calculateElementMeasure(const Element& element) {
+  auto area = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(element.elements_num_);
   Eigen::Matrix<Real, 3, Eigen::Dynamic> nodes;
-  nodes.resize(3, element.element_type_info_.second);
-  for (Isize i = element.element_num_.first; i < element.element_num_.second + 1; i++) {
-    nodes = element.element_nodes_->col(i - element.element_num_.first).reshaped(3, element.element_type_info_.second);
-    element.element_area_->operator()(i - element.element_num_.first) = calculatePolygonArea(nodes);
+  nodes.resize(3, element.nodes_num_per_element_);
+  for (Isize i = 0; i < element.elements_num_; i++) {
+    nodes = element.elements_nodes_.col(i).reshaped(3, element.nodes_num_per_element_);
+    area->operator()(i) = calculatePolygonArea(nodes);
   }
+  return area;
 }
 
-Real calculatePolygonArea(Eigen::Matrix<Real, 3, Eigen::Dynamic>& nodes) {
+Real calculatePolygonArea(const Eigen::Matrix<Real, 3, Eigen::Dynamic>& nodes) {
   Eigen::Vector<Real, 3> cross_product = nodes.col(nodes.cols() - 1).cross(nodes.col(0));
   for (Isize i = 0; i < nodes.cols() - 1; i++) {
     cross_product += nodes.col(i).cross(nodes.col(i + 1));

@@ -14,16 +14,48 @@
 
 #include "mesh/mesh_structure.h"
 
-#include <gmsh.h>  // for open
+#include <gmsh.h>  // for getElementType, open
+#include <memory>  // for allocator
 
 // clang-format on
 
 namespace SubrosaDG::Internal {
 
-Element::Element(std::string_view element_name, Isize element_num) {
-  this->element_type_info_ = std::make_pair(element_name, element_num);
+ElementInfo::ElementInfo(const std::string_view& name, Isize nodes_num_per_element)
+    : name_(name), nodes_num_per_element_(nodes_num_per_element) {
+  this->element_type_ = gmsh::model::mesh::getElementType(this->name_.data(), 1);
 }
 
-Mesh2d::Mesh2d(const std::filesystem::path& mesh_file) { gmsh::open(mesh_file.string()); }
+ElementMesh::ElementMesh(const std::string_view& name, Isize nodes_num_per_element)
+    : ElementInfo(name, nodes_num_per_element) {}
+
+ElementIntegral::ElementIntegral(const std::string_view& name, Isize nodes_num_per_element)
+    : ElementInfo(name, nodes_num_per_element) {}
+
+ElementGradIntegral::ElementGradIntegral(const std::string_view& name, Isize nodes_num_per_element)
+    : ElementInfo(name, nodes_num_per_element), ElementIntegral(name, nodes_num_per_element) {}
+
+Element::Element(const std::string_view& name, const Isize nodes_num_per_element)
+    : ElementInfo(name, nodes_num_per_element),
+      ElementMesh(name, nodes_num_per_element),
+      ElementGradIntegral(name, nodes_num_per_element) {}
+
+AdjanencyElement::AdjanencyElement(const std::string_view& name, const Isize nodes_num_per_element)
+    : ElementInfo(name, nodes_num_per_element),
+      ElementMesh(name, nodes_num_per_element),
+      ElementIntegral(name, nodes_num_per_element) {}
+
+Mesh2d::Mesh2d(const std::filesystem::path& mesh_file, const Isize polynomial_order)
+    : polynomial_order_(polynomial_order),
+      gauss_integral_accuracy_(2 * polynomial_order + 1),
+      triangle_("Triangle", 3),
+      quadrangle_("Quadrangle", 4),
+      interior_line_("Line", 2),
+      boundary_line_("Line", 2) {
+  gmsh::open(mesh_file.string());
+}
+
+MeshSupplemental::MeshSupplemental(const bool is_adjanency_element, const Isize dimension)
+    : is_adjanency_element_(is_adjanency_element), dimension_(dimension) {}
 
 }  // namespace SubrosaDG::Internal

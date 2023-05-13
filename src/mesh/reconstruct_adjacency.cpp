@@ -1,6 +1,6 @@
 /**
- * @file reconstruct_edge.cpp
- * @brief The source file to reconstrcuct edge from mesh.
+ * @file reconstruct_adjacency.cpp
+ * @brief The source file to reconstrcuct adjacency from mesh.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-05-05
@@ -12,30 +12,27 @@
 
 // clang-format off
 
-#include "mesh/reconstruct_edge.h"
+#include "mesh/reconstruct_adjacency.h"
 
 #include <gmsh.h>                 // for createEdges, getEdges, getElementEdgeNodes, getElementType, getElementsByType
 #include <map>                    // for map, operator==, _Rb_tree_iterator
-#include <Eigen/Core>             // for Matrix, Dynamic
+#include <Eigen/Core>             // for Matrix, DenseCoeffsBase, Dynamic, Vector
 #include <cstddef>                // for size_t
-#include <memory>                 // for make_unique, unique_ptr, allocator, shared_ptr, __shared_ptr_access
-#include <vector>                 // for vector
-#include <algorithm>              // for minmax_element_result, __minmax_element_fn, minmax_element, __max_fn, max
+#include <vector>                 // for vector, allocator
+#include <algorithm>              // for minmax_element_result, __minmax_element_fn, minmax_element
 #include <utility>                // for pair, make_pair
 #include <string_view>            // for string_view, basic_string_view
 #include <functional>             // for identity, less
 
-#include "basic/data_types.h"     // for Isize, Usize, Real
-#include "mesh/mesh_structure.h"  // for Edge, MeshSupplementalInfo
+#include "basic/data_types.h"     // for Usize, Isize, Real
+#include "mesh/mesh_structure.h"  // for AdjanencyElement, MeshSupplemental
 
 // clang-format on
 
 namespace SubrosaDG::Internal {
 
-// NOTE: use std::make_pair(std::ref(a), std::ref(b)) to avoid copy
-[[nodiscard("Return edge num.")]] Isize reconstructEdge(
-    const std::shared_ptr<Eigen::Matrix<Real, 3, Eigen::Dynamic>>& nodes, std::pair<Edge&, Edge&> edge,
-    const MeshSupplementalInfo& mesh_supplemental_info) {
+void reconstructAdjacency(const Eigen::Matrix<Real, 3, Eigen::Dynamic>& nodes, AdjanencyElement& interior_line,
+                          AdjanencyElement& boundary_line, const MeshSupplemental& boundary_supplemental) {
   gmsh::model::mesh::createEdges();
   std::map<Usize, std::pair<bool, std::vector<Isize>>> edge_element_map;
   getEdgeElementMap(edge_element_map, std::make_pair("Triangle", 3));
@@ -43,7 +40,7 @@ namespace SubrosaDG::Internal {
   std::vector<Usize> interior_edge_tag;
   std::vector<Usize> boundary_edge_tag;
   for (const auto& [edge_tag, element_pair] : edge_element_map) {
-    const auto& [flag, element_index] = element_pair;
+    const auto& [flag, elements_index] = element_pair;
     if (flag) [[likely]] {
       interior_edge_tag.push_back(edge_tag);
     } else [[unlikely]] {
@@ -51,41 +48,39 @@ namespace SubrosaDG::Internal {
     }
   }
   const auto& [interior_min, interior_max] = std::ranges::minmax_element(interior_edge_tag);
-  edge.first.edge_num_ = std::make_pair(*interior_min, *interior_max);
+  interior_line.elements_range_ = std::make_pair(*interior_min, *interior_max);
+  interior_line.elements_num_ = interior_max - interior_min + 1;
   const auto& [boundary_min, boundary_max] = std::ranges::minmax_element(boundary_edge_tag);
-  edge.second.edge_num_ = std::make_pair(*boundary_min, *boundary_max);
-  Isize interior_edge_num = edge.first.edge_num_.second - edge.first.edge_num_.first + 1;
-  Isize boundary_edge_num = edge.second.edge_num_.second - edge.second.edge_num_.first + 1;
-  edge.first.edge_nodes_ = std::make_unique<Eigen::Matrix<Real, 6, Eigen::Dynamic>>(6, interior_edge_num);
-  edge.second.edge_nodes_ = std::make_unique<Eigen::Matrix<Real, 6, Eigen::Dynamic>>(6, boundary_edge_num);
-  edge.first.edge_index_ = std::make_unique<Eigen::Matrix<Isize, 4, Eigen::Dynamic>>(4, interior_edge_num);
-  edge.second.edge_index_ = std::make_unique<Eigen::Matrix<Isize, 4, Eigen::Dynamic>>(4, boundary_edge_num);
+  boundary_line.elements_range_ = std::make_pair(*boundary_min, *boundary_max);
+  boundary_line.elements_num_ = boundary_max - boundary_min + 1;
+  interior_line.elements_nodes_.resize(6, interior_line.elements_num_);
+  boundary_line.elements_nodes_.resize(6, boundary_line.elements_num_);
+  interior_line.elements_index_.resize(4, interior_line.elements_num_);
+  boundary_line.elements_index_.resize(4, boundary_line.elements_num_);
   for (const auto& edge_tag : interior_edge_tag) {
-    const auto& [flag, element_index] = edge_element_map[edge_tag];
+    const auto& [flag, elements_index] = edge_element_map[edge_tag];
     for (Isize i = 0; i < 6; i++) {
-      edge.first.edge_nodes_->operator()(i, static_cast<Isize>(edge_tag) - edge.first.edge_num_.first) =
-          nodes->operator()(i / 3, element_index[static_cast<Usize>(i / 3)] - 1);
+      interior_line.elements_nodes_(i, static_cast<Isize>(edge_tag) - interior_line.elements_range_.first) =
+          nodes(i / 3, elements_index[static_cast<Usize>(i / 3)] - 1);
     }
     for (Isize i = 0; i < 4; i++) {
-      edge.first.edge_index_->operator()(i, static_cast<Isize>(edge_tag) - edge.first.edge_num_.first) =
-          element_index[static_cast<Usize>(i)];
+      interior_line.elements_index_(i, static_cast<Isize>(edge_tag) - interior_line.elements_range_.first) =
+          elements_index[static_cast<Usize>(i)];
     }
   }
   for (const auto& edge_tag : boundary_edge_tag) {
-    const auto& [flag, element_index] = edge_element_map[edge_tag];
+    const auto& [flag, elements_index] = edge_element_map[edge_tag];
     for (Isize i = 0; i < 6; i++) {
-      edge.second.edge_nodes_->operator()(i, static_cast<Isize>(edge_tag) - edge.second.edge_num_.first) =
-          nodes->operator()(i / 3, element_index[static_cast<Usize>(i / 3)] - 1);
+      boundary_line.elements_nodes_(i, static_cast<Isize>(edge_tag) - boundary_line.elements_range_.first) =
+          nodes(i / 3, elements_index[static_cast<Usize>(i / 3)] - 1);
     }
     for (Isize i = 0; i < 3; i++) {
-      edge.second.edge_index_->operator()(i, static_cast<Isize>(edge_tag) - edge.second.edge_num_.first) =
-          element_index[static_cast<Usize>(i)];
+      boundary_line.elements_index_(i, static_cast<Isize>(edge_tag) - boundary_line.elements_range_.first) =
+          elements_index[static_cast<Usize>(i)];
     }
-    edge.second.edge_index_->operator()(3, static_cast<Isize>(edge_tag) - edge.second.edge_num_.first) =
-        mesh_supplemental_info.boundary_index_->operator()(static_cast<Isize>(edge_tag) -
-                                                           mesh_supplemental_info.boundary_num_.first);
+    boundary_line.elements_index_(3, static_cast<Isize>(edge_tag) - boundary_line.elements_range_.first) =
+        boundary_supplemental.index_(static_cast<Isize>(edge_tag) - boundary_supplemental.range_.first);
   }
-  return std::ranges::max(edge.first.edge_num_.second, edge.second.edge_num_.second);
 }
 
 void getEdgeElementMap(std::map<Usize, std::pair<bool, std::vector<Isize>>>& edge_element_map,

@@ -1,6 +1,6 @@
 /**
- * @file cal_mesh_measure.h
- * @brief The header file to calculate mesh measure.
+ * @file calculate_measure.h
+ * @brief The header file to calculate element measure.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-05-06
@@ -15,7 +15,8 @@
 
 // clang-format off
 
-#include <Eigen/Core>          // for Dynamic, Matrix
+#include <Eigen/Core>          // for Dynamic, Matrix, Vector
+#include <memory>              // for unique_ptr
 
 #include "basic/data_types.h"  // for Real
 
@@ -25,9 +26,9 @@ namespace SubrosaDG::Internal {
 
 struct Element;
 
-void calculateMeshMeasure(Element& element);
+std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calculateElementMeasure(const Element& element);
 
-Real calculatePolygonArea(Eigen::Matrix<Real, 3, Eigen::Dynamic>& nodes);
+Real calculatePolygonArea(const Eigen::Matrix<Real, 3, Eigen::Dynamic>& nodes);
 
 }  // namespace SubrosaDG::Internal
 

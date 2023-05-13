@@ -1,6 +1,6 @@
 /**
- * @file read_mesh.h
- * @brief This head file to read mesh.
+ * @file get_mesh.h
+ * @brief This head file to get mesh.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2022-11-02
@@ -16,12 +16,11 @@
 // clang-format off
 
 #include <Eigen/Core>          // for Dynamic, Matrix
-#include <memory>              // for shared_ptr
 #include <string>              // for string
 #include <vector>              // for vector
 #include <cstddef>             // for size_t
-#include <tuple>               // for tuple
 #include <string_view>         // for string_view
+#include <utility>             // for pair
 
 #include "basic/data_types.h"  // for Real
 
@@ -30,30 +29,30 @@
 namespace SubrosaDG::Internal {
 
 struct Config;
-struct Element;
+struct ElementMesh;
 struct Mesh2d;
-struct MeshSupplementalInfo;
+struct MeshSupplemental;
 
-void readMesh(Mesh2d& mesh);
+void getMesh(const Config& config, Mesh2d& mesh);
 
 /**
- * @brief Read mesh supplemental info.
+ * @brief Read mesh supplemental information.
  *
  * @param [in] config The Config structure.
- * @param [out] mesh_supplemental_info The MeshSupplementalInfo structure.
+ * @param [out] supplemental The MeshSupplemental structure.
  *
  * @exception std::out_of_range The boundary name or region name is not found in config file.
  */
-void readMeshSupplementalInfo(const Config& config, MeshSupplementalInfo& mesh_supplemental_info);
+void readMeshSupplemental(const Config& config, MeshSupplemental& supplemental);
 
 /**
  * @brief Get the Physical Group all info.
  *
  * @param [in] dim The dimension of mesh.
  * @param [in] physical_group_tag The physical group tag.
- * @return std::tuple<int, std::string, std::vector<std::size_t>> The physical group info(dimension, name, entity tags).
+ * @return std::pair<std::string, std::vector<std::size_t>> The physical group info(name, entity tags).
  */
-std::tuple<int, std::string, std::vector<std::size_t>> getPhysicalGroups(int dim, int physical_group_tag);
+std::pair<std::string, std::vector<std::size_t>> getPhysicalGroups(int dim, int physical_group_tag);
 
 /**
  * @brief Get element entity tags for specific physical group.
@@ -68,7 +67,7 @@ void concatenateElementEntityTags(std::vector<std::size_t>& elem_entity_tags,
 
 void getNodes(Mesh2d& mesh);
 
-void getElements(const std::shared_ptr<Eigen::Matrix<Real, 3, Eigen::Dynamic>>& nodes, Element& element);
+void getElement(const Eigen::Matrix<Real, 3, Eigen::Dynamic>& nodes, ElementMesh& element_mesh);
 
 }  // namespace SubrosaDG::Internal
 
