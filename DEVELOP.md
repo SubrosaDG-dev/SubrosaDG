@@ -52,7 +52,7 @@ git submodule update --remote
 
 1. Use cmake to generate build.ninja and compile with clang using ccache for speedup.
 
-2. The project uses vcpkg to import third-party libraries, including tomlplusplus, magic-enum, fmt, spdlog, eigen3, openmp (compiler-provided), openmpi and dbg-macro. Although vcpkg is integrated into cmake, it is recommended to install the libraries locally first. During the project build, the compilation cache will be copied directly. Some components depend on each other, and vcpkg will automatically handle these dependencies.
+2. The project uses vcpkg to import third-party libraries, including fmt, spdlog, eigen3, openmp (compiler-provided), openmpi and dbg-macro. Although vcpkg is integrated into cmake, it is recommended to install the libraries locally first. During the project build, the compilation cache will be copied directly. Some components depend on each other, and vcpkg will automatically handle these dependencies.
 
 3. In the project, the import of vcpkg depends on the environment variable VCPKG_ROOT, so you need to define it in the environment variables:
 ```bash
@@ -103,9 +103,9 @@ export VCPKG_ROOT="${your vcpkg path}"
 
 2. Not all functions or classes need to be commented. Only those with complex internal implementations require @details to explain their internal implementation.
 
-3. Always add the @brief, @tparam, @param , @return/@retval and @exception(if have) commands in the header file before the member declaration, and the @details part of the documentation before the member definition (be it in .h for inline definitions or in .cpp for regular definitions).
+3. Always add the @brief, @tparam, @param , @return/@retval, @exception(if have) and @details commands in the header file before the member declaration.
 ```cpp
-*.h
+*.hpp
 /**
  * @brief
  *
@@ -114,10 +114,7 @@ export VCPKG_ROOT="${your vcpkg path}"
  * @return / @retval
  *
  * @exception
- */
-
-*.cpp
-/**
+ *
  * @details
  */
 ```

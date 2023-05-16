@@ -27,7 +27,7 @@ add_custom_target(iwyu-search
     -Xiwyu
     --update_comments
     -Xiwyu
-    --check_also=**/SubrosaDG/include/**
+    --check_also=**/SubrosaDG/src/**
     > iwyu.out
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )

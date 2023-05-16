@@ -1,5 +1,5 @@
 /**
- * @file version.h
+ * @file version.hpp
  * @brief The head file of SubroseDG version.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -10,11 +10,11 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_VERSION_H_
-#define SUBROSA_DG_VERSION_H_
+#ifndef SUBROSA_DG_VERSION_HPP_
+#define SUBROSA_DG_VERSION_HPP_
 
 #define SUBROSA_DG_VERSION_MAJOR 0
 #define SUBROSA_DG_VERSION_MINOR 1
 #define SUBROSA_DG_VERSION_PATCH 0
 
-#endif  // SUBROSA_DG_VERSION_H_
+#endif  // SUBROSA_DG_VERSION_HPP_

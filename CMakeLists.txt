@@ -117,17 +117,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# check for interprocedural optimization
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    include(CheckIPOSupported)
-    check_ipo_supported(RESULT IPO_SUPPORT)
-    if(IPO_SUPPORT)
-        message(STATUS "Enable interprocedural optimization")
-        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
-#       set_target_properties(${PROJECT_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
-    endif()
-endif()
-
 # open color compiler information
 # NOTE: the output still not colorized due to ninja
 # https://github.com/ninja-build/ninja/wiki/FAQ#why-does-my-program-with-colored-output-not-have-color-under-ninja
@@ -222,10 +211,8 @@ set(SUBROSA_DG_COMPILE_OPTIONS)
 set(SUBROSA_DG_COMPILE_DEFINITIONS)
 
 # set library and add compile option
-add_library(${PROJECT_NAME} SHARED ${SUBROSA_DG_SOURCES})
+add_library(${PROJECT_NAME} INTERFACE)
 add_library(lib::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
-set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${SUBROSA_DG_LIB_VERSION}
-    SOVERSION ${SUBROSA_DG_VERSION_MAJOR})
 
 # set c and cxx standard
 # list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_17 cxx_std_20)
@@ -239,6 +226,17 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${SUBROSA_DG_LIB_VERSIO
 #     CXX_EXTENSIONS OFF
 #     CXX_STANDARD_REQUIRED ON
 # )
+
+# check for interprocedural optimization
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT IPO_SUPPORT)
+    if(IPO_SUPPORT)
+        message(STATUS "Enable interprocedural optimization")
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+#       set_target_properties(${PROJECT_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
+endif()
 
 # set cxx compilation option
 set(SUBROSA_DG_CXX_FLAGS)
@@ -271,11 +269,11 @@ set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
 string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
 
 # create and include the cmake header
-configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake.h.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/cmake.h @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake.hpp.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/cmake.hpp @ONLY)
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
 
 # add include directory and compiler flags
-list(APPEND SUBROSA_DG_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include)
+list(APPEND SUBROSA_DG_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/src)
 list(APPEND SUBROSA_DG_COMPILE_OPTIONS ${SUBROSA_DG_FLAGS})
 
 # enable mutilthread support
@@ -294,14 +292,6 @@ if(SUBROSA_DG_DEVELOP)
     find_path(DBG_MACRO_DIR NAMES dbg.h)
     list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${DBG_MACRO_DIR})
 endif()
-
-# find tomlplusplus
-find_package(tomlplusplus CONFIG REQUIRED)
-list(APPEND SUBROSA_DG_LINK_LIBRARIES tomlplusplus::tomlplusplus)
-
-# find magic-enum
-find_package(magic_enum CONFIG REQUIRED)
-list(APPEND SUBROSA_DG_LINK_LIBRARIES magic_enum::magic_enum)
 
 # find fmt
 find_package(fmt CONFIG REQUIRED)
@@ -348,12 +338,12 @@ foreach(SUBROSA_DG_OPTION IN ITEMS
 endforeach()
 
 # set library compiler option
-target_include_directories(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_INCLUDE_DIRS})
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${SUBROSA_DG_INCLUDE_SYSTEM_DIRS})
-target_link_libraries(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_LINK_LIBRARIES})
-target_compile_options(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_OPTIONS})
-# target_compile_features(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_FEATURES})
-target_compile_definitions(${PROJECT_NAME} PUBLIC ${SUBROSA_DG_COMPILE_DEFINITIONS})
+target_include_directories(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM INTERFACE ${SUBROSA_DG_INCLUDE_SYSTEM_DIRS})
+target_link_libraries(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_LINK_LIBRARIES})
+target_compile_options(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_OPTIONS})
+# target_compile_features(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_FEATURES})
+target_compile_definitions(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_DEFINITIONS})
 
 # TODO: use cmake install and XXXXConfig.cmake to link
 

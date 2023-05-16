@@ -1,5 +1,5 @@
 /**
- * @file constants.h
+ * @file constants.hpp
  * @brief The constants head file to define some constants.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -10,14 +10,14 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_CONSTANTS_H_
-#define SUBROSA_DG_CONSTANTS_H_
+#ifndef SUBROSA_DG_CONSTANTS_HPP_
+#define SUBROSA_DG_CONSTANTS_HPP_
 
 // clang-format off
 
-#include <numbers>
+#include <numbers>               // for e_v, pi_v
 
-#include "basic/data_types.h"
+#include "basic/data_types.hpp"  // for Real
 
 // clang-format on
 
@@ -28,4 +28,4 @@ inline constexpr Real kEuler = std::numbers::e_v<Real>;
 
 }  // namespace SubrosaDG
 
-#endif  // SUBROSA_DG_CONSTANTS_H_
+#endif  // SUBROSA_DG_CONSTANTS_HPP_

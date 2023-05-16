@@ -1,5 +1,5 @@
 /**
- * @file data_types.h
+ * @file data_types.hpp
  * @brief The data type head file to define some aliases.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -10,8 +10,8 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_DATA_TYPES_H_
-#define SUBROSA_DG_DATA_TYPES_H_
+#ifndef SUBROSA_DG_DATA_TYPES_HPP_
+#define SUBROSA_DG_DATA_TYPES_HPP_
 
 // clang-format off
 
@@ -32,4 +32,4 @@ using Real = double;
 
 }  // namespace SubrosaDG
 
-#endif  // SUBROSA_DG_DATA_TYPES_H_
+#endif  // SUBROSA_DG_DATA_TYPES_HPP_

@@ -1,25 +1,25 @@
 /**
- * @file config_defines.h
- * @brief The header file for SubrosaDG configurations.
+ * @file enums.hpp
+ * @brief The enum definitions head file to define some enums.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
- * @date 2023-04-24
+ * @date 2023-05-16
  *
  * @version 0.1.0
  * @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_CONFIG_DEFINES_H_
-#define SUBROSA_DG_CONFIG_DEFINES_H_
+#ifndef SUBROSA_DG_ENUMS_HPP_
+#define SUBROSA_DG_ENUMS_HPP_
 
 // clang-format off
 
-#include "basic/data_types.h"  // for Usize, Isize
+#include "basic/data_types.hpp"  // for Usize, Isize
 
 // clang-format on
 
-namespace SubrosaDG::Internal {
+namespace SubrosaDG {
 
 enum class SimulationType : Usize {
   Euler = 1,
@@ -47,6 +47,6 @@ enum class EquationOfState : Usize {
   IdealGas = 1,
 };
 
-}  // namespace SubrosaDG::Internal
+}  // namespace SubrosaDG
 
-#endif  // SUBROSA_DG_CONFIG_DEFINES_H_
+#endif  // SUBROSA_DG_ENUMS_HPP_
