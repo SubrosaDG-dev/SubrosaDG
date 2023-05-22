@@ -15,7 +15,7 @@
 
 // clang-format off
 
-#include "basic/data_types.hpp"  // for Isize, Usize
+#include "basic/data_types.hpp"  // for Isize
 
 // clang-format on
 
@@ -37,7 +37,7 @@ struct ElementType {
    *
    * @details The `kDimension` is a static constexpr variable, which is used to define the dimension of the element.
    */
-  inline static constexpr Usize kDimension{Dimension};
+  inline static constexpr Isize kDimension{Dimension};
 
   /**
    * @brief The type tag of the element.
@@ -57,20 +57,40 @@ struct ElementType {
   inline static constexpr Isize kNodesNumPerElement{NodesNumPerElement};
 };
 
+template <ElementType Type, Isize PolynomialOrder>
+struct BasisFunction {
+  inline static constexpr Isize kNum{0};
+};
+
 /**
  * @brief The alias of the line element.
  */
 inline constexpr ElementType<1, 1, 2> kLine;
+
+template <Isize PolynomialOrder>
+struct BasisFunction<kLine, PolynomialOrder> {
+  inline static constexpr Isize kNum{PolynomialOrder + 1};
+};
 
 /**
  * @brief The alias of the triangle element.
  */
 inline constexpr ElementType<2, 2, 3> kTriangle;
 
+template <Isize PolynomialOrder>
+struct BasisFunction<kTriangle, PolynomialOrder> {
+  inline static constexpr Isize kNum{(PolynomialOrder + 1) * (PolynomialOrder + 2) / 2};
+};
+
 /**
  * @brief The alias of the quadrangle element.
  */
 inline constexpr ElementType<2, 3, 4> kQuadrangle;
+
+template <Isize PolynomialOrder>
+struct BasisFunction<kQuadrangle, PolynomialOrder> {
+  static constexpr Isize kNum{(PolynomialOrder + 1) * (PolynomialOrder + 1)};
+};
 
 }  // namespace SubrosaDG
 

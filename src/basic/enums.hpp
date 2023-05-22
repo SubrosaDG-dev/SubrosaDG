@@ -21,24 +21,17 @@
 
 namespace SubrosaDG {
 
-enum class SimulationType : Usize {
+enum class SimulationEquation : Usize {
   Euler = 1,
   NavierStokes,
 };
 
-enum class NoVisFluxType : Usize {
-  Central = 1,
-  Roe,
+enum class NoVisFlux : Usize {
+  Roe = 1,
   HLLC,
 };
 
-enum class TimeIntegrationType : Usize {
-  ExplicitEuler = 1,
-  ImplicitEuler,
-  RungeKutta3,
-};
-
-enum class BoundaryType : Isize {
+enum class Boundary : Isize {
   Farfield = -1,
   Wall = -2,
 };

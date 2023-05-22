@@ -188,6 +188,14 @@ if(SUBROSA_DG_DEVELOP)
     endif()
 endif()
 
+if(SUBROSA_DG_DEVELOP)
+    find_program(GCOVR NAMES gcovr)
+    if(GCOVR)
+        include(${PROJECT_SOURCE_DIR}/cmake/Gcovr.cmake)
+        message_tool_version(gcovr "${GCOVR}")
+    endif()
+endif()
+
 # use ccache to speed up compilation
 find_program(CCACHE NAMES ccache)
 if(CCACHE)
@@ -241,6 +249,7 @@ endif()
 # set cxx compilation option
 set(SUBROSA_DG_CXX_FLAGS)
 set(SUBROSA_DG_CXX_WARNING_FLAGS)
+set(SUBROSA_DG_CXX_COVER_FLAGS)
 set(SUBROSA_DG_CXX_FLAGS_DEBUG)
 set(SUBROSA_DG_CXX_FLAGS_RELEASE)
 set(SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO)
@@ -255,11 +264,16 @@ set(SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO)
 #       set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-stdlib=libc++")
 # endif()
 
+# add coverage compilation option
+# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+
 # add cxx compilation option
 string(APPEND SUBROSA_DG_CXX_FLAGS "-mfma -Wno-narrowing")
 string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation")
+# string(APPEND SUBROSA_DG_CXX_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
 # NOTE: -glldb seems not work here
-string(APPEND SUBROSA_DG_CXX_FLAGS_DEBUG "${SUBROSA_DG_CXX_FLAGS} ${SUBROSA_DG_CXX_WARNING_FLAGS} -O0 -g3")
+string(APPEND SUBROSA_DG_CXX_FLAGS_DEBUG "${SUBROSA_DG_CXX_FLAGS} ${SUBROSA_DG_CXX_WARNING_FLAGS} \
+    ${SUBROSA_DG_CXX_COVER_FLAGS} -O0 -g3")
 string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "${SUBROSA_DG_CXX_FLAGS} -O3 -DNDEBUG -march=native")
 
 # set different compile option

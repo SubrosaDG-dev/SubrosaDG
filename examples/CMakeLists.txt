@@ -14,6 +14,8 @@ cmake_minimum_required(VERSION 3.25)
 
 project(subrosa_dg_examples)
 
+set(CMAKE_EXAMPLES_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}")
+
 # add custom target
 add_custom_target(all_examples)
 

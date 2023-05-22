@@ -12,16 +12,14 @@
 
 cmake_minimum_required(VERSION 3.25)
 
-project(subrosa_dg_example_naca0012)
-
-set(CMAKE_EXAMPLE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}")
+project(naca0012)
 
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/naca0012/mesh)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/naca0012/result)
 
 add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/naca0012.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_EXAMPLE_RUNTIME_OUTPUT_DIRECTORY}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_EXAMPLES_RUNTIME_OUTPUT_DIRECTORY}"
 )
 target_link_libraries(${PROJECT_NAME} lib::subrosa_dg)
 add_dependencies(all_examples ${PROJECT_NAME})

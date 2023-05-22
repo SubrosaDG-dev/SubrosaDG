@@ -15,6 +15,7 @@
 
 // clang-format off
 
+#include <limits>                // for numeric_limits
 #include <numbers>               // for e_v, pi_v
 
 #include "basic/data_types.hpp"  // for Real
@@ -25,6 +26,8 @@ namespace SubrosaDG {
 
 inline constexpr Real kPi = std::numbers::pi_v<Real>;
 inline constexpr Real kEuler = std::numbers::e_v<Real>;
+
+inline constexpr Real kEpsilon = std::numeric_limits<Real>::epsilon();
 
 }  // namespace SubrosaDG
 

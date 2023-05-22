@@ -16,6 +16,7 @@
 // clang-format off
 
 #include "mesh/element_types.hpp"  // for ElementType
+#include "basic/data_types.hpp"    // for Isize
 
 namespace SubrosaDG {
 
@@ -24,6 +25,9 @@ concept Is1dElement = Type.kDimension == 1;
 
 template <ElementType Type>
 concept Is2dElement = Type.kDimension == 2;
+
+template <ElementType Type>
+concept Is3dElement = Type.kDimension == 3;
 
 }  // namespace SubrosaDG
 
