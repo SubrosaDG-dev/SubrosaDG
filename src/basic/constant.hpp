@@ -1,5 +1,5 @@
 /**
- * @file constants.hpp
+ * @file constant.hpp
  * @brief The constants head file to define some constants.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -10,15 +10,15 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_CONSTANTS_HPP_
-#define SUBROSA_DG_CONSTANTS_HPP_
+#ifndef SUBROSA_DG_CONSTANT_HPP_
+#define SUBROSA_DG_CONSTANT_HPP_
 
 // clang-format off
 
-#include <limits>                // for numeric_limits
-#include <numbers>               // for e_v, pi_v
+#include <limits>               // for numeric_limits
+#include <numbers>              // for e_v, pi_v
 
-#include "basic/data_types.hpp"  // for Real
+#include "basic/data_type.hpp"  // for Real
 
 // clang-format on
 
@@ -31,4 +31,4 @@ inline constexpr Real kEpsilon = std::numeric_limits<Real>::epsilon();
 
 }  // namespace SubrosaDG
 
-#endif  // SUBROSA_DG_CONSTANTS_HPP_
+#endif  // SUBROSA_DG_CONSTANT_HPP_

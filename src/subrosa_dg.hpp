@@ -13,16 +13,21 @@
 #ifndef SUBROSA_DG_HPP_
 #define SUBROSA_DG_HPP_
 
-#include "basic/concepts.hpp"              // IWYU pragma: keep
-#include "basic/constants.hpp"             // IWYU pragma: keep
-#include "basic/data_types.hpp"            // IWYU pragma: keep
-#include "basic/enums.hpp"                 // IWYU pragma: keep
-#include "basic/environments.hpp"          // IWYU pragma: keep
-#include "basic/macros.hpp"                // IWYU pragma: keep
-#include "mesh/calculate_measure.hpp"      // IWYU pragma: keep
-#include "mesh/get_integration.hpp"        // IWYU pragma: keep
+#include "basic/concept.hpp"               // IWYU pragma: keep
+#include "basic/config.hpp"                // IWYU pragma: keep
+#include "basic/constant.hpp"              // IWYU pragma: keep
+#include "basic/data_type.hpp"             // IWYU pragma: keep
+#include "basic/enum.hpp"                  // IWYU pragma: keep
+#include "basic/environment.hpp"           // IWYU pragma: keep
+#include "basic/macro.hpp"                 // IWYU pragma: keep
+#include "mesh/elem_type.hpp"              // IWYU pragma: keep
+#include "mesh/element/cal_measure.hpp"    // IWYU pragma: keep
+#include "mesh/element/cal_norm_vec.hpp"   // IWYU pragma: keep
+#include "mesh/element/get_elem_mesh.hpp"  // IWYU pragma: keep
+#include "mesh/element/get_integral.hpp"   // IWYU pragma: keep
+#include "mesh/element/get_jacobian.hpp"   // IWYU pragma: keep
 #include "mesh/get_mesh.hpp"               // IWYU pragma: keep
+#include "mesh/get_mesh_supplemental.hpp"  // IWYU pragma: keep
 #include "mesh/mesh_structure.hpp"         // IWYU pragma: keep
-#include "mesh/reconstruct_adjacency.hpp"  // IWYU pragma: keep
 
 #endif  // SUBROSA_DG_HPP_

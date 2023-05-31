@@ -1,5 +1,5 @@
 /**
- * @file enums.hpp
+ * @file enum.hpp
  * @brief The enum definitions head file to define some enums.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -10,12 +10,12 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_ENUMS_HPP_
-#define SUBROSA_DG_ENUMS_HPP_
+#ifndef SUBROSA_DG_ENUM_HPP_
+#define SUBROSA_DG_ENUM_HPP_
 
 // clang-format off
 
-#include "basic/data_types.hpp"  // for Usize, Isize
+#include "basic/data_type.hpp"  // for Usize, Isize
 
 // clang-format on
 
@@ -26,9 +26,9 @@ enum class SimulationEquation : Usize {
   NavierStokes,
 };
 
-enum class NoVisFlux : Usize {
-  Roe = 1,
-  HLLC,
+enum class ConvectiveFlux : Usize {
+  HLLC = 1,
+  Roe,
 };
 
 enum class Boundary : Isize {
@@ -36,10 +36,6 @@ enum class Boundary : Isize {
   Wall = -2,
 };
 
-enum class EquationOfState : Usize {
-  IdealGas = 1,
-};
-
 }  // namespace SubrosaDG
 
-#endif  // SUBROSA_DG_ENUMS_HPP_
+#endif  // SUBROSA_DG_ENUM_HPP_

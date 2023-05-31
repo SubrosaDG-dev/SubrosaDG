@@ -1,6 +1,6 @@
 /**
- * @file environments.hpp
- * @brief The header file for SubrosaDG environments.
+ * @file environment.hpp
+ * @brief The header file for SubrosaDG environment.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-04-13
@@ -10,8 +10,8 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_ENVIRONMENTS_HPP_
-#define SUBROSA_DG_ENVIRONMENTS_HPP_
+#ifndef SUBROSA_DG_ENVIRONMENT_HPP_
+#define SUBROSA_DG_ENVIRONMENT_HPP_
 
 // clang-format off
 
@@ -42,7 +42,7 @@ inline std::vector<std::string> getGmshInfo() {
   return lines;
 }
 
-inline void printEnvironmentInfo() {
+inline void printEnvInfo() {
   std::cout << "SubrosaDG Info:" << std::endl;
   std::cout << fmt::format("Version: {}", kSubrosaDGVersionString) << std::endl;
 #ifdef SUBROSA_DG_DEVELOP
@@ -58,33 +58,33 @@ inline void printEnvironmentInfo() {
 }
 
 #ifdef SUBROSA_DG_WITH_OPENMP
-inline int getMaxCores() { return kNumberOfPhysicalCores; }
+inline int getMaxCoreNum() { return kNumberOfPhysicalCores; }
 
-inline void setMaxThreads() {
-  omp_set_num_threads(getMaxCores());
-  gmsh::option::setNumber("General.NumThreads", getMaxCores());
+inline void setMaxThreadNum() {
+  omp_set_num_threads(getMaxCoreNum());
+  gmsh::option::setNumber("General.NumThreads", getMaxCoreNum());
 }
 #endif
 
-class EnvironmentGardian {
+class EnvGardian {
  public:
-  inline EnvironmentGardian() { initializeEnvironment(); }
-  inline ~EnvironmentGardian() { finalizeEnvironment(); }
+  inline EnvGardian() { initEnv(); }
+  inline ~EnvGardian() { finalizeEnv(); }
 
  private:
-  inline static void initializeEnvironment() {
+  inline static void initEnv() {
     gmsh::initialize();
 #ifndef SUBROSA_DG_DEVELOP
     gmsh::option::setNumber("Mesh.Binary", 1);
 #endif
-    printEnvironmentInfo();
+    printEnvInfo();
 #ifdef SUBROSA_DG_WITH_OPENMP
-    setMaxThreads();
+    setMaxThreadNum();
 #endif
   }
-  inline static void finalizeEnvironment() { gmsh::finalize(); }
+  inline static void finalizeEnv() { gmsh::finalize(); }
 };
 
 }  // namespace SubrosaDG
 
-#endif  // SUBROSA_DG_ENVIRONMENTS_HPP_
+#endif  // SUBROSA_DG_ENVIRONMENT_HPP_

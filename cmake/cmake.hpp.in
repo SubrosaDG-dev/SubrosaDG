@@ -18,7 +18,7 @@
 #include <filesystem>
 #include <string_view>
 
-#include "basic/data_types.hpp"
+#include "basic/data_type.hpp"
 
 namespace SubrosaDG {
 

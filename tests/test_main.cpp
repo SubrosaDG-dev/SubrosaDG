@@ -12,14 +12,14 @@
 
 // clang-format off
 
-#include <gtest/gtest.h>           // for InitGoogleTest, RUN_ALL_TESTS
+#include <gtest/gtest.h>          // for InitGoogleTest, RUN_ALL_TESTS
 
-#include "basic/environments.hpp"  // for EnvironmentGardian
+#include "basic/environment.hpp"  // for EnvGardian
 
 // clang-format on
 
 int main(int argc, char* argv[]) {
   testing::InitGoogleTest(&argc, argv);
-  SubrosaDG::EnvironmentGardian environment_gardian;
+  SubrosaDG::EnvGardian env_gardian;
   return RUN_ALL_TESTS();
 }

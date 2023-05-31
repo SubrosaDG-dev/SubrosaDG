@@ -12,16 +12,16 @@
 
 // clang-format off
 
-#include <gmsh.h>                  // for addPhysicalGroup, addCurveLoop, addPoint, add, addLine, addPlaneSurface
-#include <Eigen/Core>              // for Matrix, Block, CommaInitializer, indexed_based_stl_iterator_base, DenseCoe...
-#include <filesystem>              // for operator/, path
-#include <fstream>                 // for ifstream, basic_istream, ios_base
-#include <vector>                  // for vector, allocator
-#include <cstdlib>                 // for EXIT_SUCCESS
+#include <gmsh.h>                 // for addPhysicalGroup, addCurveLoop, addPoint, add, addLine, addPlaneSurface
+#include <Eigen/Core>             // for Matrix, Block, CommaInitializer, indexed_based_stl_iterator_base, DenseCoef...
+#include <filesystem>             // for operator/, path
+#include <fstream>                // for ifstream, basic_istream, ios_base
+#include <vector>                 // for vector, allocator
+#include <cstdlib>                // for EXIT_SUCCESS
 
-#include "basic/data_types.hpp"    // for Isize, Usize
-#include "basic/environments.hpp"  // for EnvironmentGardian
-#include "cmake.hpp"               // for kProjectSourceDir
+#include "cmake.hpp"              // for kProjectSourceDir
+#include "basic/data_type.hpp"    // for Isize, Usize
+#include "basic/environment.hpp"  // for EnvGardian
 
 // clang-format on
 
@@ -69,7 +69,7 @@ void generateMesh() {
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::EnvironmentGardian environment_gardian;
+  SubrosaDG::EnvGardian environment_gardian;
   generateMesh();
   return EXIT_SUCCESS;
 }
