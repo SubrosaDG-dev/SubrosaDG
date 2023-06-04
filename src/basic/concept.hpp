@@ -15,9 +15,17 @@
 
 // clang-format off
 
+#include <basic/config.hpp>    // for TimeDiscrete
+
 #include "mesh/elem_type.hpp"  // for ElemInfo
 
 namespace SubrosaDG {
+
+template <TimeDiscrete TimeDiscreteT>
+concept IsExplicit = !TimeDiscreteT.kIsImplicit;
+
+template <TimeDiscrete TimeDiscreteT>
+concept IsImplicit = TimeDiscreteT.kIsImplicit;
 
 template <ElemInfo ElemT>
 concept Is1dElem = ElemT.kDim == 1;

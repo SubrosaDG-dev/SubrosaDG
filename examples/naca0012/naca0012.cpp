@@ -28,36 +28,36 @@
 void generateMesh() {
   std::ifstream fin{(SubrosaDG::kProjectSourceDir / "examples/naca0012/naca0012.dat"), std::ios_base::in};
   SubrosaDG::Isize number{(fin >> number, number)};
-  Eigen::Matrix<double, 3, Eigen::Dynamic> naca0012_points{3, number};
+  Eigen::Matrix<double, 3, Eigen::Dynamic> naca0012_point{3, number};
   for (SubrosaDG::Isize i = 0; i < number; i++) {
-    fin >> naca0012_points(0, i) >> naca0012_points(1, i) >> naca0012_points(2, i);
+    fin >> naca0012_point(0, i) >> naca0012_point(1, i) >> naca0012_point(2, i);
   }
   fin.close();
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_points;
   farfield_points << -10, -10, 0, 10, -10, 0, 10, 10, 0, -10, 10, 0;
   constexpr double kLc1 = 1.0;
   constexpr double kLc2 = 1e-2;
-  std::vector<int> farfield_points_index;
-  std::vector<int> naca0012_points_index;
-  std::vector<int> farfield_lines_index;
+  std::vector<int> farfield_point_index;
+  std::vector<int> naca0012_point_index;
+  std::vector<int> farfield_line_index;
   gmsh::model::add("naca0012");
   for (const auto& row : farfield_points.rowwise()) {
-    farfield_points_index.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), kLc1));
+    farfield_point_index.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), kLc1));
   }
-  for (const auto& col : naca0012_points.colwise()) {
-    naca0012_points_index.emplace_back(gmsh::model::geo::addPoint(col.x(), col.y(), col.z(), kLc2));
+  for (const auto& col : naca0012_point.colwise()) {
+    naca0012_point_index.emplace_back(gmsh::model::geo::addPoint(col.x(), col.y(), col.z(), kLc2));
   }
-  for (SubrosaDG::Usize i = 0; i < farfield_points_index.size(); i++) {
-    farfield_lines_index.emplace_back(gmsh::model::geo::addLine(
-        farfield_points_index[i], farfield_points_index[(i + 1) % farfield_points_index.size()]));
+  for (SubrosaDG::Usize i = 0; i < farfield_point_index.size(); i++) {
+    farfield_line_index.emplace_back(gmsh::model::geo::addLine(
+        farfield_point_index[i], farfield_point_index[(i + 1) % farfield_point_index.size()]));
   }
-  naca0012_points_index.emplace_back(naca0012_points_index.front());
-  const int naca0012_line = gmsh::model::geo::addSpline(naca0012_points_index);
-  const int farfield_line_loop = gmsh::model::geo::addCurveLoop(farfield_lines_index);
+  naca0012_point_index.emplace_back(naca0012_point_index.front());
+  const int naca0012_line = gmsh::model::geo::addSpline(naca0012_point_index);
+  const int farfield_line_loop = gmsh::model::geo::addCurveLoop(farfield_line_index);
   const int naca0012_line_loop = gmsh::model::geo::addCurveLoop({-naca0012_line});
   const int naca0012_plane_surface = gmsh::model::geo::addPlaneSurface({farfield_line_loop, naca0012_line_loop});
   gmsh::model::geo::synchronize();
-  gmsh::model::addPhysicalGroup(1, farfield_lines_index, -1, "bc-1");
+  gmsh::model::addPhysicalGroup(1, farfield_line_index, -1, "bc-1");
   gmsh::model::addPhysicalGroup(1, {naca0012_line}, -1, "bc-2");
   gmsh::model::addPhysicalGroup(2, {naca0012_plane_surface}, -1, "vc-1");
   gmsh::model::mesh::generate(2);

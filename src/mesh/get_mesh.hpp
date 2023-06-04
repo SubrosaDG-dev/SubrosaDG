@@ -18,16 +18,13 @@
 #include <gmsh.h>                          // for getMaxNodeTag, getNodes
 #include <vector>                          // for vector
 #include <string_view>                     // for string_view
-#include <utility>                         // for make_pair
-#include <algorithm>                       // for max, min
-#include <cstdlib>                         // for size_t
 #include <stdexcept>                       // for out_of_range
 #include <unordered_map>                   // for unordered_map
+#include <map>                             // for map
 
-#include "basic/data_type.hpp"             // for Isize, Real, Usize
-#include "mesh/mesh_structure.hpp"         // for Mesh2d (ptr only), Mesh (ptr only), MeshSupplemental
-#include "mesh/element/get_integral.hpp"   // for getElemIntegral, getAdjacencyElemIntegral
-#include "mesh/elem_type.hpp"              // for kLine, kQuad, kTri, ElemInfo
+#include "basic/data_type.hpp"             // for Usize, Isize, Real
+#include "basic/enum.hpp"                  // for Boundary (ptr only), MeshType
+#include "mesh/mesh_structure.hpp"         // for Mesh, MeshSupplemental, MeshBase (ptr only)
 #include "mesh/get_mesh_supplemental.hpp"  // for getMeshSupplemental
 #include "mesh/element/get_jacobian.hpp"   // for getElemJacobian
 #include "mesh/element/get_elem_mesh.hpp"  // for getElemMesh, getAdjacencyElemMesh
@@ -37,65 +34,85 @@
 
 namespace SubrosaDG {
 
-enum class Boundary : SubrosaDG::Isize;
-
-template <Isize Dim, Isize PolyOrder>
-inline void getNodes(Mesh<Dim, PolyOrder>& mesh) {
-  std::vector<std::size_t> node_tags;
+template <int Dim>
+inline void getNodes(MeshBase<Dim>& mesh_base) {
+  std::vector<Usize> node_tags;
   std::vector<double> node_coords;
   std::vector<double> node_params;
   gmsh::model::mesh::getNodes(node_tags, node_coords, node_params);
-  std::size_t nodes_num;
+  Usize nodes_num;
   gmsh::model::mesh::getMaxNodeTag(nodes_num);
-  mesh.node_num_ = static_cast<Isize>(nodes_num);
-  mesh.node_.resize(Dim, mesh.node_num_);
+  mesh_base.node_num_ = static_cast<Isize>(nodes_num);
+  mesh_base.node_.resize(Dim, static_cast<Isize>(mesh_base.node_num_));
   for (const auto node_tag : node_tags) {
-    for (Isize i = 0; i < Dim; i++) {
-      mesh.node_(i, static_cast<Isize>(node_tag - 1)) =
-          static_cast<Real>(node_coords[3 * (node_tag - 1) + static_cast<Usize>(i)]);
+    for (Usize i = 0; i < Dim; i++) {
+      mesh_base.node_(static_cast<Isize>(i), static_cast<Isize>(node_tag - 1)) =
+          static_cast<Real>(node_coords[3 * (node_tag - 1) + i]);
     }
   }
 }
 
-template <Isize PolyOrder>
-inline void getMeshElements(Mesh2d<PolyOrder>& mesh) {
-  mesh.elem_range_ = std::make_pair(std::ranges::min(mesh.tri_.range_.first, mesh.quad_.range_.first),
-                                    std::ranges::max(mesh.tri_.range_.second, mesh.quad_.range_.second));
-  mesh.elem_num_ = mesh.tri_.num_ + mesh.quad_.num_;
-  mesh.elem_type_.resize(mesh.elem_num_);
-  for (Isize i = 0; i < mesh.elem_num_; i++) {
-    if ((i + mesh.elem_range_.first) >= mesh.tri_.range_.first &&
-        (i + mesh.elem_range_.first) <= mesh.tri_.range_.second) {
-      mesh.elem_type_(i) = kTri.kTag;
-    } else if ((i + mesh.elem_range_.first) >= mesh.quad_.range_.first &&
-               (i + mesh.elem_range_.first) <= mesh.quad_.range_.second) {
-      mesh.elem_type_(i) = kQuad.kTag;
-    }
-  }
-}
+template <MeshType MeshT>
+inline void getMesh2d(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<2, MeshT>& mesh);
 
-template <Isize PolyOrder>
-inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh2d<PolyOrder>& mesh) {
+template <>
+inline void getMesh2d(const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
+                      Mesh<2, MeshType::Tri>& mesh) {
   getNodes(mesh);
 
-  getElemIntegral<kTri, PolyOrder>();
-  getElemIntegral<kQuad, PolyOrder>();
-  getAdjacencyElemIntegral<kLine, PolyOrder>();
+  getElemMesh<2>(mesh.node_, mesh.tri_);
 
-  MeshSupplemental<kLine> boundary_supplemental;
-  getMeshSupplemental<kLine, Boundary>(boundary_type_map, boundary_supplemental);
-  getAdjacencyElemMesh<2, kLine>(mesh.node_, mesh.line_, boundary_supplemental);
-
-  getElemMesh<2, kTri>(mesh.node_, mesh.tri_);
-  getElemMesh<2, kQuad>(mesh.node_, mesh.quad_);
-
-  getMeshElements(mesh);
+  MeshSupplemental<1> boundary_supplemental;
+  getMeshSupplemental<Boundary, 1>(boundary_type_map, boundary_supplemental);
+  getAdjacencyElemMesh<2, MeshType::Tri>(mesh.node_, boundary_supplemental, mesh.line_);
 
   calAdjacencyElemNormVec(mesh.line_);
 
-  getElemJacobian<2, kLine>(mesh.line_);
-  getElemJacobian<2, kTri>(mesh.tri_);
-  getElemJacobian<2, kQuad>(mesh.quad_);
+  getElemJacobian<2>(mesh.line_);
+  getElemJacobian<2>(mesh.tri_);
+}
+
+template <>
+inline void getMesh2d(const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
+                      Mesh<2, MeshType::Quad>& mesh) {
+  getNodes(mesh);
+
+  getElemMesh<2>(mesh.node_, mesh.quad_);
+
+  MeshSupplemental<1> boundary_supplemental;
+  getMeshSupplemental<Boundary, 1>(boundary_type_map, boundary_supplemental);
+  getAdjacencyElemMesh<2, MeshType::Quad>(mesh.node_, boundary_supplemental, mesh.line_);
+
+  calAdjacencyElemNormVec(mesh.line_);
+
+  getElemJacobian<2>(mesh.line_);
+  getElemJacobian<2>(mesh.quad_);
+}
+
+template <>
+inline void getMesh2d(const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
+                      Mesh<2, MeshType::TriQuad>& mesh) {
+  getNodes(mesh);
+
+  getElemMesh<2>(mesh.node_, mesh.tri_);
+  getElemMesh<2>(mesh.node_, mesh.quad_);
+
+  MeshSupplemental<1> boundary_supplemental;
+  getMeshSupplemental<Boundary, 1>(boundary_type_map, boundary_supplemental);
+  getAdjacencyElemMesh<2, MeshType::TriQuad>(mesh.node_, boundary_supplemental, mesh.line_);
+
+  calAdjacencyElemNormVec(mesh.line_);
+
+  getElemJacobian<2>(mesh.line_);
+  getElemJacobian<2>(mesh.tri_);
+  getElemJacobian<2>(mesh.quad_);
+}
+
+template <int Dim, MeshType MeshT>
+inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<Dim, MeshT>& mesh) {
+  if constexpr (Dim == 2) {
+    getMesh2d(boundary_type_map, mesh);
+  }
 }
 
 }  // namespace SubrosaDG

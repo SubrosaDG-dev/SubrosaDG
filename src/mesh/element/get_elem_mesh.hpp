@@ -16,150 +16,175 @@
 // clang-format off
 
 #include <gmsh.h>               // for getElementsByType, addDiscreteEntity, addElementsByType, createEdges, getEdges
-#include <Eigen/Core>           // for Dynamic, Matrix
-#include <cstddef>              // for size_t
-#include <utility>              // for pair, make_pair
+#include <Eigen/Core>           // for DenseBase::col, Dynamic, Matrix
+#include <utility>              // for make_pair
 #include <vector>               // for vector
 #include <map>                  // for map, operator==, _Rb_tree_iterator
 #include <algorithm>            // for max, minmax_element_result, __minmax_element_fn, minmax_element
 #include <functional>           // for identity, less
 
-#include "basic/data_type.hpp"  // for Usize, Isize, Real
+#include "basic/data_type.hpp"  // for Isize, Usize, Real
+#include "basic/enum.hpp"       // for MeshType
 #include "mesh/elem_type.hpp"   // for ElemInfo, kQuad, kTri
 
 // clang-format on
 
 namespace SubrosaDG {
 
-template <SubrosaDG::Isize Dim, ElemInfo ElemT>
+template <int Dim, ElemInfo ElemT>
 struct ElemMesh;
-template <Isize Dim, ElemInfo ElemT>
+template <int Dim, ElemInfo ElemT>
 struct AdjacencyElemMesh;
-template <ElemInfo ElemT>
+template <int ElemDim>
 struct MeshSupplemental;
 
-template <Isize Dim, ElemInfo ElemT>
+struct AdjacencyElemMeshSupplemental {
+  bool is_recorded_;
+  std::vector<Isize> index_;
+};
+
+template <int Dim, ElemInfo ElemT>
 inline void getElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& nodes, ElemMesh<Dim, ElemT>& elem_mesh) {
-  std::vector<std::size_t> elem_tags;
-  std::vector<std::size_t> elem_node_tag;
-  gmsh::model::mesh::getElementsByType(ElemT.kTag, elem_tags, elem_node_tag);
+  std::vector<Usize> elem_tags;
+  std::vector<Usize> elem_node_tag;
+  gmsh::model::mesh::getElementsByType(ElemT.kTopology, elem_tags, elem_node_tag);
   if (elem_tags.empty()) {
     elem_mesh.range_ = std::make_pair(0, 0);
     elem_mesh.num_ = 0;
   } else {
     elem_mesh.range_ = std::make_pair(elem_tags.front(), elem_tags.back());
     elem_mesh.num_ = static_cast<Isize>(elem_tags.size());
-    elem_mesh.node_.resize(ElemT.kDim * ElemT.kNodeNum, elem_mesh.num_);
-    elem_mesh.index_.resize(ElemT.kNodeNum, elem_mesh.num_);
-    for (const auto elem_tag : elem_tags) {
-      for (Isize i = 0; i < ElemT.kNodeNum; i++) {
-        auto node_tag = static_cast<Isize>(elem_node_tag[static_cast<Usize>(
-            (static_cast<Isize>(elem_tag) - elem_mesh.range_.first) * ElemT.kNodeNum + i)]);
-        for (Isize j = 0; j < ElemT.kDim; j++) {
-          elem_mesh.node_(i * Dim + j, static_cast<Isize>(elem_tag) - elem_mesh.range_.first) = nodes(j, node_tag - 1);
-        }
-        elem_mesh.index_(i, static_cast<Isize>(elem_tag) - elem_mesh.range_.first) = node_tag;
+    elem_mesh.elem_.resize(elem_mesh.num_);
+    for (Isize i = 0; i < elem_mesh.num_; i++) {
+      for (Isize j = 0; j < ElemT.kNodeNum; j++) {
+        auto node_tag = static_cast<Isize>(elem_node_tag[static_cast<Usize>(i * ElemT.kNodeNum + j)]);
+        elem_mesh.elem_(i).node_.col(j) = nodes.col(node_tag - 1);
+        elem_mesh.elem_(i).index_(j) = node_tag;
       }
     }
   }
 }
 
 template <ElemInfo ElemT>
-inline void getEdgeElemMap(std::map<Usize, std::pair<bool, std::vector<Isize>>>& edge_elem_map) {
-  std::vector<std::size_t> edge_nodes_tags;
-  gmsh::model::mesh::getElementEdgeNodes(ElemT.kTag, edge_nodes_tags);
+inline void getAdjacencyElemTypeMap2d(std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map) {
+  std::vector<Usize> edge_nodes_tags;
+  gmsh::model::mesh::getElementEdgeNodes(ElemT.kTopology, edge_nodes_tags);
   std::vector<int> edge_orientations;
-  std::vector<std::size_t> edge_tags;
+  std::vector<Usize> edge_tags;
   gmsh::model::mesh::getEdges(edge_nodes_tags, edge_tags, edge_orientations);
-  std::vector<std::size_t> element_tags;
-  std::vector<std::size_t> element_node_tags;
-  gmsh::model::mesh::getElementsByType(ElemT.kTag, element_tags, element_node_tags);
-  for (std::size_t i = 0; i < edge_tags.size(); i++) {
-    if (!edge_elem_map.contains(edge_tags[i])) {
-      edge_elem_map[edge_tags[i]].first = false;
-      edge_elem_map[edge_tags[i]].second.emplace_back(static_cast<Isize>(edge_nodes_tags[2 * i]));
-      edge_elem_map[edge_tags[i]].second.emplace_back(static_cast<Isize>(edge_nodes_tags[2 * i + 1]));
+  std::vector<Usize> elem_tags;
+  std::vector<Usize> elem_node_tags;
+  gmsh::model::mesh::getElementsByType(ElemT.kTopology, elem_tags, elem_node_tags);
+  for (Usize i = 0; i < edge_tags.size(); i++) {
+    if (!adjacency_elem_map.contains(static_cast<Isize>(edge_tags[i]))) {
+      adjacency_elem_map[static_cast<Isize>(edge_tags[i])].is_recorded_ = false;
+      adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(edge_nodes_tags[2 * i]);
+      adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(edge_nodes_tags[2 * i + 1]);
     } else {
-      edge_elem_map[edge_tags[i]].first = true;
+      adjacency_elem_map[static_cast<Isize>(edge_tags[i])].is_recorded_ = true;
     }
-    edge_elem_map[edge_tags[i]].second.emplace_back(static_cast<Isize>(element_tags[i / ElemT.kNodeNum]));
-    edge_elem_map[edge_tags[i]].second.emplace_back(static_cast<Isize>(i % ElemT.kNodeNum));
+    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(elem_tags[i / ElemT.kNodeNum] -
+                                                                             elem_tags.front());
+    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(ElemT.kTopology);
+    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(i % ElemT.kNodeNum);
   }
 }
 
-template <Isize Dim, ElemInfo ElemT>
-inline std::map<Usize, std::pair<bool, std::vector<Isize>>> getAdjacencyElemMap() {
+template <MeshType MeshT>
+inline std::map<Isize, AdjacencyElemMeshSupplemental> getAdjacencyElemMap2d() {
+  gmsh::model::mesh::createEdges();
+  std::map<Isize, AdjacencyElemMeshSupplemental> adjacency_elem_map;
+  if constexpr (MeshT == MeshType::Tri) {
+    getAdjacencyElemTypeMap2d<kTri>(adjacency_elem_map);
+  } else if constexpr (MeshT == MeshType::Quad) {
+    getAdjacencyElemTypeMap2d<kQuad>(adjacency_elem_map);
+  } else if constexpr (MeshT == MeshType::TriQuad) {
+    getAdjacencyElemTypeMap2d<kTri>(adjacency_elem_map);
+    getAdjacencyElemTypeMap2d<kQuad>(adjacency_elem_map);
+  }
+  return adjacency_elem_map;
+}
+
+template <MeshType MeshT, ElemInfo ElemT>
+inline std::map<Isize, AdjacencyElemMeshSupplemental> getAdjacencyElemMap() {
   if constexpr (ElemT.kDim == 1) {
-    gmsh::model::mesh::createEdges();
-    std::map<Usize, std::pair<bool, std::vector<Isize>>> edge_elem_map;
-    getEdgeElemMap<kTri>(edge_elem_map);
-    getEdgeElemMap<kQuad>(edge_elem_map);
-    return edge_elem_map;
+    return getAdjacencyElemMap2d<MeshT>();
   }
 }
 
-template <Isize Dim, ElemInfo ElemT>
+template <int Dim, ElemInfo ElemT>
+inline void getAdjacencyInternalElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
+                                         const std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map,
+                                         const std::vector<Isize>& internal_tag,
+                                         AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh) {
+  Usize max_elem_tag;
+  gmsh::model::mesh::getMaxElementTag(max_elem_tag);
+  const auto [internal_min_tag, internal_max_tag] = std::ranges::minmax_element(internal_tag);
+  adjacency_elem_mesh.internal_.range_ =
+      std::make_pair(max_elem_tag + 1, *internal_max_tag - *internal_min_tag + static_cast<Isize>(max_elem_tag) + 1);
+  adjacency_elem_mesh.internal_.num_ = *internal_max_tag - *internal_min_tag + 1;
+  adjacency_elem_mesh.internal_.elem_.resize(adjacency_elem_mesh.internal_.num_);
+  int entity_tag = gmsh::model::addDiscreteEntity(ElemT.kDim);
+  std::vector<Usize> elem_tags;
+  std::vector<Usize> node_tags;
+  for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
+    const AdjacencyElemMeshSupplemental& adjacency_elem_supplemental = adjacency_elem_map.at(i + *internal_min_tag);
+    for (Usize j = 0; j < ElemT.kNodeNum; j++) {
+      adjacency_elem_mesh.internal_.elem_(i).node_.col(static_cast<Isize>(j)) =
+          node.col(static_cast<Isize>(adjacency_elem_supplemental.index_[j] - 1));
+      adjacency_elem_mesh.internal_.elem_(i).index_(static_cast<Isize>(j)) = adjacency_elem_supplemental.index_[j];
+      node_tags.emplace_back(adjacency_elem_supplemental.index_[j]);
+    }
+    for (Usize j = 0; j < 6; j++) {
+      adjacency_elem_mesh.internal_.elem_(i).index_(ElemT.kNodeNum + static_cast<Isize>(j)) =
+          adjacency_elem_supplemental.index_[ElemT.kNodeNum + j];
+    }
+    elem_tags.emplace_back(static_cast<Usize>(i) + max_elem_tag + 1);
+  }
+  gmsh::model::mesh::addElementsByType(entity_tag, ElemT.kTopology, elem_tags, node_tags);
+}
+
+template <int Dim, ElemInfo ElemT>
+inline void getAdjacencyBoundaryElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
+                                         const MeshSupplemental<ElemT.kDim>& boundary_supplemental,
+                                         const std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map,
+                                         const std::vector<Isize>& boundary_tag,
+                                         AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh) {
+  const auto [boundary_min_tag, boundary_max_tag] = std::ranges::minmax_element(boundary_tag);
+  adjacency_elem_mesh.boundary_.range_ = std::make_pair(*boundary_min_tag, *boundary_max_tag);
+  adjacency_elem_mesh.boundary_.num_ = *boundary_max_tag - *boundary_min_tag + 1;
+  adjacency_elem_mesh.boundary_.elem_.resize(adjacency_elem_mesh.boundary_.num_);
+  for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
+    const AdjacencyElemMeshSupplemental& adjacency_elem_supplemental = adjacency_elem_map.at(i + *boundary_min_tag);
+    for (Usize j = 0; j < ElemT.kNodeNum; j++) {
+      adjacency_elem_mesh.boundary_.elem_(i).node_.col(static_cast<Isize>(j)) =
+          node.col(static_cast<Isize>(adjacency_elem_supplemental.index_[j] - 1));
+      adjacency_elem_mesh.boundary_.elem_(i).index_(static_cast<Isize>(j)) = adjacency_elem_supplemental.index_[j];
+    }
+    for (Usize j = 0; j < 3; j++) {
+      adjacency_elem_mesh.boundary_.elem_(i).index_(ElemT.kNodeNum + static_cast<Isize>(j)) =
+          adjacency_elem_supplemental.index_[ElemT.kNodeNum + j];
+    }
+    adjacency_elem_mesh.boundary_.elem_(i).index_(ElemT.kNodeNum + 3) = boundary_supplemental.index_(i);
+  }
+}
+
+template <int Dim, MeshType MeshT, ElemInfo ElemT>
 inline void getAdjacencyElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
-                                 AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh,
-                                 const MeshSupplemental<ElemT>& boundary_supplemental) {
-  std::map<Usize, std::pair<bool, std::vector<Isize>>> adjacency_element_map = getAdjacencyElemMap<Dim, ElemT>();
-  std::vector<Usize> internal_tag;
-  std::vector<Usize> boundary_tag;
-  std::size_t max_element_tag;
-  gmsh::model::mesh::getMaxElementTag(max_element_tag);
-  for (const auto& [edge_tag, element_pair] : adjacency_element_map) {
-    const auto& [flag, elements_index] = element_pair;
-    if (flag) [[likely]] {
+                                 const MeshSupplemental<ElemT.kDim>& boundary_supplemental,
+                                 AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh) {
+  std::map<Isize, AdjacencyElemMeshSupplemental> adjacency_elem_map = getAdjacencyElemMap<MeshT, ElemT>();
+  std::vector<Isize> internal_tag;
+  std::vector<Isize> boundary_tag;
+  for (const auto& [edge_tag, adjacency_elem_supplemental] : adjacency_elem_map) {
+    if (adjacency_elem_supplemental.is_recorded_) [[likely]] {
       internal_tag.push_back(edge_tag);
     } else [[unlikely]] {
       boundary_tag.push_back(edge_tag);
     }
   }
-  const auto [internal_min, internal_max] = std::ranges::minmax_element(internal_tag);
-  const auto [boundary_min, boundary_max] = std::ranges::minmax_element(boundary_tag);
-  adjacency_elem_mesh.internal_range_ =
-      std::make_pair(max_element_tag + 1, *internal_max - *internal_min + max_element_tag + 1);
-  auto internal_elements_num = static_cast<Isize>(*internal_max - *internal_min + 1);
-  adjacency_elem_mesh.boundary_range_ = std::make_pair(*boundary_min, *boundary_max);
-  auto boundary_elements_num = static_cast<Isize>(*boundary_max - *boundary_min + 1);
-  adjacency_elem_mesh.num_tag_ = std::make_pair(internal_elements_num, internal_elements_num + boundary_elements_num);
-  adjacency_elem_mesh.node_.resize(ElemT.kNodeNum * Dim, internal_elements_num + boundary_elements_num);
-  adjacency_elem_mesh.index_.resize(ElemT.kNodeNum + 4, internal_elements_num + boundary_elements_num);
-  int entity_tag = gmsh::model::addDiscreteEntity(ElemT.kDim);
-  std::vector<std::size_t> element_tags;
-  std::vector<std::size_t> node_tags;
-  for (const auto edge_tag : internal_tag) {
-    const auto& [flag, elements_index] = adjacency_element_map[edge_tag];
-    for (Isize i = 0; i < ElemT.kNodeNum * Dim; i++) {
-      adjacency_elem_mesh.node_(i, static_cast<Isize>(edge_tag - *internal_min)) =
-          node(i % Dim, elements_index[static_cast<Usize>(i / Dim)] - 1);
-    }
-    for (Isize i = 0; i < ElemT.kNodeNum + 4; i++) {
-      adjacency_elem_mesh.index_(i, static_cast<Isize>(edge_tag - *internal_min)) =
-          elements_index[static_cast<Usize>(i)];
-    }
-    element_tags.emplace_back(static_cast<std::size_t>(edge_tag - *internal_min + max_element_tag + 1));
-    for (Isize i = 0; i < ElemT.kNodeNum; i++) {
-      node_tags.emplace_back(elements_index[static_cast<Usize>(i)]);
-    }
-  }
-  gmsh::model::mesh::addElementsByType(entity_tag, ElemT.kTag, element_tags, node_tags);
-  for (const auto& edge_tag : boundary_tag) {
-    const auto& [flag, elements_index] = adjacency_element_map[edge_tag];
-    for (Isize i = 0; i < ElemT.kNodeNum * Dim; i++) {
-      adjacency_elem_mesh.node_(i, static_cast<Isize>(edge_tag - *boundary_min) + internal_elements_num) =
-          node(i % Dim, elements_index[static_cast<Usize>(i / Dim)] - 1);
-    }
-    for (Isize i = 0; i < ElemT.kNodeNum + 2; i++) {
-      adjacency_elem_mesh.index_(i, static_cast<Isize>(edge_tag - *boundary_min) + internal_elements_num) =
-          elements_index[static_cast<Usize>(i)];
-    }
-    adjacency_elem_mesh.index_(ElemT.kNodeNum + 2,
-                               static_cast<Isize>(edge_tag - *boundary_min) + internal_elements_num) =
-        boundary_supplemental.index_(static_cast<Isize>(edge_tag) - boundary_supplemental.range_.first);
-    adjacency_elem_mesh.index_(ElemT.kNodeNum + 3,
-                               static_cast<Isize>(edge_tag - *boundary_min) + internal_elements_num) = 0;
-  }
+  getAdjacencyInternalElemMesh(node, adjacency_elem_map, internal_tag, adjacency_elem_mesh);
+  getAdjacencyBoundaryElemMesh(node, boundary_supplemental, adjacency_elem_map, boundary_tag, adjacency_elem_mesh);
 }
 
 }  // namespace SubrosaDG

@@ -15,7 +15,7 @@
 
 // clang-format off
 
-#include <Eigen/Core>           // for Vector, DenseBase::col, Matrix, Dynamic, DenseBase::operator(), DenseBase::re...
+#include <Eigen/Core>           // for Vector, DenseBase::col, DenseBase::operator(), Dynamic, Matrix, MatrixBase::o...
 #include <memory>               // for make_unique, unique_ptr
 #include <Eigen/Geometry>       // for MatrixBase::cross
 
@@ -26,58 +26,61 @@
 
 namespace SubrosaDG {
 
-template <Isize Dim, ElemInfo ElemT>
+template <int Dim, ElemInfo ElemT>
 struct ElemMesh;
-template <Isize Dim, ElemInfo ElemT>
+template <int Dim, ElemInfo ElemT>
 struct AdjacencyElemMesh;
 
-template <Isize Dim, ElemInfo ElemT>
-inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemLength(
-    Isize elem_num, const Eigen::Matrix<Real, Dim * ElemT.kNodeNum, Eigen::Dynamic>& elem_node) {
-  auto measure = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(elem_num);
-  Eigen::Matrix<Real, 3, ElemT.kNodeNum> node = Eigen::Matrix<Real, 3, ElemT.kNodeNum>::Zero();
-  for (Isize i = 0; i < elem_num; i++) {
-    node(Eigen::seqN(0, Eigen::fix<Dim>), Eigen::all) = elem_node.col(i).reshaped(Dim, ElemT.kNodeNum);
-    measure->operator()(i) = (node.col(1) - node.col(0)).norm();
-  }
-  return measure;
+template <int Dim, ElemInfo ElemT>
+inline Real calElemLength(const Eigen::Matrix<Real, Dim, ElemT.kNodeNum>& node) {
+  return (node.col(1) - node.col(0)).norm();
 }
 
-// TODO: for 3d need to mutiply the normal vector
-template <Isize Dim, ElemInfo ElemT>
-inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemArea(
-    Isize elem_num, const Eigen::Matrix<Real, Dim * ElemT.kNodeNum, Eigen::Dynamic>& elem_node) {
-  auto measure = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(elem_num);
-  Eigen::Matrix<Real, 3, ElemT.kNodeNum> node = Eigen::Matrix<Real, 3, ElemT.kNodeNum>::Zero();
-  for (Isize i = 0; i < elem_num; i++) {
-    node(Eigen::seqN(0, Eigen::fix<Dim>), Eigen::all) = elem_node.col(i).reshaped(Dim, ElemT.kNodeNum);
-    Eigen::Vector<Real, 3> cross_product = node.col(ElemT.kNodeNum - 1).cross(node.col(0));
-    for (Isize j = 0; j < ElemT.kNodeNum - 1; j++) {
-      cross_product += node.col(j).cross(node.col(j + 1));
-    }
-    measure->operator()(i) = 0.5 * cross_product.norm();
+template <int Dim, ElemInfo ElemT>
+inline Real calElemArea(const Eigen::Matrix<Real, Dim, ElemT.kNodeNum>& node) {
+  Eigen::Matrix<Real, 3, ElemT.kNodeNum> node3d = Eigen::Matrix<Real, 3, ElemT.kNodeNum>::Zero();
+  node3d(Eigen::seqN(0, Eigen::fix<Dim>), Eigen::all) = node;
+  Eigen::Vector<Real, 3> cross_product = Eigen::Vector<Real, 3>::Zero();
+  for (Isize i = 0; i < ElemT.kNodeNum; i++) {
+    cross_product += node3d.col(i).cross(node3d.col((i + 1) % ElemT.kNodeNum));
   }
-  return measure;
+  return 0.5 * cross_product.norm();
 }
 
-template <Isize Dim, ElemInfo ElemT>
+// TODO: for Dim == 3 need to mutiply the normal vector
+template <int Dim, ElemInfo ElemT>
 inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemMeasure(const ElemMesh<Dim, ElemT>& elem_mesh) {
-  if constexpr (ElemT.kDim == 2) {
-    return calElemArea<Dim, ElemT>(elem_mesh.num_, elem_mesh.node_);
-  } else if constexpr (ElemT.kDim == 3) {
-    // TODO: need to be implemented
-    return calElemVolume<Dim, ElemT>(elem_mesh.num_, elem_mesh.node_);
+  auto measure = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(elem_mesh.num_);
+  for (Isize i = 0; i < elem_mesh.num_; i++) {
+    if constexpr (ElemT.kDim == 2) {
+      measure->operator()(i) = calElemArea<Dim, ElemT>(elem_mesh.elem_(i).node_);
+    }
   }
+  return measure;
 }
 
-template <Isize Dim, ElemInfo ElemT>
+template <int Dim, ElemInfo ElemT>
 inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemMeasure(
     const AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh) {
-  if constexpr (ElemT.kDim == 1) {
-    return calElemLength<Dim, ElemT>(adjacency_elem_mesh.num_tag_.second, adjacency_elem_mesh.node_);
-  } else if constexpr (ElemT.kDim == 2) {
-    return calElemArea<Dim, ElemT>(adjacency_elem_mesh.num_tag_.second, adjacency_elem_mesh.node_);
+  auto measure = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(adjacency_elem_mesh.internal_.num_ +
+                                                                       adjacency_elem_mesh.boundary_.num_);
+  for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
+    if constexpr (ElemT.kDim == 1) {
+      measure->operator()(i) = calElemLength<Dim, ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_);
+    } else if constexpr (ElemT.kDim == 2) {
+      measure->operator()(i) = calElemArea<Dim, ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_);
+    }
   }
+  for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
+    if constexpr (ElemT.kDim == 1) {
+      measure->operator()(i + adjacency_elem_mesh.internal_.num_) =
+          calElemLength<Dim, ElemT>(adjacency_elem_mesh.boundary_.elem_(i).node_);
+    } else if constexpr (ElemT.kDim == 2) {
+      measure->operator()(i + adjacency_elem_mesh.internal_.num_) =
+          calElemArea<Dim, ElemT>(adjacency_elem_mesh.boundary_.elem_(i).node_);
+    }
+  }
+  return measure;
 }
 
 }  // namespace SubrosaDG

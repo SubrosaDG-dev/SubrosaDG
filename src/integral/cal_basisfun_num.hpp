@@ -15,28 +15,27 @@
 
 // clang-format off
 
-#include "basic/data_type.hpp"  // for Isize
-#include "mesh/elem_type.hpp"   // for ElemInfo, kLine, kQuad, kTri
+#include "mesh/elem_type.hpp"  // for ElemInfo, kLine, kQuad, kTri
 
 // clang-format on
 
 namespace SubrosaDG {
 
 template <ElemInfo ElemT>
-inline constexpr Isize getBasisFunNum(Isize poly_order);
+inline consteval int calBasisFunNum(int poly_order);
 
 template <>
-inline constexpr Isize getBasisFunNum<kLine>(Isize poly_order) {
+inline consteval int calBasisFunNum<kLine>(int poly_order) {
   return poly_order + 1;
 }
 
 template <>
-inline constexpr Isize getBasisFunNum<kTri>(Isize poly_order) {
+inline consteval int calBasisFunNum<kTri>(int poly_order) {
   return (poly_order + 1) * (poly_order + 2) / 2;
 }
 
 template <>
-inline constexpr Isize getBasisFunNum<kQuad>(Isize poly_order) {
+inline consteval int calBasisFunNum<kQuad>(int poly_order) {
   return (poly_order + 1) * (poly_order + 1);
 }
 

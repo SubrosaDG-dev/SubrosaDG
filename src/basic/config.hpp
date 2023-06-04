@@ -17,16 +17,16 @@
 
 #include <array>                // for array
 
-#include "basic/data_type.hpp"  // for Real, Isize, Usize
-#include "basic/enum.hpp"       // for SimulationEquation, ConvectiveFlux (ptr only)
+#include "basic/data_type.hpp"  // for Real, Isize
+#include "basic/enum.hpp"       // for EquModel, ConvectiveFlux (ptr only)
 
 // clang-format on
 
 namespace SubrosaDG {
 
-template <Usize Step, bool IsImplicit>
+template <int StepNum, bool IsImplicit>
 struct TimeDiscrete {
-  inline static constexpr Usize kStep{Step};
+  inline static constexpr int kStepNum{StepNum};
   inline static constexpr bool kIsImplicit{IsImplicit};
 };
 
@@ -38,34 +38,35 @@ inline constexpr TimeDiscrete<1, true> kImplicitEuler;
 
 template <TimeDiscrete TimeDiscreteT>
 struct TimeVar {
-  const Isize iter_;
+  const int iter_;
   const Real cfl_;
-  const Isize tole_;
+  const int tole_;
 
-  inline constexpr TimeVar(const Isize iter, const Real cfl, const Isize tole) : iter_(iter), cfl_(cfl), tole_(tole) {}
+  inline consteval TimeVar(const int iter, const Real cfl, const int tole) : iter_(iter), cfl_(cfl), tole_(tole) {}
 };
 
 template <ConvectiveFlux ConvectiveFluxT>
 struct SpaceDiscrete {};
 
-template <SimulationEquation SimulationEquationT>
-struct ThermodynamicModel {};
+template <EquModel EquModelT>
+struct ThermoModel {};
 
 template <>
-struct ThermodynamicModel<SimulationEquation::Euler> {
+struct ThermoModel<EquModel::Euler> {
   const Real gamma_;
   const Real c_p_;
   const Real r_;
 
-  inline constexpr ThermodynamicModel(const Real gamma, const Real c_p, const Real r)
-      : gamma_(gamma), c_p_(c_p), r_(r) {}
+  inline consteval ThermoModel(const Real gamma, const Real c_p, const Real r) : gamma_(gamma), c_p_(c_p), r_(r) {}
 };
 
 template <>
-struct ThermodynamicModel<SimulationEquation::NavierStokes> : ThermodynamicModel<SimulationEquation::Euler> {
+struct ThermoModel<EquModel::NS> : ThermoModel<EquModel::Euler> {
   const Real mu_;
-  inline constexpr ThermodynamicModel(const Real gamma, const Real c_p, const Real r, const Real mu)
-      : ThermodynamicModel<SimulationEquation::Euler>(gamma, c_p, r), mu_(mu) {}
+  const Real k_;
+
+  inline consteval ThermoModel(const Real gamma, const Real c_p, const Real r, const Real mu, const Real k)
+      : ThermoModel<EquModel::Euler>(gamma, c_p, r), mu_(mu), k_(k) {}
 };
 
 template <Isize Dim>
@@ -75,7 +76,7 @@ struct FlowVar {
   const Real p_;
   const Real capital_t_;
 
-  inline constexpr FlowVar(const std::array<Real, Dim> u, const Real rho, const Real p, const Real capital_t)
+  inline consteval FlowVar(const std::array<Real, Dim> u, const Real rho, const Real p, const Real capital_t)
       : u_(u), rho_(rho), p_(p), capital_t_(capital_t) {}
 };
 

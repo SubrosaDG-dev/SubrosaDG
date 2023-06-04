@@ -13,27 +13,36 @@
 #ifndef SUBROSA_DG_ENUM_HPP_
 #define SUBROSA_DG_ENUM_HPP_
 
-// clang-format off
-
-#include "basic/data_type.hpp"  // for Usize, Isize
-
-// clang-format on
-
 namespace SubrosaDG {
 
-enum class SimulationEquation : Usize {
+enum class EquModel {
   Euler = 1,
-  NavierStokes,
+  NS,
 };
 
-enum class ConvectiveFlux : Usize {
+enum class ConvectiveFlux {
   HLLC = 1,
   Roe,
 };
 
-enum class Boundary : Isize {
-  Farfield = -1,
-  Wall = -2,
+enum class ViscousFlux {
+  BR1 = 1,
+  BR2,
+};
+
+enum class Boundary {
+  Farfield = 1,
+  Wall,
+};
+
+enum class MeshType {
+  Tri = 1,
+  Quad,
+  TriQuad,
+  Tet,
+  Pyramid,
+  Hex,
+  TetPyramidHex,
 };
 
 }  // namespace SubrosaDG
