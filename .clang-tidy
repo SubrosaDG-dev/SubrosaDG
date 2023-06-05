@@ -24,8 +24,8 @@ HeaderFilterRegex: 'SubrosaDG\/(src|examples|tests)\/.*?\.(h|hpp|c|cpp)$'
 FormatStyle: file
 
 CheckOptions:
-  - key: readability-identifier-naming.MacroDefinitionCase
-    value: UPPER_CASE
+  # - key: readability-identifier-naming.MacroDefinitionCase
+  #   value: UPPER_CASE
 
   - key: readability-identifier-naming.NamespaceCase
     value: CamelCase
