@@ -19,6 +19,6 @@
 *.png   binary
 *.gif   binary
 
-docs/*    linguist-documentation
-libs/*    linguist-vendored
-utils/*   linguist-vendored
+docs/**    linguist-documentation
+libs/**    linguist-vendored
+utils/**   linguist-vendored
