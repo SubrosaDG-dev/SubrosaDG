@@ -14,29 +14,34 @@
 
 // clang-format off
 
-#include <dbg.h>                            // for type_name, DBG_MAP_1, DebugOutput, dbg
-#include <gmsh.h>                           // for addCurveLoop, addLine, addPhysicalGroup, addPlaneSurface, add
-#include <gtest/gtest.h>                    // for Message, TestPartResult, ASSERT_NEAR, TestInfo (ptr only), TEST_F
-#include <Eigen/Core>                       // for Block, Vector, DenseBase<>::ColXpr, Matrix, SymbolExpr, CommaInit...
-#include <Eigen/LU>                         // for MatrixBase::inverse
-#include <algorithm>                        // for copy
-#include <array>                            // for array
-#include <filesystem>                       // for path, exists, operator/
-#include <memory>                           // for allocator, unique_ptr
-#include <string_view>                      // for string_view, hash, basic_string_view, operator""sv, operator==
-#include <unordered_map>                    // for unordered_map
-#include <utility>                          // for make_pair
+#include <dbg.h>                                            // for type_name, DBG_MAP_1, DebugOutput, dbg
+#include <gmsh.h>                                           // for addCurveLoop, addLine, addPhysicalGroup, addPlane...
+#include <gtest/gtest.h>                                    // for Message, TestPartResult, ASSERT_NEAR, TestInfo (p...
+#include <Eigen/Core>                                       // for Block, Vector, DenseBase<>::ColXpr, Matrix, Symbo...
+#include <Eigen/LU>                                         // for MatrixBase::inverse
+#include <algorithm>                                        // for copy
+#include <array>                                            // for array
+#include <filesystem>                                       // for path, exists, operator/
+#include <memory>                                           // for allocator, unique_ptr
+#include <string_view>                                      // for string_view, hash, basic_string_view, operator""sv
+#include <unordered_map>                                    // for unordered_map
+#include <utility>                                          // for make_pair
+#include <stdexcept>                                        // for out_of_range
+#include <vector>                                           // for vector
 
-#include "basic/config.hpp"                 // for InitVar, FarfieldVar, ThermoModel, TimeVar, kExplicitEuler
-#include "basic/constant.hpp"               // for kEpsilon
-#include "basic/data_type.hpp"              // for Real, Isize
-#include "basic/enum.hpp"                   // for MeshType, Boundary, EquModel
-#include "cmake.hpp"                        // for kProjectSourceDir
-#include "mesh/element/cal_measure.hpp"     // for calElemMeasure
-#include "mesh/get_mesh.hpp"                // for getMesh
-#include "mesh/mesh_structure.hpp"          // for Mesh, AdjacencyElemTypeMesh, AdjacencyLineElemMesh, PerAdjacencyE...
-#include "integral/integral_structure.hpp"  // for Integral, TriElemIntegral, AdjacencyLineElemIntegral, QuadElemInt...
-#include "integral/get_integral.hpp"        // for getIntegral
+#include "basic/config.hpp"                                 // for InitVar, kExplicitEuler, FarfieldVar, ThermoModel
+#include "basic/constant.hpp"                               // for kEpsilon
+#include "basic/data_type.hpp"                              // for Real, Isize
+#include "basic/enum.hpp"                                   // for MeshType, ConvectiveFlux, Boundary, EquModel
+#include "cmake.hpp"                                        // for kProjectSourceDir
+#include "mesh/element/cal_measure.hpp"                     // for calElemMeasure
+#include "mesh/get_mesh.hpp"                                // for getMesh
+#include "mesh/mesh_structure.hpp"                          // for Mesh, AdjacencyElemTypeMesh, AdjacencyLineElemMesh
+#include "integral/integral_structure.hpp"                  // for Integral, TriElemIntegral, AdjacencyLineElemIntegral
+#include "integral/get_integral.hpp"                        // for getIntegral
+#include "solver/solver_structure.hpp"                      // for SolverEuler
+#include "solver/init_solver.hpp"                           // for initSolver
+#include "solver/elem_integral/cal_adjacency_integral.hpp"  // for calAdjacencyIntegral
 
 // clang-format on
 
@@ -51,7 +56,7 @@ inline constexpr SubrosaDG::ThermoModel<SubrosaDG::EquModel::Euler> kThermoModel
 
 inline const std::unordered_map<std::string_view, int> kRegionIdMap{{"vc-1"sv, 1}};
 
-inline constexpr std::array<SubrosaDG::InitVar<2>, 1> kInitVarArray{SubrosaDG::InitVar<2>{{1.0, 0.5}, 1.4, 1.0, 1.0}};
+inline constexpr std::array<SubrosaDG::InitVar<2>, 1> kInitVarVec{SubrosaDG::InitVar<2>{{1.0, 0.5}, 1.4, 1.0, 1.0}};
 
 inline constexpr SubrosaDG::FarfieldVar<2> kFarfieldVar{{1.0, 0.5}, 1.4, 1.0, 1.0};
 
@@ -87,6 +92,8 @@ void generateMesh(const std::filesystem::path& mesh_file) {
 struct Test2d : testing::Test {
   static SubrosaDG::Mesh<2, SubrosaDG::MeshType::TriQuad>* mesh;
   static SubrosaDG::Integral<2, 2, SubrosaDG::MeshType::TriQuad>* integral;
+  static SubrosaDG::SolverEuler<2, 2, SubrosaDG::MeshType::TriQuad, SubrosaDG::ConvectiveFlux::Roe,
+                                SubrosaDG::kExplicitEuler>* solver;
 
   static void SetUpTestCase() {
     std::filesystem::path mesh_file = SubrosaDG::kProjectSourceDir / "build/out/test/mesh/test.msh";
@@ -97,6 +104,8 @@ struct Test2d : testing::Test {
     SubrosaDG::getMesh(kBoundaryTMap, *Test2d::mesh);
     Test2d::integral = new SubrosaDG::Integral<2, 2, SubrosaDG::MeshType::TriQuad>;
     SubrosaDG::getIntegral(*Test2d::integral);
+    Test2d::solver = new SubrosaDG::SolverEuler<2, 2, SubrosaDG::MeshType::TriQuad, SubrosaDG::ConvectiveFlux::Roe,
+                                                SubrosaDG::kExplicitEuler>{kTimeVar, kThermoModel};
   }
 
   static void TearDownTestCase() {
@@ -109,6 +118,8 @@ struct Test2d : testing::Test {
 
 SubrosaDG::Mesh<2, SubrosaDG::MeshType::TriQuad>* Test2d::mesh;
 SubrosaDG::Integral<2, 2, SubrosaDG::MeshType::TriQuad>* Test2d::integral;
+SubrosaDG::SolverEuler<2, 2, SubrosaDG::MeshType::TriQuad, SubrosaDG::ConvectiveFlux::Roe, SubrosaDG::kExplicitEuler>*
+    Test2d::solver;
 
 TEST_F(Test2d, AdjacencyElemMesh) {
   ASSERT_EQ(dbg(mesh->line_.internal_.range_), std::make_pair(35L, 64L));
@@ -189,4 +200,9 @@ TEST_F(Test2d, AdjacencyElemIntegral) {
   Eigen::Vector<SubrosaDG::Real, 2> line_quad_basis_fun = integral->line_.quad_basis_fun_(Eigen::last, Eigen::lastN(2));
   ASSERT_NEAR(dbg(line_quad_basis_fun.x()), 0.39999999999999991, SubrosaDG::kEpsilon);
   ASSERT_NEAR(dbg(line_quad_basis_fun.y()), 0.0, SubrosaDG::kEpsilon);
+}
+
+TEST_F(Test2d, Develop) {
+  SubrosaDG::initSolver(*mesh, kRegionIdMap, kInitVarVec, *solver);
+  SubrosaDG::calAdjacencyIntegral(mesh->line_, integral->line_, kFarfieldVar, *solver);
 }

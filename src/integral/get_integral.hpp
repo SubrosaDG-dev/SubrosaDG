@@ -25,7 +25,7 @@
 #include "basic/data_type.hpp"              // for Isize, Usize, Real
 #include "mesh/elem_type.hpp"               // for ElemInfo, kQuad, kTri
 #include "integral/cal_basisfun_num.hpp"    // for calBasisFunNum
-#include "integral/integral_structure.hpp"  // for Integral (ptr only), ElemIntegral, ElemStandard, AdjacencyElemInt...
+#include "integral/integral_structure.hpp"  // for ElemIntegral, Integral (ptr only), ElemStandard, AdjacencyElemInt...
 #include "integral/get_standard_coord.hpp"  // for getElemStandardCoord
 #include "integral/get_integral_num.hpp"    // for getElemAdjacencyIntegralNum
 #include "basic/enum.hpp"                   // for MeshType
@@ -79,12 +79,12 @@ inline void getElemIntegral(ElemIntegral<PolyOrder, ElemT>& elem_integral) {
   }
 }
 
-template <int PolyOrder, ElemInfo ElemT, ElemInfo ParentElemT>
+template <int PolyOrder, ElemInfo ElemT, ElemInfo ParentElemT, MeshType MeshT>
 inline void getAdjacencyElemIntegralFromParent(
     const std::vector<double>& coords_basis_functions,
-    Eigen::Matrix<Real, getElemAdjacencyIntegralNum<ParentElemT>(PolyOrder), calBasisFunNum<ParentElemT>(PolyOrder)>&
-        parent_basis_fun) {
-  using T = AdjacencyElemIntegral<PolyOrder, ElemT>;
+    Eigen::Matrix<Real, getElemAdjacencyIntegralNum<ParentElemT>(PolyOrder), calBasisFunNum<ParentElemT>(PolyOrder),
+                  Eigen::RowMajor>& parent_basis_fun) {
+  using T = AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>;
   using ParentT = ElemIntegral<PolyOrder, ParentElemT>;
   Eigen::Matrix<double, 3, T::kIntegralNum* ParentElemT.kAdjacencyNum> parent_coords =
       Eigen::Matrix<double, 3, T::kIntegralNum * ParentElemT.kAdjacencyNum>::Zero();
@@ -111,46 +111,45 @@ inline void getAdjacencyElemIntegralFromParent(
   }
 }
 
-template <int PolyOrder, ElemInfo ElemT>
-inline void getAdjacencyElemIntegral(AdjacencyElemIntegral<PolyOrder, ElemT>& adjacency_elem_integral) {
+template <int PolyOrder, ElemInfo ElemT, MeshType MeshT>
+inline void getAdjacencyElemIntegral(AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>& adjacency_elem_integral) {
   std::vector<double> local_coords = getElemGaussQuad(adjacency_elem_integral);
   int num_components;
   int num_orientations;
   std::vector<double> cooords_basis_functions;
   gmsh::model::mesh::getBasisFunctions(ElemT.kTopology, local_coords, "Lagrange1", num_components,
                                        cooords_basis_functions, num_orientations);
-  if constexpr (ElemT.kDim == 1) {
-    getAdjacencyElemIntegralFromParent<PolyOrder, ElemT, kTri>(cooords_basis_functions,
-                                                               adjacency_elem_integral.tri_basis_fun_);
-    getAdjacencyElemIntegralFromParent<PolyOrder, ElemT, kQuad>(cooords_basis_functions,
-                                                                adjacency_elem_integral.quad_basis_fun_);
+  if constexpr (MeshT == MeshType::Tri) {
+    getAdjacencyElemIntegralFromParent<PolyOrder, ElemT, kTri, MeshT>(cooords_basis_functions,
+                                                                      adjacency_elem_integral.tri_basis_fun_);
+  } else if constexpr (MeshT == MeshType::Quad) {
+    getAdjacencyElemIntegralFromParent<PolyOrder, ElemT, kQuad, MeshT>(cooords_basis_functions,
+                                                                       adjacency_elem_integral.quad_basis_fun_);
+  } else if constexpr (MeshT == MeshType::TriQuad) {
+    getAdjacencyElemIntegralFromParent<PolyOrder, ElemT, kTri, MeshT>(cooords_basis_functions,
+                                                                      adjacency_elem_integral.tri_basis_fun_);
+    getAdjacencyElemIntegralFromParent<PolyOrder, ElemT, kQuad, MeshT>(cooords_basis_functions,
+                                                                       adjacency_elem_integral.quad_basis_fun_);
   }
 }
 
 template <int PolyOrder>
-inline void getIntegral2d(Integral<PolyOrder, 2, MeshType::Tri>& integral) {
+inline void getIntegral(Integral<2, PolyOrder, MeshType::Tri>& integral) {
   getElemIntegral(integral.tri_);
   getAdjacencyElemIntegral(integral.line_);
 }
 
 template <int PolyOrder>
-inline void getIntegral2d(Integral<PolyOrder, 2, MeshType::Quad>& integral) {
+inline void getIntegral(Integral<2, PolyOrder, MeshType::Quad>& integral) {
   getElemIntegral(integral.quad_);
   getAdjacencyElemIntegral(integral.line_);
 }
 
 template <int PolyOrder>
-inline void getIntegral2d(Integral<PolyOrder, 2, MeshType::TriQuad>& integral) {
+inline void getIntegral(Integral<2, PolyOrder, MeshType::TriQuad>& integral) {
   getElemIntegral(integral.tri_);
   getElemIntegral(integral.quad_);
   getAdjacencyElemIntegral(integral.line_);
-}
-
-template <int Dim, MeshType MeshT, int PolyOrder>
-inline void getIntegral(Integral<PolyOrder, Dim, MeshT>& integral) {
-  if constexpr (Dim == 2) {
-    getIntegral2d(integral);
-  }
 }
 
 }  // namespace SubrosaDG

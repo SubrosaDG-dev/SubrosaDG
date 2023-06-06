@@ -27,14 +27,19 @@
 #include <vector>               // for vector
 
 #include "basic/data_type.hpp"  // for Usize, Isize
-#include "mesh/elem_type.hpp"   // for ElemInfo, kLine, kQuad, kTri
+#include "mesh/elem_type.hpp"   // for ElemInfo
 
 // clang-format on
 
 namespace SubrosaDG {
 
-template <int ElemDim>
+template <ElemInfo ElemT>
 struct MeshSupplemental;
+
+struct PhysicalGroup {
+  std::string name_;
+  std::vector<Usize> elem_entity_tags_;
+};
 
 template <ElemInfo ElemT>
 inline void concatenateElemEntityTags(const std::vector<int>& physical_group_entity_tag,
@@ -49,45 +54,41 @@ inline void concatenateElemEntityTags(const std::vector<int>& physical_group_ent
   }
 }
 
-template <int ElemDim>
-inline std::pair<std::string, std::vector<Usize>> getPhysicalGroup(int physical_group_tag) {
+template <ElemInfo ElemT>
+inline PhysicalGroup getPhysicalGroup(int physical_group_tag) {
   std::string physical_group_name;
   std::vector<int> physical_group_entity_tag;
-  gmsh::model::getPhysicalName(ElemDim, physical_group_tag, physical_group_name);
-  gmsh::model::getEntitiesForPhysicalGroup(ElemDim, physical_group_tag, physical_group_entity_tag);
+  gmsh::model::getPhysicalName(ElemT.kDim, physical_group_tag, physical_group_name);
+  gmsh::model::getEntitiesForPhysicalGroup(ElemT.kDim, physical_group_tag, physical_group_entity_tag);
   std::vector<Usize> elem_entity_tags;
-  if constexpr (ElemDim == 1) {
-    concatenateElemEntityTags<kLine>(physical_group_entity_tag, elem_entity_tags);
-  } else if constexpr (ElemDim == 2) {
-    concatenateElemEntityTags<kTri>(physical_group_entity_tag, elem_entity_tags);
-    concatenateElemEntityTags<kQuad>(physical_group_entity_tag, elem_entity_tags);
-  }
+  concatenateElemEntityTags<ElemT>(physical_group_entity_tag, elem_entity_tags);
   return {physical_group_name, elem_entity_tags};
 }
 
-template <typename T, int ElemDim>
+template <typename T, ElemInfo ElemT>
 inline void getMeshSupplemental(const std::unordered_map<std::string_view, T>& name_map,
-                                MeshSupplemental<ElemDim>& mesh_supplemental) {
+                                MeshSupplemental<ElemT>& mesh_supplemental) {
   std::vector<std::pair<int, int>> physical_group_tags;
-  gmsh::model::getPhysicalGroups(physical_group_tags, ElemDim);
-  std::vector<std::pair<std::string, std::vector<Usize>>> physical_groups;
+  gmsh::model::getPhysicalGroups(physical_group_tags, ElemT.kDim);
+  std::vector<PhysicalGroup> physical_groups;
   physical_groups.reserve(physical_group_tags.size());
   for (const auto& [dimension, physical_group_tag] : physical_group_tags) {
-    physical_groups.emplace_back(getPhysicalGroup<ElemDim>(physical_group_tag));
+    physical_groups.emplace_back(getPhysicalGroup<ElemT>(physical_group_tag));
   }
   std::vector<Usize> all_elem_entity_tags;
-  for (const auto& [name, elem_entity_tags] : physical_groups) {
-    all_elem_entity_tags.insert(all_elem_entity_tags.end(), elem_entity_tags.begin(), elem_entity_tags.end());
+  for (const auto& physical_group : physical_groups) {
+    all_elem_entity_tags.insert(all_elem_entity_tags.end(), physical_group.elem_entity_tags_.begin(),
+                                physical_group.elem_entity_tags_.end());
   }
   mesh_supplemental.range_ = std::make_pair(all_elem_entity_tags.front(), all_elem_entity_tags.back());
   mesh_supplemental.num_ = mesh_supplemental.range_.second - mesh_supplemental.range_.first + 1;
   mesh_supplemental.index_.resize(mesh_supplemental.num_);
   try {
-    for (const auto& [name, elem_entity_tags] : physical_groups) {
+    for (const auto& physical_group : physical_groups) {
       {
-        for (const auto elem_entity_tag : elem_entity_tags) {
+        for (const auto elem_entity_tag : physical_group.elem_entity_tags_) {
           mesh_supplemental.index_(static_cast<Isize>(elem_entity_tag) - mesh_supplemental.range_.first) =
-              static_cast<int>(name_map.at(name));
+              static_cast<int>(name_map.at(physical_group.name_));
         }
       }
     }

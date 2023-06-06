@@ -16,11 +16,11 @@
 // clang-format off
 
 #include <basic/constant.hpp>   // for kPi
-#include <Eigen/Core>           // for DenseBase<>::ConstColXpr, Matrix, Vector, MatrixBase::operator-, CwiseBinaryOp
+#include <Eigen/Core>           // for DenseBase::col, Matrix, MatrixBase::operator-, Vector
 #include <Eigen/Geometry>       // for Rotation2D
 
 #include "basic/data_type.hpp"  // for Real, Isize
-#include "mesh/elem_type.hpp"   // for ElemInfo, kLine
+#include "mesh/elem_type.hpp"   // for ElemInfo
 
 // clang-format on
 
@@ -30,28 +30,21 @@ template <int Dim, ElemInfo ElemT>
 struct AdjacencyElemMesh;
 
 template <ElemInfo ElemT>
-inline void calNormVec2d(const Eigen::Matrix<Real, 2, ElemT.kNodeNum>& node, Eigen::Vector<Real, 2>& norm_vec);
-
-template <>
-inline void calNormVec2d<kLine>(const Eigen::Matrix<Real, 2, kLine.kNodeNum>& node, Eigen::Vector<Real, 2>& norm_vec) {
+inline void calNormVec(const Eigen::Matrix<Real, 2, ElemT.kNodeNum>& node, Eigen::Vector<Real, 2>& norm_vec) {
   Eigen::Rotation2D<Real> rotation{-kPi / 2.0};
   norm_vec = rotation * (node.col(1) - node.col(0)).normalized();
 }
 
 template <ElemInfo ElemT>
-inline void calNormVec3d(const Eigen::Matrix<Real, 3, ElemT.kNodeNum>& node, Eigen::Vector<Real, 3>& norm_vec);
+inline void calNormVec(const Eigen::Matrix<Real, 3, ElemT.kNodeNum>& node, Eigen::Vector<Real, 3>& norm_vec);
 
 template <int Dim, ElemInfo ElemT>
 inline void calAdjacencyElemNormVec(AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh) {
-  if constexpr (Dim == 2) {
-    for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
-      calNormVec2d<ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_,
-                          adjacency_elem_mesh.internal_.elem_(i).norm_vec_);
-    }
-    for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
-      calNormVec2d<ElemT>(adjacency_elem_mesh.boundary_.elem_(i).node_,
-                          adjacency_elem_mesh.boundary_.elem_(i).norm_vec_);
-    }
+  for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
+    calNormVec<ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_, adjacency_elem_mesh.internal_.elem_(i).norm_vec_);
+  }
+  for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
+    calNormVec<ElemT>(adjacency_elem_mesh.boundary_.elem_(i).node_, adjacency_elem_mesh.boundary_.elem_(i).norm_vec_);
   }
 }
 

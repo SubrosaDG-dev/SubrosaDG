@@ -45,8 +45,8 @@ struct ElemMesh {
 template <int Dim, ElemInfo ElemT, bool IsInternal>
 struct PerAdjacencyElemMesh {
   Eigen::Matrix<Real, Dim, ElemT.kNodeNum> node_;
-  Eigen::Vector<Real, Dim> norm_vec_;
   Eigen::Vector<Isize, ElemT.kNodeNum + 4 + 2 * static_cast<Isize>(IsInternal)> index_;
+  Eigen::Vector<Real, Dim> norm_vec_;
   Real jacobian_;
 };
 
@@ -109,7 +109,7 @@ struct Mesh<2, MeshType::TriQuad> : MeshBase<2> {
   using MeshBase<2>::MeshBase;
 };
 
-template <int ElemDim>
+template <ElemInfo ElemT>
 struct MeshSupplemental {
   std::pair<Isize, Isize> range_;
   Isize num_;

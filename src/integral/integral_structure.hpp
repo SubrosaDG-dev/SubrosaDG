@@ -15,9 +15,8 @@
 
 // clang-format off
 
-#include <Eigen/Core>                     // for Matrix, Vector
+#include <Eigen/Core>                     // for StorageOptions, Matrix, Vector
 
-#include "basic/concept.hpp"              // IWYU pragma: keep
 #include "basic/data_type.hpp"            // for Real
 #include "mesh/elem_type.hpp"             // for ElemInfo, kQuad, kTri, kLine
 #include "integral/cal_basisfun_num.hpp"  // for calBasisFunNum
@@ -47,14 +46,27 @@ struct ElemIntegral : ElemGaussQuad<PolyOrder, ElemT> {
   Eigen::Matrix<Real, ElemGaussQuad<PolyOrder, ElemT>::kIntegralNum * ElemT.kDim, kBasisFunNum> grad_basis_fun_;
 };
 
-template <int PolyOrder, ElemInfo ElemT>
+template <int PolyOrder, ElemInfo ElemT, MeshType MeshT>
 struct AdjacencyElemIntegral : ElemGaussQuad<PolyOrder, ElemT> {};
 
 template <int PolyOrder, ElemInfo ElemT>
-  requires Is1dElem<ElemT>
-struct AdjacencyElemIntegral<PolyOrder, ElemT> : ElemGaussQuad<PolyOrder, ElemT> {
-  Eigen::Matrix<Real, getElemAdjacencyIntegralNum<kTri>(PolyOrder), calBasisFunNum<kTri>(PolyOrder)> tri_basis_fun_;
-  Eigen::Matrix<Real, getElemAdjacencyIntegralNum<kQuad>(PolyOrder), calBasisFunNum<kQuad>(PolyOrder)> quad_basis_fun_;
+struct AdjacencyElemIntegral<PolyOrder, ElemT, MeshType::Tri> : ElemGaussQuad<PolyOrder, ElemT> {
+  Eigen::Matrix<Real, getElemAdjacencyIntegralNum<kTri>(PolyOrder), calBasisFunNum<kTri>(PolyOrder), Eigen::RowMajor>
+      tri_basis_fun_;
+};
+
+template <int PolyOrder, ElemInfo ElemT>
+struct AdjacencyElemIntegral<PolyOrder, ElemT, MeshType::Quad> : ElemGaussQuad<PolyOrder, ElemT> {
+  Eigen::Matrix<Real, getElemAdjacencyIntegralNum<kQuad>(PolyOrder), calBasisFunNum<kQuad>(PolyOrder), Eigen::RowMajor>
+      quad_basis_fun_;
+};
+
+template <int PolyOrder, ElemInfo ElemT>
+struct AdjacencyElemIntegral<PolyOrder, ElemT, MeshType::TriQuad> : ElemGaussQuad<PolyOrder, ElemT> {
+  Eigen::Matrix<Real, getElemAdjacencyIntegralNum<kTri>(PolyOrder), calBasisFunNum<kTri>(PolyOrder), Eigen::RowMajor>
+      tri_basis_fun_;
+  Eigen::Matrix<Real, getElemAdjacencyIntegralNum<kQuad>(PolyOrder), calBasisFunNum<kQuad>(PolyOrder), Eigen::RowMajor>
+      quad_basis_fun_;
 };
 
 template <int PolyOrder>
@@ -63,27 +75,27 @@ using TriElemIntegral = ElemIntegral<PolyOrder, kTri>;
 template <int PolyOrder>
 using QuadElemIntegral = ElemIntegral<PolyOrder, kQuad>;
 
-template <int PolyOrder>
-using AdjacencyLineElemIntegral = AdjacencyElemIntegral<PolyOrder, kLine>;
+template <int PolyOrder, MeshType MeshT>
+using AdjacencyLineElemIntegral = AdjacencyElemIntegral<PolyOrder, kLine, MeshT>;
 
 template <int Dim, int PolyOrder, MeshType MeshT>
 struct Integral {};
 
 template <int PolyOrder>
 struct Integral<2, PolyOrder, MeshType::Tri> {
-  AdjacencyLineElemIntegral<PolyOrder> line_;
+  AdjacencyLineElemIntegral<PolyOrder, MeshType::Tri> line_;
   TriElemIntegral<PolyOrder> tri_;
 };
 
 template <int PolyOrder>
 struct Integral<2, PolyOrder, MeshType::Quad> {
-  AdjacencyLineElemIntegral<PolyOrder> line_;
+  AdjacencyLineElemIntegral<PolyOrder, MeshType::Quad> line_;
   QuadElemIntegral<PolyOrder> quad_;
 };
 
 template <int PolyOrder>
 struct Integral<2, PolyOrder, MeshType::TriQuad> {
-  AdjacencyLineElemIntegral<PolyOrder> line_;
+  AdjacencyLineElemIntegral<PolyOrder, MeshType::TriQuad> line_;
   TriElemIntegral<PolyOrder> tri_;
   QuadElemIntegral<PolyOrder> quad_;
 };

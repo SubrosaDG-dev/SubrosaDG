@@ -15,28 +15,25 @@
 
 // clang-format off
 
-#include <gmsh.h>               // for getElementsByType, addDiscreteEntity, addElementsByType, createEdges, getEdges
-#include <Eigen/Core>           // for DenseBase::col, Dynamic, Matrix
-#include <utility>              // for make_pair
-#include <vector>               // for vector
-#include <map>                  // for map, operator==, _Rb_tree_iterator
-#include <algorithm>            // for max, minmax_element_result, __minmax_element_fn, minmax_element
-#include <functional>           // for identity, less
+#include <gmsh.h>                          // for getElementsByType, addDiscreteEntity, addElementsByType, createEdges
+#include <Eigen/Core>                      // for DenseBase::col, Dynamic, Matrix
+#include <utility>                         // for make_pair
+#include <vector>                          // for vector
+#include <map>                             // for map, operator==, _Rb_tree_iterator
+#include <algorithm>                       // for max, minmax_element_result, __minmax_element_fn, minmax_element
+#include <functional>                      // for identity, less
+#include <string_view>                     // for string_view
+#include <unordered_map>                   // for unordered_map
 
-#include "basic/data_type.hpp"  // for Isize, Usize, Real
-#include "basic/enum.hpp"       // for MeshType
-#include "mesh/elem_type.hpp"   // for ElemInfo, kQuad, kTri
+#include "basic/data_type.hpp"             // for Isize, Usize, Real
+#include "basic/enum.hpp"                  // for MeshType, Boundary (ptr only)
+#include "mesh/elem_type.hpp"              // for ElemInfo, kQuad, kTri
+#include "mesh/get_mesh_supplemental.hpp"  // for getMeshSupplemental
+#include "mesh/mesh_structure.hpp"         // for AdjacencyElemMesh (ptr only), ElemMesh (ptr only), MeshSupplemental
 
 // clang-format on
 
 namespace SubrosaDG {
-
-template <int Dim, ElemInfo ElemT>
-struct ElemMesh;
-template <int Dim, ElemInfo ElemT>
-struct AdjacencyElemMesh;
-template <int ElemDim>
-struct MeshSupplemental;
 
 struct AdjacencyElemMeshSupplemental {
   bool is_recorded_;
@@ -146,7 +143,7 @@ inline void getAdjacencyInternalElemMesh(const Eigen::Matrix<Real, Dim, Eigen::D
 
 template <int Dim, ElemInfo ElemT>
 inline void getAdjacencyBoundaryElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
-                                         const MeshSupplemental<ElemT.kDim>& boundary_supplemental,
+                                         const MeshSupplemental<ElemT>& boundary_supplemental,
                                          const std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map,
                                          const std::vector<Isize>& boundary_tag,
                                          AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh) {
@@ -171,7 +168,7 @@ inline void getAdjacencyBoundaryElemMesh(const Eigen::Matrix<Real, Dim, Eigen::D
 
 template <int Dim, MeshType MeshT, ElemInfo ElemT>
 inline void getAdjacencyElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
-                                 const MeshSupplemental<ElemT.kDim>& boundary_supplemental,
+                                 const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
                                  AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh) {
   std::map<Isize, AdjacencyElemMeshSupplemental> adjacency_elem_map = getAdjacencyElemMap<MeshT, ElemT>();
   std::vector<Isize> internal_tag;
@@ -184,6 +181,8 @@ inline void getAdjacencyElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>&
     }
   }
   getAdjacencyInternalElemMesh(node, adjacency_elem_map, internal_tag, adjacency_elem_mesh);
+  MeshSupplemental<ElemT> boundary_supplemental;
+  getMeshSupplemental<Boundary, ElemT>(boundary_type_map, boundary_supplemental);
   getAdjacencyBoundaryElemMesh(node, boundary_supplemental, adjacency_elem_map, boundary_tag, adjacency_elem_mesh);
 }
 

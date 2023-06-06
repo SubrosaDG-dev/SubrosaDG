@@ -23,9 +23,8 @@
 #include <map>                             // for map
 
 #include "basic/data_type.hpp"             // for Usize, Isize, Real
-#include "basic/enum.hpp"                  // for Boundary (ptr only), MeshType
-#include "mesh/mesh_structure.hpp"         // for Mesh, MeshSupplemental, MeshBase (ptr only)
-#include "mesh/get_mesh_supplemental.hpp"  // for getMeshSupplemental
+#include "basic/enum.hpp"                  // for MeshType, Boundary (ptr only)
+#include "mesh/mesh_structure.hpp"         // for Mesh, MeshBase (ptr only)
 #include "mesh/element/get_jacobian.hpp"   // for getElemJacobian
 #include "mesh/element/get_elem_mesh.hpp"  // for getElemMesh, getAdjacencyElemMesh
 #include "mesh/element/cal_norm_vec.hpp"   // for calAdjacencyElemNormVec
@@ -52,67 +51,54 @@ inline void getNodes(MeshBase<Dim>& mesh_base) {
   }
 }
 
-template <MeshType MeshT>
-inline void getMesh2d(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<2, MeshT>& mesh);
-
-template <>
-inline void getMesh2d(const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
-                      Mesh<2, MeshType::Tri>& mesh) {
-  getNodes(mesh);
-
-  getElemMesh<2>(mesh.node_, mesh.tri_);
-
-  MeshSupplemental<1> boundary_supplemental;
-  getMeshSupplemental<Boundary, 1>(boundary_type_map, boundary_supplemental);
-  getAdjacencyElemMesh<2, MeshType::Tri>(mesh.node_, boundary_supplemental, mesh.line_);
-
-  calAdjacencyElemNormVec(mesh.line_);
-
-  getElemJacobian<2>(mesh.line_);
-  getElemJacobian<2>(mesh.tri_);
-}
-
-template <>
-inline void getMesh2d(const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
-                      Mesh<2, MeshType::Quad>& mesh) {
-  getNodes(mesh);
-
-  getElemMesh<2>(mesh.node_, mesh.quad_);
-
-  MeshSupplemental<1> boundary_supplemental;
-  getMeshSupplemental<Boundary, 1>(boundary_type_map, boundary_supplemental);
-  getAdjacencyElemMesh<2, MeshType::Quad>(mesh.node_, boundary_supplemental, mesh.line_);
-
-  calAdjacencyElemNormVec(mesh.line_);
-
-  getElemJacobian<2>(mesh.line_);
-  getElemJacobian<2>(mesh.quad_);
-}
-
-template <>
-inline void getMesh2d(const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
-                      Mesh<2, MeshType::TriQuad>& mesh) {
-  getNodes(mesh);
-
-  getElemMesh<2>(mesh.node_, mesh.tri_);
-  getElemMesh<2>(mesh.node_, mesh.quad_);
-
-  MeshSupplemental<1> boundary_supplemental;
-  getMeshSupplemental<Boundary, 1>(boundary_type_map, boundary_supplemental);
-  getAdjacencyElemMesh<2, MeshType::TriQuad>(mesh.node_, boundary_supplemental, mesh.line_);
-
-  calAdjacencyElemNormVec(mesh.line_);
-
-  getElemJacobian<2>(mesh.line_);
-  getElemJacobian<2>(mesh.tri_);
-  getElemJacobian<2>(mesh.quad_);
-}
-
 template <int Dim, MeshType MeshT>
-inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<Dim, MeshT>& mesh) {
-  if constexpr (Dim == 2) {
-    getMesh2d(boundary_type_map, mesh);
-  }
+inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<Dim, MeshT>& mesh);
+
+template <>
+inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
+                    Mesh<2, MeshType::Tri>& mesh) {
+  getNodes(mesh);
+
+  getElemMesh<2>(mesh.node_, mesh.tri_);
+
+  getAdjacencyElemMesh<2, MeshType::Tri>(mesh.node_, boundary_type_map, mesh.line_);
+
+  calAdjacencyElemNormVec(mesh.line_);
+
+  getElemJacobian<2>(mesh.line_);
+  getElemJacobian<2>(mesh.tri_);
+}
+
+template <>
+inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
+                    Mesh<2, MeshType::Quad>& mesh) {
+  getNodes(mesh);
+
+  getElemMesh<2>(mesh.node_, mesh.quad_);
+
+  getAdjacencyElemMesh<2, MeshType::Quad>(mesh.node_, boundary_type_map, mesh.line_);
+
+  calAdjacencyElemNormVec(mesh.line_);
+
+  getElemJacobian<2>(mesh.line_);
+  getElemJacobian<2>(mesh.quad_);
+}
+
+template <>
+inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
+                    Mesh<2, MeshType::TriQuad>& mesh) {
+  getNodes(mesh);
+
+  getElemMesh<2>(mesh.node_, mesh.tri_);
+  getElemMesh<2>(mesh.node_, mesh.quad_);
+
+  getAdjacencyElemMesh<2, MeshType::TriQuad>(mesh.node_, boundary_type_map, mesh.line_);
+
+  calAdjacencyElemNormVec(mesh.line_);
+
+  getElemJacobian<2>(mesh.line_);
+  getElemJacobian<2>(mesh.tri_);
+  getElemJacobian<2>(mesh.quad_);
 }
 
 }  // namespace SubrosaDG

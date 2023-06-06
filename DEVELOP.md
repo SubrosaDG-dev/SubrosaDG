@@ -85,6 +85,7 @@ export VCPKG_ROOT="${your vcpkg path}"
     "--function-arg-placeholders=false",
     "--header-insertion=never",
     "--j=@NUMBER_OF_PHYSICAL_CORES@",
+    "--malloc-trim",
     "--pch-storage=memory"
 ]
 ```
