@@ -17,26 +17,13 @@
 
 #include <array>                // for array
 
-#include "basic/data_type.hpp"  // for Real, Isize
-#include "basic/enum.hpp"       // for EquModel, ConvectiveFlux (ptr only)
+#include "basic/data_type.hpp"  // for Real
+#include "basic/enum.hpp"       // for EquModel
 
 // clang-format on
 
 namespace SubrosaDG {
 
-template <int StepNum, bool IsImplicit>
-struct TimeDiscrete {
-  inline static constexpr int kStepNum{StepNum};
-  inline static constexpr bool kIsImplicit{IsImplicit};
-};
-
-inline constexpr TimeDiscrete<1, false> kExplicitEuler;
-
-inline constexpr TimeDiscrete<3, false> kRungeKutta3;
-
-inline constexpr TimeDiscrete<1, true> kImplicitEuler;
-
-template <TimeDiscrete TimeDiscreteT>
 struct TimeVar {
   const int iter_;
   const Real cfl_;
@@ -45,11 +32,8 @@ struct TimeVar {
   inline consteval TimeVar(const int iter, const Real cfl, const int tole) : iter_(iter), cfl_(cfl), tole_(tole) {}
 };
 
-template <ConvectiveFlux ConvectiveFluxT>
-struct SpaceDiscrete {};
-
 template <EquModel EquModelT>
-struct ThermoModel {};
+struct ThermoModel;
 
 template <>
 struct ThermoModel<EquModel::Euler> {
@@ -69,7 +53,7 @@ struct ThermoModel<EquModel::NS> : ThermoModel<EquModel::Euler> {
       : ThermoModel<EquModel::Euler>(gamma, c_p, r), mu_(mu), k_(k) {}
 };
 
-template <Isize Dim>
+template <int Dim>
 struct FlowVar {
   const std::array<Real, Dim> u_;
   const Real rho_;
@@ -80,12 +64,12 @@ struct FlowVar {
       : u_(u), rho_(rho), p_(p), capital_t_(capital_t) {}
 };
 
-template <Isize Dim>
+template <int Dim>
 struct InitVar : FlowVar<Dim> {
   using FlowVar<Dim>::FlowVar;
 };
 
-template <Isize Dim>
+template <int Dim>
 struct FarfieldVar : FlowVar<Dim> {
   using FlowVar<Dim>::FlowVar;
 };

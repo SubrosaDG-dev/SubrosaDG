@@ -1,6 +1,6 @@
 /**
- * @file get_standard_coord.hpp
- * @brief The get standard coordinate header file.
+ * @file get_standard.hpp
+ * @brief The get standard coordinate and measure header file.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-06-03
@@ -10,8 +10,8 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_GET_STANDARD_COORD_HPP_
-#define SUBROSA_DG_GET_STANDARD_COORD_HPP_
+#ifndef SUBROSA_DG_GET_STANDARD_HPP_
+#define SUBROSA_DG_GET_STANDARD_HPP_
 
 // clang-format off
 
@@ -25,23 +25,26 @@
 namespace SubrosaDG {
 
 template <ElemInfo ElemT>
-inline void getElemStandardCoord();
+inline void getElemStandard();
 
 template <>
-inline void getElemStandardCoord<kLine>() {
+inline void getElemStandard<kLine>() {
+  ElemStandard<kLine>::measure = 2.0;
   ElemStandard<kLine>::coord << -1.0, 1.0;
 }
 
 template <>
-inline void getElemStandardCoord<kTri>() {
+inline void getElemStandard<kTri>() {
+  ElemStandard<kTri>::measure = 0.5;
   ElemStandard<kTri>::coord << 0.0, 0.0, 1.0, 0.0, 0.0, 1.0;
 }
 
 template <>
-inline void getElemStandardCoord<kQuad>() {
+inline void getElemStandard<kQuad>() {
+  ElemStandard<kQuad>::measure = 4.0;
   ElemStandard<kQuad>::coord << -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0;
 }
 
 }  // namespace SubrosaDG
 
-#endif  // SUBROSA_DG_GET_STANDARD_COORD_HPP_
+#endif  // SUBROSA_DG_GET_STANDARD_HPP_

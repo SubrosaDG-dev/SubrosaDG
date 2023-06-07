@@ -26,9 +26,10 @@
 
 namespace SubrosaDG {
 
+enum class MeshType;
 template <int Dim, ElemInfo ElemT>
 struct ElemMesh;
-template <int Dim, ElemInfo ElemT>
+template <int Dim, ElemInfo ElemT, MeshType MeshT>
 struct AdjacencyElemMesh;
 
 template <int Dim, ElemInfo ElemT>
@@ -44,8 +45,8 @@ inline void getElemJacobian(ElemMesh<Dim, ElemT>& elem_mesh) {
   }
 }
 
-template <Isize Dim, ElemInfo ElemT>
-inline void getElemJacobian(AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh) {
+template <int Dim, ElemInfo ElemT, MeshType MeshT>
+inline void getElemJacobian(AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {
   const std::vector<double> local_coord{0.0, 0.0, 0.0};
   std::vector<double> jacobians;
   std::vector<double> determinants;

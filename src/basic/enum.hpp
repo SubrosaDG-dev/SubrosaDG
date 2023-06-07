@@ -18,6 +18,7 @@ namespace SubrosaDG {
 enum class EquModel {
   Euler = 1,
   NS,
+  RANS,
 };
 
 enum class ConvectiveFlux {
@@ -30,6 +31,12 @@ enum class ViscousFlux {
   BR2,
 };
 
+enum class TimeDiscrete {
+  ExplicitEuler = 1,
+  RungeKutta3,
+  ImplicitEuler,
+};
+
 enum class Boundary {
   Farfield = 1,
   Wall,
@@ -40,9 +47,8 @@ enum class MeshType {
   Quad,
   TriQuad,
   Tet,
-  Pyramid,
   Hex,
-  TetPyramidHex,
+  TetPyrHex,
 };
 
 }  // namespace SubrosaDG

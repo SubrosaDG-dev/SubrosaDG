@@ -9,3 +9,53 @@
  * @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
+
+#ifndef SUBROSA_DG_CAL_ELEM_INTEGRAL_HPP_
+#define SUBROSA_DG_CAL_ELEM_INTEGRAL_HPP_
+
+// clang-format off
+
+#include <Eigen/Core>                              // for MatrixBase::operator*, DenseBase::operator(), Vector, Dens...
+
+#include "mesh/elem_type.hpp"                      // for ElemInfo
+#include "solver/variable/cal_primitive_var.hpp"   // for calPrimitiveVar
+#include "solver/variable/cal_convective_var.hpp"  // for calConvectiveVar
+#include "basic/data_type.hpp"                     // for Real, Isize
+#include "basic/enum.hpp"                          // for EquModel
+
+// clang-format on
+
+namespace SubrosaDG {
+
+template <EquModel EquModelT>
+struct ThermoModel;
+template <int Dim, ElemInfo ElemT>
+struct ElemMesh;
+template <int PolyOrder, ElemInfo ElemT>
+struct ElemIntegral;
+template <int Dim, int PolyOrder, ElemInfo ElemT, EquModel EquModelT>
+struct PerElemSolver;
+
+template <int Dim, int PolyOrder, ElemInfo ElemT, EquModel EquModelT>
+inline void calElemIntegral(
+    const ElemMesh<Dim, ElemT>& elem_mesh, const ElemIntegral<PolyOrder, ElemT>& elem_integral,
+    const ThermoModel<EquModel::Euler>& thermo_model,
+    Eigen::Vector<PerElemSolver<Dim, PolyOrder, ElemT, EquModelT>, Eigen::Dynamic>& elem_solver) {
+  Eigen::Vector<Real, Dim + 2> conserved_var;
+  Eigen::Vector<Real, Dim + 3> primitive_var;
+  Eigen::Matrix<Real, Dim + 2, Dim> convective_var;
+  Eigen::Matrix<Real, Dim + 2, Dim> elem_solver_integral;
+  for (Isize i = 0; i < elem_mesh.num_; i++) {
+    for (Isize j = 0; j < elem_integral.kIntegralNum; j++) {
+      conserved_var.noalias() = elem_solver(i).basis_fun_coeff_(1) * elem_integral.basis_fun_.row(j).transpose();
+      calPrimitiveVar(thermo_model, conserved_var, primitive_var);
+      calConvectiveVar(primitive_var, convective_var);
+      elem_solver_integral.noalias() = convective_var * elem_mesh.elem_(i).jacobian_ * elem_integral.weight_(j);
+      elem_solver(i).elem_integral_(Eigen::all, Eigen::seqN(j * Dim, Eigen::fix<Dim>)) = elem_solver_integral;
+    }
+  }
+}
+
+}  // namespace SubrosaDG
+
+#endif  // SUBROSA_DG_CAL_ELEM_INTEGRAL_HPP_

@@ -30,9 +30,9 @@ template <EquModel EquModelT>
 struct ThermoModel;
 
 template <EquModel EquModelT>
-inline void calRoeFlux2d(const ThermoModel<EquModelT>& thermo_model, const Eigen::Vector<Real, 2>& norm_vec,
-                         const Eigen::Vector<Real, 5>& l_primitive_var, const Eigen::Vector<Real, 5>& r_primitive_var,
-                         Eigen::Vector<Real, 4>& roe_flux) {
+inline void calRoeFlux(const ThermoModel<EquModelT>& thermo_model, const Eigen::Vector<Real, 2>& norm_vec,
+                       const Eigen::Vector<Real, 5>& l_primitive_var, const Eigen::Vector<Real, 5>& r_primitive_var,
+                       Eigen::Vector<Real, 4>& roe_flux) {
   const Real l_sqrt_rho = std::sqrt(l_primitive_var(0));
   const Real r_sqrt_rho = std::sqrt(r_primitive_var(0));
   const Real rho_average = l_sqrt_rho + r_sqrt_rho;
@@ -43,25 +43,25 @@ inline void calRoeFlux2d(const ThermoModel<EquModelT>& thermo_model, const Eigen
   const Real r_capital_h = r_primitive_var(4) + r_primitive_var(3) / r_primitive_var(0);
   const Real roe_capital_h = (l_capital_h * l_sqrt_rho + r_capital_h * r_sqrt_rho) / rho_average;
   const Real roe_q2 = roe_u * roe_u + roe_v * roe_v;
-  const Real roe_norm_q = roe_u * norm_vec(0) + roe_v * norm_vec(1);
+  const Real roe_norm_q = roe_u * norm_vec.x() + roe_v * norm_vec.y();
   const Real roe_a = std::sqrt((thermo_model.gamma_ - 1.0) * (roe_capital_h - 0.5 * roe_q2));
   const Real delta_rho = r_primitive_var(0) - l_primitive_var(0);
   const Real delta_u = r_primitive_var(1) - l_primitive_var(1);
   const Real delta_v = r_primitive_var(2) - l_primitive_var(2);
   const Real delta_p = r_primitive_var(3) - l_primitive_var(3);
-  const Real delta_norm_q = delta_u * norm_vec(0) + delta_v * norm_vec(1);
+  const Real delta_norm_q = delta_u * norm_vec.x() + delta_v * norm_vec.y();
   Eigen::Vector<Real, 4> roe_var_f1;
-  roe_var_f1 << 1.0, roe_u - roe_a * norm_vec(0), roe_v - roe_a * norm_vec(1), roe_capital_h - roe_a * roe_norm_q;
+  roe_var_f1 << 1.0, roe_u - roe_a * norm_vec.x(), roe_v - roe_a * norm_vec.y(), roe_capital_h - roe_a * roe_norm_q;
   roe_var_f1 *= std::fabs(roe_norm_q - roe_a) * (delta_p - roe_rho * roe_a * delta_norm_q) / (2.0 * roe_a * roe_a);
   Eigen::Vector<Real, 4> roe_var_f2;
   roe_var_f2 << 1, roe_u, roe_v, 0.5 * roe_q2;
   roe_var_f2 *= delta_rho - delta_p / (roe_a * roe_a);
   Eigen::Vector<Real, 4> roe_var_f34;
-  roe_var_f34 << 0, delta_u - delta_norm_q * norm_vec(0), delta_v - delta_norm_q * norm_vec(1),
+  roe_var_f34 << 0, delta_u - delta_norm_q * norm_vec.x(), delta_v - delta_norm_q * norm_vec.y(),
       roe_u * delta_u + roe_v * delta_v - roe_norm_q * delta_norm_q;
   roe_var_f34 *= roe_rho;
   Eigen::Vector<Real, 4> roe_var_f5;
-  roe_var_f5 << 1, roe_u + roe_a * norm_vec(0), roe_v + roe_a * norm_vec(1), roe_capital_h + roe_a * roe_norm_q;
+  roe_var_f5 << 1, roe_u + roe_a * norm_vec.x(), roe_v + roe_a * norm_vec.y(), roe_capital_h + roe_a * roe_norm_q;
   roe_var_f5 *= std::fabs(roe_norm_q + roe_a) * (delta_p + roe_rho * roe_a * delta_norm_q) / (2.0 * roe_a * roe_a);
   Eigen::Matrix<Real, 4, 2> l_convective_var;
   Eigen::Matrix<Real, 4, 2> r_convective_var;
@@ -71,17 +71,6 @@ inline void calRoeFlux2d(const ThermoModel<EquModelT>& thermo_model, const Eigen
                         (roe_var_f1 + std::fabs(roe_norm_q) * (roe_var_f2 + roe_var_f34) + roe_var_f5)) /
                        2.0;
 };
-
-template <int Dim, EquModel EquModelT>
-inline void calRoeFlux(const ThermoModel<EquModelT>& thermo_model, const Eigen::Vector<Real, Dim>& norm_vec,
-                       const Eigen::Vector<Real, Dim + 3>& l_primitive_var,
-                       const Eigen::Vector<Real, Dim + 3>& r_primitive_var, Eigen::Vector<Real, Dim + 2>& roe_flux) {
-  if constexpr (Dim == 2) {
-    calRoeFlux2d(thermo_model, norm_vec, l_primitive_var, r_primitive_var, roe_flux);
-  } else if constexpr (Dim == 3) {
-    calRoeFlux3d(thermo_model, norm_vec, l_primitive_var, r_primitive_var, roe_flux);
-  }
-}
 
 }  // namespace SubrosaDG
 

@@ -28,33 +28,36 @@
 #include <utility>                                          // for make_pair
 #include <stdexcept>                                        // for out_of_range
 #include <vector>                                           // for vector
+#include <map>                                              // for map
 
-#include "basic/config.hpp"                                 // for InitVar, kExplicitEuler, FarfieldVar, ThermoModel
+#include "basic/config.hpp"                                 // for InitVar, FarfieldVar, ThermoModel, TimeVar
 #include "basic/constant.hpp"                               // for kEpsilon
 #include "basic/data_type.hpp"                              // for Real, Isize
-#include "basic/enum.hpp"                                   // for MeshType, ConvectiveFlux, Boundary, EquModel
+#include "basic/enum.hpp"                                   // for MeshType, ConvectiveFlux, TimeDiscrete, EquModel
 #include "cmake.hpp"                                        // for kProjectSourceDir
 #include "mesh/element/cal_measure.hpp"                     // for calElemMeasure
 #include "mesh/get_mesh.hpp"                                // for getMesh
 #include "mesh/mesh_structure.hpp"                          // for Mesh, AdjacencyElemTypeMesh, AdjacencyLineElemMesh
 #include "integral/integral_structure.hpp"                  // for Integral, TriElemIntegral, AdjacencyLineElemIntegral
 #include "integral/get_integral.hpp"                        // for getIntegral
-#include "solver/solver_structure.hpp"                      // for SolverEuler
+#include "solver/elem_integral/cal_adjacency_integral.hpp"  // for calAdjacencyElemIntegral
+#include "solver/elem_integral/cal_elem_integral.hpp"       // for calElemIntegral
 #include "solver/init_solver.hpp"                           // for initSolver
-#include "solver/elem_integral/cal_adjacency_integral.hpp"  // for calAdjacencyIntegral
+#include "solver/solver_structure.hpp"                      // for SolverEuler, ElemSolver
+#include "mesh/elem_type.hpp"                               // for kLine
 
 // clang-format on
 
 using namespace std::string_view_literals;
 
-inline constexpr SubrosaDG::TimeVar<SubrosaDG::kExplicitEuler> kTimeVar{1000, 0.1, -10};
+inline constexpr SubrosaDG::TimeVar kTimeVar{1000, 0.1, -10};
 
 inline const std::unordered_map<std::string_view, SubrosaDG::Boundary> kBoundaryTMap{
     {"bc-1", SubrosaDG::Boundary::Farfield}};
 
 inline constexpr SubrosaDG::ThermoModel<SubrosaDG::EquModel::Euler> kThermoModel{1.4, 1.0, 0.7142857142857143};
 
-inline const std::unordered_map<std::string_view, int> kRegionIdMap{{"vc-1"sv, 1}};
+inline const std::unordered_map<std::string_view, int> kRegionIdMap{{"vc-1"sv, 0}};
 
 inline constexpr std::array<SubrosaDG::InitVar<2>, 1> kInitVarVec{SubrosaDG::InitVar<2>{{1.0, 0.5}, 1.4, 1.0, 1.0}};
 
@@ -93,7 +96,7 @@ struct Test2d : testing::Test {
   static SubrosaDG::Mesh<2, SubrosaDG::MeshType::TriQuad>* mesh;
   static SubrosaDG::Integral<2, 2, SubrosaDG::MeshType::TriQuad>* integral;
   static SubrosaDG::SolverEuler<2, 2, SubrosaDG::MeshType::TriQuad, SubrosaDG::ConvectiveFlux::Roe,
-                                SubrosaDG::kExplicitEuler>* solver;
+                                SubrosaDG::TimeDiscrete::ExplicitEuler>* solver;
 
   static void SetUpTestCase() {
     std::filesystem::path mesh_file = SubrosaDG::kProjectSourceDir / "build/out/test/mesh/test.msh";
@@ -105,7 +108,7 @@ struct Test2d : testing::Test {
     Test2d::integral = new SubrosaDG::Integral<2, 2, SubrosaDG::MeshType::TriQuad>;
     SubrosaDG::getIntegral(*Test2d::integral);
     Test2d::solver = new SubrosaDG::SolverEuler<2, 2, SubrosaDG::MeshType::TriQuad, SubrosaDG::ConvectiveFlux::Roe,
-                                                SubrosaDG::kExplicitEuler>{kTimeVar, kThermoModel};
+                                                SubrosaDG::TimeDiscrete::ExplicitEuler>{kTimeVar, kThermoModel};
   }
 
   static void TearDownTestCase() {
@@ -113,13 +116,48 @@ struct Test2d : testing::Test {
     Test2d::mesh = nullptr;
     delete Test2d::integral;
     Test2d::integral = nullptr;
+    delete Test2d::solver;
+    Test2d::solver = nullptr;
   }
 };
 
 SubrosaDG::Mesh<2, SubrosaDG::MeshType::TriQuad>* Test2d::mesh;
 SubrosaDG::Integral<2, 2, SubrosaDG::MeshType::TriQuad>* Test2d::integral;
-SubrosaDG::SolverEuler<2, 2, SubrosaDG::MeshType::TriQuad, SubrosaDG::ConvectiveFlux::Roe, SubrosaDG::kExplicitEuler>*
-    Test2d::solver;
+SubrosaDG::SolverEuler<2, 2, SubrosaDG::MeshType::TriQuad, SubrosaDG::ConvectiveFlux::Roe,
+                       SubrosaDG::TimeDiscrete::ExplicitEuler>* Test2d::solver;
+
+TEST_F(Test2d, ElemMesh) {
+  ASSERT_EQ(dbg(mesh->tri_.range_), std::make_pair(13L, 28L));
+  Eigen::Vector<SubrosaDG::Real, 2> tri_node = mesh->tri_.elem_(mesh->tri_.num_ - 1).node_.col(2);
+  ASSERT_NEAR(dbg(tri_node.x()), 0.2747662092153528, SubrosaDG::kEpsilon);
+  ASSERT_NEAR(dbg(tri_node.y()), 0.0652513350269377, SubrosaDG::kEpsilon);
+
+  ASSERT_EQ(dbg(mesh->quad_.range_), std::make_pair(29L, 34L));
+  Eigen::Vector<SubrosaDG::Real, 2> quad_node = mesh->quad_.elem_(mesh->quad_.num_ - 1).node_.col(3);
+  ASSERT_NEAR(dbg(quad_node.x()), 1.0, SubrosaDG::kEpsilon);
+  ASSERT_NEAR(dbg(quad_node.y()), -0.5, SubrosaDG::kEpsilon);
+}
+
+TEST_F(Test2d, ElemProjectionMeasure) {
+  Eigen::Vector<SubrosaDG::Real, 2> tri_projection_measure = mesh->tri_.elem_(mesh->tri_.num_ - 1).projection_measure_;
+  ASSERT_NEAR(dbg(tri_projection_measure.x()), 0.2747662092153528, SubrosaDG::kEpsilon);
+  ASSERT_NEAR(dbg(tri_projection_measure.y()), 0.50000000000137645, SubrosaDG::kEpsilon);
+
+  Eigen::Vector<SubrosaDG::Real, 2> quad_projection_measure =
+      mesh->quad_.elem_(mesh->quad_.num_ - 1).projection_measure_;
+  ASSERT_NEAR(dbg(quad_projection_measure.x()), 0.43974438500812407, SubrosaDG::kEpsilon);
+  ASSERT_NEAR(dbg(quad_projection_measure.y()), 0.5886818096126295, SubrosaDG::kEpsilon);
+}
+
+TEST_F(Test2d, ElemJacobian) {
+  auto tri_area = SubrosaDG::calElemMeasure(mesh->tri_);
+  SubrosaDG::Real tri_jacobian = mesh->tri_.elem_(mesh->tri_.num_ - 1).jacobian_;
+  ASSERT_NEAR(dbg(tri_jacobian), tri_area->operator()(Eigen::last) / integral->tri_.measure, SubrosaDG::kEpsilon);
+
+  auto quad_area = SubrosaDG::calElemMeasure(mesh->quad_);
+  SubrosaDG::Real quad_jacobian = mesh->quad_.elem_(mesh->quad_.num_ - 1).jacobian_;
+  ASSERT_NEAR(dbg(quad_jacobian), quad_area->operator()(Eigen::last) / integral->quad_.measure, SubrosaDG::kEpsilon);
+}
 
 TEST_F(Test2d, AdjacencyElemMesh) {
   ASSERT_EQ(dbg(mesh->line_.internal_.range_), std::make_pair(35L, 64L));
@@ -134,25 +172,34 @@ TEST_F(Test2d, AdjacencyElemMesh) {
   ASSERT_NEAR(dbg(boundary_line_node.y()), -0.5, SubrosaDG::kEpsilon);
 }
 
-TEST_F(Test2d, AdjacencyElemIndex) {
-  Eigen::Vector<SubrosaDG::Isize, 8> internal_line_index =
+TEST_F(Test2d, AdjacencyInternalElemIndex) {
+  Eigen::Vector<SubrosaDG::Isize, 2> internal_line_index =
       mesh->line_.internal_.elem_(mesh->line_.internal_.num_ - 1).index_;
-  ASSERT_EQ(dbg(internal_line_index), (Eigen::Vector<SubrosaDG::Isize, 8>() << 2, 20, 2, 3, 3, 3, 3, 2).finished());
-  Eigen::Vector<SubrosaDG::Isize, 6> boundary_line_index =
-      mesh->line_.boundary_.elem_(mesh->line_.boundary_.num_ - 1).index_;
-  ASSERT_EQ(dbg(boundary_line_index), (Eigen::Vector<SubrosaDG::Isize, 6>() << 12, 1, 1, 2, 0, 1).finished());
+  ASSERT_EQ(dbg(internal_line_index), (Eigen::Vector<SubrosaDG::Isize, 2>() << 2, 20).finished());
+  Eigen::Vector<SubrosaDG::Isize, 2> internal_line_parent_index =
+      mesh->line_.internal_.elem_(mesh->line_.internal_.num_ - 1).parent_index_;
+  ASSERT_EQ(dbg(internal_line_parent_index), (Eigen::Vector<SubrosaDG::Isize, 2>() << 2, 3).finished());
+  Eigen::Vector<SubrosaDG::Isize, 2> internal_line_adjacency_index =
+      mesh->line_.internal_.elem_(mesh->line_.internal_.num_ - 1).adjacency_index_;
+  ASSERT_EQ(dbg(internal_line_adjacency_index), (Eigen::Vector<SubrosaDG::Isize, 2>() << 3, 2).finished());
+  Eigen::Vector<int, 2> internal_line_typology_index =
+      mesh->line_.internal_.elem_(mesh->line_.internal_.num_ - 1).typology_index_;
+  ASSERT_EQ(dbg(internal_line_typology_index), (Eigen::Vector<int, 2>() << 3, 3).finished());
 }
 
-TEST_F(Test2d, ElemMesh) {
-  ASSERT_EQ(dbg(mesh->tri_.range_), std::make_pair(13L, 28L));
-  Eigen::Vector<SubrosaDG::Real, 2> tri_node = mesh->tri_.elem_(mesh->tri_.num_ - 1).node_.col(2);
-  ASSERT_NEAR(dbg(tri_node.x()), 0.2747662092153528, SubrosaDG::kEpsilon);
-  ASSERT_NEAR(dbg(tri_node.y()), 0.0652513350269377, SubrosaDG::kEpsilon);
-
-  ASSERT_EQ(dbg(mesh->quad_.range_), std::make_pair(29L, 34L));
-  Eigen::Vector<SubrosaDG::Real, 2> quad_node = mesh->quad_.elem_(mesh->quad_.num_ - 1).node_.col(3);
-  ASSERT_NEAR(dbg(quad_node.x()), 1.0, SubrosaDG::kEpsilon);
-  ASSERT_NEAR(dbg(quad_node.y()), -0.5, SubrosaDG::kEpsilon);
+TEST_F(Test2d, AdjacencyBoundaryElemIndex) {
+  Eigen::Vector<SubrosaDG::Isize, 2> boundary_line_index =
+      mesh->line_.boundary_.elem_(mesh->line_.boundary_.num_ - 1).index_;
+  ASSERT_EQ(dbg(boundary_line_index), (Eigen::Vector<SubrosaDG::Isize, 2>() << 12, 1).finished());
+  Eigen::Vector<SubrosaDG::Isize, 2> boundary_parent_index =
+      mesh->line_.boundary_.elem_(mesh->line_.boundary_.num_ - 1).parent_index_;
+  ASSERT_EQ(dbg(boundary_parent_index), (Eigen::Vector<SubrosaDG::Isize, 2>() << 1, 1).finished());
+  Eigen::Vector<SubrosaDG::Isize, 1> boundary_adjacency_index =
+      mesh->line_.boundary_.elem_(mesh->line_.boundary_.num_ - 1).adjacency_index_;
+  ASSERT_EQ(dbg(boundary_adjacency_index), (Eigen::Vector<SubrosaDG::Isize, 1>() << 0).finished());
+  Eigen::Vector<int, 1> boundary_typology_index =
+      mesh->line_.boundary_.elem_(mesh->line_.boundary_.num_ - 1).typology_index_;
+  ASSERT_EQ(dbg(boundary_typology_index), (Eigen::Vector<int, 1>() << 2).finished());
 }
 
 TEST_F(Test2d, AdjacencyElemNormVec) {
@@ -173,17 +220,8 @@ TEST_F(Test2d, AdjacencyElemJacobian) {
   ASSERT_NEAR(dbg(line_boundary_jacobian), line_length->operator()(Eigen::last) / 2.0, SubrosaDG::kEpsilon);
 }
 
-TEST_F(Test2d, ElemJacobian) {
-  auto tri_area = SubrosaDG::calElemMeasure(mesh->tri_);
-  SubrosaDG::Real tri_jacobian = mesh->tri_.elem_(mesh->tri_.num_ - 1).jacobian_;
-  ASSERT_NEAR(dbg(tri_jacobian), tri_area->operator()(Eigen::last) * 2.0, SubrosaDG::kEpsilon);
-  auto quad_area = SubrosaDG::calElemMeasure(mesh->quad_);
-  SubrosaDG::Real quad_jacobian = mesh->quad_.elem_(mesh->quad_.num_ - 1).jacobian_;
-  ASSERT_NEAR(dbg(quad_jacobian), quad_area->operator()(Eigen::last) / 4.0, SubrosaDG::kEpsilon);
-}
-
 TEST_F(Test2d, ElemIntegral) {
-  Eigen::Vector<SubrosaDG::Real, 2> tri_basis_fun = integral->tri_.basis_fun_(Eigen::lastN(2), Eigen::last);
+  Eigen::Vector<SubrosaDG::Real, 2> tri_basis_fun = integral->tri_.basis_fun_(Eigen::last, Eigen::lastN(2));
   ASSERT_NEAR(dbg(tri_basis_fun.x()), 0.32307437676754752, SubrosaDG::kEpsilon);
   ASSERT_NEAR(dbg(tri_basis_fun.y()), 0.041035826263138453, SubrosaDG::kEpsilon);
   ASSERT_NEAR(dbg(integral->tri_.local_mass_mat_inv_.inverse()(0, 0)), 0.016666666666666666, SubrosaDG::kEpsilon);
@@ -197,6 +235,7 @@ TEST_F(Test2d, AdjacencyElemIntegral) {
   Eigen::Vector<SubrosaDG::Real, 2> line_tri_basis_fun = integral->line_.tri_basis_fun_(Eigen::last, Eigen::lastN(2));
   ASSERT_NEAR(dbg(line_tri_basis_fun.x()), 0.0, SubrosaDG::kEpsilon);
   ASSERT_NEAR(dbg(line_tri_basis_fun.y()), 0.39999999999999997, SubrosaDG::kEpsilon);
+
   Eigen::Vector<SubrosaDG::Real, 2> line_quad_basis_fun = integral->line_.quad_basis_fun_(Eigen::last, Eigen::lastN(2));
   ASSERT_NEAR(dbg(line_quad_basis_fun.x()), 0.39999999999999991, SubrosaDG::kEpsilon);
   ASSERT_NEAR(dbg(line_quad_basis_fun.y()), 0.0, SubrosaDG::kEpsilon);
@@ -204,5 +243,9 @@ TEST_F(Test2d, AdjacencyElemIntegral) {
 
 TEST_F(Test2d, Develop) {
   SubrosaDG::initSolver(*mesh, kRegionIdMap, kInitVarVec, *solver);
-  SubrosaDG::calAdjacencyIntegral(mesh->line_, integral->line_, kFarfieldVar, *solver);
+  SubrosaDG::calElemIntegral(mesh->tri_, integral->tri_, solver->thermo_model_, solver->elem_.tri_);
+  SubrosaDG::calElemIntegral(mesh->quad_, integral->quad_, solver->thermo_model_, solver->elem_.quad_);
+  SubrosaDG::calAdjacencyElemIntegral<2, SubrosaDG::kLine, SubrosaDG::MeshType::TriQuad, SubrosaDG::EquModel::Euler,
+                                      SubrosaDG::ConvectiveFlux::Roe>(mesh->line_, integral->line_, kFarfieldVar,
+                                                                      solver->thermo_model_, solver->elem_);
 }

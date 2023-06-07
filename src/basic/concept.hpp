@@ -15,17 +15,23 @@
 
 // clang-format off
 
-#include <basic/config.hpp>    // for TimeDiscrete
+#include <basic/enum.hpp>      // for MeshType, TimeDiscrete
 
 #include "mesh/elem_type.hpp"  // for ElemInfo
 
 namespace SubrosaDG {
 
 template <TimeDiscrete TimeDiscreteT>
-concept IsExplicit = !TimeDiscreteT.kIsImplicit;
+concept IsExplicit = TimeDiscreteT == TimeDiscrete::ExplicitEuler || TimeDiscreteT == TimeDiscrete::RungeKutta3;
 
 template <TimeDiscrete TimeDiscreteT>
-concept IsImplicit = TimeDiscreteT.kIsImplicit;
+concept IsImplicit = TimeDiscreteT == TimeDiscrete::ImplicitEuler;
+
+template <MeshType MeshT>
+concept IsUniform = MeshT == MeshType::Tri || MeshT == MeshType::Quad || MeshT == MeshType::Tet || MeshT == MeshType::Hex;
+
+template <MeshType MeshT>
+concept IsMixed = MeshT == MeshType::TriQuad || MeshT == MeshType::TetPyrHex;
 
 template <ElemInfo ElemT>
 concept Is1dElem = ElemT.kDim == 1;

@@ -20,10 +20,8 @@
 #include <string_view>                            // for string_view
 #include <unordered_map>                          // for unordered_map
 
-#include "basic/config.hpp"                       // for TimeDiscrete, InitVar (ptr only), ThermoModel (ptr only)
-#include "basic/concept.hpp"                      // for IsExplicit
 #include "basic/data_type.hpp"                    // for Usize, Isize, Real
-#include "basic/enum.hpp"                         // for MeshType, ConvectiveFlux (ptr only), EquModel
+#include "basic/enum.hpp"                         // for MeshType, ConvectiveFlux (ptr only), TimeDiscrete (ptr only)
 #include "mesh/mesh_structure.hpp"                // for Mesh, QuadElemMesh, TriElemMesh, MeshSupplemental
 #include "mesh/elem_type.hpp"                     // for ElemInfo, kQuad, kTri
 #include "mesh/get_mesh_supplemental.hpp"         // for getMeshSupplemental
@@ -33,18 +31,21 @@
 
 namespace SubrosaDG {
 
+template <EquModel EquModelT>
+struct ThermoModel;
+template <int Dim>
+struct InitVar;
+template <int Dim, int PolyOrder, ElemInfo ElemT, EquModel EquModelT>
+struct PerElemSolver;
 template <int Dim, int PolyOrder, MeshType MeshT, ConvectiveFlux ConvectiveFluxT, TimeDiscrete TimeDiscreteT>
 struct SolverEuler;
-template <int Dim, int PolyOrder, ElemInfo ElemT, TimeDiscrete TimeDiscreteT>
-struct PerElemConvectiveSolver;
 
-template <int PolyOrder, Usize RegionNum, ElemInfo ElemT, TimeDiscrete TimeDiscreteT>
-  requires IsExplicit<TimeDiscreteT>
+template <int PolyOrder, Usize RegionNum, ElemInfo ElemT>
 inline void initElemSolver(
     const Isize elem_num, const std::unordered_map<std::string_view, int>& region_id_map,
     const std::array<InitVar<2>, RegionNum>& init_var_vec, const ThermoModel<EquModel::Euler>& thermo_model,
-    Eigen::Vector<PerElemConvectiveSolver<2, PolyOrder, ElemT, TimeDiscreteT>, Eigen::Dynamic>& elem_t_solver) {
-  elem_t_solver.resize(elem_num);
+    Eigen::Vector<PerElemSolver<2, PolyOrder, ElemT, EquModel::Euler>, Eigen::Dynamic>& elem_solver) {
+  elem_solver.resize(elem_num);
   MeshSupplemental<ElemT> internal_supplemental;
   getMeshSupplemental<int, ElemT>(region_id_map, internal_supplemental);
   std::array<Eigen::Vector<Real, 4>, RegionNum> init_conserved_var;
@@ -52,41 +53,40 @@ inline void initElemSolver(
     calConservedVar(thermo_model, init_var_vec[i], init_conserved_var[i]);
   }
   for (Isize i = 0; i < elem_num; i++) {
-    elem_t_solver(i).basis_fun_coeff_(0).colwise() =
-        init_conserved_var[static_cast<Usize>(internal_supplemental.index_(i)) - 1];
+    elem_solver(i).basis_fun_coeff_(0).colwise() =
+        init_conserved_var[static_cast<Usize>(internal_supplemental.index_(i))];
+    elem_solver(i).basis_fun_coeff_(1).colwise() =
+        init_conserved_var[static_cast<Usize>(internal_supplemental.index_(i))];
   }
 }
 
 template <int PolyOrder, Usize RegionNum, ConvectiveFlux ConvectiveFluxT, TimeDiscrete TimeDiscreteT>
-  requires IsExplicit<TimeDiscreteT>
 inline void initSolver(const Mesh<2, MeshType::Tri>& mesh,
                        const std::unordered_map<std::string_view, int>& region_id_map,
                        const std::array<InitVar<2>, RegionNum>& init_var_vec,
                        SolverEuler<2, PolyOrder, MeshType::Tri, ConvectiveFluxT, TimeDiscreteT>& solver) {
-  initElemSolver<PolyOrder, RegionNum, kTri, TimeDiscreteT>(mesh.tri_.num_, region_id_map, init_var_vec,
-                                                            solver.thermo_model_, solver.elem_solver_.tri_);
+  initElemSolver<PolyOrder, RegionNum, kTri>(mesh.tri_.num_, region_id_map, init_var_vec, solver.thermo_model_,
+                                             solver.elem_.tri_);
 }
 
 template <int PolyOrder, Usize RegionNum, ConvectiveFlux ConvectiveFluxT, TimeDiscrete TimeDiscreteT>
-  requires IsExplicit<TimeDiscreteT>
 inline void initSolver(const Mesh<2, MeshType::Quad>& mesh,
                        const std::unordered_map<std::string_view, int>& region_id_map,
                        const std::array<InitVar<2>, RegionNum>& init_var_vec,
                        SolverEuler<2, PolyOrder, MeshType::Quad, ConvectiveFluxT, TimeDiscreteT>& solver) {
-  initElemSolver<PolyOrder, RegionNum, kQuad, TimeDiscreteT>(mesh.quad_.num_, region_id_map, init_var_vec,
-                                                             solver.thermo_model_, solver.elem_solver_.quad_);
+  initElemSolver<PolyOrder, RegionNum, kQuad>(mesh.quad_.num_, region_id_map, init_var_vec, solver.thermo_model_,
+                                              solver.elem_.quad_);
 }
 
 template <int PolyOrder, Usize RegionNum, ConvectiveFlux ConvectiveFluxT, TimeDiscrete TimeDiscreteT>
-  requires IsExplicit<TimeDiscreteT>
 inline void initSolver(const Mesh<2, MeshType::TriQuad>& mesh,
                        const std::unordered_map<std::string_view, int>& region_id_map,
                        const std::array<InitVar<2>, RegionNum>& init_var_vec,
                        SolverEuler<2, PolyOrder, MeshType::TriQuad, ConvectiveFluxT, TimeDiscreteT>& solver) {
-  initElemSolver<PolyOrder, RegionNum, kTri, TimeDiscreteT>(mesh.tri_.num_, region_id_map, init_var_vec,
-                                                            solver.thermo_model_, solver.elem_solver_.tri_);
-  initElemSolver<PolyOrder, RegionNum, kQuad, TimeDiscreteT>(mesh.quad_.num_, region_id_map, init_var_vec,
-                                                             solver.thermo_model_, solver.elem_solver_.quad_);
+  initElemSolver<PolyOrder, RegionNum, kTri>(mesh.tri_.num_, region_id_map, init_var_vec, solver.thermo_model_,
+                                             solver.elem_.tri_);
+  initElemSolver<PolyOrder, RegionNum, kQuad>(mesh.quad_.num_, region_id_map, init_var_vec, solver.thermo_model_,
+                                              solver.elem_.quad_);
 }
 
 }  // namespace SubrosaDG

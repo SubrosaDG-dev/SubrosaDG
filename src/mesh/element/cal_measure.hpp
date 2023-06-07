@@ -15,10 +15,11 @@
 
 // clang-format off
 
-#include <Eigen/Core>           // for Vector, DenseBase::col, DenseBase::operator(), Dynamic, Matrix, MatrixBase::o...
+#include <Eigen/Core>           // for Vector, DenseBase::col, Matrix, DenseBase::operator(), Dynamic, MatrixBase::o...
 #include <memory>               // for make_unique, unique_ptr
 #include <Eigen/Geometry>       // for MatrixBase::cross
 
+#include "basic/concept.hpp"    // for Is2dElem, Is1dElem
 #include "basic/data_type.hpp"  // for Real, Isize
 #include "mesh/elem_type.hpp"   // for ElemInfo
 
@@ -26,18 +27,21 @@
 
 namespace SubrosaDG {
 
+enum class MeshType;
 template <int Dim, ElemInfo ElemT>
 struct ElemMesh;
-template <int Dim, ElemInfo ElemT>
+template <int Dim, ElemInfo ElemT, MeshType MeshT>
 struct AdjacencyElemMesh;
 
 template <int Dim, ElemInfo ElemT>
-inline Real calElemLength(const Eigen::Matrix<Real, Dim, ElemT.kNodeNum>& node) {
+  requires Is1dElem<ElemT>
+inline Real calElemMeasure(const Eigen::Matrix<Real, Dim, ElemT.kNodeNum>& node) {
   return (node.col(1) - node.col(0)).norm();
 }
 
 template <int Dim, ElemInfo ElemT>
-inline Real calElemArea(const Eigen::Matrix<Real, Dim, ElemT.kNodeNum>& node) {
+  requires(Dim == 2) && Is2dElem<ElemT>
+inline Real calElemMeasure(const Eigen::Matrix<Real, Dim, ElemT.kNodeNum>& node) {
   Eigen::Matrix<Real, 3, ElemT.kNodeNum> node3d = Eigen::Matrix<Real, 3, ElemT.kNodeNum>::Zero();
   node3d(Eigen::seqN(0, Eigen::fix<Dim>), Eigen::all) = node;
   Eigen::Vector<Real, 3> cross_product = Eigen::Vector<Real, 3>::Zero();
@@ -47,38 +51,30 @@ inline Real calElemArea(const Eigen::Matrix<Real, Dim, ElemT.kNodeNum>& node) {
   return 0.5 * cross_product.norm();
 }
 
-// TODO: for Dim == 3 need to mutiply the normal vector
+template <int Dim, ElemInfo ElemT>
+  requires(Dim == 3) && Is2dElem<ElemT>
+inline Real calElemMeasure(const Eigen::Matrix<Real, Dim, ElemT.kNodeNum>& node);
+
 template <int Dim, ElemInfo ElemT>
 inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemMeasure(const ElemMesh<Dim, ElemT>& elem_mesh) {
   auto measure = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(elem_mesh.num_);
   for (Isize i = 0; i < elem_mesh.num_; i++) {
-    if constexpr (ElemT.kDim == 2) {
-      measure->operator()(i) = calElemArea<Dim, ElemT>(elem_mesh.elem_(i).node_);
-    }
+    measure->operator()(i) = calElemMeasure<Dim, ElemT>(elem_mesh.elem_(i).node_);
   }
   return measure;
 }
 
-template <int Dim, ElemInfo ElemT>
+template <int Dim, ElemInfo ElemT, MeshType MeshT>
 inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemMeasure(
-    const AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh) {
+    const AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {
   auto measure = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(adjacency_elem_mesh.internal_.num_ +
                                                                        adjacency_elem_mesh.boundary_.num_);
   for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
-    if constexpr (ElemT.kDim == 1) {
-      measure->operator()(i) = calElemLength<Dim, ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_);
-    } else if constexpr (ElemT.kDim == 2) {
-      measure->operator()(i) = calElemArea<Dim, ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_);
-    }
+    measure->operator()(i) = calElemMeasure<Dim, ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_);
   }
   for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
-    if constexpr (ElemT.kDim == 1) {
-      measure->operator()(i + adjacency_elem_mesh.internal_.num_) =
-          calElemLength<Dim, ElemT>(adjacency_elem_mesh.boundary_.elem_(i).node_);
-    } else if constexpr (ElemT.kDim == 2) {
-      measure->operator()(i + adjacency_elem_mesh.internal_.num_) =
-          calElemArea<Dim, ElemT>(adjacency_elem_mesh.boundary_.elem_(i).node_);
-    }
+    measure->operator()(i + adjacency_elem_mesh.internal_.num_) =
+        calElemMeasure<Dim, ElemT>(adjacency_elem_mesh.boundary_.elem_(i).node_);
   }
   return measure;
 }

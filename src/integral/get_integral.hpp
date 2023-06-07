@@ -25,8 +25,8 @@
 #include "basic/data_type.hpp"              // for Isize, Usize, Real
 #include "mesh/elem_type.hpp"               // for ElemInfo, kQuad, kTri
 #include "integral/cal_basisfun_num.hpp"    // for calBasisFunNum
-#include "integral/integral_structure.hpp"  // for ElemIntegral, Integral (ptr only), ElemStandard, AdjacencyElemInt...
-#include "integral/get_standard_coord.hpp"  // for getElemStandardCoord
+#include "integral/integral_structure.hpp"  // for ElemIntegral, ElemStandard, ElemGaussQuad (ptr only)
+#include "integral/get_standard.hpp"        // for getElemStandard
 #include "integral/get_integral_num.hpp"    // for getElemAdjacencyIntegralNum
 #include "basic/enum.hpp"                   // for MeshType
 
@@ -34,10 +34,15 @@
 
 namespace SubrosaDG {
 
+template <int Dim, int PolyOrder, MeshType MeshT>
+struct Integral;
+template <int PolyOrder, ElemInfo ElemT, MeshType MeshT>
+struct AdjacencyElemIntegral;
+
 template <int PolyOrder, ElemInfo ElemT>
 inline std::vector<double> getElemGaussQuad(ElemGaussQuad<PolyOrder, ElemT>& elem_gauss_quad) {
   using T = ElemIntegral<PolyOrder, ElemT>;
-  getElemStandardCoord<ElemT>();
+  getElemStandard<ElemT>();
   std::vector<double> local_coords;
   std::vector<double> weights;
   gmsh::model::mesh::getIntegrationPoints(ElemT.kTopology, fmt::format("Gauss{}", 2 * PolyOrder + 1), local_coords,
@@ -59,12 +64,12 @@ inline void getElemIntegral(ElemIntegral<PolyOrder, ElemT>& elem_integral) {
                                        num_components, basis_functions, num_orientations);
   for (Isize i = 0; i < T::kIntegralNum; i++) {
     for (Isize j = 0; j < T::kBasisFunNum; j++) {
-      elem_integral.basis_fun_(j, i) = static_cast<Real>(basis_functions[static_cast<Usize>(i * T::kBasisFunNum + j)]);
+      elem_integral.basis_fun_(i, j) = static_cast<Real>(basis_functions[static_cast<Usize>(i * T::kBasisFunNum + j)]);
     }
   }
   elem_integral.local_mass_mat_inv_.noalias() =
-      ((elem_integral.basis_fun_.array().rowwise() * elem_integral.weight_.transpose().array()).matrix() *
-       elem_integral.basis_fun_.transpose())
+      (elem_integral.basis_fun_.transpose() *
+       (elem_integral.basis_fun_.array().colwise() * elem_integral.weight_.array()).matrix())
           .inverse();
   std::vector<double> grad_basis_functions;
   gmsh::model::mesh::getBasisFunctions(ElemT.kTopology, local_coords, fmt::format("GradLagrange{}", PolyOrder),
@@ -90,7 +95,7 @@ inline void getAdjacencyElemIntegralFromParent(
       Eigen::Matrix<double, 3, T::kIntegralNum * ParentElemT.kAdjacencyNum>::Zero();
   for (Isize i = 0; i < ParentElemT.kAdjacencyNum; i++) {
     for (Isize j = 0; j < T::kIntegralNum; j++) {
-      parent_coords(Eigen::seqN(0, Eigen::fix<ParentElemT.kDim>), i * T::kIntegralNum + j) =
+      parent_coords(Eigen::seqN(0, Eigen::fix<ParentElemT.kDim>), i * T::kIntegralNum + j).noalias() =
           (ElemStandard<ParentElemT>::coord.row((i + 1) % ParentElemT.kAdjacencyNum) *
                coords_basis_functions[static_cast<Usize>(j * ElemT.kAdjacencyNum + 1)] +
            ElemStandard<ParentElemT>::coord.row(i) *
@@ -133,22 +138,16 @@ inline void getAdjacencyElemIntegral(AdjacencyElemIntegral<PolyOrder, ElemT, Mes
   }
 }
 
-template <int PolyOrder>
-inline void getIntegral(Integral<2, PolyOrder, MeshType::Tri>& integral) {
-  getElemIntegral(integral.tri_);
-  getAdjacencyElemIntegral(integral.line_);
-}
-
-template <int PolyOrder>
-inline void getIntegral(Integral<2, PolyOrder, MeshType::Quad>& integral) {
-  getElemIntegral(integral.quad_);
-  getAdjacencyElemIntegral(integral.line_);
-}
-
-template <int PolyOrder>
-inline void getIntegral(Integral<2, PolyOrder, MeshType::TriQuad>& integral) {
-  getElemIntegral(integral.tri_);
-  getElemIntegral(integral.quad_);
+template <int PolyOrder, MeshType MeshT>
+inline void getIntegral(Integral<2, PolyOrder, MeshT>& integral) {
+  if constexpr (MeshT == MeshType::Tri) {
+    getElemIntegral(integral.tri_);
+  } else if constexpr (MeshT == MeshType::Quad) {
+    getElemIntegral(integral.quad_);
+  } else if constexpr (MeshT == MeshType::TriQuad) {
+    getElemIntegral(integral.tri_);
+    getElemIntegral(integral.quad_);
+  }
   getAdjacencyElemIntegral(integral.line_);
 }
 

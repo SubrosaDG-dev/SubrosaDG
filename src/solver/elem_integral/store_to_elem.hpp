@@ -17,22 +17,21 @@
 
 #include <Eigen/Core>           // for DenseBase::col, Vector
 
-#include "basic/config.hpp"     // for TimeDiscrete
 #include "mesh/elem_type.hpp"   // for ElemInfo, kQuad, kTri
 #include "basic/data_type.hpp"  // for Isize, Real
-#include "basic/enum.hpp"       // for MeshType
+#include "basic/enum.hpp"       // for EquModel (ptr only), MeshType
 
 // clang-format on
 
 namespace SubrosaDG {
 
-template <int Dim, int PolyOrder, MeshType MeshT, TimeDiscrete TimeDiscreteT>
-struct ElemConvectiveSolver;
+template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
+struct ElemSolver;
 
-template <int PolyOrder, MeshType MeshT, TimeDiscrete TimeDiscreteT>
-inline void storeIntegralToElem(const Isize elem_tag, const Isize adjacency_integral_order,
-                                const Eigen::Vector<Real, 4>& adjacency_integral,
-                                ElemConvectiveSolver<2, PolyOrder, MeshT, TimeDiscreteT>& elem_solver) {
+template <int PolyOrder, MeshType MeshT, EquModel EquModelT>
+inline void storeAdjacencyIntegralToElem(const Isize elem_tag, const Isize adjacency_integral_order,
+                                         const Eigen::Vector<Real, 4>& adjacency_integral,
+                                         ElemSolver<2, PolyOrder, MeshT, EquModelT>& elem_solver) {
   if constexpr (MeshT == MeshType::Tri) {
     elem_solver.tri_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
   } else if constexpr (MeshT == MeshType::Quad) {
@@ -40,10 +39,11 @@ inline void storeIntegralToElem(const Isize elem_tag, const Isize adjacency_inte
   }
 }
 
-template <int PolyOrder, TimeDiscrete TimeDiscreteT>
-inline void storeIntegralToElem(const int elem_topology, const Isize elem_tag, const Isize adjacency_integral_order,
-                                const Eigen::Vector<Real, 4>& adjacency_integral,
-                                ElemConvectiveSolver<2, PolyOrder, MeshType::TriQuad, TimeDiscreteT>& elem_solver) {
+template <int PolyOrder, EquModel EquModelT>
+inline void storeAdjacencyIntegralToElem(const int elem_topology, const Isize elem_tag,
+                                         const Isize adjacency_integral_order,
+                                         const Eigen::Vector<Real, 4>& adjacency_integral,
+                                         ElemSolver<2, PolyOrder, MeshType::TriQuad, EquModelT>& elem_solver) {
   switch (elem_topology) {
   case kTri.kTopology:
     elem_solver.tri_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;

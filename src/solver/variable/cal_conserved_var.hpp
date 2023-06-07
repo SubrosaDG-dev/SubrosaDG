@@ -15,7 +15,7 @@
 
 // clang-format off
 
-#include <Eigen/Core>           // for Matrix, CommaInitializer, Vector, DenseBase
+#include <Eigen/Core>           // for CommaInitializer, Vector, DenseBase, Matrix
 #include <array>                // for array
 
 #include "basic/data_type.hpp"  // for Real

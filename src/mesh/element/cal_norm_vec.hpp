@@ -15,10 +15,10 @@
 
 // clang-format off
 
-#include <basic/constant.hpp>   // for kPi
 #include <Eigen/Core>           // for DenseBase::col, Matrix, MatrixBase::operator-, Vector
 #include <Eigen/Geometry>       // for Rotation2D
 
+#include "basic/constant.hpp"   // for kPi
 #include "basic/data_type.hpp"  // for Real, Isize
 #include "mesh/elem_type.hpp"   // for ElemInfo
 
@@ -26,7 +26,8 @@
 
 namespace SubrosaDG {
 
-template <int Dim, ElemInfo ElemT>
+enum class MeshType;
+template <int Dim, ElemInfo ElemT, MeshType MeshT>
 struct AdjacencyElemMesh;
 
 template <ElemInfo ElemT>
@@ -38,8 +39,8 @@ inline void calNormVec(const Eigen::Matrix<Real, 2, ElemT.kNodeNum>& node, Eigen
 template <ElemInfo ElemT>
 inline void calNormVec(const Eigen::Matrix<Real, 3, ElemT.kNodeNum>& node, Eigen::Vector<Real, 3>& norm_vec);
 
-template <int Dim, ElemInfo ElemT>
-inline void calAdjacencyElemNormVec(AdjacencyElemMesh<Dim, ElemT>& adjacency_elem_mesh) {
+template <int Dim, ElemInfo ElemT, MeshType MeshT>
+inline void calAdjacencyElemNormVec(AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {
   for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
     calNormVec<ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_, adjacency_elem_mesh.internal_.elem_(i).norm_vec_);
   }

@@ -20,6 +20,7 @@
 #include <filesystem>           // for path
 #include <utility>              // for pair
 
+#include "basic/concept.hpp"    // IWYU pragma: keep
 #include "basic/data_type.hpp"  // for Isize, Real
 #include "basic/enum.hpp"       // for MeshType
 #include "mesh/elem_type.hpp"   // for ElemInfo, kLine, kQuad, kTri
@@ -29,10 +30,15 @@
 namespace SubrosaDG {
 
 template <int Dim, ElemInfo ElemT>
-struct PerElemMesh {
+struct PerElemMeshBase {
   Eigen::Matrix<Real, Dim, ElemT.kNodeNum> node_;
   Eigen::Vector<Isize, ElemT.kNodeNum> index_;
   Real jacobian_;
+};
+
+template <int Dim, ElemInfo ElemT>
+struct PerElemMesh : PerElemMeshBase<Dim, ElemT> {
+  Eigen::Vector<Real, Dim> projection_measure_;
 };
 
 template <int Dim, ElemInfo ElemT>
@@ -42,25 +48,37 @@ struct ElemMesh {
   Eigen::Vector<PerElemMesh<Dim, ElemT>, Eigen::Dynamic> elem_;
 };
 
-template <int Dim, ElemInfo ElemT, bool IsInternal>
-struct PerAdjacencyElemMesh {
-  Eigen::Matrix<Real, Dim, ElemT.kNodeNum> node_;
-  Eigen::Vector<Isize, ElemT.kNodeNum + 4 + 2 * static_cast<Isize>(IsInternal)> index_;
+template <int Dim, ElemInfo ElemT, MeshType MeshT, bool IsInternal>
+struct PerAdjacencyElemMesh;
+
+template <int Dim, ElemInfo ElemT, MeshType MeshT, bool IsInternal>
+  requires IsUniform<MeshT>
+struct PerAdjacencyElemMesh<Dim, ElemT, MeshT, IsInternal> : PerElemMeshBase<Dim, ElemT> {
+  Eigen::Vector<Isize, 2> parent_index_;
+  Eigen::Vector<Isize, 1 + static_cast<Isize>(IsInternal)> adjacency_index_;
   Eigen::Vector<Real, Dim> norm_vec_;
-  Real jacobian_;
 };
 
-template <int Dim, ElemInfo ElemT, bool IsInternal>
+template <int Dim, ElemInfo ElemT, MeshType MeshT, bool IsInternal>
+  requires IsMixed<MeshT>
+struct PerAdjacencyElemMesh<Dim, ElemT, MeshT, IsInternal> : PerElemMeshBase<Dim, ElemT> {
+  Eigen::Vector<Isize, 2> parent_index_;
+  Eigen::Vector<Isize, 1 + static_cast<Isize>(IsInternal)> adjacency_index_;
+  Eigen::Vector<int, 1 + static_cast<Isize>(IsInternal)> typology_index_;
+  Eigen::Vector<Real, Dim> norm_vec_;
+};
+
+template <int Dim, ElemInfo ElemT, MeshType MeshT, bool IsInternal>
 struct AdjacencyElemTypeMesh {
   std::pair<Isize, Isize> range_;
   Isize num_;
-  Eigen::Vector<PerAdjacencyElemMesh<Dim, ElemT, IsInternal>, Eigen::Dynamic> elem_;
+  Eigen::Vector<PerAdjacencyElemMesh<Dim, ElemT, MeshT, IsInternal>, Eigen::Dynamic> elem_;
 };
 
-template <int Dim, ElemInfo ElemT>
+template <int Dim, ElemInfo ElemT, MeshType MeshT>
 struct AdjacencyElemMesh {
-  AdjacencyElemTypeMesh<Dim, ElemT, true> internal_;
-  AdjacencyElemTypeMesh<Dim, ElemT, false> boundary_;
+  AdjacencyElemTypeMesh<Dim, ElemT, MeshT, true> internal_;
+  AdjacencyElemTypeMesh<Dim, ElemT, MeshT, false> boundary_;
 };
 
 template <int Dim>
@@ -69,8 +87,8 @@ using TriElemMesh = ElemMesh<Dim, kTri>;
 template <int Dim>
 using QuadElemMesh = ElemMesh<Dim, kQuad>;
 
-template <int Dim>
-using AdjacencyLineElemMesh = AdjacencyElemMesh<Dim, kLine>;
+template <int Dim, MeshType MeshT>
+using AdjacencyLineElemMesh = AdjacencyElemMesh<Dim, kLine, MeshT>;
 
 template <int Dim>
 struct MeshBase {
@@ -82,12 +100,12 @@ struct MeshBase {
 };
 
 template <int Dim, MeshType MeshT>
-struct Mesh {};
+struct Mesh;
 
 template <>
 struct Mesh<2, MeshType::Tri> : MeshBase<2> {
   TriElemMesh<2> tri_;
-  AdjacencyLineElemMesh<2> line_;
+  AdjacencyLineElemMesh<2, MeshType::Tri> line_;
 
   using MeshBase<2>::MeshBase;
 };
@@ -95,7 +113,7 @@ struct Mesh<2, MeshType::Tri> : MeshBase<2> {
 template <>
 struct Mesh<2, MeshType::Quad> : MeshBase<2> {
   QuadElemMesh<2> quad_;
-  AdjacencyLineElemMesh<2> line_;
+  AdjacencyLineElemMesh<2, MeshType::Quad> line_;
 
   using MeshBase<2>::MeshBase;
 };
@@ -104,7 +122,7 @@ template <>
 struct Mesh<2, MeshType::TriQuad> : MeshBase<2> {
   TriElemMesh<2> tri_;
   QuadElemMesh<2> quad_;
-  AdjacencyLineElemMesh<2> line_;
+  AdjacencyLineElemMesh<2, MeshType::TriQuad> line_;
 
   using MeshBase<2>::MeshBase;
 };

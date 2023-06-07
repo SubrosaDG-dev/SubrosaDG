@@ -15,7 +15,7 @@
 
 // clang-format off
 
-#include <Eigen/Core>           // for Vector, DenseCoeffsBase, CommaInitializer, DenseBase, Matrix
+#include <Eigen/Core>           // for Vector, CommaInitializer, DenseCoeffsBase, DenseBase, Matrix
 
 #include "basic/data_type.hpp"  // for Real
 
@@ -23,14 +23,15 @@
 
 namespace SubrosaDG {
 
-template <int Dim>
-inline void calWallFlux(const Eigen::Vector<Real, Dim>& norm_vec, const Eigen::Vector<Real, Dim + 3>& l_primitive_var,
-                        Eigen::Vector<Real, Dim + 2>& wall_flux);
+inline void calWallFlux(const Eigen::Vector<Real, 2>& norm_vec, const Eigen::Vector<Real, 5>& l_primitive_var,
+                        Eigen::Vector<Real, 4>& wall_flux) {
+  wall_flux << 0, l_primitive_var(3) * norm_vec.x(), l_primitive_var(3) * norm_vec.y(), 0;
+}
 
-template <>
-inline void calWallFlux<2>(const Eigen::Vector<Real, 2>& norm_vec, const Eigen::Vector<Real, 5>& l_primitive_var,
-                           Eigen::Vector<Real, 4>& wall_flux) {
-  wall_flux << 0, l_primitive_var(3) * norm_vec(0), l_primitive_var(3) * norm_vec(1), 0;
+inline void calWallFlux(const Eigen::Vector<Real, 3>& norm_vec, const Eigen::Vector<Real, 6>& l_primitive_var,
+                        Eigen::Vector<Real, 5>& wall_flux) {
+  wall_flux << 0, l_primitive_var(4) * norm_vec.x(), l_primitive_var(4) * norm_vec.y(),
+      l_primitive_var(4) * norm_vec.z(), 0;
 }
 
 }  // namespace SubrosaDG

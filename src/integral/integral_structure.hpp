@@ -29,6 +29,7 @@ namespace SubrosaDG {
 
 template <ElemInfo ElemT>
 struct ElemStandard {
+  inline static Real measure;
   inline static Eigen::Matrix<Real, ElemT.kNodeNum, ElemT.kDim> coord;
 };
 
@@ -41,13 +42,13 @@ struct ElemGaussQuad : ElemStandard<ElemT> {
 template <int PolyOrder, ElemInfo ElemT>
 struct ElemIntegral : ElemGaussQuad<PolyOrder, ElemT> {
   inline static constexpr int kBasisFunNum{calBasisFunNum<ElemT>(PolyOrder)};
-  Eigen::Matrix<Real, kBasisFunNum, ElemGaussQuad<PolyOrder, ElemT>::kIntegralNum> basis_fun_;
+  Eigen::Matrix<Real, ElemGaussQuad<PolyOrder, ElemT>::kIntegralNum, kBasisFunNum, Eigen::RowMajor> basis_fun_;
   Eigen::Matrix<Real, kBasisFunNum, kBasisFunNum> local_mass_mat_inv_;
   Eigen::Matrix<Real, ElemGaussQuad<PolyOrder, ElemT>::kIntegralNum * ElemT.kDim, kBasisFunNum> grad_basis_fun_;
 };
 
 template <int PolyOrder, ElemInfo ElemT, MeshType MeshT>
-struct AdjacencyElemIntegral : ElemGaussQuad<PolyOrder, ElemT> {};
+struct AdjacencyElemIntegral;
 
 template <int PolyOrder, ElemInfo ElemT>
 struct AdjacencyElemIntegral<PolyOrder, ElemT, MeshType::Tri> : ElemGaussQuad<PolyOrder, ElemT> {
@@ -79,7 +80,7 @@ template <int PolyOrder, MeshType MeshT>
 using AdjacencyLineElemIntegral = AdjacencyElemIntegral<PolyOrder, kLine, MeshT>;
 
 template <int Dim, int PolyOrder, MeshType MeshT>
-struct Integral {};
+struct Integral;
 
 template <int PolyOrder>
 struct Integral<2, PolyOrder, MeshType::Tri> {

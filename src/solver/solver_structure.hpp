@@ -18,10 +18,9 @@
 #include <Eigen/Core>                     // for Vector, Dynamic, Matrix
 #include <array>                          // for array
 
-#include "basic/concept.hpp"              // IWYU pragma: keep
 #include "basic/data_type.hpp"            // for Real
-#include "basic/enum.hpp"                 // for EquModel, MeshType, ConvectiveFlux (ptr only), ViscousFlux (ptr only)
-#include "basic/config.hpp"               // for TimeDiscrete, TimeVar, kExplicitEuler, kRungeKutta3, ThermoModel
+#include "basic/enum.hpp"                 // for EquModel, MeshType, ConvectiveFlux (ptr only), TimeDiscrete, Viscou...
+#include "basic/config.hpp"               // for TimeVar
 #include "mesh/elem_type.hpp"             // for ElemInfo, kQuad, kTri
 #include "integral/cal_basisfun_num.hpp"  // for calBasisFunNum
 #include "integral/get_integral_num.hpp"  // for getElemAdjacencyIntegralNum, getElemIntegralNum
@@ -30,79 +29,61 @@
 
 namespace SubrosaDG {
 
+template <EquModel EquModelT>
+struct ThermoModel;
 template <TimeDiscrete TimeDiscreteT>
-struct TimeSolver : TimeVar<TimeDiscreteT> {};
+struct TimeSolver;
 
 template <>
-struct TimeSolver<kExplicitEuler> : TimeVar<kExplicitEuler> {
+struct TimeSolver<TimeDiscrete::ExplicitEuler> : TimeVar {
+  inline static Real delta_t;
   inline static constexpr std::array<Real, 1> kStepCoeffs{0.0};
 
-  inline constexpr TimeSolver(const TimeVar<kExplicitEuler>& time_var) : TimeVar<kExplicitEuler>(time_var) {}
+  inline constexpr TimeSolver(const TimeVar& time_var) : TimeVar(time_var) {}
 };
 
 template <>
-struct TimeSolver<kRungeKutta3> : TimeVar<kRungeKutta3> {
+struct TimeSolver<TimeDiscrete::RungeKutta3> : TimeVar {
+  inline static Real delta_t;
   inline static constexpr std::array<Real, 3> kStepCoeffs{0.0, 3.0 / 4.0, 1.0 / 3.0};
 
-  inline constexpr TimeSolver(const TimeVar<kRungeKutta3>& time_var) : TimeVar<kRungeKutta3>(time_var) {}
+  inline constexpr TimeSolver(const TimeVar& time_var) : TimeVar(time_var) {}
 };
 
-template <int Dim, int PolyOrder, ElemInfo ElemT, TimeDiscrete TimeDiscreteT>
-struct PerElemConvectiveSolver {};
-
-template <int Dim, int PolyOrder, ElemInfo ElemT, TimeDiscrete TimeDiscreteT>
-  requires IsExplicit<TimeDiscreteT>
-struct PerElemConvectiveSolver<Dim, PolyOrder, ElemT, TimeDiscreteT> {
+template <int Dim, int PolyOrder, ElemInfo ElemT>
+struct PerElemSolverBase {
   Eigen::Vector<Eigen::Matrix<Real, Dim + 2, calBasisFunNum<ElemT>(PolyOrder)>, 2> basis_fun_coeff_;
   Eigen::Matrix<Real, Dim + 2, getElemAdjacencyIntegralNum<ElemT>(PolyOrder)> adjacency_integral_;
-  Eigen::Matrix<Real, Dim + 2, getElemIntegralNum<ElemT>(PolyOrder)> element_integral_;
+  Eigen::Matrix<Real, Dim + 2, getElemIntegralNum<ElemT>(PolyOrder) * Dim> elem_integral_;
   Eigen::Matrix<Real, Dim + 2, calBasisFunNum<ElemT>(PolyOrder)> residual_;
 };
 
-template <int Dim, int PolyOrder, ElemInfo ElemT, TimeDiscrete TimeDiscreteT>
-struct PerElemVisciousSolver {};
+template <int Dim, int PolyOrder, ElemInfo ElemT, EquModel EquModelT>
+struct PerElemSolver;
 
-template <int Dim, int PolyOrder, ElemInfo ElemT, TimeDiscrete TimeDiscreteT>
-  requires IsExplicit<TimeDiscreteT>
-struct PerElemVisciousSolver<Dim, PolyOrder, ElemT, TimeDiscreteT>
-    : PerElemConvectiveSolver<Dim, PolyOrder, ElemT, TimeDiscreteT> {};
+template <int Dim, int PolyOrder, ElemInfo ElemT>
+struct PerElemSolver<Dim, PolyOrder, ElemT, EquModel::Euler> : PerElemSolverBase<Dim, PolyOrder, ElemT> {};
 
-template <int Dim, int PolyOrder, MeshType MeshT, TimeDiscrete TimeDiscreteT>
-struct ElemConvectiveSolver {};
+template <int Dim, int PolyOrder, ElemInfo ElemT>
+struct PerElemSolver<Dim, PolyOrder, ElemT, EquModel::NS> : PerElemSolverBase<Dim, PolyOrder, ElemT> {};
 
-template <int PolyOrder, TimeDiscrete TimeDiscreteT>
-struct ElemConvectiveSolver<2, PolyOrder, MeshType::Tri, TimeDiscreteT> {
-  Eigen::Vector<PerElemConvectiveSolver<2, PolyOrder, kTri, TimeDiscreteT>, Eigen::Dynamic> tri_;
+template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
+struct ElemSolver;
+
+template <int PolyOrder, EquModel EquModelT>
+struct ElemSolver<2, PolyOrder, MeshType::Tri, EquModelT> {
+  Eigen::Vector<PerElemSolver<2, PolyOrder, kTri, EquModelT>, Eigen::Dynamic> tri_;
 };
 
-template <int PolyOrder, TimeDiscrete TimeDiscreteT>
-struct ElemConvectiveSolver<2, PolyOrder, MeshType::Quad, TimeDiscreteT> {
-  Eigen::Vector<PerElemConvectiveSolver<2, PolyOrder, kQuad, TimeDiscreteT>, Eigen::Dynamic> quad_;
+template <int PolyOrder, EquModel EquModelT>
+struct ElemSolver<2, PolyOrder, MeshType::Quad, EquModelT> {
+  Eigen::Vector<PerElemSolver<2, PolyOrder, kQuad, EquModelT>, Eigen::Dynamic> quad_;
 };
 
-template <int PolyOrder, TimeDiscrete TimeDiscreteT>
-struct ElemConvectiveSolver<2, PolyOrder, MeshType::TriQuad, TimeDiscreteT> {
-  Eigen::Vector<PerElemConvectiveSolver<2, PolyOrder, kTri, TimeDiscreteT>, Eigen::Dynamic> tri_;
-  Eigen::Vector<PerElemConvectiveSolver<2, PolyOrder, kQuad, TimeDiscreteT>, Eigen::Dynamic> quad_;
-};
-
-template <int Dim, int PolyOrder, MeshType MeshT, TimeDiscrete TimeDiscreteT>
-struct ElemVisciousSolver {};
-
-template <int PolyOrder, TimeDiscrete TimeDiscreteT>
-struct ElemVisciousSolver<2, PolyOrder, MeshType::Tri, TimeDiscreteT> {
-  Eigen::Vector<PerElemVisciousSolver<2, PolyOrder, kTri, TimeDiscreteT>, Eigen::Dynamic> tri_;
-};
-
-template <int PolyOrder, TimeDiscrete TimeDiscreteT>
-struct ElemVisciousSolver<2, PolyOrder, MeshType::Quad, TimeDiscreteT> {
-  Eigen::Vector<PerElemVisciousSolver<2, PolyOrder, kQuad, TimeDiscreteT>, Eigen::Dynamic> quad_;
-};
-
-template <int PolyOrder, TimeDiscrete TimeDiscreteT>
-struct ElemVisciousSolver<2, PolyOrder, MeshType::TriQuad, TimeDiscreteT> {
-  Eigen::Vector<PerElemVisciousSolver<2, PolyOrder, kTri, TimeDiscreteT>, Eigen::Dynamic> tri_;
-  Eigen::Vector<PerElemVisciousSolver<2, PolyOrder, kQuad, TimeDiscreteT>, Eigen::Dynamic> quad_;
+template <int PolyOrder, EquModel EquModelT>
+struct ElemSolver<2, PolyOrder, MeshType::TriQuad, EquModelT> {
+  Eigen::Vector<PerElemSolver<2, PolyOrder, kTri, EquModelT>, Eigen::Dynamic> tri_;
+  Eigen::Vector<PerElemSolver<2, PolyOrder, kQuad, EquModelT>, Eigen::Dynamic> quad_;
 };
 
 template <EquModel EquModelT, TimeDiscrete TimeDiscreteT>
@@ -110,13 +91,13 @@ struct SolverBase {
   TimeSolver<TimeDiscreteT> time_solver_;
   ThermoModel<EquModelT> thermo_model_;
 
-  inline constexpr SolverBase(const TimeVar<TimeDiscreteT>& time_var, const ThermoModel<EquModelT>& thermo_model)
+  inline constexpr SolverBase(const TimeVar& time_var, const ThermoModel<EquModelT>& thermo_model)
       : time_solver_(time_var), thermo_model_(thermo_model) {}
 };
 
 template <int Dim, int PolyOrder, MeshType MeshT, ConvectiveFlux ConvectiveFluxT, TimeDiscrete TimeDiscreteT>
 struct SolverEuler : SolverBase<EquModel::Euler, TimeDiscreteT> {
-  ElemConvectiveSolver<Dim, PolyOrder, MeshT, TimeDiscreteT> elem_solver_;
+  ElemSolver<Dim, PolyOrder, MeshT, EquModel::Euler> elem_;
 
   using SolverBase<EquModel::Euler, TimeDiscreteT>::SolverBase;
 };
