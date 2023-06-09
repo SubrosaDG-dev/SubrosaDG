@@ -13,14 +13,10 @@
 #ifndef SUBROSA_DG_CONSTANT_HPP_
 #define SUBROSA_DG_CONSTANT_HPP_
 
-// clang-format off
+#include <limits>
+#include <numbers>
 
-#include <limits>               // for numeric_limits
-#include <numbers>              // for e_v, pi_v
-
-#include "basic/data_type.hpp"  // for Real
-
-// clang-format on
+#include "basic/data_type.hpp"
 
 namespace SubrosaDG {
 

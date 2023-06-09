@@ -13,22 +13,18 @@
 #ifndef SUBROSA_DG_CAL_ADJACENCY_INTEGRAL_HPP_
 #define SUBROSA_DG_CAL_ADJACENCY_INTEGRAL_HPP_
 
-// clang-format off
+#include <Eigen/Core>
 
-#include <Eigen/Core>                                // for Vector, MatrixBase::operator*
-
-#include "basic/concept.hpp"                         // for IsMixed
-#include "basic/config.hpp"                          // for ThermoModel (ptr only), FarfieldVar
-#include "basic/data_type.hpp"                       // for Real, Isize
-#include "basic/enum.hpp"                            // for MeshType (ptr only), EquModel, Boundary, ConvectiveFlux
-#include "mesh/elem_type.hpp"                        // for ElemInfo, kLine
-#include "solver/variable/cal_primitive_var.hpp"     // for calPrimitiveVar
-#include "solver/convective_flux/cal_roe_flux.hpp"   // for calRoeFlux
-#include "solver/convective_flux/cal_wall_flux.hpp"  // for calWallFlux
-#include "solver/variable/get_parent_var.hpp"        // for getParentVar
-#include "solver/elem_integral/store_to_elem.hpp"    // for storeAdjacencyIntegralToElem
-
-// clang-format on
+#include "basic/concept.hpp"
+#include "basic/config.hpp"
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "mesh/elem_type.hpp"
+#include "solver/convective_flux/cal_roe_flux.hpp"
+#include "solver/convective_flux/cal_wall_flux.hpp"
+#include "solver/elem_integral/store_to_elem.hpp"
+#include "solver/variable/cal_primitive_var.hpp"
+#include "solver/variable/get_parent_var.hpp"
 
 namespace SubrosaDG {
 

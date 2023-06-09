@@ -13,13 +13,9 @@
 #ifndef SUBROSA_DG_CAL_WALL_FLUX_HPP_
 #define SUBROSA_DG_CAL_WALL_FLUX_HPP_
 
-// clang-format off
+#include <Eigen/Core>
 
-#include <Eigen/Core>           // for Vector, CommaInitializer, DenseCoeffsBase, DenseBase, Matrix
-
-#include "basic/data_type.hpp"  // for Real
-
-// clang-format on
+#include "basic/data_type.hpp"
 
 namespace SubrosaDG {
 

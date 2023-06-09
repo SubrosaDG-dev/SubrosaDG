@@ -13,11 +13,7 @@
 #ifndef SUBROSA_DG_DATA_TYPE_HPP_
 #define SUBROSA_DG_DATA_TYPE_HPP_
 
-// clang-format off
-
-#include <cstddef>  // for ptrdiff_t, size_t
-
-// clang-format on
+#include <cstddef>
 
 namespace SubrosaDG {
 

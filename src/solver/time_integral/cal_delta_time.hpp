@@ -13,8 +13,6 @@
 #ifndef SUBROSA_DG_CAL_DELTA_TIME_HPP_
 #define SUBROSA_DG_CAL_DELTA_TIME_HPP_
 
-// clang-format off
-
 #include "basic/config.hpp"
 #include "basic/constant.hpp"
 #include "basic/enum.hpp"
@@ -23,8 +21,6 @@
 #include "mesh/mesh_structure.hpp"
 #include "solver/solver_structure.hpp"
 #include "solver/variable/cal_primitive_var.hpp"
-
-// clang-format on
 
 namespace SubrosaDG {
 

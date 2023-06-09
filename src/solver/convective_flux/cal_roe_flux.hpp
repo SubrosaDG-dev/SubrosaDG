@@ -13,15 +13,11 @@
 #ifndef SUBROSA_DG_CAL_ROE_FLUX_HPP_
 #define SUBROSA_DG_CAL_ROE_FLUX_HPP_
 
-// clang-format off
+#include <Eigen/Core>
+#include <cmath>
 
-#include <Eigen/Core>                              // for Matrix, CwiseBinaryOp, Vector, DenseCoeffsBase, scalar_sum_op
-#include <cmath>                                   // for fabs, sqrt
-
-#include "basic/data_type.hpp"                     // for Real
-#include "solver/variable/cal_convective_var.hpp"  // for calConvectiveVar
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "solver/variable/cal_convective_var.hpp"
 
 namespace SubrosaDG {
 

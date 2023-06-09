@@ -13,14 +13,10 @@
 #ifndef SUBROSA_DG_CONFIG_HPP_
 #define SUBROSA_DG_CONFIG_HPP_
 
-// clang-format off
+#include <array>
 
-#include <array>                // for array
-
-#include "basic/data_type.hpp"  // for Real
-#include "basic/enum.hpp"       // for EquModel
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 
 namespace SubrosaDG {
 

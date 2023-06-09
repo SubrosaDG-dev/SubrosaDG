@@ -13,14 +13,10 @@
 #ifndef SUBROSA_DG_GET_INTEGRAL_NUM_HPP_
 #define SUBROSA_DG_GET_INTEGRAL_NUM_HPP_
 
-// clang-format off
+#include <array>
 
-#include <array>                // for array
-
-#include "basic/data_type.hpp"  // for Usize
-#include "mesh/elem_type.hpp"   // for ElemInfo, kQuad, kTri, kLine
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

@@ -13,17 +13,12 @@
 #ifndef SUBROSA_DG_CAL_MEASURE_HPP_
 #define SUBROSA_DG_CAL_MEASURE_HPP_
 
-// clang-format off
+#include <Eigen/Core>
+#include <memory>
 
-#include <Eigen/Core>           // for Vector, DenseBase::col, Matrix, DenseBase::operator(), Dynamic, MatrixBase::o...
-#include <memory>               // for make_unique, unique_ptr
-#include <Eigen/Geometry>       // for MatrixBase::cross
-
-#include "basic/concept.hpp"    // for Is2dElem, Is1dElem
-#include "basic/data_type.hpp"  // for Real, Isize
-#include "mesh/elem_type.hpp"   // for ElemInfo
-
-// clang-format on
+#include "basic/concept.hpp"
+#include "basic/data_type.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

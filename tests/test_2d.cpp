@@ -12,41 +12,34 @@
 
 // IWYU pragma: private, include "gtest/gtest.h"
 
-// clang-format off
+#include <dbg.h>
+#include <gmsh.h>
+#include <gtest/gtest.h>
 
-#include <dbg.h>                                            // for type_name, DBG_MAP_1, DebugOutput, dbg
-#include <gmsh.h>                                           // for addCurveLoop, addLine, addPhysicalGroup, addPlane...
-#include <gtest/gtest.h>                                    // for Message, TestPartResult, ASSERT_NEAR, TestInfo (p...
-#include <Eigen/Core>                                       // for Block, Vector, DenseBase<>::ColXpr, Matrix, Symbo...
-#include <Eigen/LU>                                         // for MatrixBase::inverse
-#include <algorithm>                                        // for copy
-#include <array>                                            // for array
-#include <filesystem>                                       // for path, exists, operator/
-#include <memory>                                           // for allocator, unique_ptr
-#include <string_view>                                      // for string_view, hash, basic_string_view, operator""sv
-#include <unordered_map>                                    // for unordered_map
-#include <utility>                                          // for make_pair
-#include <stdexcept>                                        // for out_of_range
-#include <vector>                                           // for vector
-#include <map>                                              // for map
+#include <Eigen/Core>
+#include <Eigen/LU>
+#include <array>
+#include <filesystem>
+#include <memory>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
 
-#include "basic/config.hpp"                                 // for InitVar, FarfieldVar, ThermoModel, TimeVar
-#include "basic/constant.hpp"                               // for kEpsilon
-#include "basic/data_type.hpp"                              // for Real, Isize
-#include "basic/enum.hpp"                                   // for MeshType, ConvectiveFlux, TimeDiscrete, EquModel
-#include "cmake.hpp"                                        // for kProjectSourceDir
-#include "mesh/element/cal_measure.hpp"                     // for calElemMeasure
-#include "mesh/get_mesh.hpp"                                // for getMesh
-#include "mesh/mesh_structure.hpp"                          // for Mesh, AdjacencyElemTypeMesh, AdjacencyLineElemMesh
-#include "integral/integral_structure.hpp"                  // for Integral, TriElemIntegral, AdjacencyLineElemIntegral
-#include "integral/get_integral.hpp"                        // for getIntegral
-#include "solver/elem_integral/cal_adjacency_integral.hpp"  // for calAdjacencyElemIntegral
-#include "solver/elem_integral/cal_elem_integral.hpp"       // for calElemIntegral
-#include "solver/init_solver.hpp"                           // for initSolver
-#include "solver/solver_structure.hpp"                      // for SolverEuler, ElemSolver
-#include "mesh/elem_type.hpp"                               // for kLine
-
-// clang-format on
+#include "basic/config.hpp"
+#include "basic/constant.hpp"
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "cmake.hpp"
+#include "integral/get_integral.hpp"
+#include "integral/integral_structure.hpp"
+#include "mesh/elem_type.hpp"
+#include "mesh/element/cal_measure.hpp"
+#include "mesh/get_mesh.hpp"
+#include "mesh/mesh_structure.hpp"
+#include "solver/elem_integral/cal_adjacency_integral.hpp"
+#include "solver/elem_integral/cal_elem_integral.hpp"
+#include "solver/init_solver.hpp"
+#include "solver/solver_structure.hpp"
 
 using namespace std::string_view_literals;
 

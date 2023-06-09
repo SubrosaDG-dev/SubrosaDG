@@ -13,41 +13,46 @@
 #ifndef SUBROSA_DG_HPP_
 #define SUBROSA_DG_HPP_
 
-#include "basic/concept.hpp"                                // IWYU pragma: keep
-#include "basic/config.hpp"                                 // IWYU pragma: keep
-#include "basic/constant.hpp"                               // IWYU pragma: keep
-#include "basic/data_type.hpp"                              // IWYU pragma: keep
-#include "basic/enum.hpp"                                   // IWYU pragma: keep
-#include "basic/environment.hpp"                            // IWYU pragma: keep
-#include "basic/macro.hpp"                                  // IWYU pragma: keep
-#include "integral/cal_basisfun_num.hpp"                    // IWYU pragma: keep
-#include "integral/get_integral.hpp"                        // IWYU pragma: keep
-#include "integral/get_integral_num.hpp"                    // IWYU pragma: keep
-#include "integral/get_standard.hpp"                        // IWYU pragma: keep
-#include "integral/integral_structure.hpp"                  // IWYU pragma: keep
-#include "mesh/elem_type.hpp"                               // IWYU pragma: keep
-#include "mesh/element/cal_measure.hpp"                     // IWYU pragma: keep
-#include "mesh/element/cal_norm_vec.hpp"                    // IWYU pragma: keep
-#include "mesh/element/get_adjacency_mesh.hpp"              // IWYU pragma: keep
-#include "mesh/element/get_elem_mesh.hpp"                   // IWYU pragma: keep
-#include "mesh/element/get_jacobian.hpp"                    // IWYU pragma: keep
-#include "mesh/get_mesh.hpp"                                // IWYU pragma: keep
-#include "mesh/get_mesh_supplemental.hpp"                   // IWYU pragma: keep
-#include "mesh/mesh_structure.hpp"                          // IWYU pragma: keep
-#include "solver/convective_flux/cal_roe_flux.hpp"          // IWYU pragma: keep
-#include "solver/convective_flux/cal_wall_flux.hpp"         // IWYU pragma: keep
-#include "solver/elem_integral/cal_adjacency_integral.hpp"  // IWYU pragma: keep
-#include "solver/elem_integral/cal_elem_integral.hpp"       // IWYU pragma: keep
-#include "solver/elem_integral/store_to_elem.hpp"           // IWYU pragma: keep
-#include "solver/equation/cal_fun_coeff.hpp"                // IWYU pragma: keep
-#include "solver/equation/cal_residual.hpp"                 // IWYU pragma: keep
-#include "solver/init_solver.hpp"                           // IWYU pragma: keep
-#include "solver/solver_structure.hpp"                      // IWYU pragma: keep
-#include "solver/time_integral/cal_delta_time.hpp"          // IWYU pragma: keep
-#include "solver/time_integral/step_time.hpp"               // IWYU pragma: keep
-#include "solver/variable/cal_conserved_var.hpp"            // IWYU pragma: keep
-#include "solver/variable/cal_convective_var.hpp"           // IWYU pragma: keep
-#include "solver/variable/cal_primitive_var.hpp"            // IWYU pragma: keep
-#include "solver/variable/get_parent_var.hpp"               // IWYU pragma: keep
+// IWYU pragma: begin_exports
+
+#include "basic/concept.hpp"
+#include "basic/config.hpp"
+#include "basic/constant.hpp"
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "basic/environment.hpp"
+#include "basic/macro.hpp"
+#include "cmake.hpp"
+#include "integral/cal_basisfun_num.hpp"
+#include "integral/get_integral.hpp"
+#include "integral/get_integral_num.hpp"
+#include "integral/get_standard.hpp"
+#include "integral/integral_structure.hpp"
+#include "mesh/elem_type.hpp"
+#include "mesh/element/cal_measure.hpp"
+#include "mesh/element/cal_norm_vec.hpp"
+#include "mesh/element/get_adjacency_mesh.hpp"
+#include "mesh/element/get_elem_mesh.hpp"
+#include "mesh/element/get_jacobian.hpp"
+#include "mesh/get_mesh.hpp"
+#include "mesh/get_mesh_supplemental.hpp"
+#include "mesh/mesh_structure.hpp"
+#include "solver/convective_flux/cal_roe_flux.hpp"
+#include "solver/convective_flux/cal_wall_flux.hpp"
+#include "solver/elem_integral/cal_adjacency_integral.hpp"
+#include "solver/elem_integral/cal_elem_integral.hpp"
+#include "solver/elem_integral/store_to_elem.hpp"
+#include "solver/equation/cal_fun_coeff.hpp"
+#include "solver/equation/cal_residual.hpp"
+#include "solver/init_solver.hpp"
+#include "solver/solver_structure.hpp"
+#include "solver/time_integral/cal_delta_time.hpp"
+#include "solver/time_integral/step_time.hpp"
+#include "solver/variable/cal_conserved_var.hpp"
+#include "solver/variable/cal_convective_var.hpp"
+#include "solver/variable/cal_primitive_var.hpp"
+#include "solver/variable/get_parent_var.hpp"
+
+// IWYU pragma: end_exports
 
 #endif  // SUBROSA_DG_HPP_

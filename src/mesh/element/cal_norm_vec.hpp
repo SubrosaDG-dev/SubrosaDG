@@ -13,16 +13,12 @@
 #ifndef SUBROSA_DG_CAL_NORM_VEC_HPP_
 #define SUBROSA_DG_CAL_NORM_VEC_HPP_
 
-// clang-format off
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 
-#include <Eigen/Core>           // for DenseBase::col, Matrix, MatrixBase::operator-, Vector
-#include <Eigen/Geometry>       // for Rotation2D
-
-#include "basic/constant.hpp"   // for kPi
-#include "basic/data_type.hpp"  // for Real, Isize
-#include "mesh/elem_type.hpp"   // for ElemInfo
-
-// clang-format on
+#include "basic/constant.hpp"
+#include "basic/data_type.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

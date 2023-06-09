@@ -13,23 +13,20 @@
 #ifndef SUBROSA_DG_GET_MESH_HPP_
 #define SUBROSA_DG_GET_MESH_HPP_
 
-// clang-format off
+#include <gmsh.h>
 
-#include <gmsh.h>                                   // for getMaxNodeTag, getNodes
-#include <vector>                                   // for vector
-#include <string_view>                              // for string_view
-#include <unordered_map>                            // for unordered_map
+#include <string_view>
+#include <unordered_map>
+#include <vector>
 
-#include "basic/data_type.hpp"                      // for Usize, Isize, Real
-#include "basic/enum.hpp"                           // for MeshType, Boundary (ptr only)
-#include "mesh/element/get_jacobian.hpp"            // for getElemJacobian
-#include "mesh/element/get_elem_mesh.hpp"           // for getElemMesh
-#include "mesh/element/get_adjacency_mesh.hpp"      // for getAdjacencyElemMesh
-#include "mesh/element/cal_norm_vec.hpp"            // for calAdjacencyElemNormVec
-#include "mesh/element/cal_projection_measure.hpp"  // for calElemProjectionMeasure
-#include "mesh/elem_type.hpp"                       // for kLine
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "mesh/elem_type.hpp"
+#include "mesh/element/cal_norm_vec.hpp"
+#include "mesh/element/cal_projection_measure.hpp"
+#include "mesh/element/get_adjacency_mesh.hpp"
+#include "mesh/element/get_elem_mesh.hpp"
+#include "mesh/element/get_jacobian.hpp"
 
 namespace SubrosaDG {
 

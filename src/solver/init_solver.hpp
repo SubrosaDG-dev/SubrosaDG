@@ -13,21 +13,17 @@
 #ifndef SUBROSA_DG_INIT_SOLVER_HPP_
 #define SUBROSA_DG_INIT_SOLVER_HPP_
 
-// clang-format off
+#include <Eigen/Core>
+#include <array>
+#include <string_view>
+#include <unordered_map>
 
-#include <Eigen/Core>                             // for Vector, Dynamic
-#include <array>                                  // for array
-#include <string_view>                            // for string_view
-#include <unordered_map>                          // for unordered_map
-
-#include "basic/data_type.hpp"                    // for Usize, Isize, Real
-#include "basic/enum.hpp"                         // for MeshType, ConvectiveFlux (ptr only), TimeDiscrete (ptr only)
-#include "mesh/mesh_structure.hpp"                // for Mesh, QuadElemMesh, TriElemMesh, MeshSupplemental
-#include "mesh/elem_type.hpp"                     // for ElemInfo, kQuad, kTri
-#include "mesh/get_mesh_supplemental.hpp"         // for getMeshSupplemental
-#include "solver/variable/cal_conserved_var.hpp"  // for calConservedVar
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "mesh/elem_type.hpp"
+#include "mesh/get_mesh_supplemental.hpp"
+#include "mesh/mesh_structure.hpp"
+#include "solver/variable/cal_conserved_var.hpp"
 
 namespace SubrosaDG {
 

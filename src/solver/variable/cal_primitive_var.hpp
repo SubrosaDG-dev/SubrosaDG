@@ -13,16 +13,12 @@
 #ifndef SUBROSA_DG_CAL_PRIMITIVE_VAR_HPP_
 #define SUBROSA_DG_CAL_PRIMITIVE_VAR_HPP_
 
-// clang-format off
+#include <Eigen/Core>
+#include <array>
 
-#include <Eigen/Core>           // for Vector, CommaInitializer, Matrix, DenseCoeffsBase, DenseBase
-#include <array>                // for array
-
-#include "basic/data_type.hpp"  // for Real
-#include "basic/config.hpp"     // for FarfieldVar, ThermoModel
-#include "basic/enum.hpp"       // for EquModel
-
-// clang-format on
+#include "basic/config.hpp"
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 
 namespace SubrosaDG {
 

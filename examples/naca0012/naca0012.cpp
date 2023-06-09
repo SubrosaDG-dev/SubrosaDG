@@ -10,20 +10,17 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-// clang-format off
+#include <gmsh.h>
 
-#include <gmsh.h>                 // for addPhysicalGroup, addCurveLoop, addPoint, add, addLine, addPlaneSurface
-#include <Eigen/Core>             // for Matrix, Block, CommaInitializer, indexed_based_stl_iterator_base, DenseCoef...
-#include <filesystem>             // for operator/, path
-#include <fstream>                // for ifstream, basic_istream, ios_base
-#include <vector>                 // for vector, allocator
-#include <cstdlib>                // for EXIT_SUCCESS
+#include <Eigen/Core>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <vector>
 
-#include "cmake.hpp"              // for kProjectSourceDir
-#include "basic/data_type.hpp"    // for Isize, Usize
-#include "basic/environment.hpp"  // for EnvGardian
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "basic/environment.hpp"
+#include "cmake.hpp"
 
 void generateMesh() {
   std::ifstream fin{(SubrosaDG::kProjectSourceDir / "examples/naca0012/naca0012.dat"), std::ios_base::in};

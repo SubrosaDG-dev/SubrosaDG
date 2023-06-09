@@ -13,17 +13,14 @@
 #ifndef SUBROSA_DG_GET_ELEM_MESH_HPP_
 #define SUBROSA_DG_GET_ELEM_MESH_HPP_
 
-// clang-format off
+#include <gmsh.h>
 
-#include <gmsh.h>               // for getElementsByType
-#include <Eigen/Core>           // for DenseBase::col, Dynamic, Matrix
-#include <utility>              // for make_pair
-#include <vector>               // for vector
+#include <Eigen/Core>
+#include <utility>
+#include <vector>
 
-#include "basic/data_type.hpp"  // for Usize, Isize, Real
-#include "mesh/elem_type.hpp"   // for ElemInfo
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

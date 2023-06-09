@@ -13,16 +13,12 @@
 #ifndef SUBROSA_DG_GET_JACOBIAN_HPP_
 #define SUBROSA_DG_GET_JACOBIAN_HPP_
 
-// clang-format off
+#include <gmsh.h>
 
-#include <gmsh.h>               // for getJacobian
-#include <algorithm>            // for copy
-#include <vector>               // for vector
+#include <vector>
 
-#include "basic/data_type.hpp"  // for Isize, Real, Usize
-#include "mesh/elem_type.hpp"   // for ElemInfo
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

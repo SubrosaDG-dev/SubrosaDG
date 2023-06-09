@@ -13,24 +13,19 @@
 #ifndef SUBROSA_DG_GET_INTEGRAL_HPP_
 #define SUBROSA_DG_GET_INTEGRAL_HPP_
 
-// clang-format off
+#include <fmt/core.h>
+#include <gmsh.h>
 
-#include <fmt/core.h>                       // for format
-#include <gmsh.h>                           // for getBasisFunctions, getIntegrationPoints
-#include <vector>                           // for vector
-#include <Eigen/Core>                       // for MatrixBase::operator*, DenseBase::operator(), DenseBase::row, Mat...
-#include <Eigen/LU>                         // for MatrixBase::inverse
-#include <algorithm>                        // for copy
+#include <Eigen/Core>
+#include <vector>
 
-#include "basic/data_type.hpp"              // for Isize, Usize, Real
-#include "mesh/elem_type.hpp"               // for ElemInfo, kQuad, kTri
-#include "integral/cal_basisfun_num.hpp"    // for calBasisFunNum
-#include "integral/integral_structure.hpp"  // for ElemIntegral, ElemStandard, ElemGaussQuad (ptr only)
-#include "integral/get_standard.hpp"        // for getElemStandard
-#include "integral/get_integral_num.hpp"    // for getElemAdjacencyIntegralNum
-#include "basic/enum.hpp"                   // for MeshType
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "integral/cal_basisfun_num.hpp"
+#include "integral/get_integral_num.hpp"
+#include "integral/get_standard.hpp"
+#include "integral/integral_structure.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

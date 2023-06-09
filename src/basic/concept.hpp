@@ -13,11 +13,9 @@
 #ifndef SUBROSA_DG_CONCEPT_HPP_
 #define SUBROSA_DG_CONCEPT_HPP_
 
-// clang-format off
+#include <basic/enum.hpp>
 
-#include <basic/enum.hpp>      // for MeshType, TimeDiscrete
-
-#include "mesh/elem_type.hpp"  // for ElemInfo
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 
@@ -28,7 +26,8 @@ template <TimeDiscrete TimeDiscreteT>
 concept IsImplicit = TimeDiscreteT == TimeDiscrete::ImplicitEuler;
 
 template <MeshType MeshT>
-concept IsUniform = MeshT == MeshType::Tri || MeshT == MeshType::Quad || MeshT == MeshType::Tet || MeshT == MeshType::Hex;
+concept IsUniform =
+    MeshT == MeshType::Tri || MeshT == MeshType::Quad || MeshT == MeshType::Tet || MeshT == MeshType::Hex;
 
 template <MeshType MeshT>
 concept IsMixed = MeshT == MeshType::TriQuad || MeshT == MeshType::TetPyrHex;
@@ -43,7 +42,5 @@ template <ElemInfo ElemT>
 concept Is3dElem = ElemT.kDim == 3;
 
 }  // namespace SubrosaDG
-
-// clang-format on
 
 #endif  // SUBROSA_DG_CONCEPT_HPP_

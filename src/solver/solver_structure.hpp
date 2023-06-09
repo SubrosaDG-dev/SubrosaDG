@@ -13,19 +13,15 @@
 #ifndef SUBROSA_DG_SOLVER_STRUCTURE_HPP_
 #define SUBROSA_DG_SOLVER_STRUCTURE_HPP_
 
-// clang-format off
+#include <Eigen/Core>
+#include <array>
 
-#include <Eigen/Core>                     // for Vector, Dynamic, Matrix
-#include <array>                          // for array
-
-#include "basic/data_type.hpp"            // for Real
-#include "basic/enum.hpp"                 // for EquModel, MeshType, ConvectiveFlux (ptr only), TimeDiscrete, Viscou...
-#include "basic/config.hpp"               // for TimeVar
-#include "mesh/elem_type.hpp"             // for ElemInfo, kQuad, kTri
-#include "integral/cal_basisfun_num.hpp"  // for calBasisFunNum
-#include "integral/get_integral_num.hpp"  // for getElemAdjacencyIntegralNum, getElemIntegralNum
-
-// clang-format on
+#include "basic/config.hpp"
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "integral/cal_basisfun_num.hpp"
+#include "integral/get_integral_num.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

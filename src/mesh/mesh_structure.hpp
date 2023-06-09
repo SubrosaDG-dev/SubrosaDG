@@ -13,19 +13,16 @@
 #ifndef SUBROSA_DG_MESH_STRUCTURE_HPP_
 #define SUBROSA_DG_MESH_STRUCTURE_HPP_
 
-// clang-format off
+#include <gmsh.h>
 
-#include <gmsh.h>               // for clear, open
-#include <Eigen/Core>           // for Vector, Dynamic, Matrix
-#include <filesystem>           // for path
-#include <utility>              // for pair
+#include <Eigen/Core>
+#include <filesystem>
+#include <utility>
 
-#include "basic/concept.hpp"    // IWYU pragma: keep
-#include "basic/data_type.hpp"  // for Isize, Real
-#include "basic/enum.hpp"       // for MeshType
-#include "mesh/elem_type.hpp"   // for ElemInfo, kLine, kQuad, kTri
-
-// clang-format on
+#include "basic/concept.hpp"  // IWYU pragma: keep
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

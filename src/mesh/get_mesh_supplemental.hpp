@@ -13,23 +13,19 @@
 #ifndef SUBROSA_DG_GET_MESH_SUPPLEMENTAL_HPP_
 #define SUBROSA_DG_GET_MESH_SUPPLEMENTAL_HPP_
 
-// clang-format off
+#include <gmsh.h>
 
-#include <gmsh.h>               // for getElementsByType, getEntitiesForPhysicalGroup, getPhysicalGroups, getPhysica...
-#include <iostream>             // for operator<<, endl, basic_ostream, cerr, ostream
-#include <algorithm>            // for copy, max
-#include <cstdlib>              // for exit, EXIT_FAILURE
-#include <stdexcept>            // for out_of_range
-#include <string>               // for string
-#include <string_view>          // for operator==, string_view
-#include <unordered_map>        // for unordered_map
-#include <utility>              // for pair, make_pair
-#include <vector>               // for vector
+#include <cstdlib>
+#include <iostream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
-#include "basic/data_type.hpp"  // for Usize, Isize
-#include "mesh/elem_type.hpp"   // for ElemInfo
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

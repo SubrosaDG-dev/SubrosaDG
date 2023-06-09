@@ -13,17 +13,13 @@
 #ifndef SUBROSA_DG_INTEGRAL_STRUCTURE_HPP_
 #define SUBROSA_DG_INTEGRAL_STRUCTURE_HPP_
 
-// clang-format off
+#include <Eigen/Core>
 
-#include <Eigen/Core>                     // for StorageOptions, Matrix, Vector
-
-#include "basic/data_type.hpp"            // for Real
-#include "mesh/elem_type.hpp"             // for ElemInfo, kQuad, kTri, kLine
-#include "integral/cal_basisfun_num.hpp"  // for calBasisFunNum
-#include "integral/get_integral_num.hpp"  // for getElemAdjacencyIntegralNum, getElemIntegralNum
-#include "basic/enum.hpp"                 // for MeshType
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "integral/cal_basisfun_num.hpp"
+#include "integral/get_integral_num.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

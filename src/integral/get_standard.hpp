@@ -13,14 +13,10 @@
 #ifndef SUBROSA_DG_GET_STANDARD_HPP_
 #define SUBROSA_DG_GET_STANDARD_HPP_
 
-// clang-format off
+#include <Eigen/Core>
 
-#include <Eigen/Core>                       // for Matrix, CommaInitializer, DenseBase
-
-#include "mesh/elem_type.hpp"               // for kLine, kQuad, kTri, ElemInfo
-#include "integral/integral_structure.hpp"  // for ElemStandard
-
-// clang-format on
+#include "integral/integral_structure.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

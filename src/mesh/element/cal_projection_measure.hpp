@@ -13,14 +13,10 @@
 #ifndef SUBROSA_DG_CAL_PROJECTION_MEASURE_HPP_
 #define SUBROSA_DG_CAL_PROJECTION_MEASURE_HPP_
 
-// clang-format off
+#include <Eigen/Core>
 
-#include <Eigen/Core>           // for MatrixBase::operator-, Matrix, Vector
-
-#include "basic/data_type.hpp"  // for Real, Isize
-#include "mesh/elem_type.hpp"   // for ElemInfo
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

@@ -13,15 +13,11 @@
 #ifndef SUBROSA_DG_GET_PARENT_VAR_HPP_
 #define SUBROSA_DG_GET_PARENT_VAR_HPP_
 
-// clang-format off
+#include <Eigen/Core>
 
-#include <Eigen/Core>           // for Vector, DenseBase::row
-
-#include "mesh/elem_type.hpp"   // for ElemInfo, kQuad, kTri
-#include "basic/data_type.hpp"  // for Isize, Real
-#include "basic/enum.hpp"       // for MeshType, EquModel (ptr only)
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

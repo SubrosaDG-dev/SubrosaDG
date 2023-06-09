@@ -13,26 +13,24 @@
 #ifndef SUBROSA_DG_GET_ADJACENCY_MESH_HPP_
 #define SUBROSA_DG_GET_ADJACENCY_MESH_HPP_
 
-// clang-format off
+#include <gmsh.h>
 
-#include <gmsh.h>                          // for addDiscreteEntity, addElementsByType, createEdges, getEdges, getEl...
-#include <Eigen/Core>                      // for DenseBase::col, Dynamic, Matrix
-#include <utility>                         // for make_pair
-#include <vector>                          // for vector
-#include <map>                             // for map, operator==, _Rb_tree_iterator
-#include <algorithm>                       // for max, minmax_element_result, __minmax_element_fn, minmax_element
-#include <functional>                      // for identity, less
-#include <string_view>                     // for string_view
-#include <unordered_map>                   // for unordered_map
+#include <Eigen/Core>
+#include <algorithm>
+#include <functional>
+#include <map>
+#include <ranges>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
-#include "basic/data_type.hpp"             // for Isize, Usize, Real
-#include "basic/concept.hpp"               // for IsMixed, Is1dElem, Is2dElem, Is3dElem
-#include "basic/enum.hpp"                  // for MeshType, Boundary (ptr only)
-#include "mesh/elem_type.hpp"              // for ElemInfo, kQuad, kTri
-#include "mesh/get_mesh_supplemental.hpp"  // for getMeshSupplemental
-#include "mesh/mesh_structure.hpp"         // for AdjacencyElemMesh (ptr only), MeshSupplemental
-
-// clang-format on
+#include "basic/concept.hpp"
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "mesh/elem_type.hpp"
+#include "mesh/get_mesh_supplemental.hpp"
+#include "mesh/mesh_structure.hpp"
 
 namespace SubrosaDG {
 

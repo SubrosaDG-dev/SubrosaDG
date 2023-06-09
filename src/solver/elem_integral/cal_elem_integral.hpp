@@ -13,17 +13,13 @@
 #ifndef SUBROSA_DG_CAL_ELEM_INTEGRAL_HPP_
 #define SUBROSA_DG_CAL_ELEM_INTEGRAL_HPP_
 
-// clang-format off
+#include <Eigen/Core>
 
-#include <Eigen/Core>                              // for MatrixBase::operator*, DenseBase::operator(), Vector, Dens...
-
-#include "mesh/elem_type.hpp"                      // for ElemInfo
-#include "solver/variable/cal_primitive_var.hpp"   // for calPrimitiveVar
-#include "solver/variable/cal_convective_var.hpp"  // for calConvectiveVar
-#include "basic/data_type.hpp"                     // for Real, Isize
-#include "basic/enum.hpp"                          // for EquModel
-
-// clang-format on
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "mesh/elem_type.hpp"
+#include "solver/variable/cal_convective_var.hpp"
+#include "solver/variable/cal_primitive_var.hpp"
 
 namespace SubrosaDG {
 

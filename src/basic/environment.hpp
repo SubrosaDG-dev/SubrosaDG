@@ -13,23 +13,20 @@
 #ifndef SUBROSA_DG_ENVIRONMENT_HPP_
 #define SUBROSA_DG_ENVIRONMENT_HPP_
 
-// clang-format off
-
 #ifdef SUBROSA_DG_WITH_OPENMP
-#include <omp.h>        // for omp_set_num_threads
+#include <omp.h>
 #endif
 
-#include <fmt/core.h>   // for format
-#include <gmsh.h>       // for finalize, getString, initialize, setNumber
-#include <regex>        // for sregex_token_iterator, regex
-#include <string>       // for string, operator<<, allocator, basic_string
-#include <vector>       // for vector
-#include <iostream>     // for endl, operator<<, basic_ostream, cout, ostream
-#include <string_view>  // for basic_string_view
+#include <fmt/core.h>
+#include <gmsh.h>
 
-#include "cmake.hpp"    // for kNumberOfPhysicalCores, kSubrosaDGVersionString
+#include <iostream>
+#include <regex>
+#include <string>
+#include <string_view>
+#include <vector>
 
-// clang-format on
+#include "cmake.hpp"
 
 namespace SubrosaDG {
 

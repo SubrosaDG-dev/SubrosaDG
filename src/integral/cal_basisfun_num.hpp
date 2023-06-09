@@ -13,11 +13,7 @@
 #ifndef SUBROSA_DG_CAL_BASISFUN_NUM_HPP_
 #define SUBROSA_DG_CAL_BASISFUN_NUM_HPP_
 
-// clang-format off
-
-#include "mesh/elem_type.hpp"  // for ElemInfo, kLine, kQuad, kTri
-
-// clang-format on
+#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 

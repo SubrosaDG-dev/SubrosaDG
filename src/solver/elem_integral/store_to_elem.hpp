@@ -15,11 +15,11 @@
 
 // clang-format off
 
-#include <Eigen/Core>           // for DenseBase::col, Vector
+#include <Eigen/Core>
 
-#include "mesh/elem_type.hpp"   // for ElemInfo, kQuad, kTri
-#include "basic/data_type.hpp"  // for Isize, Real
-#include "basic/enum.hpp"       // for EquModel (ptr only), MeshType
+#include "mesh/elem_type.hpp"
+#include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 
 // clang-format on
 
