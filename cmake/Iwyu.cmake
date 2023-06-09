@@ -23,9 +23,7 @@ add_custom_target(iwyu-search
     -Xiwyu
     --mapping_file=${PROJECT_SOURCE_DIR}/.iwyu.imp
     -Xiwyu
-    --max_line_length=120
-    -Xiwyu
-    --update_comments
+    --no_comments
     -Xiwyu
     --check_also=**/SubrosaDG/src/**
     > iwyu.out
@@ -36,8 +34,6 @@ add_custom_target(iwyu-search
 add_custom_target(iwyu-fix
     COMMENT "Running iwyu to fix file head"
     COMMAND ${IWYU_FIX_TOOL}
-    --comments
-    --update_comments
     --nosafe_headers
     < iwyu.out
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}

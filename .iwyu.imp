@@ -1,4 +1,5 @@
 [
+    { "ref": "utils/include-what-you-use/libcxx.imp" },
     { "include": ["@<Eigen/src/Core/.*>", "private", "<Eigen/Core>", "public"] },
     { "include": ["@<Eigen/src/LU/.*>", "private", "<Eigen/LU>", "public"] },
     { "include": ["@<Eigen/src/Cholesky/.*>", "private", "<Eigen/Cholesky>", "public"] },
@@ -14,6 +15,7 @@
     { "include": ["@<Eigen/src/plugins/.*>", "private", "<Eigen/Core>", "public"] },
     { "include": ["@<gtest/internal/.*>", private, "<gtest/gtest.h>", public] },
     { "include": ["@<gtest/gtest-.*>", private, "<gtest/gtest.h>", public] },
+    { "symbol": ["std::string_view", "private", "<string_view>", "public"] },
     { "symbol": ["malloc", "private", "<cstdlib>", "public"] },
     { "symbol": ["free", "private", "<cstdlib>", "public"] },
     { "symbol": ["EXIT_SUCCESS", "private", "<cstdlib>", "public"] },

@@ -24,13 +24,13 @@ string(SUBSTRING ${GIT_SHA1} 0 8 SHORT_SHA1)
 git_local_changes(GIT_CHANGE)
 
 # update submodules
-find_package(Git REQUIRED)
-if(NOT EXISTS ${CMAKE_BINARY_DIR}/.identify)
-  execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init
-    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-    COMMAND_ERROR_IS_FATAL ANY)
-  file(WRITE ${CMAKE_BINARY_DIR}/.identify "SubrosaDG")
-endif()
+# find_package(Git REQUIRED)
+# if(NOT EXISTS ${CMAKE_BINARY_DIR}/.identify)
+#   execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init
+#     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+#     COMMAND_ERROR_IS_FATAL ANY)
+#   file(WRITE ${CMAKE_BINARY_DIR}/.identify "SubrosaDG")
+# endif()
 
 # define color
 # TODO: vscode output do not support ansi color until now
@@ -84,6 +84,12 @@ if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     message(FATAL_ERROR "This project is build with clang.")
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(COMPILER_PATH /usr/bin)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(COMPILER_PATH /opt/homebrew/opt/llvm/bin)
+endif ()
+
 # add vcpkg cmake
 include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 
@@ -104,7 +110,7 @@ message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 
 # check cxx20 support
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-std=c++2b cxx_std_20_support)
+check_cxx_compiler_flag(-std=c++20 cxx_std_20_support)
 if (NOT cxx_std_20_support)
     message(FATAL_ERROR "SubrosaDG requires C++20 to compile.")
 endif ()
@@ -130,6 +136,9 @@ endif()
 # create .gdbinit file
 configure_file(${PROJECT_SOURCE_DIR}/cmake/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-eigen-pretty-print/.gdbinit @ONLY)
 
+# create .lldbinit file
+configure_file(${PROJECT_SOURCE_DIR}/cmake/.lldbinit.in ${PROJECT_SOURCE_DIR}/utils/lldb-eigen-pretty-print/.lldbinit @ONLY)
+
 # create vscode launch.json and settings.json
 if(SUBROSA_DG_DEVELOP)
     file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/.vscode)
@@ -138,7 +147,7 @@ if(SUBROSA_DG_DEVELOP)
 endif()
 
 # use clang lld to link
-find_program(LLD NAMES ld.lld)
+find_program(LLD NAMES ld.lld PATHS ${COMPILER_PATH})
 if(LLD)
     set(CMAKE_LINKER "${LLD}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
@@ -147,7 +156,7 @@ endif()
 
 # use clang-tidy to check file
 if(SUBROSA_DG_DEVELOP)
-    find_program(CLANG_TIDY NAMES clang-tidy)
+    find_program(CLANG_TIDY NAMES clang-tidy PATHS ${COMPILER_PATH})
     if(CLANG_TIDY)
         # set(CMAKE_C_CLANG_TIDY "${CLANG_TIDY}")
         # set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
@@ -158,7 +167,7 @@ endif()
 
 # use clang-format to format file
 if(SUBROSA_DG_DEVELOP)
-    find_program(CLANG_FORMAT NAMES clang-format)
+    find_program(CLANG_FORMAT NAMES clang-format PATHS ${COMPILER_PATH})
     if(CLANG_FORMAT)
         include(${PROJECT_SOURCE_DIR}/cmake/ClangFormat.cmake)
         message_tool_version(clang-format "${CLANG_FORMAT}")
@@ -166,7 +175,7 @@ if(SUBROSA_DG_DEVELOP)
 endif()
 
 # use clangd for intellisense
-find_program(CLANGD NAMES clangd)
+find_program(CLANGD NAMES clangd PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
 if(CLANGD)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     message_tool_version(clangd "${CLANGD}")
@@ -174,7 +183,7 @@ endif()
 
 # use iwyu to check header file
 if(SUBROSA_DG_DEVELOP)
-    find_program(IWYU NAMES include-what-you-use iwyu)
+    find_program(IWYU NAMES include-what-you-use iwyu PATHS ${COMPILER_PATH})
     if(IWYU)
         # set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU}")
         # set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU}")
@@ -256,20 +265,19 @@ set(SUBROSA_DG_CXX_FLAGS_RELEASE)
 set(SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO)
 
 # link to libc++ if available
-# TODO: link to libc++ if gmsh is also link to libc++
 # find_library(LIBCXX NAMES libc++.so)
 # if(LIBCXX)
-#       string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ ")
-##      the following two lines choose one of them
-#       set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
-#       set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-stdlib=libc++")
+#     string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ ")
+# #   the following two lines choose one of them
+#     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+#     set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-stdlib=libc++")
 # endif()
 
 # add coverage compilation option
 # set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
 
 # add cxx compilation option
-string(APPEND SUBROSA_DG_CXX_FLAGS "-mfma -Wno-narrowing")
+string(APPEND SUBROSA_DG_CXX_FLAGS "-Wno-narrowing")
 string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation")
 # string(APPEND SUBROSA_DG_CXX_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
 # NOTE: -glldb seems not work here
@@ -321,8 +329,11 @@ find_package(Eigen3 CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES Eigen3::Eigen)
 
 # find gmsh
-find_path(GMSH_DIR NAMES gmsh.h PATH)
-find_library(GMSH_LIBRARY NAMES libgmsh.so)
+find_path(GMSH_DIR NAMES gmsh.h)
+find_library(GMSH_LIBRARY NAMES libgmsh${CMAKE_SHARED_LIBRARY_SUFFIX})
+if (NOT GMSH_LIBRARY)
+    message(FATAL_ERROR "GMSH_LIBRARY not found")
+endif()
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${GMSH_DIR})
 list(APPEND SUBROSA_DG_LINK_LIBRARIES ${GMSH_LIBRARY})
 

@@ -12,11 +12,6 @@ Checks: ' -*
   -readability-identifier-length,
   -readability-static-accessed-through-instance'
 
-# clang-tidy crush for readability-simplify-boolean-expr
-# and readability-braces-around-statements
-# -readability-simplify-boolean-expr,
-# -readability-braces-around-statements,
-
 WarningsAsErrors: false
 
 HeaderFilterRegex: 'SubrosaDG\/(src|examples|tests)\/.*?\.(h|hpp|c|cpp)$'

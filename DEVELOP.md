@@ -60,13 +60,11 @@ export VCPKG_ROOT="${your vcpkg path}"
 ```
 4. It is recommended to build vcpkg from its source code. Since the project uses a manifest for package management, the bootstrap script is used to build the binary version of vcpkg. Even if you download the binary version of vcpkg from a Linux package manager, the project will still forcefully build vcpkg during compilation.
 
-5. For the gmsh library, the vcpkg-wrapped version is not used here. Instead, the system package manager on Linux is used to import gmsh (you can also download the official gmsh SDK). This is mainly because the gmsh version imported by vcpkg has too few compilation options enabled, and many features cannot be used. Furthermore, the gmsh library is released under the GPL v2 open source license. If the source code is included in this project, then it also needs to be open-sourced under the GPL license. However, whether the use of the dynamic link library requires compliance with the GPL license is still a controversial issue.
+5. For the gmsh library, the vcpkg-wrapped version is not used here. Instead, the official gmsh SDK is used to import gmsh. This is mainly because the gmsh version imported by vcpkg has too few compilation options enabled, and many features cannot be used. Furthermore, the gmsh library is released under the GPL v2 open source license. If the source code is included in this project, then it also needs to be open-sourced under the GPL license. However, whether the use of the dynamic link library requires compliance with the GPL license is still a controversial issue.
 
-6. Here, I originally intended to link to libc++ instead of libstdc++. However, the gmsh dynamic library itself is linked to libstdc++. If the program is linked to libc++, it will cause symbol errors. Therefore, for now, I will not link to libc++. If I manually compile gmsh in the future, I will consider linking the program to libc++.
+6. The testing framework used is google-test, and some tests require integration with mpi.
 
-7. The testing framework used is google-test, and some tests require integration with mpi.
-
-8. Doxygen is used to generate code documentation (which uses the dot component of [Graphviz](https://www.graphviz.org) to generate relationship diagrams). The plugin cschlosser.doxdocgen is used to generate comments for each function, as well as file headers.
+7. Doxygen is used to generate code documentation (which uses the dot component of [Graphviz](https://www.graphviz.org) to generate relationship diagrams). The plugin cschlosser.doxdocgen is used to generate comments for each function, as well as file headers.
 
 ### develop specification
 

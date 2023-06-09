@@ -120,5 +120,8 @@ __pycache__/
 #gdb
 .gdbinit
 
+#lldb
+.lldbinit
+
 /.idea
 *.DS_Store

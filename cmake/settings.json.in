@@ -41,7 +41,6 @@
         "--function-arg-placeholders=false",
         "--header-insertion=never",
         "--j=@NUMBER_OF_PHYSICAL_CORES@",
-        "--malloc-trim",
         "--pch-storage=memory"
     ],
     "[c, cpp]": {

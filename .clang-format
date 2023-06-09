@@ -3,10 +3,10 @@
 Language: Cpp
 BasedOnStyle: Google
 IndentCaseLabels: false
-# TODO: clang-format 15 doesn't support AlignTrailingComments, need 16.
-# AlignTrailingComments:
-#   Kind: Always
-#   OverEmptyLines: 2
+# NOTE: clang-format 15 doesn't support AlignTrailingComments, need 16.
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 2
 PointerAlignment: Left
 DerivePointerAlignment: false
 AlwaysBreakTemplateDeclarations: true
