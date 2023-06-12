@@ -17,16 +17,16 @@
 
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
-#include "mesh/elem_type.hpp"
+#include "mesh/get_elem_info.hpp"
 
 namespace SubrosaDG {
 
-template <int PolyOrder, ElemInfo ElemT, MeshType MeshT>
+template <int PolyOrder, ElemType ElemT, MeshType MeshT>
 struct AdjacencyElemIntegral;
 template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
 struct ElemSolver;
 
-template <int PolyOrder, ElemInfo ElemT, MeshType MeshT, EquModel EquModelT>
+template <int PolyOrder, ElemType ElemT, MeshType MeshT, EquModel EquModelT>
 inline void getParentVar(const Isize elem_tag, const Isize adjacency_integral_order,
                          const AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>& adjacency_elem_integral,
                          const ElemSolver<2, PolyOrder, MeshT, EquModelT>& elem_solver,
@@ -40,17 +40,17 @@ inline void getParentVar(const Isize elem_tag, const Isize adjacency_integral_or
   }
 }
 
-template <int PolyOrder, ElemInfo ElemT, EquModel EquModelT>
+template <int PolyOrder, ElemType ElemT, EquModel EquModelT>
 inline void getParentVar(const int elem_topology, const Isize elem_tag, const Isize adjacency_integral_order,
                          const AdjacencyElemIntegral<PolyOrder, ElemT, MeshType::TriQuad>& adjacency_elem_integral,
                          const ElemSolver<2, PolyOrder, MeshType::TriQuad, EquModelT>& elem_solver,
                          Eigen::Vector<Real, 4>& parent_conserved_var) {
   switch (elem_topology) {
-  case kTri.kTopology:
+  case getTopology<ElemType::Tri>():
     parent_conserved_var.noalias() = elem_solver.tri_(elem_tag).basis_fun_coeff_(1) *
                                      adjacency_elem_integral.tri_basis_fun_.row(adjacency_integral_order).transpose();
     break;
-  case kQuad.kTopology:
+  case getTopology<ElemType::Quad>():
     parent_conserved_var.noalias() = elem_solver.quad_(elem_tag).basis_fun_coeff_(1) *
                                      adjacency_elem_integral.quad_basis_fun_.row(adjacency_integral_order).transpose();
     break;

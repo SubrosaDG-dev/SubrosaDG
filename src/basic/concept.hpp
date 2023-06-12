@@ -15,8 +15,6 @@
 
 #include <basic/enum.hpp>
 
-#include "mesh/elem_type.hpp"
-
 namespace SubrosaDG {
 
 template <TimeDiscrete TimeDiscreteT>
@@ -32,14 +30,20 @@ concept IsUniform =
 template <MeshType MeshT>
 concept IsMixed = MeshT == MeshType::TriQuad || MeshT == MeshType::TetPyrHex;
 
-template <ElemInfo ElemT>
-concept Is1dElem = ElemT.kDim == 1;
+template <MeshType MeshT>
+concept HasTri = MeshT == MeshType::Tri || MeshT == MeshType::TriQuad;
 
-template <ElemInfo ElemT>
-concept Is2dElem = ElemT.kDim == 2;
+template <MeshType MeshT>
+concept HasQuad = MeshT == MeshType::Quad || MeshT == MeshType::TriQuad;
 
-template <ElemInfo ElemT>
-concept Is3dElem = ElemT.kDim == 3;
+template <ElemType ElemT>
+concept Is1dElem = ElemT == ElemType::Line;
+
+template <ElemType ElemT>
+concept Is2dElem = ElemT == ElemType::Tri || ElemT == ElemType::Quad;
+
+template <ElemType ElemT>
+concept Is3dElem = ElemT == ElemType::Tet || ElemT == ElemType::Pyr || ElemT == ElemType::Hex;
 
 }  // namespace SubrosaDG
 

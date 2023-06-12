@@ -16,7 +16,6 @@
 #ifndef SUBROSA_DG_DEVELOP
 
 #define DBG_MACRO_DISABLE
-#define EIGEN_NO_DEBUG
 
 #endif  // SUBROSA_DG_DEVELOP
 

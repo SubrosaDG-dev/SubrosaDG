@@ -19,7 +19,6 @@
 #include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
-#include "mesh/elem_type.hpp"
 #include "solver/convective_flux/cal_roe_flux.hpp"
 #include "solver/convective_flux/cal_wall_flux.hpp"
 #include "solver/elem_integral/store_to_elem.hpp"
@@ -28,14 +27,14 @@
 
 namespace SubrosaDG {
 
-template <int Dim, ElemInfo ElemT, MeshType MeshT>
+template <int Dim, ElemType ElemT, MeshType MeshT>
 struct AdjacencyElemMesh;
-template <int PolyOrder, ElemInfo ElemT, MeshType MeshT>
+template <int PolyOrder, ElemType ElemT, MeshType MeshT>
 struct AdjacencyElemIntegral;
 template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
 struct ElemSolver;
 
-template <int PolyOrder, ElemInfo ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
+template <int PolyOrder, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
 inline void calInternalAdjacencyElemIntegral(
     const AdjacencyElemMesh<2, ElemT, MeshT>& adjacency_elem_mesh,
     const AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>& adjacency_elem_integral,
@@ -94,7 +93,7 @@ inline void calInternalAdjacencyElemIntegral(
   }
 }
 
-template <int PolyOrder, ElemInfo ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
+template <int PolyOrder, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
 inline void calBoundaryAdjacencyElemIntegral(
     const AdjacencyElemMesh<2, ElemT, MeshT>& adjacency_elem_mesh,
     const AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>& adjacency_elem_integral, const FarfieldVar<2> farfield_var,
@@ -147,15 +146,15 @@ inline void calBoundaryAdjacencyElemIntegral(
   }
 }
 
-template <int PolyOrder, ElemInfo ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
+template <int PolyOrder, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
 inline void calAdjacencyElemIntegral(const AdjacencyElemMesh<2, ElemT, MeshT>& adjacency_elem_mesh,
                                      const AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>& adjacency_elem_integral,
                                      const FarfieldVar<2> farfield_var,
                                      const ThermoModel<EquModel::Euler>& thermo_model,
                                      ElemSolver<2, PolyOrder, MeshT, EquModelT>& elem_solver) {
-  calInternalAdjacencyElemIntegral<PolyOrder, kLine, MeshT, EquModelT, ConvectiveFluxT>(
+  calInternalAdjacencyElemIntegral<PolyOrder, ElemType::Line, MeshT, EquModelT, ConvectiveFluxT>(
       adjacency_elem_mesh, adjacency_elem_integral, thermo_model, elem_solver);
-  calBoundaryAdjacencyElemIntegral<PolyOrder, kLine, MeshT, EquModelT, ConvectiveFluxT>(
+  calBoundaryAdjacencyElemIntegral<PolyOrder, ElemType::Line, MeshT, EquModelT, ConvectiveFluxT>(
       adjacency_elem_mesh, adjacency_elem_integral, farfield_var, thermo_model, elem_solver);
 }
 

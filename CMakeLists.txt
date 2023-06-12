@@ -66,11 +66,6 @@ if(SUBROSA_DG_WITH_MPI)
     list(APPEND VCPKG_MANIFEST_FEATURES "mpi")
 endif()
 
-# set vcpkg feature develop
-if(SUBROSA_DG_DEVELOP)
-    list(APPEND VCPKG_MANIFEST_FEATURES "develop")
-endif()
-
 # set project
 project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
 
@@ -262,7 +257,6 @@ set(SUBROSA_DG_CXX_WARNING_FLAGS)
 set(SUBROSA_DG_CXX_COVER_FLAGS)
 set(SUBROSA_DG_CXX_FLAGS_DEBUG)
 set(SUBROSA_DG_CXX_FLAGS_RELEASE)
-set(SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO)
 
 # link to libc++ if available
 # find_library(LIBCXX NAMES libc++.so)
@@ -280,15 +274,13 @@ set(SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO)
 string(APPEND SUBROSA_DG_CXX_FLAGS "-Wno-narrowing")
 string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation")
 # string(APPEND SUBROSA_DG_CXX_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
-# NOTE: -glldb seems not work here
 string(APPEND SUBROSA_DG_CXX_FLAGS_DEBUG "${SUBROSA_DG_CXX_FLAGS} ${SUBROSA_DG_CXX_WARNING_FLAGS} \
     ${SUBROSA_DG_CXX_COVER_FLAGS} -O0 -g3")
-string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "${SUBROSA_DG_CXX_FLAGS} -O3 -DNDEBUG -march=native")
+string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "${SUBROSA_DG_CXX_FLAGS} -O3 -DNDEBUG $<$<PLATFORM_ID:Linux>:-march=native>")
 
 # set different compile option
 set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
-    $<$<CONFIG:Release>:${SUBROSA_DG_CXX_FLAGS_RELEASE}> \
-    $<$<CONFIG:RelWithDebInfo>:${SUBROSA_DG_CXX_FLAGS_RELWITHDEBINFO}>")
+    $<$<CONFIG:Release>:${SUBROSA_DG_CXX_FLAGS_RELEASE}>")
 string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
 
 # create and include the cmake header

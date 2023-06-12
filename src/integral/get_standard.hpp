@@ -15,30 +15,30 @@
 
 #include <Eigen/Core>
 
+#include "basic/enum.hpp"
 #include "integral/integral_structure.hpp"
-#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 
-template <ElemInfo ElemT>
+template <ElemType ElemT>
 inline void getElemStandard();
 
 template <>
-inline void getElemStandard<kLine>() {
-  ElemStandard<kLine>::measure = 2.0;
-  ElemStandard<kLine>::coord << -1.0, 1.0;
+inline void getElemStandard<ElemType::Line>() {
+  ElemStandard<ElemType::Line>::measure = 2.0;
+  ElemStandard<ElemType::Line>::coord << -1.0, 1.0;
 }
 
 template <>
-inline void getElemStandard<kTri>() {
-  ElemStandard<kTri>::measure = 0.5;
-  ElemStandard<kTri>::coord << 0.0, 0.0, 1.0, 0.0, 0.0, 1.0;
+inline void getElemStandard<ElemType::Tri>() {
+  ElemStandard<ElemType::Tri>::measure = 0.5;
+  ElemStandard<ElemType::Tri>::coord << 0.0, 0.0, 1.0, 0.0, 0.0, 1.0;
 }
 
 template <>
-inline void getElemStandard<kQuad>() {
-  ElemStandard<kQuad>::measure = 4.0;
-  ElemStandard<kQuad>::coord << -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0;
+inline void getElemStandard<ElemType::Quad>() {
+  ElemStandard<ElemType::Quad>::measure = 4.0;
+  ElemStandard<ElemType::Quad>::coord << -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0;
 }
 
 }  // namespace SubrosaDG

@@ -17,7 +17,6 @@
 
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
-#include "mesh/elem_type.hpp"
 #include "solver/variable/cal_convective_var.hpp"
 #include "solver/variable/cal_primitive_var.hpp"
 
@@ -25,14 +24,14 @@ namespace SubrosaDG {
 
 template <EquModel EquModelT>
 struct ThermoModel;
-template <int Dim, ElemInfo ElemT>
+template <int Dim, ElemType ElemT>
 struct ElemMesh;
-template <int PolyOrder, ElemInfo ElemT>
+template <int PolyOrder, ElemType ElemT>
 struct ElemIntegral;
-template <int Dim, int PolyOrder, ElemInfo ElemT, EquModel EquModelT>
+template <int Dim, int PolyOrder, ElemType ElemT, EquModel EquModelT>
 struct PerElemSolver;
 
-template <int Dim, int PolyOrder, ElemInfo ElemT, EquModel EquModelT>
+template <int Dim, int PolyOrder, ElemType ElemT, EquModel EquModelT>
 inline void calElemIntegral(
     const ElemMesh<Dim, ElemT>& elem_mesh, const ElemIntegral<PolyOrder, ElemT>& elem_integral,
     const ThermoModel<EquModel::Euler>& thermo_model,

@@ -42,6 +42,15 @@ enum class Boundary {
   Wall,
 };
 
+enum class ElemType {
+  Line = 1,
+  Tri,
+  Quad,
+  Tet,
+  Pyr,
+  Hex,
+};
+
 enum class MeshType {
   Tri = 1,
   Quad,

@@ -16,7 +16,8 @@
             "dependencies": [
                 "fmt",
                 "spdlog",
-                "eigen3"
+                "eigen3",
+                "dbg-macro"
             ]
         },
         "mpi": {
@@ -29,12 +30,6 @@
             "description": "Build tests",
             "dependencies": [
                 "gtest"
-            ]
-        },
-        "develop": {
-            "description": "Build in develop",
-            "dependencies": [
-                "dbg-macro"
             ]
         }
     }

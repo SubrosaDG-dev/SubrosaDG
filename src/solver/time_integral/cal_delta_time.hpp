@@ -17,14 +17,14 @@
 #include "basic/constant.hpp"
 #include "basic/enum.hpp"
 #include "integral/integral_structure.hpp"
-#include "mesh/elem_type.hpp"
+#include "mesh/get_elem_info.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "solver/solver_structure.hpp"
 #include "solver/variable/cal_primitive_var.hpp"
 
 namespace SubrosaDG {
 
-template <int PolyOrder, ElemInfo ElemT, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
+template <int PolyOrder, ElemType ElemT, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
 inline void calDeltaTime(
     const ElemMesh<2, ElemT>& elem_mesh, const ElemIntegral<PolyOrder, ElemT>& elem_integral,
     const ThermoModel<EquModel::Euler>& thermo_model,
@@ -59,12 +59,10 @@ inline void calDeltaTime(const Mesh<2, MeshT>& mesh, const Integral<2, PolyOrder
                          const ElemSolver<2, PolyOrder, MeshT, EquModelT>& elem_solver,
                          TimeSolver<TimeDiscreteT>& time_solver) {
   time_solver.delta_t_ = kMax;
-  if constexpr (MeshT == MeshType::Tri) {
+  if constexpr (HasTri<MeshT>) {
     calDeltaTime(mesh.tri_, integral.tri_, thermo_model, elem_solver.tri_, time_solver);
-  } else if constexpr (MeshT == MeshType::Quad) {
-    calDeltaTime(mesh.quad_, integral.quad_, thermo_model, elem_solver.quad_, time_solver);
-  } else if constexpr (MeshT == MeshType::TriQuad) {
-    calDeltaTime(mesh.tri_, integral.tri_, thermo_model, elem_solver.tri_, time_solver);
+  }
+  if constexpr (HasQuad<MeshT>) {
     calDeltaTime(mesh.quad_, integral.quad_, thermo_model, elem_solver.quad_, time_solver);
   }
 }

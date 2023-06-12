@@ -16,20 +16,22 @@
 #include <Eigen/Core>
 
 #include "basic/data_type.hpp"
-#include "mesh/elem_type.hpp"
+#include "mesh/get_elem_info.hpp"
 
 namespace SubrosaDG {
 
-template <int Dim, ElemInfo ElemT>
+template <int Dim, ElemType ElemT>
 struct ElemMesh;
+enum class ElemType;
+enum class ElemType;
 
-template <ElemInfo ElemT>
-inline void calProjectionMeasure(const Eigen::Matrix<Real, 2, ElemT.kNodeNum>& node,
+template <ElemType ElemT>
+inline void calProjectionMeasure(const Eigen::Matrix<Real, 2, getNodeNum<ElemT>()>& node,
                                  Eigen::Vector<Real, 2>& projection_measure) {
   projection_measure = node.rowwise().maxCoeff() - node.rowwise().minCoeff();
 }
 
-template <int Dim, ElemInfo ElemT>
+template <int Dim, ElemType ElemT>
 inline void calElemProjectionMeasure(ElemMesh<Dim, ElemT>& elem_mesh) {
   for (Isize i = 0; i < elem_mesh.num_; i++) {
     calProjectionMeasure<ElemT>(elem_mesh.elem_(i).node_, elem_mesh.elem_(i).projection_measure_);

@@ -19,9 +19,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
-#include "mesh/elem_type.hpp"
 #include "mesh/element/cal_norm_vec.hpp"
 #include "mesh/element/cal_projection_measure.hpp"
 #include "mesh/element/get_adjacency_mesh.hpp"
@@ -41,10 +41,8 @@ inline void getNodes(MeshBase<Dim>& mesh_base) {
   std::vector<double> node_coords;
   std::vector<double> node_params;
   gmsh::model::mesh::getNodes(node_tags, node_coords, node_params);
-  Usize nodes_num;
-  gmsh::model::mesh::getMaxNodeTag(nodes_num);
-  mesh_base.node_num_ = static_cast<Isize>(nodes_num);
-  mesh_base.node_.resize(Dim, static_cast<Isize>(mesh_base.node_num_));
+  mesh_base.node_num_ = static_cast<Isize>(node_tags.size());
+  mesh_base.node_.resize(Dim, static_cast<Isize>(node_tags.size()));
   for (const auto node_tag : node_tags) {
     for (Usize i = 0; i < Dim; i++) {
       mesh_base.node_(static_cast<Isize>(i), static_cast<Isize>(node_tag - 1)) =
@@ -53,30 +51,22 @@ inline void getNodes(MeshBase<Dim>& mesh_base) {
   }
 }
 
-template <int Dim, MeshType MeshT>
-inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<Dim, MeshT>& mesh) {
+template <MeshType MeshT>
+inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<2, MeshT>& mesh) {
   getNodes(mesh);
-  if constexpr (MeshT == MeshType::Tri) {
+  if constexpr (HasTri<MeshT>) {
     getElemMesh(mesh.node_, mesh.tri_);
     calElemProjectionMeasure(mesh.tri_);
     getElemJacobian(mesh.tri_);
-  } else if constexpr (MeshT == MeshType::Quad) {
-    getElemMesh(mesh.node_, mesh.quad_);
-    calElemProjectionMeasure(mesh.quad_);
-    getElemJacobian(mesh.quad_);
-  } else if constexpr (MeshT == MeshType::TriQuad) {
-    getElemMesh(mesh.node_, mesh.tri_);
-    calElemProjectionMeasure(mesh.tri_);
-    getElemJacobian(mesh.tri_);
+  }
+  if constexpr (HasQuad<MeshT>) {
     getElemMesh(mesh.node_, mesh.quad_);
     calElemProjectionMeasure(mesh.quad_);
     getElemJacobian(mesh.quad_);
   }
-  if constexpr (MeshT == MeshType::Tri || MeshT == MeshType::Quad || MeshT == MeshType::TriQuad) {
-    getAdjacencyElemMesh<2, kLine, MeshT>(mesh.node_, boundary_type_map, mesh.line_);
-    calAdjacencyElemNormVec(mesh.line_);
-    getElemJacobian(mesh.line_);
-  }
+  getAdjacencyElemMesh<2, ElemType::Line, MeshT>(mesh.node_, boundary_type_map, mesh.line_);
+  calAdjacencyElemNormVec(mesh.line_);
+  getElemJacobian(mesh.line_);
 }
 
 }  // namespace SubrosaDG

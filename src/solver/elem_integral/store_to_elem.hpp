@@ -17,7 +17,7 @@
 
 #include <Eigen/Core>
 
-#include "mesh/elem_type.hpp"
+#include "mesh/get_elem_info.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
 
@@ -45,10 +45,10 @@ inline void storeAdjacencyIntegralToElem(const int elem_topology, const Isize el
                                          const Eigen::Vector<Real, 4>& adjacency_integral,
                                          ElemSolver<2, PolyOrder, MeshType::TriQuad, EquModelT>& elem_solver) {
   switch (elem_topology) {
-  case kTri.kTopology:
+  case getTopology<ElemType::Tri>():
     elem_solver.tri_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
     break;
-  case kQuad.kTopology:
+  case getTopology<ElemType::Quad>():
     elem_solver.quad_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
     break;
   }

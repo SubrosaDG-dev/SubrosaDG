@@ -28,7 +28,7 @@
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
-#include "mesh/elem_type.hpp"
+#include "mesh/get_elem_info.hpp"
 #include "mesh/get_mesh_supplemental.hpp"
 #include "mesh/mesh_structure.hpp"
 
@@ -39,17 +39,17 @@ struct AdjacencyElemMeshSupplemental {
   std::vector<Isize> index_;
 };
 
-template <ElemInfo ElemT, MeshType MeshT>
+template <ElemType ElemT, MeshType MeshT>
   requires Is2dElem<ElemT>
 inline void getAdjacencyParentElem(std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map) {
   std::vector<Usize> edge_nodes_tags;
-  gmsh::model::mesh::getElementEdgeNodes(ElemT.kTopology, edge_nodes_tags);
+  gmsh::model::mesh::getElementEdgeNodes(getTopology<ElemT>(), edge_nodes_tags);
   std::vector<int> edge_orientations;
   std::vector<Usize> edge_tags;
   gmsh::model::mesh::getEdges(edge_nodes_tags, edge_tags, edge_orientations);
   std::vector<Usize> elem_tags;
   std::vector<Usize> elem_node_tags;
-  gmsh::model::mesh::getElementsByType(ElemT.kTopology, elem_tags, elem_node_tags);
+  gmsh::model::mesh::getElementsByType(getTopology<ElemT>(), elem_tags, elem_node_tags);
   for (Usize i = 0; i < edge_tags.size(); i++) {
     if (!adjacency_elem_map.contains(static_cast<Isize>(edge_tags[i]))) {
       adjacency_elem_map[static_cast<Isize>(edge_tags[i])].is_recorded_ = false;
@@ -58,36 +58,34 @@ inline void getAdjacencyParentElem(std::map<Isize, AdjacencyElemMeshSupplemental
     } else {
       adjacency_elem_map[static_cast<Isize>(edge_tags[i])].is_recorded_ = true;
     }
-    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(elem_tags[i / ElemT.kNodeNum] -
+    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(elem_tags[i / getNodeNum<ElemT>()] -
                                                                              elem_tags.front());
-    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(i % ElemT.kNodeNum);
+    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(i % getNodeNum<ElemT>());
     if constexpr (IsMixed<MeshT>) {
-      adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(ElemT.kTopology);
+      adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(getTopology<ElemT>());
     }
   }
 }
 
-template <ElemInfo ElemT, MeshType MeshT>
+template <ElemType ElemT, MeshType MeshT>
   requires Is3dElem<ElemT>
 inline void getAdjacencyParentElem(std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map);
 
-template <ElemInfo ElemT, MeshType MeshT>
+template <ElemType ElemT, MeshType MeshT>
   requires Is1dElem<ElemT>
 inline std::map<Isize, AdjacencyElemMeshSupplemental> getAdjacencyElemMap() {
   gmsh::model::mesh::createEdges();
   std::map<Isize, AdjacencyElemMeshSupplemental> adjacency_elem_map;
-  if constexpr (MeshT == MeshType::Tri) {
-    getAdjacencyParentElem<kTri, MeshT>(adjacency_elem_map);
-  } else if constexpr (MeshT == MeshType::Quad) {
-    getAdjacencyParentElem<kQuad, MeshT>(adjacency_elem_map);
-  } else if constexpr (MeshT == MeshType::TriQuad) {
-    getAdjacencyParentElem<kTri, MeshT>(adjacency_elem_map);
-    getAdjacencyParentElem<kQuad, MeshT>(adjacency_elem_map);
+  if constexpr (HasTri<MeshT>) {
+    getAdjacencyParentElem<ElemType::Tri, MeshT>(adjacency_elem_map);
+  }
+  if constexpr (HasQuad<MeshT>) {
+    getAdjacencyParentElem<ElemType::Quad, MeshT>(adjacency_elem_map);
   }
   return adjacency_elem_map;
 }
 
-template <int Dim, ElemInfo ElemT, MeshType MeshT>
+template <int Dim, ElemType ElemT, MeshType MeshT>
 inline void getAdjacencyInternalElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
                                          const std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map,
                                          const std::vector<Isize>& internal_tag,
@@ -99,12 +97,12 @@ inline void getAdjacencyInternalElemMesh(const Eigen::Matrix<Real, Dim, Eigen::D
       std::make_pair(max_elem_tag + 1, *internal_max_tag - *internal_min_tag + static_cast<Isize>(max_elem_tag) + 1);
   adjacency_elem_mesh.internal_.num_ = *internal_max_tag - *internal_min_tag + 1;
   adjacency_elem_mesh.internal_.elem_.resize(adjacency_elem_mesh.internal_.num_);
-  int entity_tag = gmsh::model::addDiscreteEntity(ElemT.kDim);
+  int entity_tag = gmsh::model::addDiscreteEntity(getDim<ElemT>());
   std::vector<Usize> elem_tags;
   std::vector<Usize> node_tags;
   for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
     const AdjacencyElemMeshSupplemental& adjacency_elem_supplemental = adjacency_elem_map.at(i + *internal_min_tag);
-    for (Usize j = 0; j < ElemT.kNodeNum; j++) {
+    for (Usize j = 0; j < getNodeNum<ElemT>(); j++) {
       adjacency_elem_mesh.internal_.elem_(i).node_.col(static_cast<Isize>(j)) =
           node.col(static_cast<Isize>(adjacency_elem_supplemental.index_[j] - 1));
       adjacency_elem_mesh.internal_.elem_(i).index_(static_cast<Isize>(j)) = adjacency_elem_supplemental.index_[j];
@@ -113,24 +111,24 @@ inline void getAdjacencyInternalElemMesh(const Eigen::Matrix<Real, Dim, Eigen::D
     for (Usize j = 0; j < 2; j++) {
       if constexpr (IsMixed<MeshT>) {
         adjacency_elem_mesh.internal_.elem_(i).parent_index_(static_cast<Isize>(j)) =
-            adjacency_elem_supplemental.index_[ElemT.kNodeNum + 3 * j];
+            adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 3 * j];
         adjacency_elem_mesh.internal_.elem_(i).adjacency_index_(static_cast<Isize>(j)) =
-            adjacency_elem_supplemental.index_[ElemT.kNodeNum + 3 * j + 1];
+            adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 3 * j + 1];
         adjacency_elem_mesh.internal_.elem_(i).typology_index_(static_cast<Isize>(j)) =
-            static_cast<int>(adjacency_elem_supplemental.index_[ElemT.kNodeNum + 3 * j + 2]);
+            static_cast<int>(adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 3 * j + 2]);
       } else {
         adjacency_elem_mesh.internal_.elem_(i).parent_index_(static_cast<Isize>(j)) =
-            adjacency_elem_supplemental.index_[ElemT.kNodeNum + 2 * j + 1];
+            adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 2 * j + 1];
         adjacency_elem_mesh.internal_.elem_(i).adjacency_index_(static_cast<Isize>(j)) =
-            adjacency_elem_supplemental.index_[ElemT.kNodeNum + 2 * j + 2];
+            adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 2 * j + 2];
       }
     }
     elem_tags.emplace_back(static_cast<Usize>(i) + max_elem_tag + 1);
   }
-  gmsh::model::mesh::addElementsByType(entity_tag, ElemT.kTopology, elem_tags, node_tags);
+  gmsh::model::mesh::addElementsByType(entity_tag, getTopology<ElemT>(), elem_tags, node_tags);
 }
 
-template <int Dim, ElemInfo ElemT, MeshType MeshT>
+template <int Dim, ElemType ElemT, MeshType MeshT>
 inline void getAdjacencyBoundaryElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
                                          const MeshSupplemental<ElemT>& boundary_supplemental,
                                          const std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map,
@@ -142,22 +140,23 @@ inline void getAdjacencyBoundaryElemMesh(const Eigen::Matrix<Real, Dim, Eigen::D
   adjacency_elem_mesh.boundary_.elem_.resize(adjacency_elem_mesh.boundary_.num_);
   for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
     const AdjacencyElemMeshSupplemental& adjacency_elem_supplemental = adjacency_elem_map.at(i + *boundary_min_tag);
-    for (Usize j = 0; j < ElemT.kNodeNum; j++) {
+    for (Usize j = 0; j < getNodeNum<ElemT>(); j++) {
       adjacency_elem_mesh.boundary_.elem_(i).node_.col(static_cast<Isize>(j)) =
           node.col(static_cast<Isize>(adjacency_elem_supplemental.index_[j] - 1));
       adjacency_elem_mesh.boundary_.elem_(i).index_(static_cast<Isize>(j)) = adjacency_elem_supplemental.index_[j];
     }
-    adjacency_elem_mesh.boundary_.elem_(i).parent_index_(0) = adjacency_elem_supplemental.index_[ElemT.kNodeNum];
-    adjacency_elem_mesh.boundary_.elem_(i).adjacency_index_(0) = adjacency_elem_supplemental.index_[ElemT.kNodeNum + 1];
+    adjacency_elem_mesh.boundary_.elem_(i).parent_index_(0) = adjacency_elem_supplemental.index_[getNodeNum<ElemT>()];
+    adjacency_elem_mesh.boundary_.elem_(i).adjacency_index_(0) =
+        adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 1];
     if constexpr (IsMixed<MeshT>) {
       adjacency_elem_mesh.boundary_.elem_(i).typology_index_(0) =
-          static_cast<int>(adjacency_elem_supplemental.index_[ElemT.kNodeNum + 2]);
+          static_cast<int>(adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 2]);
     }
     adjacency_elem_mesh.boundary_.elem_(i).parent_index_(1) = boundary_supplemental.index_(i);
   }
 }
 
-template <int Dim, ElemInfo ElemT, MeshType MeshT>
+template <int Dim, ElemType ElemT, MeshType MeshT>
 inline void getAdjacencyElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
                                  const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
                                  AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {

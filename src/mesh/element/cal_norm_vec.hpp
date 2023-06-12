@@ -18,24 +18,26 @@
 
 #include "basic/constant.hpp"
 #include "basic/data_type.hpp"
-#include "mesh/elem_type.hpp"
+#include "mesh/get_elem_info.hpp"
 
 namespace SubrosaDG {
 
 enum class MeshType;
-template <int Dim, ElemInfo ElemT, MeshType MeshT>
+template <int Dim, ElemType ElemT, MeshType MeshT>
 struct AdjacencyElemMesh;
+enum class ElemType;
+enum class ElemType;
 
-template <ElemInfo ElemT>
-inline void calNormVec(const Eigen::Matrix<Real, 2, ElemT.kNodeNum>& node, Eigen::Vector<Real, 2>& norm_vec) {
+template <ElemType ElemT>
+inline void calNormVec(const Eigen::Matrix<Real, 2, getNodeNum<ElemT>()>& node, Eigen::Vector<Real, 2>& norm_vec) {
   Eigen::Rotation2D<Real> rotation{-kPi / 2.0};
   norm_vec = rotation * (node.col(1) - node.col(0)).normalized();
 }
 
-template <ElemInfo ElemT>
-inline void calNormVec(const Eigen::Matrix<Real, 3, ElemT.kNodeNum>& node, Eigen::Vector<Real, 3>& norm_vec);
+template <ElemType ElemT>
+inline void calNormVec(const Eigen::Matrix<Real, 3, getNodeNum<ElemT>()>& node, Eigen::Vector<Real, 3>& norm_vec);
 
-template <int Dim, ElemInfo ElemT, MeshType MeshT>
+template <int Dim, ElemType ElemT, MeshType MeshT>
 inline void calAdjacencyElemNormVec(AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {
   for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
     calNormVec<ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_, adjacency_elem_mesh.internal_.elem_(i).norm_vec_);

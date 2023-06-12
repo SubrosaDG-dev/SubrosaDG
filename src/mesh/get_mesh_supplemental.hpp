@@ -14,7 +14,6 @@
 #define SUBROSA_DG_GET_MESH_SUPPLEMENTAL_HPP_
 
 #include <gmsh.h>
-
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -25,47 +24,49 @@
 #include <vector>
 
 #include "basic/data_type.hpp"
-#include "mesh/elem_type.hpp"
+#include "mesh/get_elem_info.hpp"
 
 namespace SubrosaDG {
 
-template <ElemInfo ElemT>
+template <ElemType ElemT>
 struct MeshSupplemental;
+enum class ElemType;
+enum class ElemType;
 
 struct PhysicalGroup {
   std::string name_;
   std::vector<Usize> elem_entity_tags_;
 };
 
-template <ElemInfo ElemT>
+template <ElemType ElemT>
 inline void concatenateElemEntityTags(const std::vector<int>& physical_group_entity_tag,
                                       std::vector<Usize>& elem_entity_tags) {
   std::vector<Usize> elem_tags;
   std::vector<Usize> elem_node_tags;
   for (const auto entity_tag : physical_group_entity_tag) {
-    gmsh::model::mesh::getElementsByType(ElemT.kTopology, elem_tags, elem_node_tags, entity_tag);
+    gmsh::model::mesh::getElementsByType(getTopology<ElemT>(), elem_tags, elem_node_tags, entity_tag);
     if (!elem_tags.empty()) {
       elem_entity_tags.insert(elem_entity_tags.end(), elem_tags.begin(), elem_tags.end());
     }
   }
 }
 
-template <ElemInfo ElemT>
+template <ElemType ElemT>
 inline PhysicalGroup getPhysicalGroup(int physical_group_tag) {
   std::string physical_group_name;
   std::vector<int> physical_group_entity_tag;
-  gmsh::model::getPhysicalName(ElemT.kDim, physical_group_tag, physical_group_name);
-  gmsh::model::getEntitiesForPhysicalGroup(ElemT.kDim, physical_group_tag, physical_group_entity_tag);
+  gmsh::model::getPhysicalName(getDim<ElemT>(), physical_group_tag, physical_group_name);
+  gmsh::model::getEntitiesForPhysicalGroup(getDim<ElemT>(), physical_group_tag, physical_group_entity_tag);
   std::vector<Usize> elem_entity_tags;
   concatenateElemEntityTags<ElemT>(physical_group_entity_tag, elem_entity_tags);
   return {physical_group_name, elem_entity_tags};
 }
 
-template <typename T, ElemInfo ElemT>
+template <typename T, ElemType ElemT>
 inline void getMeshSupplemental(const std::unordered_map<std::string_view, T>& name_map,
                                 MeshSupplemental<ElemT>& mesh_supplemental) {
   std::vector<std::pair<int, int>> physical_group_tags;
-  gmsh::model::getPhysicalGroups(physical_group_tags, ElemT.kDim);
+  gmsh::model::getPhysicalGroups(physical_group_tags, getDim<ElemT>());
   std::vector<PhysicalGroup> physical_groups;
   physical_groups.reserve(physical_group_tags.size());
   for (const auto& [dimension, physical_group_tag] : physical_group_tags) {
@@ -81,11 +82,9 @@ inline void getMeshSupplemental(const std::unordered_map<std::string_view, T>& n
   mesh_supplemental.index_.resize(mesh_supplemental.num_);
   try {
     for (const auto& physical_group : physical_groups) {
-      {
-        for (const auto elem_entity_tag : physical_group.elem_entity_tags_) {
-          mesh_supplemental.index_(static_cast<Isize>(elem_entity_tag) - mesh_supplemental.range_.first) =
-              static_cast<int>(name_map.at(physical_group.name_));
-        }
+      for (const auto elem_entity_tag : physical_group.elem_entity_tags_) {
+        mesh_supplemental.index_(static_cast<Isize>(elem_entity_tag) - mesh_supplemental.range_.first) =
+            static_cast<int>(name_map.at(physical_group.name_));
       }
     }
   } catch (const std::out_of_range& error) {

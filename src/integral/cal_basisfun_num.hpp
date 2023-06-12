@@ -13,25 +13,25 @@
 #ifndef SUBROSA_DG_CAL_BASISFUN_NUM_HPP_
 #define SUBROSA_DG_CAL_BASISFUN_NUM_HPP_
 
-#include "mesh/elem_type.hpp"
+#include "basic/enum.hpp"
 
 namespace SubrosaDG {
 
-template <ElemInfo ElemT>
+template <ElemType ElemT>
 inline consteval int calBasisFunNum(int poly_order);
 
 template <>
-inline consteval int calBasisFunNum<kLine>(int poly_order) {
+inline consteval int calBasisFunNum<ElemType::Line>(int poly_order) {
   return poly_order + 1;
 }
 
 template <>
-inline consteval int calBasisFunNum<kTri>(int poly_order) {
+inline consteval int calBasisFunNum<ElemType::Tri>(int poly_order) {
   return (poly_order + 1) * (poly_order + 2) / 2;
 }
 
 template <>
-inline consteval int calBasisFunNum<kQuad>(int poly_order) {
+inline consteval int calBasisFunNum<ElemType::Quad>(int poly_order) {
   return (poly_order + 1) * (poly_order + 1);
 }
 

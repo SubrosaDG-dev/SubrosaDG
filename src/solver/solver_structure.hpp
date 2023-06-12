@@ -21,7 +21,6 @@
 #include "basic/enum.hpp"
 #include "integral/cal_basisfun_num.hpp"
 #include "integral/get_integral_num.hpp"
-#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 
@@ -46,7 +45,7 @@ struct TimeSolver<TimeDiscrete::RungeKutta3> : TimeVar {
   inline constexpr TimeSolver(const TimeVar& time_var) : TimeVar(time_var) {}
 };
 
-template <int Dim, int PolyOrder, ElemInfo ElemT>
+template <int Dim, int PolyOrder, ElemType ElemT>
 struct PerElemSolverBase {
   Eigen::Vector<Eigen::Matrix<Real, Dim + 2, calBasisFunNum<ElemT>(PolyOrder)>, 2> basis_fun_coeff_;
   Eigen::Matrix<Real, Dim + 2, getElemAdjacencyIntegralNum<ElemT>(PolyOrder)> adjacency_integral_;
@@ -54,13 +53,13 @@ struct PerElemSolverBase {
   Eigen::Matrix<Real, Dim + 2, calBasisFunNum<ElemT>(PolyOrder)> residual_;
 };
 
-template <int Dim, int PolyOrder, ElemInfo ElemT, EquModel EquModelT>
+template <int Dim, int PolyOrder, ElemType ElemT, EquModel EquModelT>
 struct PerElemSolver;
 
-template <int Dim, int PolyOrder, ElemInfo ElemT>
+template <int Dim, int PolyOrder, ElemType ElemT>
 struct PerElemSolver<Dim, PolyOrder, ElemT, EquModel::Euler> : PerElemSolverBase<Dim, PolyOrder, ElemT> {};
 
-template <int Dim, int PolyOrder, ElemInfo ElemT>
+template <int Dim, int PolyOrder, ElemType ElemT>
 struct PerElemSolver<Dim, PolyOrder, ElemT, EquModel::NS> : PerElemSolverBase<Dim, PolyOrder, ElemT> {};
 
 template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
@@ -68,18 +67,18 @@ struct ElemSolver;
 
 template <int PolyOrder, EquModel EquModelT>
 struct ElemSolver<2, PolyOrder, MeshType::Tri, EquModelT> {
-  Eigen::Vector<PerElemSolver<2, PolyOrder, kTri, EquModelT>, Eigen::Dynamic> tri_;
+  Eigen::Vector<PerElemSolver<2, PolyOrder, ElemType::Tri, EquModelT>, Eigen::Dynamic> tri_;
 };
 
 template <int PolyOrder, EquModel EquModelT>
 struct ElemSolver<2, PolyOrder, MeshType::Quad, EquModelT> {
-  Eigen::Vector<PerElemSolver<2, PolyOrder, kQuad, EquModelT>, Eigen::Dynamic> quad_;
+  Eigen::Vector<PerElemSolver<2, PolyOrder, ElemType::Quad, EquModelT>, Eigen::Dynamic> quad_;
 };
 
 template <int PolyOrder, EquModel EquModelT>
 struct ElemSolver<2, PolyOrder, MeshType::TriQuad, EquModelT> {
-  Eigen::Vector<PerElemSolver<2, PolyOrder, kTri, EquModelT>, Eigen::Dynamic> tri_;
-  Eigen::Vector<PerElemSolver<2, PolyOrder, kQuad, EquModelT>, Eigen::Dynamic> quad_;
+  Eigen::Vector<PerElemSolver<2, PolyOrder, ElemType::Tri, EquModelT>, Eigen::Dynamic> tri_;
+  Eigen::Vector<PerElemSolver<2, PolyOrder, ElemType::Quad, EquModelT>, Eigen::Dynamic> quad_;
 };
 
 template <EquModel EquModelT, TimeDiscrete TimeDiscreteT>

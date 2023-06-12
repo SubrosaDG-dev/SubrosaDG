@@ -14,21 +14,21 @@
 #define SUBROSA_DG_GET_JACOBIAN_HPP_
 
 #include <gmsh.h>
-
 #include <vector>
 
 #include "basic/data_type.hpp"
-#include "mesh/elem_type.hpp"
 
 namespace SubrosaDG {
 
 enum class MeshType;
-template <int Dim, ElemInfo ElemT>
+template <int Dim, ElemType ElemT>
 struct ElemMesh;
-template <int Dim, ElemInfo ElemT, MeshType MeshT>
+template <int Dim, ElemType ElemT, MeshType MeshT>
 struct AdjacencyElemMesh;
+enum class ElemType;
+enum class ElemType;
 
-template <int Dim, ElemInfo ElemT>
+template <int Dim, ElemType ElemT>
 inline void getElemJacobian(ElemMesh<Dim, ElemT>& elem_mesh) {
   const std::vector<double> local_coord{0.0, 0.0, 0.0};
   std::vector<double> jacobians;
@@ -41,7 +41,7 @@ inline void getElemJacobian(ElemMesh<Dim, ElemT>& elem_mesh) {
   }
 }
 
-template <int Dim, ElemInfo ElemT, MeshType MeshT>
+template <int Dim, ElemType ElemT, MeshType MeshT>
 inline void getElemJacobian(AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {
   const std::vector<double> local_coord{0.0, 0.0, 0.0};
   std::vector<double> jacobians;
