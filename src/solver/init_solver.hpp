@@ -14,62 +14,49 @@
 #define SUBROSA_DG_INIT_SOLVER_HPP_
 
 #include <Eigen/Core>
-#include <array>
-#include <string_view>
-#include <unordered_map>
+#include <algorithm>
+#include <vector>
 
 #include "basic/concept.hpp"
+#include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
 #include "mesh/get_mesh_supplemental.hpp"
 #include "mesh/mesh_structure.hpp"
+#include "solver/solver_structure.hpp"
 #include "solver/variable/cal_conserved_var.hpp"
+#include "solver/variable/cal_primitive_var.hpp"
 
 namespace SubrosaDG {
 
-template <EquModel EquModelT>
-struct ThermoModel;
-template <int Dim>
-struct InitVar;
-template <int Dim, int PolyOrder, ElemType ElemT, EquModel EquModelT>
-struct PerElemSolver;
-template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
-struct ElemSolver;
-template <int Dim, MeshType MeshT>
-struct Mesh;
-
-template <int PolyOrder, Usize RegionNum, ElemType ElemT>
-inline void initElemSolver(
-    const Isize elem_num, const std::unordered_map<std::string_view, int>& region_id_map,
-    const std::array<InitVar<2>, RegionNum>& init_var_vec, const ThermoModel<EquModel::Euler>& thermo_model,
-    Eigen::Vector<PerElemSolver<2, PolyOrder, ElemT, EquModel::Euler>, Eigen::Dynamic>& elem_solver) {
-  elem_solver.resize(elem_num);
+template <PolyOrder P, ElemType ElemT>
+inline void initElemSolver(const Isize elem_num, const InitVar<2>& init_var,
+                           const ThermoModel<EquModel::Euler>& thermo_model,
+                           ElemSolver<2, P, ElemT, EquModel::Euler>& elem_solver) {
+  elem_solver.elem_.resize(elem_num);
   MeshSupplemental<ElemT> internal_supplemental;
-  getMeshSupplemental<int, ElemT>(region_id_map, internal_supplemental);
-  std::array<Eigen::Vector<Real, 4>, RegionNum> init_conserved_var;
-  for (Usize i = 0; i < RegionNum; i++) {
-    calConservedVar(thermo_model, init_var_vec[i], init_conserved_var[i]);
+  getMeshSupplemental<int, ElemT>(init_var.region_map_, internal_supplemental);
+  std::vector<Eigen::Vector<Real, 4>> init_conserved_var;
+  init_conserved_var.resize(init_var.flow_var_.size());
+  for (Usize i = 0; i < init_var.flow_var_.size(); i++) {
+    calConservedVar(thermo_model, init_var.flow_var_[i], init_conserved_var[i]);
   }
   for (Isize i = 0; i < elem_num; i++) {
-    elem_solver(i).basis_fun_coeff_(0).colwise() =
-        init_conserved_var[static_cast<Usize>(internal_supplemental.index_(i))];
-    elem_solver(i).basis_fun_coeff_(1).colwise() =
+    elem_solver.elem_(i).basis_fun_coeff_(1).colwise() =
         init_conserved_var[static_cast<Usize>(internal_supplemental.index_(i))];
   }
 }
 
-template <int PolyOrder, Usize RegionNum, MeshType MeshT>
-inline void initSolver(const Mesh<2, MeshT>& mesh, const std::unordered_map<std::string_view, int>& region_id_map,
-                       const std::array<InitVar<2>, RegionNum>& init_var_vec,
-                       const ThermoModel<EquModel::Euler>& thermo_model,
-                       ElemSolver<2, PolyOrder, MeshT, EquModel::Euler>& elem_solver) {
+template <PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT>
+inline void initSolver(const Mesh<2, MeshT>& mesh, const InitVar<2>& init_var, const FarfieldVar<2> farfield_var,
+                       SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental,
+                       Solver<2, P, EquModel::Euler, MeshT>& solver) {
+  calPrimitiveVar(solver_supplemental.thermo_model_, farfield_var, solver_supplemental.farfield_primitive_var_);
   if constexpr (HasTri<MeshT>) {
-    initElemSolver<PolyOrder, RegionNum, ElemType::Tri>(mesh.tri_.num_, region_id_map, init_var_vec, thermo_model,
-                                                        elem_solver.tri_);
+    initElemSolver(mesh.tri_.num_, init_var, solver_supplemental.thermo_model_, solver.tri_);
   }
   if constexpr (HasQuad<MeshT>) {
-    initElemSolver<PolyOrder, RegionNum, ElemType::Quad>(mesh.quad_.num_, region_id_map, init_var_vec, thermo_model,
-                                                         elem_solver.quad_);
+    initElemSolver(mesh.quad_.num_, init_var, solver_supplemental.thermo_model_, solver.quad_);
   }
 }
 

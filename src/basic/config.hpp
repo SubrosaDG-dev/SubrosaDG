@@ -14,6 +14,10 @@
 #define SUBROSA_DG_CONFIG_HPP_
 
 #include <array>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
@@ -23,9 +27,23 @@ namespace SubrosaDG {
 struct TimeVar {
   const int iter_;
   const Real cfl_;
-  const int tole_;
+  const Real tole_;
 
-  inline consteval TimeVar(const int iter, const Real cfl, const int tole) : iter_(iter), cfl_(cfl), tole_(tole) {}
+  inline consteval TimeVar(const int iter, const Real cfl, const Real tole) : iter_(iter), cfl_(cfl), tole_(tole) {}
+};
+
+template <EquModel EquModelT>
+struct SpatialDiscrete {};
+
+template <ConvectiveFlux ConvectiveFluxT>
+struct SpatialDiscreteEuler : SpatialDiscrete<EquModel::Euler> {
+  inline static constexpr ConvectiveFlux kConvectiveFlux{ConvectiveFluxT};
+};
+
+template <ConvectiveFlux ConvectiveFluxT, ViscousFlux ViscousFluxT>
+struct SpatialDiscreteNS : SpatialDiscrete<EquModel::NS> {
+  inline static constexpr ConvectiveFlux kConvectiveFlux{ConvectiveFluxT};
+  inline static constexpr ViscousFlux kViscousFlux{ViscousFluxT};
 };
 
 template <EquModel EquModelT>
@@ -61,8 +79,12 @@ struct FlowVar {
 };
 
 template <int Dim>
-struct InitVar : FlowVar<Dim> {
-  using FlowVar<Dim>::FlowVar;
+struct InitVar {
+  const std::unordered_map<std::string_view, int> region_map_;
+  const std::vector<FlowVar<Dim>> flow_var_;
+
+  inline InitVar(std::unordered_map<std::string_view, int> region_map, const std::vector<FlowVar<Dim>>& flow_var)
+      : region_map_(std::move(region_map)), flow_var_(flow_var) {}
 };
 
 template <int Dim>

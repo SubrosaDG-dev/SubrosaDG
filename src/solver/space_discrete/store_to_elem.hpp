@@ -13,43 +13,37 @@
 #ifndef SUBROSA_DG_STORE_TO_ELEM_HPP_
 #define SUBROSA_DG_STORE_TO_ELEM_HPP_
 
-// clang-format off
-
 #include <Eigen/Core>
 
-#include "mesh/get_elem_info.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
-
-// clang-format on
+#include "mesh/get_elem_info.hpp"
+#include "solver/solver_structure.hpp"
 
 namespace SubrosaDG {
 
-template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
-struct ElemSolver;
-
-template <int PolyOrder, MeshType MeshT, EquModel EquModelT>
+template <PolyOrder P, MeshType MeshT, EquModel EquModelT>
 inline void storeAdjacencyIntegralToElem(const Isize elem_tag, const Isize adjacency_integral_order,
                                          const Eigen::Vector<Real, 4>& adjacency_integral,
-                                         ElemSolver<2, PolyOrder, MeshT, EquModelT>& elem_solver) {
+                                         Solver<2, P, EquModelT, MeshT>& solver) {
   if constexpr (MeshT == MeshType::Tri) {
-    elem_solver.tri_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
+    solver.tri_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
   } else if constexpr (MeshT == MeshType::Quad) {
-    elem_solver.quad_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
+    solver.quad_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
   }
 }
 
-template <int PolyOrder, EquModel EquModelT>
+template <PolyOrder P, EquModel EquModelT>
 inline void storeAdjacencyIntegralToElem(const int elem_topology, const Isize elem_tag,
                                          const Isize adjacency_integral_order,
                                          const Eigen::Vector<Real, 4>& adjacency_integral,
-                                         ElemSolver<2, PolyOrder, MeshType::TriQuad, EquModelT>& elem_solver) {
+                                         Solver<2, P, EquModelT, MeshType::TriQuad>& solver) {
   switch (elem_topology) {
   case getTopology<ElemType::Tri>():
-    elem_solver.tri_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
+    solver.tri_.elem_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
     break;
   case getTopology<ElemType::Quad>():
-    elem_solver.quad_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
+    solver.quad_.elem_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
     break;
   }
 }

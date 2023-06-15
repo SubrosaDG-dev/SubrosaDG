@@ -19,26 +19,22 @@
 #include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "integral/integral_structure.hpp"
+#include "mesh/mesh_structure.hpp"
 #include "solver/convective_flux/cal_roe_flux.hpp"
 #include "solver/convective_flux/cal_wall_flux.hpp"
-#include "solver/elem_integral/store_to_elem.hpp"
+#include "solver/solver_structure.hpp"
+#include "solver/space_discrete/store_to_elem.hpp"
 #include "solver/variable/cal_primitive_var.hpp"
 #include "solver/variable/get_parent_var.hpp"
 
 namespace SubrosaDG {
 
-template <int Dim, ElemType ElemT, MeshType MeshT>
-struct AdjacencyElemMesh;
-template <int PolyOrder, ElemType ElemT, MeshType MeshT>
-struct AdjacencyElemIntegral;
-template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
-struct ElemSolver;
-
-template <int PolyOrder, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
-inline void calInternalAdjacencyElemIntegral(
-    const AdjacencyElemMesh<2, ElemT, MeshT>& adjacency_elem_mesh,
-    const AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>& adjacency_elem_integral,
-    const ThermoModel<EquModel::Euler>& thermo_model, ElemSolver<2, PolyOrder, MeshT, EquModelT>& elem_solver) {
+template <PolyOrder P, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
+inline void calInternalAdjacencyElemIntegral(const AdjacencyElemMesh<2, ElemT, MeshT>& adjacency_elem_mesh,
+                                             const AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral,
+                                             const ThermoModel<EquModel::Euler>& thermo_model,
+                                             Solver<2, P, EquModelT, MeshT>& solver) {
   Eigen::Vector<Real, 4> l_conserved_var;
   Eigen::Vector<Real, 5> l_primitive_var;
   Eigen::Vector<Real, 4> r_conserved_var;
@@ -57,16 +53,16 @@ inline void calInternalAdjacencyElemIntegral(
     for (Isize j = 0; j < adjacency_elem_integral.kIntegralNum; j++) {
       if constexpr (IsMixed<MeshT>) {
         getParentVar(adjacency_elem_mesh.internal_.elem_(i).typology_index_(0), l_elem_tag,
-                     l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral, elem_solver,
+                     l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral, solver,
                      l_conserved_var);
         getParentVar(adjacency_elem_mesh.internal_.elem_(i).typology_index_(1), r_elem_tag,
-                     r_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral, elem_solver,
+                     r_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral, solver,
                      r_conserved_var);
       } else {
         getParentVar(l_elem_tag, l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral,
-                     elem_solver, l_conserved_var);
+                     solver, l_conserved_var);
         getParentVar(r_elem_tag, r_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral,
-                     elem_solver, r_conserved_var);
+                     solver, r_conserved_var);
       }
       calPrimitiveVar(thermo_model, l_conserved_var, l_primitive_var);
       calPrimitiveVar(thermo_model, r_conserved_var, r_primitive_var);
@@ -79,29 +75,28 @@ inline void calInternalAdjacencyElemIntegral(
       if constexpr (IsMixed<MeshT>) {
         storeAdjacencyIntegralToElem(adjacency_elem_mesh.internal_.elem_(i).typology_index_(0), l_elem_tag,
                                      l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjancy_integral,
-                                     elem_solver);
+                                     solver);
         storeAdjacencyIntegralToElem(adjacency_elem_mesh.internal_.elem_(i).typology_index_(1), r_elem_tag,
                                      r_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjancy_integral,
-                                     elem_solver);
+                                     solver);
       } else {
         storeAdjacencyIntegralToElem(l_elem_tag, l_adjacency_order * adjacency_elem_integral.kIntegralNum + j,
-                                     adjancy_integral, elem_solver);
+                                     adjancy_integral, solver);
         storeAdjacencyIntegralToElem(r_elem_tag, r_adjacency_order * adjacency_elem_integral.kIntegralNum + j,
-                                     adjancy_integral, elem_solver);
+                                     adjancy_integral, solver);
       }
     }
   }
 }
 
-template <int PolyOrder, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
-inline void calBoundaryAdjacencyElemIntegral(
-    const AdjacencyElemMesh<2, ElemT, MeshT>& adjacency_elem_mesh,
-    const AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>& adjacency_elem_integral, const FarfieldVar<2> farfield_var,
-    const ThermoModel<EquModel::Euler>& thermo_model, ElemSolver<2, PolyOrder, MeshT, EquModelT>& elem_solver) {
+template <PolyOrder P, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
+inline void calBoundaryAdjacencyElemIntegral(const AdjacencyElemMesh<2, ElemT, MeshT>& adjacency_elem_mesh,
+                                             const AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral,
+                                             const ThermoModel<EquModel::Euler>& thermo_model,
+                                             const Eigen::Vector<Real, 5> farfield_primitive_var,
+                                             Solver<2, P, EquModelT, MeshT>& solver) {
   Eigen::Vector<Real, 4> l_conserved_var;
   Eigen::Vector<Real, 5> l_primitive_var;
-  Eigen::Vector<Real, 5> farfield_primitive_var;
-  calPrimitiveVar(thermo_model, farfield_var, farfield_primitive_var);
   Eigen::Vector<Real, 4> convective_flux;
   Eigen::Vector<Real, 4> adjancy_integral;
   Isize l_elem_tag;
@@ -114,11 +109,11 @@ inline void calBoundaryAdjacencyElemIntegral(
     for (Isize j = 0; j < adjacency_elem_integral.kIntegralNum; j++) {
       if constexpr (IsMixed<MeshT>) {
         getParentVar(adjacency_elem_mesh.internal_.elem_(i).typology_index_(0), l_elem_tag,
-                     l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral, elem_solver,
+                     l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral, solver,
                      l_conserved_var);
       } else {
         getParentVar(l_elem_tag, l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral,
-                     elem_solver, l_conserved_var);
+                     solver, l_conserved_var);
       }
       calPrimitiveVar(thermo_model, l_conserved_var, l_primitive_var);
       switch (static_cast<Boundary>(r_boundary_tag)) {
@@ -137,25 +132,25 @@ inline void calBoundaryAdjacencyElemIntegral(
       if constexpr (IsMixed<MeshT>) {
         storeAdjacencyIntegralToElem(adjacency_elem_mesh.internal_.elem_(i).typology_index_(0), l_elem_tag,
                                      l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjancy_integral,
-                                     elem_solver);
+                                     solver);
       } else {
         storeAdjacencyIntegralToElem(l_elem_tag, l_adjacency_order * adjacency_elem_integral.kIntegralNum + j,
-                                     adjancy_integral, elem_solver);
+                                     adjancy_integral, solver);
       }
     }
   }
 }
 
-template <int PolyOrder, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
-inline void calAdjacencyElemIntegral(const AdjacencyElemMesh<2, ElemT, MeshT>& adjacency_elem_mesh,
-                                     const AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>& adjacency_elem_integral,
-                                     const FarfieldVar<2> farfield_var,
-                                     const ThermoModel<EquModel::Euler>& thermo_model,
-                                     ElemSolver<2, PolyOrder, MeshT, EquModelT>& elem_solver) {
-  calInternalAdjacencyElemIntegral<PolyOrder, ElemType::Line, MeshT, EquModelT, ConvectiveFluxT>(
-      adjacency_elem_mesh, adjacency_elem_integral, thermo_model, elem_solver);
-  calBoundaryAdjacencyElemIntegral<PolyOrder, ElemType::Line, MeshT, EquModelT, ConvectiveFluxT>(
-      adjacency_elem_mesh, adjacency_elem_integral, farfield_var, thermo_model, elem_solver);
+template <typename T, PolyOrder P, MeshType MeshT, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
+  requires DerivedFromSpatialDiscrete<T, EquModelT>
+inline void calAdjacencyElemIntegral(const Mesh<2, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
+                                     const SolverSupplemental<2, EquModelT, TimeDiscreteT>& solver_supplemental,
+                                     Solver<2, P, EquModelT, MeshT>& solver) {
+  calInternalAdjacencyElemIntegral<P, ElemType::Line, MeshT, EquModelT, T::kConvectiveFlux>(
+      mesh.line_, integral.line_, solver_supplemental.thermo_model_, solver);
+  calBoundaryAdjacencyElemIntegral<P, ElemType::Line, MeshT, EquModelT, T::kConvectiveFlux>(
+      mesh.line_, integral.line_, solver_supplemental.thermo_model_, solver_supplemental.farfield_primitive_var_,
+      solver);
 }
 
 }  // namespace SubrosaDG

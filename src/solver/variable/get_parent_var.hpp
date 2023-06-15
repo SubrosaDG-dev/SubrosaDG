@@ -17,42 +17,42 @@
 
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "integral/integral_structure.hpp"
 #include "mesh/get_elem_info.hpp"
+#include "solver/solver_structure.hpp"
 
 namespace SubrosaDG {
 
-template <int PolyOrder, ElemType ElemT, MeshType MeshT>
-struct AdjacencyElemIntegral;
-template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
-struct ElemSolver;
-
-template <int PolyOrder, ElemType ElemT, MeshType MeshT, EquModel EquModelT>
+template <PolyOrder P, ElemType ElemT, MeshType MeshT, EquModel EquModelT>
 inline void getParentVar(const Isize elem_tag, const Isize adjacency_integral_order,
-                         const AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>& adjacency_elem_integral,
-                         const ElemSolver<2, PolyOrder, MeshT, EquModelT>& elem_solver,
-                         Eigen::Vector<Real, 4>& parent_conserved_var) {
+                         const AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral,
+                         const Solver<2, P, EquModelT, MeshT>& solver, Eigen::Vector<Real, 4>& parent_conserved_var) {
   if constexpr (MeshT == MeshType::Tri) {
-    parent_conserved_var.noalias() = elem_solver.tri_(elem_tag).basis_fun_coeff_(1) *
-                                     adjacency_elem_integral.tri_basis_fun_.row(adjacency_integral_order).transpose();
+    parent_conserved_var.noalias() =
+        solver.tri_.elem_(elem_tag).basis_fun_coeff_(1) *
+        adjacency_elem_integral.tri_.adjacency_basis_fun_.row(adjacency_integral_order).transpose();
   } else if constexpr (MeshT == MeshType::Quad) {
-    parent_conserved_var.noalias() = elem_solver.quad_(elem_tag).basis_fun_coeff_(1) *
-                                     adjacency_elem_integral.quad_basis_fun_.row(adjacency_integral_order).transpose();
+    parent_conserved_var.noalias() =
+        solver.quad_.elem_(elem_tag).basis_fun_coeff_(1) *
+        adjacency_elem_integral.quad_.adjacency_basis_fun_.row(adjacency_integral_order).transpose();
   }
 }
 
-template <int PolyOrder, ElemType ElemT, EquModel EquModelT>
+template <PolyOrder P, ElemType ElemT, EquModel EquModelT>
 inline void getParentVar(const int elem_topology, const Isize elem_tag, const Isize adjacency_integral_order,
-                         const AdjacencyElemIntegral<PolyOrder, ElemT, MeshType::TriQuad>& adjacency_elem_integral,
-                         const ElemSolver<2, PolyOrder, MeshType::TriQuad, EquModelT>& elem_solver,
+                         const AdjacencyElemIntegral<P, ElemT, MeshType::TriQuad>& adjacency_elem_integral,
+                         const Solver<2, P, EquModelT, MeshType::TriQuad>& solver,
                          Eigen::Vector<Real, 4>& parent_conserved_var) {
   switch (elem_topology) {
   case getTopology<ElemType::Tri>():
-    parent_conserved_var.noalias() = elem_solver.tri_(elem_tag).basis_fun_coeff_(1) *
-                                     adjacency_elem_integral.tri_basis_fun_.row(adjacency_integral_order).transpose();
+    parent_conserved_var.noalias() =
+        solver.tri_.elem_(elem_tag).basis_fun_coeff_(1) *
+        adjacency_elem_integral.tri_.adjacency_basis_fun_.row(adjacency_integral_order).transpose();
     break;
   case getTopology<ElemType::Quad>():
-    parent_conserved_var.noalias() = elem_solver.quad_(elem_tag).basis_fun_coeff_(1) *
-                                     adjacency_elem_integral.quad_basis_fun_.row(adjacency_integral_order).transpose();
+    parent_conserved_var.noalias() =
+        solver.quad_.elem_(elem_tag).basis_fun_coeff_(1) *
+        adjacency_elem_integral.quad_.adjacency_basis_fun_.row(adjacency_integral_order).transpose();
     break;
   }
 }

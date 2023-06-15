@@ -23,6 +23,8 @@ add_custom_target(iwyu-search
     -Xiwyu
     --mapping_file=${PROJECT_SOURCE_DIR}/.iwyu.imp
     -Xiwyu
+    --no_fwd_decls
+    -Xiwyu
     --max_line_length=120
     -Xiwyu
     --update_comments

@@ -21,12 +21,12 @@ template <EquModel EquModelT>
 inline consteval int getVarNum(int dim);
 
 template <>
-inline consteval int getVarNum<EquModel::Euler>(int dim) {
+inline consteval int getVarNum<EquModel::Euler>(const int dim) {
   return dim + 2;
 }
 
 template <>
-inline consteval int getVarNum<EquModel::NS>(int dim) {
+inline consteval int getVarNum<EquModel::NS>(const int dim) {
   return dim + 2;
 }
 

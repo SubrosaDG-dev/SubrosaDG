@@ -18,15 +18,11 @@
 
 #include "basic/constant.hpp"
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 #include "mesh/get_elem_info.hpp"
+#include "mesh/mesh_structure.hpp"
 
 namespace SubrosaDG {
-
-enum class MeshType;
-template <int Dim, ElemType ElemT, MeshType MeshT>
-struct AdjacencyElemMesh;
-enum class ElemType;
-enum class ElemType;
 
 template <ElemType ElemT>
 inline void calNormVec(const Eigen::Matrix<Real, 2, getNodeNum<ElemT>()>& node, Eigen::Vector<Real, 2>& norm_vec) {

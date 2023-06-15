@@ -10,13 +10,9 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-// clang-format off
+#include <gtest/gtest.h>
 
-#include <gtest/gtest.h>          // for InitGoogleTest, RUN_ALL_TESTS
-
-#include "basic/environment.hpp"  // for EnvGardian
-
-// clang-format on
+#include "SubrosaDG"
 
 int main(int argc, char* argv[]) {
   testing::InitGoogleTest(&argc, argv);

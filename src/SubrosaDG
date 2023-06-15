@@ -1,5 +1,5 @@
 /**
- * @file subrosa_dg.hpp
+ * @file SubroseDG
  * @brief The main head file of SubroseDG project.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -13,8 +13,11 @@
 #ifndef SUBROSA_DG_HPP_
 #define SUBROSA_DG_HPP_
 
+// clang-format off
+
 // IWYU pragma: begin_exports
 
+#include "cmake.hpp"
 #include "basic/concept.hpp"
 #include "basic/config.hpp"
 #include "basic/constant.hpp"
@@ -22,7 +25,6 @@
 #include "basic/enum.hpp"
 #include "basic/environment.hpp"
 #include "basic/macro.hpp"
-#include "cmake.hpp"
 #include "integral/cal_basisfun_num.hpp"
 #include "integral/get_integral.hpp"
 #include "integral/get_integral_num.hpp"
@@ -30,6 +32,7 @@
 #include "integral/integral_structure.hpp"
 #include "mesh/element/cal_measure.hpp"
 #include "mesh/element/cal_norm_vec.hpp"
+#include "mesh/element/cal_projection_measure.hpp"
 #include "mesh/element/get_adjacency_mesh.hpp"
 #include "mesh/element/get_elem_mesh.hpp"
 #include "mesh/element/get_jacobian.hpp"
@@ -39,20 +42,27 @@
 #include "mesh/mesh_structure.hpp"
 #include "solver/convective_flux/cal_roe_flux.hpp"
 #include "solver/convective_flux/cal_wall_flux.hpp"
-#include "solver/elem_integral/cal_adjacency_integral.hpp"
-#include "solver/elem_integral/cal_elem_integral.hpp"
-#include "solver/elem_integral/store_to_elem.hpp"
-#include "solver/equation/update_fun_coeff.hpp"
+#include "solver/equation/cal_absolute_error.hpp"
 #include "solver/equation/cal_residual.hpp"
+#include "solver/equation/update_fun_coeff.hpp"
+#include "solver/get_solver.hpp"
 #include "solver/init_solver.hpp"
 #include "solver/solver_structure.hpp"
-#include "solver/time_integral/cal_delta_time.hpp"
-#include "solver/time_integral/step_time.hpp"
+#include "solver/space_discrete/cal_adjacency_integral.hpp"
+#include "solver/space_discrete/cal_elem_integral.hpp"
+#include "solver/space_discrete/store_to_elem.hpp"
+#include "solver/time_discrete/cal_delta_time.hpp"
+#include "solver/time_discrete/step_time.hpp"
+#include "solver/time_discrete/time_solver.hpp"
 #include "solver/variable/cal_conserved_var.hpp"
 #include "solver/variable/cal_convective_var.hpp"
 #include "solver/variable/cal_primitive_var.hpp"
 #include "solver/variable/get_parent_var.hpp"
+#include "solver/variable/get_var_num.hpp"
+#include "utils/version.hpp"
 
 // IWYU pragma: end_exports
+
+// clang-format on
 
 #endif  // SUBROSA_DG_HPP_

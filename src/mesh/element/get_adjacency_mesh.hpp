@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <functional>
 #include <map>
-#include <ranges>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -39,17 +38,17 @@ struct AdjacencyElemMeshSupplemental {
   std::vector<Isize> index_;
 };
 
-template <ElemType ElemT, MeshType MeshT>
-  requires Is2dElem<ElemT>
+template <ElemType ParentElemT, MeshType MeshT>
+  requires Is2dElem<ParentElemT>
 inline void getAdjacencyParentElem(std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map) {
   std::vector<Usize> edge_nodes_tags;
-  gmsh::model::mesh::getElementEdgeNodes(getTopology<ElemT>(), edge_nodes_tags);
+  gmsh::model::mesh::getElementEdgeNodes(getTopology<ParentElemT>(), edge_nodes_tags);
   std::vector<int> edge_orientations;
   std::vector<Usize> edge_tags;
   gmsh::model::mesh::getEdges(edge_nodes_tags, edge_tags, edge_orientations);
   std::vector<Usize> elem_tags;
   std::vector<Usize> elem_node_tags;
-  gmsh::model::mesh::getElementsByType(getTopology<ElemT>(), elem_tags, elem_node_tags);
+  gmsh::model::mesh::getElementsByType(getTopology<ParentElemT>(), elem_tags, elem_node_tags);
   for (Usize i = 0; i < edge_tags.size(); i++) {
     if (!adjacency_elem_map.contains(static_cast<Isize>(edge_tags[i]))) {
       adjacency_elem_map[static_cast<Isize>(edge_tags[i])].is_recorded_ = false;
@@ -58,11 +57,11 @@ inline void getAdjacencyParentElem(std::map<Isize, AdjacencyElemMeshSupplemental
     } else {
       adjacency_elem_map[static_cast<Isize>(edge_tags[i])].is_recorded_ = true;
     }
-    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(elem_tags[i / getNodeNum<ElemT>()] -
+    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(elem_tags[i / getNodeNum<ParentElemT>()] -
                                                                              elem_tags.front());
-    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(i % getNodeNum<ElemT>());
+    adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(i % getNodeNum<ParentElemT>());
     if constexpr (IsMixed<MeshT>) {
-      adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(getTopology<ElemT>());
+      adjacency_elem_map[static_cast<Isize>(edge_tags[i])].index_.emplace_back(getTopology<ParentElemT>());
     }
   }
 }

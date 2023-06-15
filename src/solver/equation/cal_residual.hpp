@@ -13,56 +13,37 @@
 #ifndef SUBROSA_DG_CAL_RESIDUAL_HPP_
 #define SUBROSA_DG_CAL_RESIDUAL_HPP_
 
-#include <Eigen/Core>
-
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
-#include "integral/cal_basisfun_num.hpp"
-#include "integral/get_integral_num.hpp"
-#include "mesh/get_elem_info.hpp"
+#include "integral/integral_structure.hpp"
+#include "mesh/mesh_structure.hpp"
+#include "solver/solver_structure.hpp"
 
 namespace SubrosaDG {
 
-template <int Dim, ElemType ElemT>
-struct ElemMesh;
-template <int Dim, MeshType MeshT>
-struct Mesh;
-template <int PolyOrder, ElemType ElemT>
-struct ElemIntegral;
-template <int PolyOrder, ElemType ElemT, MeshType MeshT>
-struct AdjacencyElemIntegral;
-template <int Dim, int PolyOrder, MeshType MeshT>
-struct Integral;
-template <int Dim, int PolyOrder, ElemType ElemT, EquModel EquModelT>
-struct PerElemSolver;
-template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
-struct ElemSolver;
-
-template <int PolyOrder, ElemType ElemT, MeshType MeshT>
-inline void calResidual(
-    const ElemMesh<2, ElemT>& elem_mesh, const ElemIntegral<PolyOrder, ElemT>& elem_integral,
-    const Eigen::Matrix<Real, getElemAdjacencyIntegralNum<ElemT>(PolyOrder), calBasisFunNum<ElemT>(PolyOrder),
-                        Eigen::RowMajor>& parent_basis_fun,
-    Eigen::Vector<PerElemSolver<2, PolyOrder, ElemT, EquModel::Euler>, Eigen::Dynamic>& elem_solver) {
+template <PolyOrder P, ElemType ElemT>
+inline void calElemResidual(const ElemMesh<2, ElemT>& elem_mesh, const ElemIntegral<P, ElemT>& elem_integral,
+                            const ElemAdjacencyIntegral<P, ElemT>& elem_adjacency_integral,
+                            ElemSolver<2, P, ElemT, EquModel::Euler>& elem_solver) {
   for (Isize i = 0; i < elem_mesh.num_; i++) {
-    for (Isize j = 0; j < elem_integral.kIntegralNum; j++) {
-      elem_solver(i).residual_.noalias() = elem_solver(i).elem_integral_ * elem_integral.grad_basis_fun_ -
-                                           elem_solver(i).adjacency_integral_ * parent_basis_fun;
-    }
+    elem_solver.elem_(i).residual_.noalias() =
+        elem_solver.elem_(i).elem_integral_ * elem_integral.grad_basis_fun_ -
+        elem_solver.elem_(i).adjacency_integral_ * elem_adjacency_integral.adjacency_basis_fun_;
   }
 }
 
-template <int PolyOrder, ElemType ElemT, MeshType MeshT>
-inline void calResidual(const Mesh<2, MeshT>& mesh, const Integral<2, PolyOrder, MeshT>& integral,
-                        ElemSolver<2, PolyOrder, MeshT, EquModel::Euler>& elem_solver) {
+template <PolyOrder P, MeshType MeshT>
+inline void calResidual(const Mesh<2, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
+                        Solver<2, P, EquModel::Euler, MeshT>& solver) {
   if constexpr (HasTri<MeshT>) {
-    calResidual(mesh.tri_, integral.tri_, integral.tri_adjacency_, elem_solver.tri_);
+    calElemResidual(mesh.tri_, integral.tri_, integral.line_.tri_, solver.tri_);
   }
   if constexpr (HasQuad<MeshT>) {
-    calResidual(mesh.quad_, integral.quad_, integral.quad_adjacency_, elem_solver.quad_);
+    calElemResidual(mesh.quad_, integral.quad_, integral.line_.quad_, solver.quad_);
   }
 }
+
 }  // namespace SubrosaDG
 
 #endif  // SUBROSA_DG_CAL_RESIDUAL_HPP_

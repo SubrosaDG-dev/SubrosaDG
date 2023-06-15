@@ -17,28 +17,22 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
+#include <Eigen/LU>
+#include <algorithm>
 #include <vector>
 
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
-#include "integral/cal_basisfun_num.hpp"
-#include "integral/get_integral_num.hpp"
 #include "integral/get_standard.hpp"
 #include "integral/integral_structure.hpp"
 #include "mesh/get_elem_info.hpp"
 
 namespace SubrosaDG {
 
-template <int Dim, int PolyOrder, MeshType MeshT>
-struct Integral;
-template <int PolyOrder, ElemType ElemT, MeshType MeshT>
-struct AdjacencyElemIntegral;
-
-template <int PolyOrder, ElemType ElemT>
-inline std::vector<double> getElemGaussQuad(const int gauss_accuracy,
-                                            ElemGaussQuad<PolyOrder, ElemT>& elem_gauss_quad) {
-  using T = ElemIntegral<PolyOrder, ElemT>;
+template <PolyOrder P, ElemType ElemT>
+inline std::vector<double> getElemGaussQuad(const int gauss_accuracy, ElemGaussQuad<P, ElemT>& elem_gauss_quad) {
+  using T = ElemIntegral<P, ElemT>;
   getElemStandard<ElemT>();
   std::vector<double> local_coords;
   std::vector<double> weights;
@@ -50,15 +44,16 @@ inline std::vector<double> getElemGaussQuad(const int gauss_accuracy,
   return local_coords;
 }
 
-template <int PolyOrder, ElemType ElemT>
-inline void getElemIntegral(ElemIntegral<PolyOrder, ElemT>& elem_integral) {
-  using T = ElemIntegral<PolyOrder, ElemT>;
-  std::vector<double> local_coords = getElemGaussQuad(2 * PolyOrder, elem_integral);
+template <PolyOrder P, ElemType ElemT>
+inline void getElemIntegral(ElemIntegral<P, ElemT>& elem_integral) {
+  using T = ElemIntegral<P, ElemT>;
+  std::vector<double> local_coords = getElemGaussQuad(2 * static_cast<int>(P), elem_integral);
   int num_components;
   int num_orientations;
   std::vector<double> basis_functions;
-  gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(), local_coords, fmt::format("Lagrange{}", PolyOrder),
-                                       num_components, basis_functions, num_orientations);
+  gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(), local_coords,
+                                       fmt::format("Lagrange{}", static_cast<int>(P)), num_components, basis_functions,
+                                       num_orientations);
   for (Isize i = 0; i < T::kIntegralNum; i++) {
     for (Isize j = 0; j < T::kBasisFunNum; j++) {
       elem_integral.basis_fun_(i, j) = static_cast<Real>(basis_functions[static_cast<Usize>(i * T::kBasisFunNum + j)]);
@@ -69,8 +64,9 @@ inline void getElemIntegral(ElemIntegral<PolyOrder, ElemT>& elem_integral) {
        (elem_integral.basis_fun_.array().colwise() * elem_integral.weight_.array()).matrix())
           .inverse();
   std::vector<double> grad_basis_functions;
-  gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(), local_coords, fmt::format("GradLagrange{}", PolyOrder),
-                                       num_components, grad_basis_functions, num_orientations);
+  gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(), local_coords,
+                                       fmt::format("GradLagrange{}", static_cast<int>(P)), num_components,
+                                       grad_basis_functions, num_orientations);
   for (Isize i = 0; i < T::kIntegralNum; i++) {
     for (Isize j = 0; j < T::kBasisFunNum; j++) {
       for (Isize k = 0; k < getDim<ElemT>(); k++) {
@@ -81,13 +77,11 @@ inline void getElemIntegral(ElemIntegral<PolyOrder, ElemT>& elem_integral) {
   }
 }
 
-template <int PolyOrder, ElemType ElemT, ElemType ParentElemT, MeshType MeshT>
-inline void getAdjacencyElemIntegralFromParent(
-    const std::vector<double>& coords_basis_functions,
-    Eigen::Matrix<Real, getElemAdjacencyIntegralNum<ParentElemT>(PolyOrder), calBasisFunNum<ParentElemT>(PolyOrder),
-                  Eigen::RowMajor>& parent_basis_fun) {
-  using T = AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>;
-  using ParentT = ElemIntegral<PolyOrder, ParentElemT>;
+template <PolyOrder P, ElemType ElemT, ElemType ParentElemT, MeshType MeshT>
+inline void getAdjacencyElemIntegralFromParent(const std::vector<double>& coords_basis_functions,
+                                               ElemAdjacencyIntegral<P, ParentElemT>& elem_adjacency_integral) {
+  using T = AdjacencyElemIntegral<P, ElemT, MeshT>;
+  using ParentT = ElemIntegral<P, ParentElemT>;
   Eigen::Matrix<double, 3, T::kIntegralNum * getAdjacencyNum<ParentElemT>()> parent_coords =
       Eigen::Matrix<double, 3, T::kIntegralNum * getAdjacencyNum<ParentElemT>()>::Zero();
   for (Isize i = 0; i < getAdjacencyNum<ParentElemT>(); i++) {
@@ -105,34 +99,35 @@ inline void getAdjacencyElemIntegralFromParent(
   std::vector<double> basis_functions;
   gmsh::model::mesh::getBasisFunctions(
       getTopology<ParentElemT>(), {parent_coords.data(), parent_coords.data() + parent_coords.size()},
-      fmt::format("Lagrange{}", PolyOrder), num_components, basis_functions, num_orientations);
+      fmt::format("Lagrange{}", static_cast<int>(P)), num_components, basis_functions, num_orientations);
   for (Isize i = 0; i < T::kIntegralNum * getAdjacencyNum<ParentElemT>(); i++) {
     for (Isize j = 0; j < ParentT::kBasisFunNum; j++) {
-      parent_basis_fun(i, j) = static_cast<Real>(basis_functions[static_cast<Usize>(i * ParentT::kBasisFunNum + j)]);
+      elem_adjacency_integral.adjacency_basis_fun_(i, j) =
+          static_cast<Real>(basis_functions[static_cast<Usize>(i * ParentT::kBasisFunNum + j)]);
     }
   }
 }
 
-template <int PolyOrder, ElemType ElemT, MeshType MeshT>
-inline void getAdjacencyElemIntegral(AdjacencyElemIntegral<PolyOrder, ElemT, MeshT>& adjacency_elem_integral) {
-  std::vector<double> local_coords = getElemGaussQuad(2 * PolyOrder + 1, adjacency_elem_integral);
+template <PolyOrder P, ElemType ElemT, MeshType MeshT>
+inline void getAdjacencyElemIntegral(AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral) {
+  std::vector<double> local_coords = getElemGaussQuad(2 * static_cast<int>(P) + 1, adjacency_elem_integral);
   int num_components;
   int num_orientations;
   std::vector<double> cooords_basis_functions;
   gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(), local_coords, "Lagrange1", num_components,
                                        cooords_basis_functions, num_orientations);
   if constexpr (HasTri<MeshT>) {
-    getAdjacencyElemIntegralFromParent<PolyOrder, ElemT, ElemType::Tri, MeshT>(cooords_basis_functions,
-                                                                               adjacency_elem_integral.tri_basis_fun_);
+    getAdjacencyElemIntegralFromParent<P, ElemT, ElemType::Tri, MeshT>(cooords_basis_functions,
+                                                                       adjacency_elem_integral.tri_);
   }
   if constexpr (HasQuad<MeshT>) {
-    getAdjacencyElemIntegralFromParent<PolyOrder, ElemT, ElemType::Quad, MeshT>(
-        cooords_basis_functions, adjacency_elem_integral.quad_basis_fun_);
+    getAdjacencyElemIntegralFromParent<P, ElemT, ElemType::Quad, MeshT>(cooords_basis_functions,
+                                                                        adjacency_elem_integral.quad_);
   }
 }
 
-template <int PolyOrder, MeshType MeshT>
-inline void getIntegral(Integral<2, PolyOrder, MeshT>& integral) {
+template <PolyOrder P, MeshType MeshT>
+inline void getIntegral(Integral<2, P, MeshT>& integral) {
   if constexpr (HasTri<MeshT>) {
     getElemIntegral(integral.tri_);
   }

@@ -13,36 +13,37 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <vector>
 
-#include "basic/data_type.hpp"
-#include "basic/environment.hpp"
-#include "cmake.hpp"
+#include "SubrosaDG"
 
 void generateMesh() {
-  std::ifstream fin{(SubrosaDG::kProjectSourceDir / "examples/naca0012/naca0012.dat"), std::ios_base::in};
-  SubrosaDG::Isize number{(fin >> number, number)};
-  Eigen::Matrix<double, 3, Eigen::Dynamic> naca0012_point{3, number};
-  for (SubrosaDG::Isize i = 0; i < number; i++) {
-    fin >> naca0012_point(0, i) >> naca0012_point(1, i) >> naca0012_point(2, i);
-  }
-  fin.close();
+  auto naca0012_fun = [](double x) -> double {
+    return 0.594689181 * (0.298222773 * std::sqrt(x) - 0.127125232 * x - 0.357907906 * x * x + 0.291984971 * x * x * x -
+                          0.105174606 * x * x * x * x);
+  };
+  constexpr int kNaca0012PointNum = 101;
+  Eigen::Matrix<double, kNaca0012PointNum, 3, Eigen::RowMajor> naca0012_point;
+  naca0012_point.col(0) = Eigen::VectorXd::LinSpaced(kNaca0012PointNum, 0, 1);
+  naca0012_point.col(1) = naca0012_point.col(0).unaryExpr(naca0012_fun);
+  naca0012_point.col(2) = Eigen::VectorXd::Zero(kNaca0012PointNum);
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_points;
   farfield_points << -10, -10, 0, 10, -10, 0, 10, 10, 0, -10, 10, 0;
-  constexpr double kLc1 = 1.0;
-  constexpr double kLc2 = 1e-2;
   std::vector<int> farfield_point_index;
   std::vector<int> naca0012_point_index;
   std::vector<int> farfield_line_index;
   gmsh::model::add("naca0012");
   for (const auto& row : farfield_points.rowwise()) {
-    farfield_point_index.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), kLc1));
+    farfield_point_index.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 1.0));
   }
-  for (const auto& col : naca0012_point.colwise()) {
-    naca0012_point_index.emplace_back(gmsh::model::geo::addPoint(col.x(), col.y(), col.z(), kLc2));
+  for (const auto& row : naca0012_point.rowwise()) {
+    naca0012_point_index.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 0.01));
+  }
+  for (const auto& row : naca0012_point.colwise().reverse()(Eigen::seq(1, Eigen::last - 1), Eigen::all).rowwise()) {
+    naca0012_point_index.emplace_back(gmsh::model::geo::addPoint(row.x(), -row.y(), row.z(), 0.01));
   }
   for (SubrosaDG::Usize i = 0; i < farfield_point_index.size(); i++) {
     farfield_line_index.emplace_back(gmsh::model::geo::addLine(

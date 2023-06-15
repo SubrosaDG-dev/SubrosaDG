@@ -14,6 +14,8 @@
 #define SUBROSA_DG_GET_MESH_SUPPLEMENTAL_HPP_
 
 #include <gmsh.h>
+
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -24,14 +26,11 @@
 #include <vector>
 
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 #include "mesh/get_elem_info.hpp"
+#include "mesh/mesh_structure.hpp"
 
 namespace SubrosaDG {
-
-template <ElemType ElemT>
-struct MeshSupplemental;
-enum class ElemType;
-enum class ElemType;
 
 struct PhysicalGroup {
   std::string name_;

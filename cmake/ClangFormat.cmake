@@ -11,7 +11,7 @@
 #]]
 
 # get all source files
-set(CLANG_FORMAT_SOURCE_FILES ${SUBROSA_DG_SOURCES} ${SUBROSA_DG_EXAMPLES} ${SUBROSA_DG_TESTS} ${SUBROSA_DG_CMAKE_IN})
+set(CLANG_FORMAT_SOURCE_FILES ${SUBROSA_DG_SOURCES} ${SUBROSA_DG_EXAMPLES} ${SUBROSA_DG_TESTS})
 
 # add clang-format target
 add_custom_target(clang-format

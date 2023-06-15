@@ -24,7 +24,7 @@ namespace SubrosaDG {
 
 inline constexpr std::string_view kSubrosaDGVersionString{"@SUBROSA_DG_VERSION_STRING@"};
 inline const std::filesystem::path kProjectSourceDir{"@PROJECT_SOURCE_DIR@"};
-inline constexpr Usize kNumberOfPhysicalCores {@NUMBER_OF_PHYSICAL_CORES@};
+inline constexpr Usize kNumberOfPhysicalCores{@NUMBER_OF_PHYSICAL_CORES@};
 
 }  // namespace SubrosaDG
 

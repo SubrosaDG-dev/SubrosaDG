@@ -71,7 +71,8 @@ project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "Su
 
 # message error if build in source dir
 if(${PROJECT_SOURCE_DIR} STREQUAL ${PROJECT_BINARY_DIR})
-    message(FATAL_ERROR "In-source builds not allowed. Please make a new directory (called a build directory) and run CMake from there.")
+    message(FATAL_ERROR "In-source builds not allowed. Please make a new directory (called a build directory) and run \
+            CMake from there.")
 endif()
 
 # message error if not build with clang
@@ -276,7 +277,8 @@ string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion 
 # string(APPEND SUBROSA_DG_CXX_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
 string(APPEND SUBROSA_DG_CXX_FLAGS_DEBUG "${SUBROSA_DG_CXX_FLAGS} ${SUBROSA_DG_CXX_WARNING_FLAGS} \
     ${SUBROSA_DG_CXX_COVER_FLAGS} -O0 -g3")
-string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "${SUBROSA_DG_CXX_FLAGS} -O3 -DNDEBUG $<$<PLATFORM_ID:Linux>:-march=native>")
+string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "${SUBROSA_DG_CXX_FLAGS} -O3 -DNDEBUG \
+    $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native>")
 
 # set different compile option
 set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
@@ -286,6 +288,9 @@ string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
 # create and include the cmake header
 configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake.hpp.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/cmake.hpp @ONLY)
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
+
+# create and include the SubrosaDG header
+configure_file(${PROJECT_SOURCE_DIR}/cmake/SubrosaDG.in ${SUBROSA_DG_SOURCES_DIR}/SubrosaDG @ONLY)
 
 # add include directory and compiler flags
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/src)

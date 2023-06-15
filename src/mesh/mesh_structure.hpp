@@ -19,7 +19,6 @@
 #include <filesystem>
 #include <utility>
 
-#include "basic/concept.hpp"  // IWYU pragma: keep
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
 #include "mesh/get_elem_info.hpp"
@@ -89,6 +88,8 @@ template <int Dim>
 struct MeshBase {
   Isize node_num_;
   Eigen::Matrix<Real, Dim, Eigen::Dynamic> node_;
+
+  Isize elem_num_{0};
 
   inline MeshBase(const std::filesystem::path& mesh_file) { gmsh::open(mesh_file.string()); }
   inline ~MeshBase() { gmsh::clear(); }

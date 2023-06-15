@@ -14,19 +14,15 @@
 #define SUBROSA_DG_GET_JACOBIAN_HPP_
 
 #include <gmsh.h>
+
+#include <algorithm>
 #include <vector>
 
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "mesh/mesh_structure.hpp"
 
 namespace SubrosaDG {
-
-enum class MeshType;
-template <int Dim, ElemType ElemT>
-struct ElemMesh;
-template <int Dim, ElemType ElemT, MeshType MeshT>
-struct AdjacencyElemMesh;
-enum class ElemType;
-enum class ElemType;
 
 template <int Dim, ElemType ElemT>
 inline void getElemJacobian(ElemMesh<Dim, ElemT>& elem_mesh) {

@@ -27,13 +27,9 @@
 #include "mesh/element/get_adjacency_mesh.hpp"
 #include "mesh/element/get_elem_mesh.hpp"
 #include "mesh/element/get_jacobian.hpp"
+#include "mesh/mesh_structure.hpp"
 
 namespace SubrosaDG {
-
-template <int Dim>
-struct MeshBase;
-template <int Dim, MeshType MeshT>
-struct Mesh;
 
 template <int Dim>
 inline void getNodes(MeshBase<Dim>& mesh_base) {
@@ -52,6 +48,16 @@ inline void getNodes(MeshBase<Dim>& mesh_base) {
 }
 
 template <MeshType MeshT>
+inline void getElemNum(Mesh<2, MeshT>& mesh) {
+  if constexpr (HasTri<MeshT>) {
+    mesh.elem_num_ += mesh.tri_.num_;
+  }
+  if constexpr (HasQuad<MeshT>) {
+    mesh.elem_num_ += mesh.quad_.num_;
+  }
+}
+
+template <MeshType MeshT>
 inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<2, MeshT>& mesh) {
   getNodes(mesh);
   if constexpr (HasTri<MeshT>) {
@@ -64,6 +70,7 @@ inline void getMesh(const std::unordered_map<std::string_view, Boundary>& bounda
     calElemProjectionMeasure(mesh.quad_);
     getElemJacobian(mesh.quad_);
   }
+  getElemNum(mesh);
   getAdjacencyElemMesh<2, ElemType::Line, MeshT>(mesh.node_, boundary_type_map, mesh.line_);
   calAdjacencyElemNormVec(mesh.line_);
   getElemJacobian(mesh.line_);

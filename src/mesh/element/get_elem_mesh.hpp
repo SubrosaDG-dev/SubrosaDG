@@ -14,19 +14,17 @@
 #define SUBROSA_DG_GET_ELEM_MESH_HPP_
 
 #include <gmsh.h>
+
 #include <Eigen/Core>
 #include <utility>
 #include <vector>
 
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 #include "mesh/get_elem_info.hpp"
+#include "mesh/mesh_structure.hpp"
 
 namespace SubrosaDG {
-
-template <int Dim, ElemType ElemT>
-struct ElemMesh;
-enum class ElemType;
-enum class ElemType;
 
 template <int Dim, ElemType ElemT>
 inline void getElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& nodes, ElemMesh<Dim, ElemT>& elem_mesh) {

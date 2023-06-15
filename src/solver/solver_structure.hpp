@@ -14,92 +14,82 @@
 #define SUBROSA_DG_SOLVER_STRUCTURE_HPP_
 
 #include <Eigen/Core>
-#include <array>
 
 #include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
 #include "integral/cal_basisfun_num.hpp"
 #include "integral/get_integral_num.hpp"
+#include "solver/time_discrete/time_solver.hpp"
 
 namespace SubrosaDG {
 
-template <EquModel EquModelT>
-struct ThermoModel;
-template <TimeDiscrete TimeDiscreteT>
-struct TimeSolver;
-
-template <>
-struct TimeSolver<TimeDiscrete::ExplicitEuler> : TimeVar {
-  inline static Real delta_t;
-  inline static constexpr std::array<Real, 1> kStepCoeffs{0.0};
-
-  inline constexpr TimeSolver(const TimeVar& time_var) : TimeVar(time_var) {}
-};
-
-template <>
-struct TimeSolver<TimeDiscrete::RungeKutta3> : TimeVar {
-  inline static Real delta_t;
-  inline static constexpr std::array<Real, 3> kStepCoeffs{0.0, 3.0 / 4.0, 1.0 / 3.0};
-
-  inline constexpr TimeSolver(const TimeVar& time_var) : TimeVar(time_var) {}
-};
-
-template <int Dim, int PolyOrder, ElemType ElemT>
+template <int Dim, PolyOrder P, ElemType ElemT>
 struct PerElemSolverBase {
-  Eigen::Vector<Eigen::Matrix<Real, Dim + 2, calBasisFunNum<ElemT>(PolyOrder)>, 2> basis_fun_coeff_;
-  Eigen::Matrix<Real, Dim + 2, getElemAdjacencyIntegralNum<ElemT>(PolyOrder)> adjacency_integral_;
-  Eigen::Matrix<Real, Dim + 2, getElemIntegralNum<ElemT>(PolyOrder) * Dim> elem_integral_;
-  Eigen::Matrix<Real, Dim + 2, calBasisFunNum<ElemT>(PolyOrder)> residual_;
+  Eigen::Vector<Eigen::Matrix<Real, Dim + 2, calBasisFunNum<ElemT>(P)>, 2> basis_fun_coeff_;
+  Eigen::Matrix<Real, Dim + 2, getElemAdjacencyIntegralNum<ElemT>(P)> adjacency_integral_;
+  Eigen::Matrix<Real, Dim + 2, getElemIntegralNum<ElemT>(P) * Dim> elem_integral_;
+  Eigen::Matrix<Real, Dim + 2, calBasisFunNum<ElemT>(P)> residual_;
 };
 
-template <int Dim, int PolyOrder, ElemType ElemT, EquModel EquModelT>
+template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
 struct PerElemSolver;
 
-template <int Dim, int PolyOrder, ElemType ElemT>
-struct PerElemSolver<Dim, PolyOrder, ElemT, EquModel::Euler> : PerElemSolverBase<Dim, PolyOrder, ElemT> {};
+template <int Dim, PolyOrder P, ElemType ElemT>
+struct PerElemSolver<Dim, P, ElemT, EquModel::Euler> : PerElemSolverBase<Dim, P, ElemT> {};
 
-template <int Dim, int PolyOrder, ElemType ElemT>
-struct PerElemSolver<Dim, PolyOrder, ElemT, EquModel::NS> : PerElemSolverBase<Dim, PolyOrder, ElemT> {};
+template <int Dim, PolyOrder P, ElemType ElemT>
+struct PerElemSolver<Dim, P, ElemT, EquModel::NS> : PerElemSolverBase<Dim, P, ElemT> {};
 
-template <int Dim, int PolyOrder, MeshType MeshT, EquModel EquModelT>
-struct ElemSolver;
-
-template <int PolyOrder, EquModel EquModelT>
-struct ElemSolver<2, PolyOrder, MeshType::Tri, EquModelT> {
-  Eigen::Vector<PerElemSolver<2, PolyOrder, ElemType::Tri, EquModelT>, Eigen::Dynamic> tri_;
+template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
+struct ElemSolver {
+  Eigen::Vector<PerElemSolver<Dim, P, ElemT, EquModelT>, Eigen::Dynamic> elem_;
 };
 
-template <int PolyOrder, EquModel EquModelT>
-struct ElemSolver<2, PolyOrder, MeshType::Quad, EquModelT> {
-  Eigen::Vector<PerElemSolver<2, PolyOrder, ElemType::Quad, EquModelT>, Eigen::Dynamic> quad_;
+template <PolyOrder P, EquModel EquModelT>
+using TriElemSolver = ElemSolver<2, P, ElemType::Tri, EquModelT>;
+
+template <PolyOrder P, EquModel EquModelT>
+using QuadElemSolver = ElemSolver<2, P, ElemType::Quad, EquModelT>;
+
+template <int Dim, PolyOrder P, EquModel EquModelT, MeshType MeshT>
+struct Solver;
+
+template <PolyOrder P, EquModel EquModelT>
+struct Solver<2, P, EquModelT, MeshType::Tri> {
+  TriElemSolver<P, EquModelT> tri_;
 };
 
-template <int PolyOrder, EquModel EquModelT>
-struct ElemSolver<2, PolyOrder, MeshType::TriQuad, EquModelT> {
-  Eigen::Vector<PerElemSolver<2, PolyOrder, ElemType::Tri, EquModelT>, Eigen::Dynamic> tri_;
-  Eigen::Vector<PerElemSolver<2, PolyOrder, ElemType::Quad, EquModelT>, Eigen::Dynamic> quad_;
+template <PolyOrder P, EquModel EquModelT>
+struct Solver<2, P, EquModelT, MeshType::Quad> {
+  QuadElemSolver<P, EquModelT> quad_;
 };
 
-template <EquModel EquModelT, TimeDiscrete TimeDiscreteT>
-struct SolverBase {
-  TimeSolver<TimeDiscreteT> time_solver_;
-  ThermoModel<EquModelT> thermo_model_;
-
-  inline constexpr SolverBase(const TimeVar& time_var, const ThermoModel<EquModelT>& thermo_model)
-      : time_solver_(time_var), thermo_model_(thermo_model) {}
+template <PolyOrder P, EquModel EquModelT>
+struct Solver<2, P, EquModelT, MeshType::TriQuad> {
+  TriElemSolver<P, EquModelT> tri_;
+  QuadElemSolver<P, EquModelT> quad_;
 };
 
-template <int Dim, int PolyOrder, MeshType MeshT, ConvectiveFlux ConvectiveFluxT, TimeDiscrete TimeDiscreteT>
-struct SolverEuler : SolverBase<EquModel::Euler, TimeDiscreteT> {
-  ElemSolver<Dim, PolyOrder, MeshT, EquModel::Euler> elem_;
+template <int Dim, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
+struct SolverSupplementalBase {
+  const ThermoModel<EquModelT> thermo_model_;
+  const TimeSolver<TimeDiscreteT> time_solver_;
+  Real delta_t_;
+  Eigen::Vector<Real, Dim + 3> farfield_primitive_var_;
 
-  using SolverBase<EquModel::Euler, TimeDiscreteT>::SolverBase;
+  inline constexpr SolverSupplementalBase(const ThermoModel<EquModelT>& thermo_model, const TimeVar& time_var)
+      : thermo_model_(thermo_model), time_solver_(time_var) {}
 };
 
-template <int Dim, int PolyOrder, MeshType MeshT, ConvectiveFlux ConvectiveFluxT, ViscousFlux ViscousFluxT,
-          TimeDiscrete TimeDiscreteT>
-struct SolverNS {};
+template <int Dim, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
+struct SolverSupplemental;
+
+template <int Dim, TimeDiscrete TimeDiscreteT>
+struct SolverSupplemental<Dim, EquModel::Euler, TimeDiscreteT>
+    : SolverSupplementalBase<Dim, EquModel::Euler, TimeDiscreteT> {
+  using SolverSupplementalBase<Dim, EquModel::Euler, TimeDiscreteT>::SolverSupplementalBase;
+};
 
 }  // namespace SubrosaDG
 

@@ -16,14 +16,11 @@
 #include <Eigen/Core>
 
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 #include "mesh/get_elem_info.hpp"
+#include "mesh/mesh_structure.hpp"
 
 namespace SubrosaDG {
-
-template <int Dim, ElemType ElemT>
-struct ElemMesh;
-enum class ElemType;
-enum class ElemType;
 
 template <ElemType ElemT>
 inline void calProjectionMeasure(const Eigen::Matrix<Real, 2, getNodeNum<ElemT>()>& node,

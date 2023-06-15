@@ -18,40 +18,34 @@
 
 #include <Eigen/Core>
 #include <Eigen/LU>
-#include <array>
+#include <algorithm>
 #include <filesystem>
+#include <map>
 #include <memory>
+#include <stdexcept>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
-#include "basic/config.hpp"
-#include "basic/constant.hpp"
-#include "basic/data_type.hpp"
-#include "basic/enum.hpp"
-#include "cmake.hpp"
-#include "integral/get_integral.hpp"
-#include "integral/integral_structure.hpp"
-#include "mesh/element/cal_measure.hpp"
-#include "mesh/get_mesh.hpp"
-#include "mesh/mesh_structure.hpp"
-#include "solver/elem_integral/cal_adjacency_integral.hpp"
-#include "solver/elem_integral/cal_elem_integral.hpp"
-#include "solver/init_solver.hpp"
-#include "solver/solver_structure.hpp"
+#include "SubrosaDG"
 
 using namespace std::string_view_literals;
 
-inline constexpr SubrosaDG::TimeVar kTimeVar{1000, 0.1, -10};
+inline constexpr SubrosaDG::TimeVar kTimeVar{1000, 0.1, 1e-10};
 
-inline const std::unordered_map<std::string_view, SubrosaDG::Boundary> kBoundaryTMap{
-    {"bc-1", SubrosaDG::Boundary::Farfield}};
+inline constexpr SubrosaDG::SpatialDiscreteEuler<SubrosaDG::ConvectiveFlux::Roe> kSpatialDiscrete;
 
 inline constexpr SubrosaDG::ThermoModel<SubrosaDG::EquModel::Euler> kThermoModel{1.4, 1.0, 0.7142857142857143};
 
 inline const std::unordered_map<std::string_view, int> kRegionIdMap{{"vc-1"sv, 0}};
 
-inline constexpr std::array<SubrosaDG::InitVar<2>, 1> kInitVarVec{SubrosaDG::InitVar<2>{{1.0, 0.5}, 1.4, 1.0, 1.0}};
+inline const std::vector<SubrosaDG::FlowVar<2>> kFlowVar{SubrosaDG::FlowVar<2>{{1.0, 0.5}, 1.4, 1.0, 1.0}};
+
+inline const SubrosaDG::InitVar<2> kInitVar{kRegionIdMap, kFlowVar};
+
+inline const std::unordered_map<std::string_view, SubrosaDG::Boundary> kBoundaryTMap{
+    {"bc-1", SubrosaDG::Boundary::Farfield}};
 
 inline constexpr SubrosaDG::FarfieldVar<2> kFarfieldVar{{1.0, 0.5}, 1.4, 1.0, 1.0};
 
@@ -61,10 +55,9 @@ void generateMesh(const std::filesystem::path& mesh_file) {
   // gmsh::option::setNumber("Mesh.RecombinationAlgorithm", 1);
   Eigen::Matrix<double, 6, 3, Eigen::RowMajor> points;
   points << -1.0, -0.5, 0.0, 0.0, -0.5, 0.0, 1.0, -0.5, 0.0, 1.0, 0.5, 0.0, 0.0, 0.5, 0.0, -1.0, 0.5, 0.0;
-  constexpr double kLc1 = 0.5;
-  gmsh::model::add("test");
+  gmsh::model::add("test2d");
   for (const auto& row : points.rowwise()) {
-    gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), kLc1);
+    gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 0.5);
   }
   for (int i = 0; i < points.rows(); i++) {
     gmsh::model::geo::addLine(i + 1, (i + 1) % points.rows() + 1);
@@ -85,21 +78,26 @@ void generateMesh(const std::filesystem::path& mesh_file) {
 
 struct Test2d : testing::Test {
   static SubrosaDG::Mesh<2, SubrosaDG::MeshType::TriQuad>* mesh;
-  static SubrosaDG::Integral<2, 2, SubrosaDG::MeshType::TriQuad>* integral;
-  static SubrosaDG::SolverEuler<2, 2, SubrosaDG::MeshType::TriQuad, SubrosaDG::ConvectiveFlux::Roe,
-                                SubrosaDG::TimeDiscrete::ExplicitEuler>* solver;
+  static SubrosaDG::Integral<2, SubrosaDG::PolyOrder::P2, SubrosaDG::MeshType::TriQuad>* integral;
+  static SubrosaDG::Solver<2, SubrosaDG::PolyOrder::P2, SubrosaDG::EquModel::Euler, SubrosaDG::MeshType::TriQuad>*
+      solver;
+  static SubrosaDG::SolverSupplemental<2, SubrosaDG::EquModel::Euler, SubrosaDG::TimeDiscrete::ExplicitEuler>*
+      solver_supplemental;
 
   static void SetUpTestCase() {
-    std::filesystem::path mesh_file = SubrosaDG::kProjectSourceDir / "build/out/test/mesh/test.msh";
+    std::filesystem::path mesh_file = SubrosaDG::kProjectSourceDir / "build/out/test/mesh/test2d.msh";
     if (!std::filesystem::exists(mesh_file)) {
       generateMesh(mesh_file);
     }
     Test2d::mesh = new SubrosaDG::Mesh<2, SubrosaDG::MeshType::TriQuad>{mesh_file};
     SubrosaDG::getMesh(kBoundaryTMap, *Test2d::mesh);
-    Test2d::integral = new SubrosaDG::Integral<2, 2, SubrosaDG::MeshType::TriQuad>;
+    Test2d::integral = new SubrosaDG::Integral<2, SubrosaDG::PolyOrder::P2, SubrosaDG::MeshType::TriQuad>;
     SubrosaDG::getIntegral(*Test2d::integral);
-    Test2d::solver = new SubrosaDG::SolverEuler<2, 2, SubrosaDG::MeshType::TriQuad, SubrosaDG::ConvectiveFlux::Roe,
-                                                SubrosaDG::TimeDiscrete::ExplicitEuler>{kTimeVar, kThermoModel};
+    Test2d::solver =
+        new SubrosaDG::Solver<2, SubrosaDG::PolyOrder::P2, SubrosaDG::EquModel::Euler, SubrosaDG::MeshType::TriQuad>;
+    Test2d::solver_supplemental =
+        new SubrosaDG::SolverSupplemental<2, SubrosaDG::EquModel::Euler, SubrosaDG::TimeDiscrete::ExplicitEuler>{
+            kThermoModel, kTimeVar};
   }
 
   static void TearDownTestCase() {
@@ -109,13 +107,17 @@ struct Test2d : testing::Test {
     Test2d::integral = nullptr;
     delete Test2d::solver;
     Test2d::solver = nullptr;
+    delete Test2d::solver_supplemental;
+    Test2d::solver_supplemental = nullptr;
   }
 };
 
 SubrosaDG::Mesh<2, SubrosaDG::MeshType::TriQuad>* Test2d::mesh;
-SubrosaDG::Integral<2, 2, SubrosaDG::MeshType::TriQuad>* Test2d::integral;
-SubrosaDG::SolverEuler<2, 2, SubrosaDG::MeshType::TriQuad, SubrosaDG::ConvectiveFlux::Roe,
-                       SubrosaDG::TimeDiscrete::ExplicitEuler>* Test2d::solver;
+SubrosaDG::Integral<2, SubrosaDG::PolyOrder::P2, SubrosaDG::MeshType::TriQuad>* Test2d::integral;
+SubrosaDG::Solver<2, SubrosaDG::PolyOrder::P2, SubrosaDG::EquModel::Euler, SubrosaDG::MeshType::TriQuad>*
+    Test2d::solver;
+SubrosaDG::SolverSupplemental<2, SubrosaDG::EquModel::Euler, SubrosaDG::TimeDiscrete::ExplicitEuler>*
+    Test2d::solver_supplemental;
 
 TEST_F(Test2d, ElemMesh) {
   ASSERT_EQ(mesh->tri_.range_, std::make_pair(13L, 26L));
@@ -223,20 +225,18 @@ TEST_F(Test2d, ElemIntegral) {
 }
 
 TEST_F(Test2d, AdjacencyElemIntegral) {
-  Eigen::Vector<SubrosaDG::Real, 2> line_tri_basis_fun = integral->line_.tri_basis_fun_(Eigen::last, Eigen::lastN(2));
+  Eigen::Vector<SubrosaDG::Real, 2> line_tri_basis_fun =
+      integral->line_.tri_.adjacency_basis_fun_(Eigen::last, Eigen::lastN(2));
   ASSERT_NEAR(line_tri_basis_fun.x(), 0.0, SubrosaDG::kEpsilon);
   ASSERT_NEAR(line_tri_basis_fun.y(), 0.39999999999999997, SubrosaDG::kEpsilon);
 
-  Eigen::Vector<SubrosaDG::Real, 2> line_quad_basis_fun = integral->line_.quad_basis_fun_(Eigen::last, Eigen::lastN(2));
+  Eigen::Vector<SubrosaDG::Real, 2> line_quad_basis_fun =
+      integral->line_.quad_.adjacency_basis_fun_(Eigen::last, Eigen::lastN(2));
   ASSERT_NEAR(line_quad_basis_fun.x(), 0.39999999999999991, SubrosaDG::kEpsilon);
   ASSERT_NEAR(line_quad_basis_fun.y(), 0.0, SubrosaDG::kEpsilon);
 }
 
 TEST_F(Test2d, Develop) {
-  SubrosaDG::initSolver(*mesh, kRegionIdMap, kInitVarVec, solver->thermo_model_, solver->elem_);
-  SubrosaDG::calElemIntegral(mesh->tri_, integral->tri_, solver->thermo_model_, solver->elem_.tri_);
-  SubrosaDG::calElemIntegral(mesh->quad_, integral->quad_, solver->thermo_model_, solver->elem_.quad_);
-  SubrosaDG::calAdjacencyElemIntegral<2, SubrosaDG::ElemType::Line, SubrosaDG::MeshType::TriQuad,
-                                      SubrosaDG::EquModel::Euler, SubrosaDG::ConvectiveFlux::Roe>(
-      mesh->line_, integral->line_, kFarfieldVar, solver->thermo_model_, solver->elem_);
+  SubrosaDG::initSolver(*mesh, kInitVar, kFarfieldVar, *solver_supplemental, *solver);
+  SubrosaDG::stepTime<decltype(kSpatialDiscrete)>(*mesh, *integral, *solver_supplemental, *solver);
 }

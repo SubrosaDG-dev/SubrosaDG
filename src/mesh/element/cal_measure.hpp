@@ -14,21 +14,16 @@
 #define SUBROSA_DG_CAL_MEASURE_HPP_
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <memory>
 
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 #include "mesh/get_elem_info.hpp"
+#include "mesh/mesh_structure.hpp"
 
 namespace SubrosaDG {
-
-enum class MeshType;
-template <int Dim, ElemType ElemT>
-struct ElemMesh;
-template <int Dim, ElemType ElemT, MeshType MeshT>
-struct AdjacencyElemMesh;
-enum class ElemType;
-enum class ElemType;
 
 template <int Dim, ElemType ElemT>
   requires Is1dElem<ElemT>

@@ -16,14 +16,12 @@
 #include <Eigen/Core>
 #include <cmath>
 
+#include "basic/config.hpp"
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 #include "solver/variable/cal_convective_var.hpp"
 
 namespace SubrosaDG {
-
-enum class EquModel;
-template <EquModel EquModelT>
-struct ThermoModel;
 
 template <EquModel EquModelT>
 inline void calRoeFlux(const ThermoModel<EquModelT>& thermo_model, const Eigen::Vector<Real, 2>& norm_vec,
