@@ -10,7 +10,6 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-# function to extract version from version.h
 function(subrosa_dg_extract_version)
     file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/utils/version.hpp" file_contents)
     string(REGEX MATCH "SUBROSA_DG_VERSION_MAJOR ([0-9]+)" _ "${file_contents}")
@@ -37,7 +36,6 @@ function(subrosa_dg_extract_version)
     set(SUBROSA_DG_VERSION "${ver_major}.${ver_minor}.${ver_patch}" CACHE STRING "SUBROSA_DG_VERSION" FORCE)
 endfunction()
 
-# function to message tool version
 function(message_tool_version toolname toolpath)
     execute_process(
         COMMAND ${toolpath} --version
@@ -50,7 +48,6 @@ function(message_tool_version toolname toolpath)
     message(STATUS "Found ${toolname}: ${_output}")
 endfunction()
 
-# colorize CMake output
 # code adapted from stackoverflow: http://stackoverflow.com/a/19578320
 # from post authored by https://stackoverflow.com/users/2556117/fraser
 macro(define_colors)

@@ -31,8 +31,8 @@
 
 namespace SubrosaDG {
 
-template <int Dim>
-inline void getNodes(MeshBase<Dim>& mesh_base) {
+template <int Dim, PolyOrder P>
+inline void getNodes(MeshBase<Dim, P>& mesh_base) {
   std::vector<Usize> node_tags;
   std::vector<double> node_coords;
   std::vector<double> node_params;
@@ -47,8 +47,8 @@ inline void getNodes(MeshBase<Dim>& mesh_base) {
   }
 }
 
-template <MeshType MeshT>
-inline void getElemNum(Mesh<2, MeshT>& mesh) {
+template <PolyOrder P, MeshType MeshT>
+inline void getElemNum(Mesh<2, P, MeshT>& mesh) {
   if constexpr (HasTri<MeshT>) {
     mesh.elem_num_ += mesh.tri_.num_;
   }
@@ -57,8 +57,8 @@ inline void getElemNum(Mesh<2, MeshT>& mesh) {
   }
 }
 
-template <MeshType MeshT>
-inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<2, MeshT>& mesh) {
+template <PolyOrder P, MeshType MeshT>
+inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<2, P, MeshT>& mesh) {
   getNodes(mesh);
   if constexpr (HasTri<MeshT>) {
     getElemMesh(mesh.node_, mesh.tri_);

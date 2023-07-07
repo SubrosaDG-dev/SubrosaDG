@@ -10,17 +10,13 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-# set input and output files
 set(DOXYGEN_IN "${PROJECT_SOURCE_DIR}/docs/Doxyfile.in")
 set(DOXYGEN_OUT "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile")
 
-# request to configure the file
 configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
 
-# mkdir doxygen folder
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/doxygen)
 
-# note the option ALL which allows to build the docs together with the application
 add_custom_target(doxygen-doc ALL
     COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}

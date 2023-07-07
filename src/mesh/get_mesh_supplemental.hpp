@@ -15,7 +15,6 @@
 
 #include <gmsh.h>
 
-#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>

@@ -16,9 +16,10 @@
 #include <Eigen/Core>
 #include <array>
 
-#include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "config/flow_var.hpp"
+#include "config/thermo_model.hpp"
 
 namespace SubrosaDG {
 

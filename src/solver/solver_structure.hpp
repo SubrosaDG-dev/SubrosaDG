@@ -15,9 +15,10 @@
 
 #include <Eigen/Core>
 
-#include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "config/thermo_model.hpp"
+#include "config/time_var.hpp"
 #include "integral/cal_basisfun_num.hpp"
 #include "integral/get_integral_num.hpp"
 #include "solver/time_discrete/time_solver.hpp"
@@ -78,7 +79,8 @@ struct SolverSupplementalBase {
   Real delta_t_;
   Eigen::Vector<Real, Dim + 3> farfield_primitive_var_;
 
-  inline constexpr SolverSupplementalBase(const ThermoModel<EquModelT>& thermo_model, const TimeVar& time_var)
+  inline constexpr SolverSupplementalBase(const ThermoModel<EquModelT>& thermo_model,
+                                          const TimeVar<TimeDiscreteT>& time_var)
       : thermo_model_(thermo_model), time_solver_(time_var) {}
 };
 

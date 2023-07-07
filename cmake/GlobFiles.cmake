@@ -10,13 +10,11 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-# set project dirs
 set(SUBROSA_DG_SOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(SUBROSA_DG_EXAMPLES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/examples")
 set(SUBROSA_DG_TESTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests")
 set(SUBROSA_DG_CMAKE_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# search source file
 file(GLOB_RECURSE SUBROSA_DG_SOURCES CONFIGURE_DEPENDS
     ${SUBROSA_DG_SOURCES_DIR}/*.h
     ${SUBROSA_DG_SOURCES_DIR}/*.hpp

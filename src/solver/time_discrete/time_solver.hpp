@@ -15,9 +15,9 @@
 
 #include <array>
 
-#include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "config/time_var.hpp"
 
 namespace SubrosaDG {
 
@@ -25,14 +25,14 @@ template <TimeDiscrete TimeDiscreteT>
 struct TimeSolver;
 
 template <>
-struct TimeSolver<TimeDiscrete::ExplicitEuler> : TimeVar {
+struct TimeSolver<TimeDiscrete::ForwardEuler> : TimeVar<TimeDiscrete::ForwardEuler> {
   inline static constexpr std::array<Real, 1> kStepCoeffs{0.0};
 
   inline constexpr TimeSolver(const TimeVar& time_var) : TimeVar(time_var) {}
 };
 
 template <>
-struct TimeSolver<TimeDiscrete::RungeKutta3> : TimeVar {
+struct TimeSolver<TimeDiscrete::RK3SSP> : TimeVar<TimeDiscrete::RK3SSP> {
   inline static constexpr std::array<Real, 3> kStepCoeffs{0.0, 3.0 / 4.0, 1.0 / 3.0};
 
   inline constexpr TimeSolver(const TimeVar& time_var) : TimeVar(time_var) {}

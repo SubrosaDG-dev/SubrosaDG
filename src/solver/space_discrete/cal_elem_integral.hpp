@@ -16,9 +16,9 @@
 #include <Eigen/Core>
 
 #include "basic/concept.hpp"
-#include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "config/thermo_model.hpp"
 #include "integral/integral_structure.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "solver/solver_structure.hpp"
@@ -47,7 +47,7 @@ inline void calElemIntegral(const ElemMesh<Dim, ElemT>& elem_mesh, const ElemInt
 }
 
 template <PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT>
-inline void calElemIntegral(const Mesh<2, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
+inline void calElemIntegral(const Mesh<2, P, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
                             const SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental,
                             Solver<2, P, EquModel::Euler, MeshT>& solver) {
   if constexpr (HasTri<MeshT>) {

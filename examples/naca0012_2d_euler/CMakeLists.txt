@@ -12,12 +12,11 @@
 
 cmake_minimum_required(VERSION 3.25)
 
-project(naca0012)
+project(naca0012_2d_euler)
 
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/naca0012/mesh)
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/naca0012/result)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/naca0012_2d_euler)
 
-add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/naca0012.cpp)
+add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/naca0012_2d_euler.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_EXAMPLES_RUNTIME_OUTPUT_DIRECTORY}"
 )

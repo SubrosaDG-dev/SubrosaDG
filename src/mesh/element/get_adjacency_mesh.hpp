@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <functional>
 #include <map>
+#include <ranges>
 #include <string_view>
 #include <unordered_map>
 #include <utility>

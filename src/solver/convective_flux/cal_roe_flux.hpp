@@ -16,9 +16,9 @@
 #include <Eigen/Core>
 #include <cmath>
 
-#include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "config/thermo_model.hpp"
 #include "solver/variable/cal_convective_var.hpp"
 
 namespace SubrosaDG {

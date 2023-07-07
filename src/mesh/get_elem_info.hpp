@@ -19,65 +19,47 @@
 namespace SubrosaDG {
 
 template <ElemType ElemT>
-inline consteval int getDim();
-
-template <ElemType ElemT>
-  requires Is1dElem<ElemT>
 inline consteval int getDim() {
-  return 1;
+  if constexpr (Is1dElem<ElemT>) {
+    return 1;
+  } else if constexpr (Is2dElem<ElemT>) {
+    return 2;
+  } else if constexpr (Is3dElem<ElemT>) {
+    return 3;
+  }
 }
 
 template <ElemType ElemT>
-  requires Is2dElem<ElemT>
-inline consteval int getDim() {
-  return 2;
+inline consteval int getTopology() {
+  if constexpr (ElemT == ElemType::Line) {
+    return 1;
+  } else if constexpr (ElemT == ElemType::Tri) {
+    return 2;
+  } else if constexpr (ElemT == ElemType::Quad) {
+    return 3;
+  }
 }
 
 template <ElemType ElemT>
-  requires Is3dElem<ElemT>
-inline consteval int getDim() {
-  return 3;
-}
-
-template <ElemType ElemT>
-inline consteval int getTopology();
-
-template <>
-inline consteval int getTopology<ElemType::Line>() {
-  return 1;
-}
-
-template <>
-inline consteval int getTopology<ElemType::Tri>() {
-  return 2;
-}
-
-template <>
-inline consteval int getTopology<ElemType::Quad>() {
-  return 3;
-}
-
-template <ElemType ElemT>
-inline consteval int getNodeNum();
-
-template <>
-inline consteval int getNodeNum<ElemType::Line>() {
-  return 2;
-}
-
-template <>
-inline consteval int getNodeNum<ElemType::Tri>() {
-  return 3;
-}
-
-template <>
-inline consteval int getNodeNum<ElemType::Quad>() {
-  return 4;
+inline consteval int getNodeNum() {
+  if constexpr (ElemT == ElemType::Line) {
+    return 2;
+  } else if constexpr (ElemT == ElemType::Tri) {
+    return 3;
+  } else if constexpr (ElemT == ElemType::Quad) {
+    return 4;
+  }
 }
 
 template <ElemType ElemT>
 inline consteval int getAdjacencyNum() {
-  return getNodeNum<ElemT>();
+  if constexpr (ElemT == ElemType::Line) {
+    return 2;
+  } else if constexpr (ElemT == ElemType::Tri) {
+    return 3;
+  } else if constexpr (ElemT == ElemType::Quad) {
+    return 4;
+  }
 }
 
 }  // namespace SubrosaDG

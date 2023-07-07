@@ -15,7 +15,6 @@
 
 #include <gmsh.h>
 
-#include <algorithm>
 #include <vector>
 
 #include "basic/data_type.hpp"

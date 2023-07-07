@@ -14,13 +14,13 @@
 #define SUBROSA_DG_INIT_SOLVER_HPP_
 
 #include <Eigen/Core>
-#include <algorithm>
 #include <vector>
 
 #include "basic/concept.hpp"
-#include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "config/flow_var.hpp"
+#include "config/thermo_model.hpp"
 #include "mesh/get_mesh_supplemental.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "solver/solver_structure.hpp"
@@ -48,7 +48,7 @@ inline void initElemSolver(const Isize elem_num, const InitVar<2>& init_var,
 }
 
 template <PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT>
-inline void initSolver(const Mesh<2, MeshT>& mesh, const InitVar<2>& init_var, const FarfieldVar<2> farfield_var,
+inline void initSolver(const Mesh<2, P, MeshT>& mesh, const InitVar<2>& init_var, const FarfieldVar<2> farfield_var,
                        SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental,
                        Solver<2, P, EquModel::Euler, MeshT>& solver) {
   calPrimitiveVar(solver_supplemental.thermo_model_, farfield_var, solver_supplemental.farfield_primitive_var_);

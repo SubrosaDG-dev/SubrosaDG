@@ -16,9 +16,9 @@
 #include <Eigen/Core>
 
 #include "basic/concept.hpp"
-#include "basic/config.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "config/thermo_model.hpp"
 #include "integral/integral_structure.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "solver/convective_flux/cal_roe_flux.hpp"
@@ -142,8 +142,7 @@ inline void calBoundaryAdjacencyElemIntegral(const AdjacencyElemMesh<2, ElemT, M
 }
 
 template <typename T, PolyOrder P, MeshType MeshT, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
-  requires DerivedFromSpatialDiscrete<T, EquModelT>
-inline void calAdjacencyElemIntegral(const Mesh<2, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
+inline void calAdjacencyElemIntegral(const Mesh<2, P, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
                                      const SolverSupplemental<2, EquModelT, TimeDiscreteT>& solver_supplemental,
                                      Solver<2, P, EquModelT, MeshT>& solver) {
   calInternalAdjacencyElemIntegral<P, ElemType::Line, MeshT, EquModelT, T::kConvectiveFlux>(

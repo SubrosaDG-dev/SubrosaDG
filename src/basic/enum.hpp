@@ -40,9 +40,9 @@ enum class ViscousFlux {
 };
 
 enum class TimeDiscrete {
-  ExplicitEuler = 1,
-  RungeKutta3,
-  ImplicitEuler,
+  ForwardEuler = 1,
+  RK3SSP,
+  BackwardEuler,
 };
 
 enum class Boundary {
@@ -66,6 +66,11 @@ enum class MeshType {
   Tet,
   Hex,
   TetPyrHex,
+};
+
+enum class ViewType {
+  Dat = 1,
+  Plt,
 };
 
 }  // namespace SubrosaDG

@@ -34,7 +34,7 @@ inline void calElemResidual(const ElemMesh<2, ElemT>& elem_mesh, const ElemInteg
 }
 
 template <PolyOrder P, MeshType MeshT>
-inline void calResidual(const Mesh<2, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
+inline void calResidual(const Mesh<2, P, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
                         Solver<2, P, EquModel::Euler, MeshT>& solver) {
   if constexpr (HasTri<MeshT>) {
     calElemResidual(mesh.tri_, integral.tri_, integral.line_.tri_, solver.tri_);

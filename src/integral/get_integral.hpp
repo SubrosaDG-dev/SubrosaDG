@@ -17,8 +17,6 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
-#include <Eigen/LU>
-#include <algorithm>
 #include <vector>
 
 #include "basic/concept.hpp"

@@ -1,0 +1,17 @@
+#[[
+# @file CMakeLists.txt
+# @brief The cmake file for SubrosaDG 2d tests.
+#
+# @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
+# @date 2022-11-02
+#
+# @version 0.1.0
+# @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers. All rights reserved.
+# SubrosaDG is free software and is distributed under the MIT license.
+#]]
+
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/test_2d/cache)
+
+add_gtest(test_mesh_2d "test_mesh_2d.cpp")
+
+add_gtest(test_solver_2d "test_solver_2d.cpp")

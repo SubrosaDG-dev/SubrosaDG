@@ -13,51 +13,43 @@
 #ifndef SUBROSA_DG_CONCEPT_HPP_
 #define SUBROSA_DG_CONCEPT_HPP_
 
-#include <basic/enum.hpp>
 #include <concepts>
 
-#include "basic/config.hpp"
+#include "basic/enum.hpp"
+#include "config/spatial_discrete.hpp"
 
 namespace SubrosaDG {
 
 template <TimeDiscrete TimeDiscreteT>
-concept IsExplicit = TimeDiscreteT ==
-TimeDiscrete::ExplicitEuler || TimeDiscreteT == TimeDiscrete::RungeKutta3;
+concept IsExplicit = TimeDiscreteT == TimeDiscrete::ForwardEuler || TimeDiscreteT == TimeDiscrete::RK3SSP;
 
 template <TimeDiscrete TimeDiscreteT>
-concept IsImplicit = TimeDiscreteT ==
-TimeDiscrete::ImplicitEuler;
+concept IsImplicit = TimeDiscreteT == TimeDiscrete::BackwardEuler;
 
 template <typename T, EquModel EquModelT>
 concept DerivedFromSpatialDiscrete = std::derived_from<T, SpatialDiscrete<EquModelT>>;
 
 template <MeshType MeshT>
-concept IsUniform = MeshT ==
-MeshType::Tri || MeshT == MeshType::Quad || MeshT == MeshType::Tet || MeshT == MeshType::Hex;
+concept IsUniform =
+    MeshT == MeshType::Tri || MeshT == MeshType::Quad || MeshT == MeshType::Tet || MeshT == MeshType::Hex;
 
 template <MeshType MeshT>
-concept IsMixed = MeshT ==
-MeshType::TriQuad || MeshT == MeshType::TetPyrHex;
+concept IsMixed = MeshT == MeshType::TriQuad || MeshT == MeshType::TetPyrHex;
 
 template <MeshType MeshT>
-concept HasTri = MeshT ==
-MeshType::Tri || MeshT == MeshType::TriQuad;
+concept HasTri = MeshT == MeshType::Tri || MeshT == MeshType::TriQuad;
 
 template <MeshType MeshT>
-concept HasQuad = MeshT ==
-MeshType::Quad || MeshT == MeshType::TriQuad;
+concept HasQuad = MeshT == MeshType::Quad || MeshT == MeshType::TriQuad;
 
 template <ElemType ElemT>
-concept Is1dElem = ElemT ==
-ElemType::Line;
+concept Is1dElem = ElemT == ElemType::Line;
 
 template <ElemType ElemT>
-concept Is2dElem = ElemT ==
-ElemType::Tri || ElemT == ElemType::Quad;
+concept Is2dElem = ElemT == ElemType::Tri || ElemT == ElemType::Quad;
 
 template <ElemType ElemT>
-concept Is3dElem = ElemT ==
-ElemType::Tet || ElemT == ElemType::Pyr || ElemT == ElemType::Hex;
+concept Is3dElem = ElemT == ElemType::Tet || ElemT == ElemType::Pyr || ElemT == ElemType::Hex;
 
 }  // namespace SubrosaDG
 

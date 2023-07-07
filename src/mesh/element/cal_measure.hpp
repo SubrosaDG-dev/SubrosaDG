@@ -14,7 +14,6 @@
 #define SUBROSA_DG_CAL_MEASURE_HPP_
 
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 #include <memory>
 
 #include "basic/concept.hpp"

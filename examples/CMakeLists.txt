@@ -16,11 +16,10 @@ project(subrosa_dg_examples)
 
 set(CMAKE_EXAMPLES_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}")
 
-# add custom target
 add_custom_target(all_examples)
 
-# add example subdirectory
-add_subdirectory(naca0012)
+add_subdirectory(cylinder_2d_euler)
 
-# make all_ci depend on all_examples
+add_subdirectory(naca0012_2d_euler)
+
 add_dependencies(all_ci all_examples)

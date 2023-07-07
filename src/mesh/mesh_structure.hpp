@@ -84,7 +84,7 @@ using QuadElemMesh = ElemMesh<2, ElemType::Quad>;
 template <MeshType MeshT>
 using AdjacencyLineElemMesh = AdjacencyElemMesh<2, ElemType::Line, MeshT>;
 
-template <int Dim>
+template <int Dim, PolyOrder P>
 struct MeshBase {
   Isize node_num_;
   Eigen::Matrix<Real, Dim, Eigen::Dynamic> node_;
@@ -95,32 +95,32 @@ struct MeshBase {
   inline ~MeshBase() { gmsh::clear(); }
 };
 
-template <int Dim, MeshType MeshT>
+template <int Dim, PolyOrder P, MeshType MeshT>
 struct Mesh;
 
-template <>
-struct Mesh<2, MeshType::Tri> : MeshBase<2> {
+template <PolyOrder P>
+struct Mesh<2, P, MeshType::Tri> : MeshBase<2, P> {
   TriElemMesh tri_;
   AdjacencyLineElemMesh<MeshType::Tri> line_;
 
-  using MeshBase<2>::MeshBase;
+  using MeshBase<2, P>::MeshBase;
 };
 
-template <>
-struct Mesh<2, MeshType::Quad> : MeshBase<2> {
+template <PolyOrder P>
+struct Mesh<2, P, MeshType::Quad> : MeshBase<2, P> {
   QuadElemMesh quad_;
   AdjacencyLineElemMesh<MeshType::Quad> line_;
 
-  using MeshBase<2>::MeshBase;
+  using MeshBase<2, P>::MeshBase;
 };
 
-template <>
-struct Mesh<2, MeshType::TriQuad> : MeshBase<2> {
+template <PolyOrder P>
+struct Mesh<2, P, MeshType::TriQuad> : MeshBase<2, P> {
   TriElemMesh tri_;
   QuadElemMesh quad_;
   AdjacencyLineElemMesh<MeshType::TriQuad> line_;
 
-  using MeshBase<2>::MeshBase;
+  using MeshBase<2, P>::MeshBase;
 };
 
 template <ElemType ElemT>
