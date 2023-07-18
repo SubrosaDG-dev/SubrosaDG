@@ -13,17 +13,21 @@
 #ifndef SUBROSA_DG_VIEW_HPP_
 #define SUBROSA_DG_VIEW_HPP_
 
+#include <basic/enum.hpp>
+#include <filesystem>
 #include <string_view>
+#include <utility>
 
 namespace SubrosaDG {
 
 struct View {
-  const std::string_view model_name_;
-  const int interval_;
-  const std::string_view output_name_;
+  const int step_interval_;
+  const std::filesystem::path dir_;
+  const std::string_view name_;
+  const ViewType type_;
 
-  inline consteval View(const std::string_view model_name, const int interval, const std::string_view output_name)
-      : model_name_(model_name), interval_(interval), output_name_(output_name) {}
+  inline View(const int step_interval, std::filesystem::path dir, std::string_view name, ViewType type)
+      : step_interval_(step_interval), dir_(std::move(dir)), name_(name), type_(type) {}
 };
 
 }  // namespace SubrosaDG

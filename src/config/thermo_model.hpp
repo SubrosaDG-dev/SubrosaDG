@@ -24,10 +24,12 @@ struct ThermoModel;
 template <>
 struct ThermoModel<EquModel::Euler> {
   const Real gamma_;
+  const Real capital_r_;
   const Real c_p_;
-  const Real r_;
+  const Real c_v_;
 
-  inline consteval ThermoModel(const Real gamma, const Real c_p, const Real r) : gamma_(gamma), c_p_(c_p), r_(r) {}
+  inline consteval ThermoModel(const Real gamma, const Real capital_r)
+      : gamma_(gamma), capital_r_(capital_r), c_p_(gamma * capital_r / (gamma - 1.0)), c_v_(c_p_ / gamma) {}
 };
 
 template <>
@@ -35,8 +37,8 @@ struct ThermoModel<EquModel::NS> : ThermoModel<EquModel::Euler> {
   const Real mu_;
   const Real k_;
 
-  inline consteval ThermoModel(const Real gamma, const Real c_p, const Real r, const Real mu, const Real k)
-      : ThermoModel<EquModel::Euler>(gamma, c_p, r), mu_(mu), k_(k) {}
+  inline consteval ThermoModel(const Real gamma, const Real capital_r, const Real mu, const Real k)
+      : ThermoModel<EquModel::Euler>(gamma, capital_r), mu_(mu), k_(k) {}
 };
 
 }  // namespace SubrosaDG

@@ -25,7 +25,7 @@
 namespace SubrosaDG {
 
 template <PolyOrder P, ElemType ElemT>
-inline void calElemAbsoluteError(const ElemMesh<2, ElemT>& elem_mesh, const ElemIntegral<P, ElemT>& elem_integral,
+inline void calElemAbsoluteError(const ElemIntegral<P, ElemT>& elem_integral, const ElemMesh<2, P, ElemT>& elem_mesh,
                                  const ElemSolver<2, P, ElemT, EquModel::Euler>& elem_solver,
                                  Eigen::Vector<Real, 4>& absolute_error) {
   for (Isize i = 0; i < elem_mesh.num_; i++) {
@@ -35,15 +35,15 @@ inline void calElemAbsoluteError(const ElemMesh<2, ElemT>& elem_mesh, const Elem
 }
 
 template <PolyOrder P, MeshType MeshT>
-inline void calAbsoluteError(const Mesh<2, P, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
+inline void calAbsoluteError(const Integral<2, P, MeshT>& integral, const Mesh<2, P, MeshT>& mesh,
                              const Solver<2, P, EquModel::Euler, MeshT>& solver,
                              Eigen::Vector<Real, 4>& absolute_error) {
   absolute_error.setZero();
   if constexpr (HasTri<MeshT>) {
-    calElemAbsoluteError(mesh.tri_, integral.tri_, solver.tri_, absolute_error);
+    calElemAbsoluteError(integral.tri_, mesh.tri_, solver.tri_, absolute_error);
   }
   if constexpr (HasQuad<MeshT>) {
-    calElemAbsoluteError(mesh.quad_, integral.quad_, solver.quad_, absolute_error);
+    calElemAbsoluteError(integral.quad_, mesh.quad_, solver.quad_, absolute_error);
   }
   absolute_error /= static_cast<Real>(mesh.elem_num_);
 }

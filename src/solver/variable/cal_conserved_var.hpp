@@ -28,7 +28,7 @@ inline void calConservedVar(const ThermoModel<EquModel::Euler>& thermo_model, co
   const Real rho = flow_var.rho_;
   const Real rho_u = rho * flow_var.u_[0];
   const Real rho_v = rho * flow_var.u_[1];
-  const Real rho_capital_e = rho * ((thermo_model.c_p_ - thermo_model.r_) * flow_var.capital_t_ +
+  const Real rho_capital_e = rho * (thermo_model.c_v_ * flow_var.capital_t_ +
                                     0.5 * (flow_var.u_[0] * flow_var.u_[0] + flow_var.u_[1] * flow_var.u_[1]));
   conserved_var << rho, rho_u, rho_v, rho_capital_e;
 }
@@ -41,7 +41,7 @@ inline void calConservedVar(const ThermoModel<EquModel::Euler>& thermo_model, co
   const Real rho_w = rho * flow_var.u_[2];
   const Real rho_capital_e =
       rho *
-      ((thermo_model.c_p_ - thermo_model.r_) * flow_var.capital_t_ +
+      (thermo_model.c_v_ * flow_var.capital_t_ +
        0.5 * (flow_var.u_[0] * flow_var.u_[0] + flow_var.u_[1] * flow_var.u_[1] + flow_var.u_[2] * flow_var.u_[2]));
   conserved_var << rho, rho_u, rho_v, rho_w, rho_capital_e;
 }

@@ -29,7 +29,7 @@
 namespace SubrosaDG {
 
 template <PolyOrder P, ElemType ElemT, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
-inline void calElemDeltaTime(const ElemMesh<2, ElemT>& elem_mesh, const ElemIntegral<P, ElemT>& elem_integral,
+inline void calElemDeltaTime(const ElemIntegral<P, ElemT>& elem_integral, const ElemMesh<2, P, ElemT>& elem_mesh,
                              const ElemSolver<2, P, ElemT, EquModelT>& elem_solver,
                              SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental) {
   Eigen::Vector<Real, 4> conserved_var;
@@ -49,7 +49,7 @@ inline void calElemDeltaTime(const ElemMesh<2, ElemT>& elem_mesh, const ElemInte
       a = std::sqrt(solver_supplemental.thermo_model_.gamma_ * primitive_var(3) / primitive_var(0));
       lambda_x = std::fabs(u) * (1 + a / std::sqrt(u * u + v * v)) * elem_mesh.elem_(i).projection_measure_.x();
       lambda_y = std::fabs(v) * (1 + a / std::sqrt(u * u + v * v)) * elem_mesh.elem_(i).projection_measure_.y();
-      delta_t = solver_supplemental.time_solver_.cfl_ * (elem_mesh.elem_(i).jacobian_ / elem_integral.measure) /
+      delta_t = solver_supplemental.time_solver_.cfl_ * (elem_mesh.elem_(i).jacobian_det_(j) / elem_integral.measure) /
                 (lambda_x + lambda_y);
       solver_supplemental.delta_t_ = std::ranges::min(solver_supplemental.delta_t_, delta_t);
     }
@@ -57,15 +57,15 @@ inline void calElemDeltaTime(const ElemMesh<2, ElemT>& elem_mesh, const ElemInte
 }
 
 template <PolyOrder P, MeshType MeshT, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
-inline void calDeltaTime(const Mesh<2, P, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
+inline void calDeltaTime(const Integral<2, P, MeshT>& integral, const Mesh<2, P, MeshT>& mesh,
                          const Solver<2, P, EquModelT, MeshT>& solver,
                          SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental) {
   solver_supplemental.delta_t_ = kMax;
   if constexpr (HasTri<MeshT>) {
-    calElemDeltaTime(mesh.tri_, integral.tri_, solver.tri_, solver_supplemental);
+    calElemDeltaTime(integral.tri_, mesh.tri_, solver.tri_, solver_supplemental);
   }
   if constexpr (HasQuad<MeshT>) {
-    calElemDeltaTime(mesh.quad_, integral.quad_, solver.quad_, solver_supplemental);
+    calElemDeltaTime(integral.quad_, mesh.quad_, solver.quad_, solver_supplemental);
   }
 }
 

@@ -22,6 +22,8 @@
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "integral/integral_structure.hpp"
+#include "mesh/element/cal_mass_mat.hpp"
 #include "mesh/element/cal_norm_vec.hpp"
 #include "mesh/element/cal_projection_measure.hpp"
 #include "mesh/element/get_adjacency_mesh.hpp"
@@ -58,22 +60,25 @@ inline void getElemNum(Mesh<2, P, MeshT>& mesh) {
 }
 
 template <PolyOrder P, MeshType MeshT>
-inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map, Mesh<2, P, MeshT>& mesh) {
+inline void getMesh(const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
+                    const Integral<2, P, MeshT>& integral, Mesh<2, P, MeshT>& mesh) {
   getNodes(mesh);
   if constexpr (HasTri<MeshT>) {
     getElemMesh(mesh.node_, mesh.tri_);
     calElemProjectionMeasure(mesh.tri_);
-    getElemJacobian(mesh.tri_);
+    getElemJacobian(integral.tri_, mesh.tri_);
+    calElemLocalMassMatInv(integral.tri_, mesh.tri_);
   }
   if constexpr (HasQuad<MeshT>) {
     getElemMesh(mesh.node_, mesh.quad_);
     calElemProjectionMeasure(mesh.quad_);
-    getElemJacobian(mesh.quad_);
+    getElemJacobian(integral.quad_, mesh.quad_);
+    calElemLocalMassMatInv(integral.quad_, mesh.quad_);
   }
   getElemNum(mesh);
-  getAdjacencyElemMesh<2, ElemType::Line, MeshT>(mesh.node_, boundary_type_map, mesh.line_);
+  getAdjacencyElemMesh<2, P, ElemType::Line, MeshT>(mesh.node_, boundary_type_map, mesh.line_);
   calAdjacencyElemNormVec(mesh.line_);
-  getElemJacobian(mesh.line_);
+  getElemJacobian(integral.line_, mesh.line_);
 }
 
 }  // namespace SubrosaDG

@@ -49,7 +49,7 @@ inline void calRoeFlux(const ThermoModel<EquModelT>& thermo_model, const Eigen::
   roe_var_f1 *= std::fabs(roe_norm_q - roe_a) * (delta_p - roe_rho * roe_a * delta_norm_q) / (2.0 * roe_a * roe_a);
   Eigen::Vector<Real, 4> roe_var_f2;
   roe_var_f2 << 1, roe_u, roe_v, 0.5 * roe_q2;
-  roe_var_f2 *= delta_rho - delta_p / (roe_a * roe_a);
+  roe_var_f2 *= (delta_rho - delta_p / (roe_a * roe_a));
   Eigen::Vector<Real, 4> roe_var_f34;
   roe_var_f34 << 0, delta_u - delta_norm_q * norm_vec.x(), delta_v - delta_norm_q * norm_vec.y(),
       roe_u * delta_u + roe_v * delta_v - roe_norm_q * delta_norm_q;

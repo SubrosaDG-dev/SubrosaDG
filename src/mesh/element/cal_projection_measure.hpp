@@ -28,8 +28,8 @@ inline void calProjectionMeasure(const Eigen::Matrix<Real, 2, getNodeNum<ElemT>(
   projection_measure = node.rowwise().maxCoeff() - node.rowwise().minCoeff();
 }
 
-template <int Dim, ElemType ElemT>
-inline void calElemProjectionMeasure(ElemMesh<Dim, ElemT>& elem_mesh) {
+template <int Dim, PolyOrder P, ElemType ElemT>
+inline void calElemProjectionMeasure(ElemMesh<Dim, P, ElemT>& elem_mesh) {
   for (Isize i = 0; i < elem_mesh.num_; i++) {
     calProjectionMeasure<ElemT>(elem_mesh.elem_(i).node_, elem_mesh.elem_(i).projection_measure_);
   }

@@ -28,13 +28,11 @@ inline void getParentVar(const Isize elem_tag, const Isize adjacency_integral_or
                          const AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral,
                          const Solver<2, P, EquModelT, MeshT>& solver, Eigen::Vector<Real, 4>& parent_conserved_var) {
   if constexpr (MeshT == MeshType::Tri) {
-    parent_conserved_var.noalias() =
-        solver.tri_.elem_(elem_tag).basis_fun_coeff_(1) *
-        adjacency_elem_integral.tri_.adjacency_basis_fun_.row(adjacency_integral_order).transpose();
+    parent_conserved_var.noalias() = solver.tri_.elem_(elem_tag).basis_fun_coeff_(1) *
+                                     adjacency_elem_integral.tri_.basis_fun_.row(adjacency_integral_order).transpose();
   } else if constexpr (MeshT == MeshType::Quad) {
-    parent_conserved_var.noalias() =
-        solver.quad_.elem_(elem_tag).basis_fun_coeff_(1) *
-        adjacency_elem_integral.quad_.adjacency_basis_fun_.row(adjacency_integral_order).transpose();
+    parent_conserved_var.noalias() = solver.quad_.elem_(elem_tag).basis_fun_coeff_(1) *
+                                     adjacency_elem_integral.quad_.basis_fun_.row(adjacency_integral_order).transpose();
   }
 }
 
@@ -45,14 +43,12 @@ inline void getParentVar(const int elem_topology, const Isize elem_tag, const Is
                          Eigen::Vector<Real, 4>& parent_conserved_var) {
   switch (elem_topology) {
   case getTopology<ElemType::Tri>():
-    parent_conserved_var.noalias() =
-        solver.tri_.elem_(elem_tag).basis_fun_coeff_(1) *
-        adjacency_elem_integral.tri_.adjacency_basis_fun_.row(adjacency_integral_order).transpose();
+    parent_conserved_var.noalias() = solver.tri_.elem_(elem_tag).basis_fun_coeff_(1) *
+                                     adjacency_elem_integral.tri_.basis_fun_.row(adjacency_integral_order).transpose();
     break;
   case getTopology<ElemType::Quad>():
-    parent_conserved_var.noalias() =
-        solver.quad_.elem_(elem_tag).basis_fun_coeff_(1) *
-        adjacency_elem_integral.quad_.adjacency_basis_fun_.row(adjacency_integral_order).transpose();
+    parent_conserved_var.noalias() = solver.quad_.elem_(elem_tag).basis_fun_coeff_(1) *
+                                     adjacency_elem_integral.quad_.basis_fun_.row(adjacency_integral_order).transpose();
     break;
   }
 }

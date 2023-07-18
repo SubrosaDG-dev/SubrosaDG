@@ -15,9 +15,15 @@
 #include <Eigen/Core>
 #include <array>
 #include <cstdlib>
+#include <filesystem>
+#include <string_view>
 #include <vector>
 
 #include "SubrosaDG"
+
+using namespace std::string_view_literals;
+
+inline const std::filesystem::path kProjectDir{SubrosaDG::kProjectSourceDir / "build/out/naca0012_2d_euler"};
 
 inline std::array<double, 130> naca0012_point_flattened{
     0.9987518, 0.0014399, 0.9976658, 0.0015870, 0.9947532, 0.0019938, 0.9906850, 0.0025595, 0.9854709, 0.0032804,
@@ -34,7 +40,7 @@ inline std::array<double, 130> naca0012_point_flattened{
     0.0465628, 0.0344792, 0.0369127, 0.0311559, 0.0283441, 0.0276827, 0.0208771, 0.0240706, 0.0145291, 0.0203300,
     0.0093149, 0.0164706, 0.0052468, 0.0125011, 0.0023342, 0.0084289, 0.0005839, 0.0042603, 0.0000000, 0.0000000};
 
-void generateMesh() {
+void generateMesh(const std::filesystem::path& mesh_file) {
   Eigen::Map<Eigen::Matrix<double, 2, 65>> naca0012_point{naca0012_point_flattened.data()};
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_point;
   farfield_point << -10, -10, 0, 10, -10, 0, 10, 10, 0, -10, 10, 0;
@@ -64,9 +70,9 @@ void generateMesh() {
   const int naca0012_line_loop = gmsh::model::occ::addCurveLoop(naca0012_line_tag);
   const int naca0012_plane_surface = gmsh::model::occ::addPlaneSurface({farfield_line_loop, naca0012_line_loop});
   gmsh::model::occ::synchronize();
-  std::vector<double> naca0012_line_tag_double{naca0012_line_tag.begin(), naca0012_line_tag.end()};
+  std::vector<double> naca0012_line_tag_double_cast{naca0012_line_tag.begin(), naca0012_line_tag.end()};
   const int naca0012_boundary_layer = gmsh::model::mesh::field::add("BoundaryLayer");
-  gmsh::model::mesh::field::setNumbers(naca0012_boundary_layer, "CurvesList", naca0012_line_tag_double);
+  gmsh::model::mesh::field::setNumbers(naca0012_boundary_layer, "CurvesList", naca0012_line_tag_double_cast);
   gmsh::model::mesh::field::setNumber(naca0012_boundary_layer, "Size", 0.001);
   gmsh::model::mesh::field::setNumber(naca0012_boundary_layer, "Ratio", 1.2);
   gmsh::model::mesh::field::setNumber(naca0012_boundary_layer, "Quads", 1);
@@ -76,11 +82,14 @@ void generateMesh() {
   gmsh::model::addPhysicalGroup(1, naca0012_line_tag, -1, "bc-2");
   gmsh::model::addPhysicalGroup(2, {naca0012_plane_surface}, -1, "vc-1");
   gmsh::model::mesh::generate(2);
+  gmsh::write(mesh_file.string());
 }
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::EnvGardian environment_gardian;
+  std::filesystem::path mesh_file = kProjectDir / "naca0012_2d.msh";
+  generateMesh(mesh_file);
   return EXIT_SUCCESS;
 }

@@ -26,8 +26,8 @@
 
 namespace SubrosaDG {
 
-template <int Dim, ElemType ElemT>
-inline void getElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& nodes, ElemMesh<Dim, ElemT>& elem_mesh) {
+template <int Dim, PolyOrder P, ElemType ElemT>
+inline void getElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& nodes, ElemMesh<Dim, P, ElemT>& elem_mesh) {
   std::vector<Usize> elem_tags;
   std::vector<Usize> elem_node_tag;
   gmsh::model::mesh::getElementsByType(getTopology<ElemT>(), elem_tags, elem_node_tag);

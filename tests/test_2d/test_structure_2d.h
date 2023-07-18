@@ -32,11 +32,21 @@
 
 using namespace std::string_view_literals;
 
-inline constexpr SubrosaDG::TimeVar<SubrosaDG::TimeDiscrete::ForwardEuler> kTimeVar{10, 0.1, 1e-10};
+inline constexpr int kDim{2};
+
+inline constexpr SubrosaDG::PolyOrder kPolyOrder{2};
+
+inline constexpr SubrosaDG::MeshType kMeshType{SubrosaDG::MeshType::TriQuad};
+
+inline constexpr SubrosaDG::EquModel kEquModel{SubrosaDG::EquModel::Euler};
+
+inline const std::filesystem::path kProjectDir{SubrosaDG::kProjectSourceDir / "build/out/test_2d"};
+
+inline constexpr SubrosaDG::TimeVar<SubrosaDG::TimeDiscrete::ForwardEuler> kTimeVar{1, 0.1, 1e-10};
 
 inline constexpr SubrosaDG::SpatialDiscreteEuler<SubrosaDG::ConvectiveFlux::Roe> kSpatialDiscrete;
 
-inline constexpr SubrosaDG::ThermoModel<SubrosaDG::EquModel::Euler> kThermoModel{1.4, 1.0, 0.7142857142857143};
+inline constexpr SubrosaDG::ThermoModel<SubrosaDG::EquModel::Euler> kThermoModel{1.4, 1.0 / 1.4};
 
 inline const std::unordered_map<std::string_view, int> kRegionIdMap{{"vc-1"sv, 0}};
 
@@ -47,65 +57,59 @@ inline const SubrosaDG::InitVar<2> kInitVar{kRegionIdMap, kFlowVar};
 inline const std::unordered_map<std::string_view, SubrosaDG::Boundary> kBoundaryTMap{
     {"bc-1", SubrosaDG::Boundary::Farfield}};
 
-inline constexpr SubrosaDG::FarfieldVar<2> kFarfieldVar{{1.0, 0.5}, 1.4, 1.0, 1.0};
+inline constexpr SubrosaDG::FarfieldVar<2> kFarfieldVar{{1.0, 0.0}, 1.4, 1.0, 1.0};
 
 void generateMesh(const std::filesystem::path& mesh_file) {
   // NOTE: if your gmsh doesn't compile with Blossom(such as fedora build file saying: blossoms is nonfree, see
   // contrib/blossoms/README.txt.) This mesh could be different from the version of gmsh which not uses Blossom.
   // gmsh::option::setNumber("Mesh.RecombinationAlgorithm", 1);
-  Eigen::Matrix<double, 6, 3, Eigen::RowMajor> points;
-  points << -1.0, -0.5, 0.0, 0.0, -0.5, 0.0, 1.0, -0.5, 0.0, 1.0, 0.5, 0.0, 0.0, 0.5, 0.0, -1.0, 0.5, 0.0;
-  gmsh::model::add("test2d");
+  Eigen::Matrix<double, 4, 3, Eigen::RowMajor> points;
+  points << 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0;
+  gmsh::model::add("test_2d");
   for (const auto& row : points.rowwise()) {
-    gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 0.5);
+    gmsh::model::occ::addPoint(row.x(), row.y(), row.z(), 1);
   }
   for (int i = 0; i < points.rows(); i++) {
-    gmsh::model::geo::addLine(i + 1, (i + 1) % points.rows() + 1);
+    gmsh::model::occ::addLine(i + 1, (i + 1) % points.rows() + 1);
   }
-  gmsh::model::geo::addLine(2, 5);
-  gmsh::model::geo::addCurveLoop({1, 7, 5, 6});
-  gmsh::model::geo::addPlaneSurface({1});
-  gmsh::model::geo::addCurveLoop({2, 3, 4, -7});
-  gmsh::model::geo::addPlaneSurface({2});
-  gmsh::model::geo::synchronize();
-  gmsh::model::addPhysicalGroup(1, {1, 2, 3, 4, 5, 6}, -1, "bc-1");
+  gmsh::model::occ::addLine(2, 4);
+  gmsh::model::occ::addCurveLoop({1, 5, 4});
+  gmsh::model::occ::addPlaneSurface({1});
+  gmsh::model::occ::addCurveLoop({2, 3, -5});
+  gmsh::model::occ::addPlaneSurface({2});
+  gmsh::model::occ::synchronize();
+  gmsh::model::addPhysicalGroup(1, {1, 2, 3, 4}, -1, "bc-1");
   gmsh::model::addPhysicalGroup(2, {1, 2}, -1, "vc-1");
   gmsh::model::mesh::setRecombine(2, 2);
   gmsh::model::mesh::generate(2);
   gmsh::write(mesh_file.string());
-  gmsh::clear();
 }
 
 struct Test2d : testing::Test {
-  static SubrosaDG::Mesh<2, SubrosaDG::PolyOrder::P2, SubrosaDG::MeshType::TriQuad>* mesh;
-  static SubrosaDG::Integral<2, SubrosaDG::PolyOrder::P2, SubrosaDG::MeshType::TriQuad>* integral;
-  static SubrosaDG::Solver<2, SubrosaDG::PolyOrder::P2, SubrosaDG::EquModel::Euler, SubrosaDG::MeshType::TriQuad>*
-      solver;
+  static SubrosaDG::Mesh<kDim, kPolyOrder, kMeshType>* mesh;
+  static SubrosaDG::Integral<kDim, kPolyOrder, kMeshType>* integral;
+  static SubrosaDG::Solver<kDim, kPolyOrder, kEquModel, kMeshType>* solver;
 
   static void SetUpTestCase() {
-    std::filesystem::path mesh_file = SubrosaDG::kProjectSourceDir / "build/out/test_2d/test_2d.msh";
-    if (!std::filesystem::exists(mesh_file)) {
-      generateMesh(mesh_file);
-    }
-    Test2d::mesh = new SubrosaDG::Mesh<2, SubrosaDG::PolyOrder::P2, SubrosaDG::MeshType::TriQuad>{mesh_file};
-    Test2d::integral = new SubrosaDG::Integral<2, SubrosaDG::PolyOrder::P2, SubrosaDG::MeshType::TriQuad>;
-    Test2d::solver =
-        new SubrosaDG::Solver<2, SubrosaDG::PolyOrder::P2, SubrosaDG::EquModel::Euler, SubrosaDG::MeshType::TriQuad>;
+    std::filesystem::path mesh_file = kProjectDir / "test_2d.msh";
+    generateMesh(mesh_file);
+    integral = new SubrosaDG::Integral<kDim, kPolyOrder, kMeshType>;
+    mesh = new SubrosaDG::Mesh<kDim, kPolyOrder, kMeshType>{mesh_file};
+    solver = new SubrosaDG::Solver<kDim, kPolyOrder, kEquModel, kMeshType>;
   }
 
   static void TearDownTestCase() {
-    delete Test2d::mesh;
-    Test2d::mesh = nullptr;
-    delete Test2d::integral;
-    Test2d::integral = nullptr;
-    delete Test2d::solver;
-    Test2d::solver = nullptr;
+    delete integral;
+    integral = nullptr;
+    delete mesh;
+    mesh = nullptr;
+    delete solver;
+    solver = nullptr;
   }
 };
 
-SubrosaDG::Mesh<2, SubrosaDG::PolyOrder::P2, SubrosaDG::MeshType::TriQuad>* Test2d::mesh;
-SubrosaDG::Integral<2, SubrosaDG::PolyOrder::P2, SubrosaDG::MeshType::TriQuad>* Test2d::integral;
-SubrosaDG::Solver<2, SubrosaDG::PolyOrder::P2, SubrosaDG::EquModel::Euler, SubrosaDG::MeshType::TriQuad>*
-    Test2d::solver;
+SubrosaDG::Mesh<kDim, kPolyOrder, kMeshType>* Test2d::mesh;
+SubrosaDG::Integral<kDim, kPolyOrder, kMeshType>* Test2d::integral;
+SubrosaDG::Solver<kDim, kPolyOrder, kEquModel, kMeshType>* Test2d::solver;
 
 #endif  // SUBROSA_DG_TEST_STRUCTURE_2D_H_

@@ -26,14 +26,17 @@ struct TimeSolver;
 
 template <>
 struct TimeSolver<TimeDiscrete::ForwardEuler> : TimeVar<TimeDiscrete::ForwardEuler> {
-  inline static constexpr std::array<Real, 1> kStepCoeffs{0.0};
+  inline static constexpr int kStep = 1;
+  inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoeffs{{{1.0, 0.0, 1.0}}};
 
   inline constexpr TimeSolver(const TimeVar& time_var) : TimeVar(time_var) {}
 };
 
 template <>
 struct TimeSolver<TimeDiscrete::RK3SSP> : TimeVar<TimeDiscrete::RK3SSP> {
-  inline static constexpr std::array<Real, 3> kStepCoeffs{0.0, 3.0 / 4.0, 1.0 / 3.0};
+  inline static constexpr int kStep = 3;
+  inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoeffs{
+      {{1.0, 0.0, 1.0}, {3.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0}, {1.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0}}};
 
   inline constexpr TimeSolver(const TimeVar& time_var) : TimeVar(time_var) {}
 };

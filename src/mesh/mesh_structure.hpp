@@ -21,68 +21,74 @@
 
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "integral/cal_basisfun_num.hpp"
+#include "integral/get_integral_num.hpp"
 #include "mesh/get_elem_info.hpp"
 
 namespace SubrosaDG {
 
-template <int Dim, ElemType ElemT>
+template <int Dim, PolyOrder P, ElemType ElemT>
 struct PerElemMeshBase {
   Eigen::Matrix<Real, Dim, getNodeNum<ElemT>()> node_;
   Eigen::Vector<Isize, getNodeNum<ElemT>()> index_;
-  Real jacobian_;
+  Eigen::Vector<Real, getElemIntegralNum<ElemT>(P)> jacobian_det_;
 };
 
-template <int Dim, ElemType ElemT>
-struct PerElemMesh : PerElemMeshBase<Dim, ElemT> {
+template <int Dim, PolyOrder P, ElemType ElemT>
+struct PerElemMesh : PerElemMeshBase<Dim, P, ElemT> {
+  Eigen::Matrix<Real, calBasisFunNum<ElemT>(P), calBasisFunNum<ElemT>(P)> local_mass_mat_inv_;
+  Eigen::Matrix<Real, Dim, getElemIntegralNum<ElemT>(P) * Dim> jacobian_inv_;
   Eigen::Vector<Real, Dim> projection_measure_;
 };
 
-template <int Dim, ElemType ElemT>
+template <int Dim, PolyOrder P, ElemType ElemT>
 struct ElemMesh {
   std::pair<Isize, Isize> range_;
   Isize num_;
-  Eigen::Vector<PerElemMesh<Dim, ElemT>, Eigen::Dynamic> elem_;
+  Eigen::Vector<PerElemMesh<Dim, P, ElemT>, Eigen::Dynamic> elem_;
 };
 
-template <int Dim, ElemType ElemT, MeshType MeshT, bool IsInternal>
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT, bool IsInternal>
 struct PerAdjacencyElemMesh;
 
-template <int Dim, ElemType ElemT, MeshType MeshT, bool IsInternal>
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT, bool IsInternal>
   requires IsUniform<MeshT>
-struct PerAdjacencyElemMesh<Dim, ElemT, MeshT, IsInternal> : PerElemMeshBase<Dim, ElemT> {
+struct PerAdjacencyElemMesh<Dim, P, ElemT, MeshT, IsInternal> : PerElemMeshBase<Dim, P, ElemT> {
   Eigen::Vector<Isize, 2> parent_index_;
   Eigen::Vector<Isize, 1 + static_cast<Isize>(IsInternal)> adjacency_index_;
   Eigen::Vector<Real, Dim> norm_vec_;
 };
 
-template <int Dim, ElemType ElemT, MeshType MeshT, bool IsInternal>
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT, bool IsInternal>
   requires IsMixed<MeshT>
-struct PerAdjacencyElemMesh<Dim, ElemT, MeshT, IsInternal> : PerElemMeshBase<Dim, ElemT> {
+struct PerAdjacencyElemMesh<Dim, P, ElemT, MeshT, IsInternal> : PerElemMeshBase<Dim, P, ElemT> {
   Eigen::Vector<Isize, 2> parent_index_;
   Eigen::Vector<Isize, 1 + static_cast<Isize>(IsInternal)> adjacency_index_;
   Eigen::Vector<int, 1 + static_cast<Isize>(IsInternal)> typology_index_;
   Eigen::Vector<Real, Dim> norm_vec_;
 };
 
-template <int Dim, ElemType ElemT, MeshType MeshT, bool IsInternal>
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT, bool IsInternal>
 struct AdjacencyElemTypeMesh {
   std::pair<Isize, Isize> range_;
   Isize num_;
-  Eigen::Vector<PerAdjacencyElemMesh<Dim, ElemT, MeshT, IsInternal>, Eigen::Dynamic> elem_;
+  Eigen::Vector<PerAdjacencyElemMesh<Dim, P, ElemT, MeshT, IsInternal>, Eigen::Dynamic> elem_;
 };
 
-template <int Dim, ElemType ElemT, MeshType MeshT>
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT>
 struct AdjacencyElemMesh {
-  AdjacencyElemTypeMesh<Dim, ElemT, MeshT, true> internal_;
-  AdjacencyElemTypeMesh<Dim, ElemT, MeshT, false> boundary_;
+  AdjacencyElemTypeMesh<Dim, P, ElemT, MeshT, true> internal_;
+  AdjacencyElemTypeMesh<Dim, P, ElemT, MeshT, false> boundary_;
 };
 
-using TriElemMesh = ElemMesh<2, ElemType::Tri>;
+template <PolyOrder P>
+using TriElemMesh = ElemMesh<2, P, ElemType::Tri>;
 
-using QuadElemMesh = ElemMesh<2, ElemType::Quad>;
+template <PolyOrder P>
+using QuadElemMesh = ElemMesh<2, P, ElemType::Quad>;
 
-template <MeshType MeshT>
-using AdjacencyLineElemMesh = AdjacencyElemMesh<2, ElemType::Line, MeshT>;
+template <PolyOrder P, MeshType MeshT>
+using AdjacencyLineElemMesh = AdjacencyElemMesh<2, P, ElemType::Line, MeshT>;
 
 template <int Dim, PolyOrder P>
 struct MeshBase {
@@ -91,7 +97,10 @@ struct MeshBase {
 
   Isize elem_num_{0};
 
-  inline MeshBase(const std::filesystem::path& mesh_file) { gmsh::open(mesh_file.string()); }
+  inline MeshBase(const std::filesystem::path& mesh_file) {
+    gmsh::clear();
+    gmsh::open(mesh_file.string());
+  }
   inline ~MeshBase() { gmsh::clear(); }
 };
 
@@ -100,25 +109,25 @@ struct Mesh;
 
 template <PolyOrder P>
 struct Mesh<2, P, MeshType::Tri> : MeshBase<2, P> {
-  TriElemMesh tri_;
-  AdjacencyLineElemMesh<MeshType::Tri> line_;
+  TriElemMesh<P> tri_;
+  AdjacencyLineElemMesh<P, MeshType::Tri> line_;
 
   using MeshBase<2, P>::MeshBase;
 };
 
 template <PolyOrder P>
 struct Mesh<2, P, MeshType::Quad> : MeshBase<2, P> {
-  QuadElemMesh quad_;
-  AdjacencyLineElemMesh<MeshType::Quad> line_;
+  QuadElemMesh<P> quad_;
+  AdjacencyLineElemMesh<P, MeshType::Quad> line_;
 
   using MeshBase<2, P>::MeshBase;
 };
 
 template <PolyOrder P>
 struct Mesh<2, P, MeshType::TriQuad> : MeshBase<2, P> {
-  TriElemMesh tri_;
-  QuadElemMesh quad_;
-  AdjacencyLineElemMesh<MeshType::TriQuad> line_;
+  TriElemMesh<P> tri_;
+  QuadElemMesh<P> quad_;
+  AdjacencyLineElemMesh<P, MeshType::TriQuad> line_;
 
   using MeshBase<2, P>::MeshBase;
 };

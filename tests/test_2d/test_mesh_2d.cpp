@@ -20,9 +20,30 @@
 #include "SubrosaDG"
 #include "test_structure_2d.h"
 
-TEST_F(Test2d, GetMesh) { SubrosaDG::getMesh(kBoundaryTMap, *Test2d::mesh); }
+TEST_F(Test2d, GetIntegral) { SubrosaDG::getIntegral(*integral); }
 
-TEST_F(Test2d, GetIntegral) { SubrosaDG::getIntegral(*Test2d::integral); }
+TEST_F(Test2d, GetMesh) { SubrosaDG::getMesh(kBoundaryTMap, *integral, *mesh); }
+
+TEST_F(Test2d, ElemIntegral) {
+  Eigen::Vector<SubrosaDG::Real, 2> tri_basis_fun = integral->tri_.basis_fun_(Eigen::last, Eigen::lastN(2));
+  ASSERT_NEAR(tri_basis_fun.x(), 0.29921523099278707, SubrosaDG::kEpsilon);
+  ASSERT_NEAR(tri_basis_fun.y(), 0.03354481152314831, SubrosaDG::kEpsilon);
+
+  Eigen::Vector<SubrosaDG::Real, 2> quad_grad_basis_fun = integral->quad_.grad_basis_fun_(Eigen::last, Eigen::lastN(2));
+  ASSERT_NEAR(quad_grad_basis_fun.x(), 0.13524199845510998, SubrosaDG::kEpsilon);
+  ASSERT_NEAR(quad_grad_basis_fun.y(), -0.61967733539318659, SubrosaDG::kEpsilon);
+}
+
+TEST_F(Test2d, AdjacencyElemIntegral) {
+  Eigen::Vector<SubrosaDG::Real, 2> line_tri_basis_fun = integral->line_.tri_.basis_fun_(Eigen::last, Eigen::lastN(2));
+  ASSERT_NEAR(line_tri_basis_fun.x(), 0.0, SubrosaDG::kEpsilon);
+  ASSERT_NEAR(line_tri_basis_fun.y(), 0.39999999999999997, SubrosaDG::kEpsilon);
+
+  Eigen::Vector<SubrosaDG::Real, 2> line_quad_basis_fun =
+      integral->line_.quad_.basis_fun_(Eigen::last, Eigen::lastN(2));
+  ASSERT_NEAR(line_quad_basis_fun.x(), 0.39999999999999991, SubrosaDG::kEpsilon);
+  ASSERT_NEAR(line_quad_basis_fun.y(), 0.0, SubrosaDG::kEpsilon);
+}
 
 TEST_F(Test2d, ElemMesh) {
   ASSERT_EQ(mesh->tri_.range_, std::make_pair(13L, 26L));
@@ -49,11 +70,11 @@ TEST_F(Test2d, ElemProjectionMeasure) {
 
 TEST_F(Test2d, ElemJacobian) {
   auto tri_area = SubrosaDG::calElemMeasure(mesh->tri_);
-  SubrosaDG::Real tri_jacobian = mesh->tri_.elem_(mesh->tri_.num_ - 1).jacobian_;
+  SubrosaDG::Real tri_jacobian = mesh->tri_.elem_(mesh->tri_.num_ - 1).jacobian_det_(Eigen::last);
   ASSERT_NEAR(tri_jacobian, tri_area->operator()(Eigen::last) / integral->tri_.measure, SubrosaDG::kEpsilon);
 
   auto quad_area = SubrosaDG::calElemMeasure(mesh->quad_);
-  SubrosaDG::Real quad_jacobian = mesh->quad_.elem_(mesh->quad_.num_ - 1).jacobian_;
+  SubrosaDG::Real quad_jacobian = mesh->quad_.elem_(mesh->quad_.num_ - 1).jacobian_det_(Eigen::last);
   ASSERT_NEAR(quad_jacobian, quad_area->operator()(Eigen::last) / integral->quad_.measure, SubrosaDG::kEpsilon);
 }
 
@@ -112,31 +133,9 @@ TEST_F(Test2d, AdjacencyElemNormVec) {
 
 TEST_F(Test2d, AdjacencyElemJacobian) {
   auto line_length = SubrosaDG::calElemMeasure(mesh->line_);
-  SubrosaDG::Real line_internal_jacobian = mesh->line_.internal_.elem_(0).jacobian_;
+  SubrosaDG::Real line_internal_jacobian = mesh->line_.internal_.elem_(0).jacobian_det_(Eigen::last);
   ASSERT_NEAR(line_internal_jacobian, line_length->operator()(0) / 2.0, SubrosaDG::kEpsilon);
-  SubrosaDG::Real line_boundary_jacobian = mesh->line_.boundary_.elem_(mesh->line_.boundary_.num_ - 1).jacobian_;
+  SubrosaDG::Real line_boundary_jacobian =
+      mesh->line_.boundary_.elem_(mesh->line_.boundary_.num_ - 1).jacobian_det_(Eigen::last);
   ASSERT_NEAR(line_boundary_jacobian, line_length->operator()(Eigen::last) / 2.0, SubrosaDG::kEpsilon);
-}
-
-TEST_F(Test2d, ElemIntegral) {
-  Eigen::Vector<SubrosaDG::Real, 2> tri_basis_fun = integral->tri_.basis_fun_(Eigen::last, Eigen::lastN(2));
-  ASSERT_NEAR(tri_basis_fun.x(), 0.29921523099278707, SubrosaDG::kEpsilon);
-  ASSERT_NEAR(tri_basis_fun.y(), 0.03354481152314831, SubrosaDG::kEpsilon);
-  ASSERT_NEAR(integral->tri_.local_mass_mat_inv_.inverse()(0, 0), 0.016666666666666666, SubrosaDG::kEpsilon);
-
-  Eigen::Vector<SubrosaDG::Real, 2> quad_grad_basis_fun = integral->quad_.grad_basis_fun_(Eigen::last, Eigen::lastN(2));
-  ASSERT_NEAR(quad_grad_basis_fun.x(), 0.13524199845510998, SubrosaDG::kEpsilon);
-  ASSERT_NEAR(quad_grad_basis_fun.y(), -0.61967733539318659, SubrosaDG::kEpsilon);
-}
-
-TEST_F(Test2d, AdjacencyElemIntegral) {
-  Eigen::Vector<SubrosaDG::Real, 2> line_tri_basis_fun =
-      integral->line_.tri_.adjacency_basis_fun_(Eigen::last, Eigen::lastN(2));
-  ASSERT_NEAR(line_tri_basis_fun.x(), 0.0, SubrosaDG::kEpsilon);
-  ASSERT_NEAR(line_tri_basis_fun.y(), 0.39999999999999997, SubrosaDG::kEpsilon);
-
-  Eigen::Vector<SubrosaDG::Real, 2> line_quad_basis_fun =
-      integral->line_.quad_.adjacency_basis_fun_(Eigen::last, Eigen::lastN(2));
-  ASSERT_NEAR(line_quad_basis_fun.x(), 0.39999999999999991, SubrosaDG::kEpsilon);
-  ASSERT_NEAR(line_quad_basis_fun.y(), 0.0, SubrosaDG::kEpsilon);
 }

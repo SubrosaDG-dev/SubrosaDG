@@ -52,7 +52,7 @@ inline consteval int getNodeNum() {
 }
 
 template <ElemType ElemT>
-inline consteval int getAdjacencyNum() {
+inline consteval int getElemAdjacencyNum() {
   if constexpr (ElemT == ElemType::Line) {
     return 2;
   } else if constexpr (ElemT == ElemType::Tri) {

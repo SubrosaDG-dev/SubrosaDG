@@ -15,42 +15,66 @@
 
 #include <gmsh.h>
 
+#include <Eigen/Core>
 #include <vector>
 
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "integral/get_integral_num.hpp"
+#include "integral/integral_structure.hpp"
+#include "mesh/get_elem_info.hpp"
 #include "mesh/mesh_structure.hpp"
 
 namespace SubrosaDG {
 
-template <int Dim, ElemType ElemT>
-inline void getElemJacobian(ElemMesh<Dim, ElemT>& elem_mesh) {
-  const std::vector<double> local_coord{0.0, 0.0, 0.0};
+template <int Dim, PolyOrder P, ElemType ElemT>
+inline void getElemJacobian(const ElemIntegral<P, ElemT>& elem_integral, ElemMesh<Dim, P, ElemT>& elem_mesh) {
   std::vector<double> jacobians;
   std::vector<double> determinants;
   std::vector<double> coord;
+  Eigen::Matrix<Real, 3, getElemIntegralNum<ElemT>(P)> local_coord;
+  Eigen::Matrix<Real, Dim, Dim> jacobian_mat;
+  local_coord(Eigen::seqN(Eigen::fix<0>, Eigen::fix<getDim<ElemT>()>), Eigen::all) = elem_integral.integral_point_;
   for (Isize i = 0; i < elem_mesh.num_; i++) {
-    gmsh::model::mesh::getJacobian(static_cast<Usize>(i + elem_mesh.range_.first), local_coord, jacobians, determinants,
-                                   coord);
-    elem_mesh.elem_(i).jacobian_ = static_cast<Real>(determinants[0]);
+    gmsh::model::mesh::getJacobian(static_cast<Usize>(i + elem_mesh.range_.first),
+                                   {local_coord.data(), local_coord.data() + local_coord.size()}, jacobians,
+                                   determinants, coord);
+    for (Isize j = 0; j < elem_integral.kIntegralNum; j++) {
+      for (Isize k = 0; k < Dim; k++) {
+        for (Isize l = 0; l < Dim; l++) {
+          jacobian_mat(k, l) = static_cast<Real>(jacobians[static_cast<Usize>(j * 9 + k * 3 + l)]);
+        }
+      }
+      elem_mesh.elem_(i).jacobian_inv_(Eigen::all, Eigen::seqN(j * Dim, Eigen::fix<Dim>)) = jacobian_mat.inverse();
+      elem_mesh.elem_(i).jacobian_det_(j) = static_cast<Real>(determinants[static_cast<Usize>(j)]);
+    }
   }
 }
 
-template <int Dim, ElemType ElemT, MeshType MeshT>
-inline void getElemJacobian(AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {
-  const std::vector<double> local_coord{0.0, 0.0, 0.0};
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT>
+inline void getElemJacobian(const AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral,
+                            AdjacencyElemMesh<Dim, P, ElemT, MeshT>& adjacency_elem_mesh) {
   std::vector<double> jacobians;
   std::vector<double> determinants;
   std::vector<double> coord;
+  Eigen::Matrix<Real, 3, getAdjacencyElemIntegralNum<ElemT>(P)> local_coord;
+  local_coord(Eigen::seqN(Eigen::fix<0>, Eigen::fix<getDim<ElemT>()>), Eigen::all) =
+      adjacency_elem_integral.integral_point_;
   for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
-    gmsh::model::mesh::getJacobian(static_cast<Usize>(i + adjacency_elem_mesh.internal_.range_.first), local_coord,
-                                   jacobians, determinants, coord);
-    adjacency_elem_mesh.internal_.elem_(i).jacobian_ = static_cast<Real>(determinants[0]);
+    gmsh::model::mesh::getJacobian(static_cast<Usize>(i + adjacency_elem_mesh.internal_.range_.first),
+                                   {local_coord.data(), local_coord.data() + local_coord.size()}, jacobians,
+                                   determinants, coord);
+    for (Isize j = 0; j < adjacency_elem_integral.kIntegralNum; j++) {
+      adjacency_elem_mesh.internal_.elem_(i).jacobian_det_(j) = static_cast<Real>(determinants[static_cast<Usize>(j)]);
+    }
   }
   for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
-    gmsh::model::mesh::getJacobian(static_cast<Usize>(i + adjacency_elem_mesh.boundary_.range_.first), local_coord,
-                                   jacobians, determinants, coord);
-    adjacency_elem_mesh.boundary_.elem_(i).jacobian_ = static_cast<Real>(determinants[0]);
+    gmsh::model::mesh::getJacobian(static_cast<Usize>(i + adjacency_elem_mesh.boundary_.range_.first),
+                                   {local_coord.data(), local_coord.data() + local_coord.size()}, jacobians,
+                                   determinants, coord);
+    for (Isize j = 0; j < adjacency_elem_integral.kIntegralNum; j++) {
+      adjacency_elem_mesh.boundary_.elem_(i).jacobian_det_(j) = static_cast<Real>(determinants[static_cast<Usize>(j)]);
+    }
   }
 }
 

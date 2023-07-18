@@ -16,7 +16,8 @@
 namespace SubrosaDG {
 
 enum class PolyOrder {
-  P1 = 1,
+  P0 = 0,
+  P1,
   P2,
   P3,
   P4,

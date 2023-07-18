@@ -29,24 +29,23 @@ struct ElemStandard {
   inline static Eigen::Matrix<Real, getNodeNum<ElemT>(), getDim<ElemT>()> coord;
 };
 
-template <PolyOrder P, ElemType ElemT>
+template <int IntegralNum, ElemType ElemT>
 struct ElemGaussQuad : ElemStandard<ElemT> {
-  inline static constexpr int kIntegralNum{getElemIntegralNum<ElemT>(P)};
-  Eigen::Vector<Real, kIntegralNum> weight_;
+  inline static constexpr int kIntegralNum{IntegralNum};
+  Eigen::Matrix<Real, getDim<ElemT>(), IntegralNum> integral_point_;
+  Eigen::Vector<Real, IntegralNum> weight_;
 };
 
 template <PolyOrder P, ElemType ElemT>
-struct ElemIntegral : ElemGaussQuad<P, ElemT> {
+struct ElemIntegral : ElemGaussQuad<getElemIntegralNum<ElemT>(P), ElemT> {
   inline static constexpr int kBasisFunNum{calBasisFunNum<ElemT>(P)};
-  Eigen::Matrix<Real, ElemGaussQuad<P, ElemT>::kIntegralNum, kBasisFunNum, Eigen::RowMajor> basis_fun_;
-  Eigen::Matrix<Real, kBasisFunNum, kBasisFunNum> local_mass_mat_inv_;
-  Eigen::Matrix<Real, ElemGaussQuad<P, ElemT>::kIntegralNum * getDim<ElemT>(), kBasisFunNum> grad_basis_fun_;
+  Eigen::Matrix<Real, getElemIntegralNum<ElemT>(P), kBasisFunNum, Eigen::RowMajor> basis_fun_;
+  Eigen::Matrix<Real, getElemIntegralNum<ElemT>(P) * getDim<ElemT>(), kBasisFunNum> grad_basis_fun_;
 };
 
-template <PolyOrder P, ElemType ParentElemT>
+template <PolyOrder P, ElemType ElemT>
 struct ElemAdjacencyIntegral {
-  Eigen::Matrix<Real, getElemAdjacencyIntegralNum<ParentElemT>(P), calBasisFunNum<ParentElemT>(P), Eigen::RowMajor>
-      adjacency_basis_fun_;
+  Eigen::Matrix<Real, getElemAdjacencyIntegralNum<ElemT>(P), calBasisFunNum<ElemT>(P), Eigen::RowMajor> basis_fun_;
 };
 
 template <PolyOrder P>
@@ -59,17 +58,18 @@ template <PolyOrder P, ElemType ElemT, MeshType MeshT>
 struct AdjacencyElemIntegral;
 
 template <PolyOrder P, ElemType ElemT>
-struct AdjacencyElemIntegral<P, ElemT, MeshType::Tri> : ElemGaussQuad<P, ElemT> {
+struct AdjacencyElemIntegral<P, ElemT, MeshType::Tri> : ElemGaussQuad<getAdjacencyElemIntegralNum<ElemT>(P), ElemT> {
   TriElemAdjacencyIntegral<P> tri_;
 };
 
 template <PolyOrder P, ElemType ElemT>
-struct AdjacencyElemIntegral<P, ElemT, MeshType::Quad> : ElemGaussQuad<P, ElemT> {
+struct AdjacencyElemIntegral<P, ElemT, MeshType::Quad> : ElemGaussQuad<getAdjacencyElemIntegralNum<ElemT>(P), ElemT> {
   QuadElemAdjacencyIntegral<P> quad_;
 };
 
 template <PolyOrder P, ElemType ElemT>
-struct AdjacencyElemIntegral<P, ElemT, MeshType::TriQuad> : ElemGaussQuad<P, ElemT> {
+struct AdjacencyElemIntegral<P, ElemT, MeshType::TriQuad>
+    : ElemGaussQuad<getAdjacencyElemIntegralNum<ElemT>(P), ElemT> {
   TriElemAdjacencyIntegral<P> tri_;
   QuadElemAdjacencyIntegral<P> quad_;
 };

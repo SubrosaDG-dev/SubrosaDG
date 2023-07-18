@@ -34,7 +34,7 @@ template <int Dim, ElemType ElemT>
   requires(Dim == 2) && Is2dElem<ElemT>
 inline Real calElemMeasure(const Eigen::Matrix<Real, Dim, getNodeNum<ElemT>()>& node) {
   Eigen::Matrix<Real, 3, getNodeNum<ElemT>()> node3d = Eigen::Matrix<Real, 3, getNodeNum<ElemT>()>::Zero();
-  node3d(Eigen::seqN(0, Eigen::fix<Dim>), Eigen::all) = node;
+  node3d(Eigen::seqN(Eigen::fix<0>, Eigen::fix<Dim>), Eigen::all) = node;
   Eigen::Vector<Real, 3> cross_product = Eigen::Vector<Real, 3>::Zero();
   for (Isize i = 0; i < getNodeNum<ElemT>(); i++) {
     cross_product += node3d.col(i).cross(node3d.col((i + 1) % getNodeNum<ElemT>()));
@@ -46,8 +46,8 @@ template <int Dim, ElemType ElemT>
   requires(Dim == 3) && Is2dElem<ElemT>
 inline Real calElemMeasure(const Eigen::Matrix<Real, Dim, getNodeNum<ElemT>()>& node);
 
-template <int Dim, ElemType ElemT>
-inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemMeasure(const ElemMesh<Dim, ElemT>& elem_mesh) {
+template <int Dim, PolyOrder P, ElemType ElemT>
+inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemMeasure(const ElemMesh<Dim, P, ElemT>& elem_mesh) {
   auto measure = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(elem_mesh.num_);
   for (Isize i = 0; i < elem_mesh.num_; i++) {
     measure->operator()(i) = calElemMeasure<Dim, ElemT>(elem_mesh.elem_(i).node_);
@@ -55,9 +55,9 @@ inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemMeasure(const
   return measure;
 }
 
-template <int Dim, ElemType ElemT, MeshType MeshT>
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT>
 inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemMeasure(
-    const AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {
+    const AdjacencyElemMesh<Dim, P, ElemT, MeshT>& adjacency_elem_mesh) {
   auto measure = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(adjacency_elem_mesh.internal_.num_ +
                                                                        adjacency_elem_mesh.boundary_.num_);
   for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {

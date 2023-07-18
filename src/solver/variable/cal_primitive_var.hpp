@@ -29,7 +29,7 @@ inline void calPrimitiveVar(const ThermoModel<EquModel::Euler>& thermo_model, co
   const Real u = farfield_var.u_[0];
   const Real v = farfield_var.u_[1];
   const Real p = farfield_var.p_;
-  const Real capital_e = (thermo_model.c_p_ - thermo_model.r_) * farfield_var.capital_t_ + 0.5 * (u * u + v * v);
+  const Real capital_e = thermo_model.c_v_ * farfield_var.capital_t_ + 0.5 * (u * u + v * v);
   primitive_var << rho, u, v, p, capital_e;
 }
 
@@ -40,8 +40,7 @@ inline void calPrimitiveVar(const ThermoModel<EquModel::Euler>& thermo_model, co
   const Real v = farfield_var.u_[1];
   const Real w = farfield_var.u_[2];
   const Real p = farfield_var.p_;
-  const Real capital_e =
-      (thermo_model.c_p_ - thermo_model.r_) * farfield_var.capital_t_ + 0.5 * (u * u + v * v + w * w);
+  const Real capital_e = thermo_model.c_v_ * farfield_var.capital_t_ + 0.5 * (u * u + v * v + w * w);
   primitive_var << rho, u, v, w, p, capital_e;
 }
 

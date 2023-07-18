@@ -22,7 +22,7 @@
 namespace SubrosaDG {
 
 template <PolyOrder P, ElemType ElemT>
-inline void copyElemFunCoeff(const ElemMesh<2, ElemT>& elem_mesh,
+inline void copyElemFunCoeff(const ElemMesh<2, P, ElemT>& elem_mesh,
                              ElemSolver<2, P, ElemT, EquModel::Euler>& elem_solver) {
   for (Isize i = 0; i < elem_mesh.num_; i++) {
     elem_solver.elem_(i).basis_fun_coeff_(0).noalias() = elem_solver.elem_(i).basis_fun_coeff_(1);

@@ -28,33 +28,40 @@
 namespace SubrosaDG {
 
 template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
-inline void calElemIntegral(const ElemMesh<Dim, ElemT>& elem_mesh, const ElemIntegral<P, ElemT>& elem_integral,
+inline void calElemIntegral(const ElemIntegral<P, ElemT>& elem_integral, const ElemMesh<Dim, P, ElemT>& elem_mesh,
                             const ThermoModel<EquModel::Euler>& thermo_model,
                             ElemSolver<Dim, P, ElemT, EquModelT>& elem_solver) {
   Eigen::Vector<Real, Dim + 2> conserved_var;
   Eigen::Vector<Real, Dim + 3> primitive_var;
   Eigen::Matrix<Real, Dim + 2, Dim> convective_var;
   Eigen::Matrix<Real, Dim + 2, Dim> elem_solver_integral;
+#ifdef SUBROSA_DG_WITH_OPENMP
+#pragma omp parallel for default(none) schedule(auto)                                                 \
+    shared(Eigen::all, Eigen::fix<Dim>, elem_mesh, elem_integral, thermo_model, elem_solver) private( \
+            conserved_var, primitive_var, convective_var, elem_solver_integral)
+#endif
   for (Isize i = 0; i < elem_mesh.num_; i++) {
     for (Isize j = 0; j < elem_integral.kIntegralNum; j++) {
       conserved_var.noalias() = elem_solver.elem_(i).basis_fun_coeff_(1) * elem_integral.basis_fun_.row(j).transpose();
       calPrimitiveVar(thermo_model, conserved_var, primitive_var);
       calConvectiveVar(primitive_var, convective_var);
-      elem_solver_integral.noalias() = convective_var * elem_mesh.elem_(i).jacobian_ * elem_integral.weight_(j);
+      elem_solver_integral.noalias() =
+          convective_var * elem_mesh.elem_(i).jacobian_inv_(Eigen::all, Eigen::seqN(j * Dim, Eigen::fix<Dim>)) *
+          elem_mesh.elem_(i).jacobian_det_(j) * elem_integral.weight_(j);
       elem_solver.elem_(i).elem_integral_(Eigen::all, Eigen::seqN(j * Dim, Eigen::fix<Dim>)) = elem_solver_integral;
     }
   }
 }
 
 template <PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT>
-inline void calElemIntegral(const Mesh<2, P, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
+inline void calElemIntegral(const Integral<2, P, MeshT>& integral, const Mesh<2, P, MeshT>& mesh,
                             const SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental,
                             Solver<2, P, EquModel::Euler, MeshT>& solver) {
   if constexpr (HasTri<MeshT>) {
-    calElemIntegral(mesh.tri_, integral.tri_, solver_supplemental.thermo_model_, solver.tri_);
+    calElemIntegral(integral.tri_, mesh.tri_, solver_supplemental.thermo_model_, solver.tri_);
   }
   if constexpr (HasQuad<MeshT>) {
-    calElemIntegral(mesh.quad_, integral.quad_, solver_supplemental.thermo_model_, solver.quad_);
+    calElemIntegral(integral.quad_, mesh.quad_, solver_supplemental.thermo_model_, solver.quad_);
   }
 }
 

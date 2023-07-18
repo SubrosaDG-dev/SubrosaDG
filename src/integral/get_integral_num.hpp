@@ -21,6 +21,12 @@
 
 namespace SubrosaDG {
 
+inline consteval int getElemIntegralOrder(PolyOrder poly_order) { return 2 * static_cast<int>(poly_order); }
+
+inline consteval int getElemAdjacencyIntegralOrder(PolyOrder poly_order) {
+  return 2 * static_cast<int>(poly_order) + 1;
+}
+
 inline constexpr std::array<int, 12> kLineIntegralNum{1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6};
 inline constexpr std::array<int, 12> kTriIntegralNum{1, 1, 3, 4, 6, 7, 12, 13, 16, 19, 25, 27};
 inline constexpr std::array<int, 12> kQuadIntegralNum{1, 3, 7, 4, 9, 9, 16, 16, 25, 25, 36, 36};
@@ -30,17 +36,25 @@ inline consteval int getElemIntegralNum(PolyOrder poly_order);
 
 template <>
 inline consteval int getElemIntegralNum<ElemType::Line>(PolyOrder poly_order) {
-  return kLineIntegralNum[2 * static_cast<Usize>(poly_order)];
+  return kLineIntegralNum[static_cast<Usize>(getElemIntegralOrder(poly_order))];
 }
 
 template <>
 inline consteval int getElemIntegralNum<ElemType::Tri>(PolyOrder poly_order) {
-  return kTriIntegralNum[2 * static_cast<Usize>(poly_order)];
+  return kTriIntegralNum[static_cast<Usize>(getElemIntegralOrder(poly_order))];
 }
 
 template <>
 inline consteval int getElemIntegralNum<ElemType::Quad>(PolyOrder poly_order) {
-  return kQuadIntegralNum[2 * static_cast<Usize>(poly_order)];
+  return kQuadIntegralNum[static_cast<Usize>(getElemIntegralOrder(poly_order))];
+}
+
+template <ElemType ElemT>
+inline consteval int getAdjacencyElemIntegralNum(PolyOrder poly_order);
+
+template <>
+inline consteval int getAdjacencyElemIntegralNum<ElemType::Line>(PolyOrder poly_order) {
+  return kLineIntegralNum[static_cast<Usize>(getElemAdjacencyIntegralOrder(poly_order))];
 }
 
 template <ElemType ElemT>
@@ -48,12 +62,14 @@ inline consteval int getElemAdjacencyIntegralNum(PolyOrder poly_order);
 
 template <>
 inline consteval int getElemAdjacencyIntegralNum<ElemType::Tri>(PolyOrder poly_order) {
-  return kLineIntegralNum[2 * static_cast<Usize>(poly_order) + 1] * getAdjacencyNum<ElemType::Tri>();
+  return kLineIntegralNum[static_cast<Usize>(getElemAdjacencyIntegralOrder(poly_order))] *
+         getElemAdjacencyNum<ElemType::Tri>();
 }
 
 template <>
 inline consteval int getElemAdjacencyIntegralNum<ElemType::Quad>(PolyOrder poly_order) {
-  return kLineIntegralNum[2 * static_cast<Usize>(poly_order) + 1] * getAdjacencyNum<ElemType::Quad>();
+  return kLineIntegralNum[static_cast<Usize>(getElemAdjacencyIntegralOrder(poly_order))] *
+         getElemAdjacencyNum<ElemType::Quad>();
 }
 
 }  // namespace SubrosaDG

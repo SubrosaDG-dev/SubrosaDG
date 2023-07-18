@@ -80,7 +80,7 @@ class ProgressBar {
   }
 
   void update() {
-    double proc = static_cast<double>(++progress_) / static_cast<double>(cycle_num_ - 1);
+    double proc = static_cast<double>(++progress_) / static_cast<double>(cycle_num_);
 
     if (time_since_refresh() > min_time_per_update_ || proc == 0 || proc == 1) {
       reset_refresh_timer();

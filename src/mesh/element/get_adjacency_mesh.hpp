@@ -85,11 +85,11 @@ inline std::map<Isize, AdjacencyElemMeshSupplemental> getAdjacencyElemMap() {
   return adjacency_elem_map;
 }
 
-template <int Dim, ElemType ElemT, MeshType MeshT>
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT>
 inline void getAdjacencyInternalElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
                                          const std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map,
                                          const std::vector<Isize>& internal_tag,
-                                         AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {
+                                         AdjacencyElemMesh<Dim, P, ElemT, MeshT>& adjacency_elem_mesh) {
   Usize max_elem_tag;
   gmsh::model::mesh::getMaxElementTag(max_elem_tag);
   const auto [internal_min_tag, internal_max_tag] = std::ranges::minmax_element(internal_tag);
@@ -118,9 +118,9 @@ inline void getAdjacencyInternalElemMesh(const Eigen::Matrix<Real, Dim, Eigen::D
             static_cast<int>(adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 3 * j + 2]);
       } else {
         adjacency_elem_mesh.internal_.elem_(i).parent_index_(static_cast<Isize>(j)) =
-            adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 2 * j + 1];
+            adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 2 * j];
         adjacency_elem_mesh.internal_.elem_(i).adjacency_index_(static_cast<Isize>(j)) =
-            adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 2 * j + 2];
+            adjacency_elem_supplemental.index_[getNodeNum<ElemT>() + 2 * j + 1];
       }
     }
     elem_tags.emplace_back(static_cast<Usize>(i) + max_elem_tag + 1);
@@ -128,12 +128,12 @@ inline void getAdjacencyInternalElemMesh(const Eigen::Matrix<Real, Dim, Eigen::D
   gmsh::model::mesh::addElementsByType(entity_tag, getTopology<ElemT>(), elem_tags, node_tags);
 }
 
-template <int Dim, ElemType ElemT, MeshType MeshT>
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT>
 inline void getAdjacencyBoundaryElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
                                          const MeshSupplemental<ElemT>& boundary_supplemental,
                                          const std::map<Isize, AdjacencyElemMeshSupplemental>& adjacency_elem_map,
                                          const std::vector<Isize>& boundary_tag,
-                                         AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {
+                                         AdjacencyElemMesh<Dim, P, ElemT, MeshT>& adjacency_elem_mesh) {
   const auto [boundary_min_tag, boundary_max_tag] = std::ranges::minmax_element(boundary_tag);
   adjacency_elem_mesh.boundary_.range_ = std::make_pair(*boundary_min_tag, *boundary_max_tag);
   adjacency_elem_mesh.boundary_.num_ = *boundary_max_tag - *boundary_min_tag + 1;
@@ -156,10 +156,10 @@ inline void getAdjacencyBoundaryElemMesh(const Eigen::Matrix<Real, Dim, Eigen::D
   }
 }
 
-template <int Dim, ElemType ElemT, MeshType MeshT>
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT>
 inline void getAdjacencyElemMesh(const Eigen::Matrix<Real, Dim, Eigen::Dynamic>& node,
                                  const std::unordered_map<std::string_view, Boundary>& boundary_type_map,
-                                 AdjacencyElemMesh<Dim, ElemT, MeshT>& adjacency_elem_mesh) {
+                                 AdjacencyElemMesh<Dim, P, ElemT, MeshT>& adjacency_elem_mesh) {
   std::map<Isize, AdjacencyElemMeshSupplemental> adjacency_elem_map = getAdjacencyElemMap<ElemT, MeshT>();
   std::vector<Isize> internal_tag;
   std::vector<Isize> boundary_tag;

@@ -13,6 +13,8 @@
 #ifndef SUBROSA_DG_STEP_TIME_HPP_
 #define SUBROSA_DG_STEP_TIME_HPP_
 
+#include <array>
+
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
 #include "integral/integral_structure.hpp"
@@ -26,13 +28,13 @@
 namespace SubrosaDG {
 
 template <typename T, PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT>
-inline void stepTime(const Mesh<2, P, MeshT>& mesh, const Integral<2, P, MeshT>& integral,
+inline void stepTime(const Integral<2, P, MeshT>& integral, const Mesh<2, P, MeshT>& mesh,
                      const SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental,
-                     const Real time_discrete_coeff, Solver<2, P, EquModel::Euler, MeshT>& solver) {
-  calElemIntegral(mesh, integral, solver_supplemental, solver);
-  calAdjacencyElemIntegral<T>(mesh, integral, solver_supplemental, solver);
-  calResidual(mesh, integral, solver);
-  calFunCoeff(mesh, integral, solver_supplemental, time_discrete_coeff, solver);
+                     const std::array<Real, 3>& time_discrete_coeff, Solver<2, P, EquModel::Euler, MeshT>& solver) {
+  calElemIntegral(integral, mesh, solver_supplemental, solver);
+  calAdjacencyElemIntegral<T>(integral, mesh, solver_supplemental, solver);
+  calResidual(integral, mesh, solver);
+  calFunCoeff(mesh, solver_supplemental, time_discrete_coeff, solver);
 }
 
 }  // namespace SubrosaDG

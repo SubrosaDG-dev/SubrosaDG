@@ -27,9 +27,9 @@ inline void storeAdjacencyIntegralToElem(const Isize elem_tag, const Isize adjac
                                          const Eigen::Vector<Real, 4>& adjacency_integral,
                                          Solver<2, P, EquModelT, MeshT>& solver) {
   if constexpr (MeshT == MeshType::Tri) {
-    solver.tri_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
+    solver.tri_.elem_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
   } else if constexpr (MeshT == MeshType::Quad) {
-    solver.quad_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
+    solver.quad_.elem_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
   }
 }
 
