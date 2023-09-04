@@ -20,10 +20,12 @@
 #include <vector>
 
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 
 namespace SubrosaDG {
 
-template <int Dim>
+template <int Dim, EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
 struct FlowVar {
   const std::array<Real, Dim> u_;
   const Real rho_;
@@ -34,18 +36,19 @@ struct FlowVar {
       : u_(u), rho_(rho), p_(p), capital_t_(capital_t) {}
 };
 
-template <int Dim>
+template <int Dim, EquModel EquModelT>
 struct InitVar {
   const std::unordered_map<std::string_view, int> region_map_;
-  const std::vector<FlowVar<Dim>> flow_var_;
+  const std::vector<FlowVar<Dim, EquModelT>> flow_var_;
 
-  inline InitVar(std::unordered_map<std::string_view, int> region_map, const std::vector<FlowVar<Dim>>& flow_var)
+  inline InitVar(std::unordered_map<std::string_view, int> region_map,
+                 const std::vector<FlowVar<Dim, EquModelT>>& flow_var)
       : region_map_(std::move(region_map)), flow_var_(flow_var) {}
 };
 
-template <int Dim>
-struct FarfieldVar : FlowVar<Dim> {
-  using FlowVar<Dim>::FlowVar;
+template <int Dim, EquModel EquModelT>
+struct FarfieldVar : FlowVar<Dim, EquModelT> {
+  using FlowVar<Dim, EquModelT>::FlowVar;
 };
 
 }  // namespace SubrosaDG

@@ -27,10 +27,11 @@
 
 namespace SubrosaDG {
 
-template <typename T, PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT>
-inline void stepTime(const Integral<2, P, MeshT>& integral, const Mesh<2, P, MeshT>& mesh,
-                     const SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental,
-                     const std::array<Real, 3>& time_discrete_coeff, Solver<2, P, EquModel::Euler, MeshT>& solver) {
+template <typename T, int Dim, PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT>
+  requires IsExplicit<TimeDiscreteT>
+inline void stepTime(const Integral<Dim, P, MeshT>& integral, const Mesh<Dim, P, MeshT>& mesh,
+                     const SolverSupplemental<Dim, EquModel::Euler, TimeDiscreteT>& solver_supplemental,
+                     const std::array<Real, 3>& time_discrete_coeff, Solver<Dim, P, MeshT, EquModel::Euler>& solver) {
   calElemIntegral(integral, mesh, solver_supplemental, solver);
   calAdjacencyElemIntegral<T>(integral, mesh, solver_supplemental, solver);
   calResidual(integral, mesh, solver);

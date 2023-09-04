@@ -33,7 +33,7 @@ inline void getElemJacobian(const ElemIntegral<P, ElemT>& elem_integral, ElemMes
   std::vector<double> determinants;
   std::vector<double> coord;
   Eigen::Matrix<Real, 3, getElemIntegralNum<ElemT>(P)> local_coord;
-  Eigen::Matrix<Real, Dim, Dim> jacobian_mat;
+  Eigen::Matrix<Real, Dim, Dim> jacobian_trans;
   local_coord(Eigen::seqN(Eigen::fix<0>, Eigen::fix<getDim<ElemT>()>), Eigen::all) = elem_integral.integral_point_;
   for (Isize i = 0; i < elem_mesh.num_; i++) {
     gmsh::model::mesh::getJacobian(static_cast<Usize>(i + elem_mesh.range_.first),
@@ -42,10 +42,11 @@ inline void getElemJacobian(const ElemIntegral<P, ElemT>& elem_integral, ElemMes
     for (Isize j = 0; j < elem_integral.kIntegralNum; j++) {
       for (Isize k = 0; k < Dim; k++) {
         for (Isize l = 0; l < Dim; l++) {
-          jacobian_mat(k, l) = static_cast<Real>(jacobians[static_cast<Usize>(j * 9 + k * 3 + l)]);
+          jacobian_trans(k, l) = static_cast<Real>(jacobians[static_cast<Usize>(j * 9 + k * 3 + l)]);
         }
       }
-      elem_mesh.elem_(i).jacobian_inv_(Eigen::all, Eigen::seqN(j * Dim, Eigen::fix<Dim>)) = jacobian_mat.inverse();
+      elem_mesh.elem_(i).jacobian_trans_inv_(Eigen::all, Eigen::seqN(j * Dim, Eigen::fix<Dim>)) =
+          jacobian_trans.inverse();
       elem_mesh.elem_(i).jacobian_det_(j) = static_cast<Real>(determinants[static_cast<Usize>(j)]);
     }
   }

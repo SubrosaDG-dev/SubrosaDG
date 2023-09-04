@@ -13,6 +13,8 @@
 #ifndef SUBROSA_DG_CAL_ABSOLUTE_ERROR_HPP_
 #define SUBROSA_DG_CAL_ABSOLUTE_ERROR_HPP_
 
+#include <fmt/core.h>
+
 #include <Eigen/Core>
 
 #include "basic/concept.hpp"
@@ -21,23 +23,38 @@
 #include "integral/integral_structure.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "solver/solver_structure.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
-template <PolyOrder P, ElemType ElemT>
-inline void calElemAbsoluteError(const ElemIntegral<P, ElemT>& elem_integral, const ElemMesh<2, P, ElemT>& elem_mesh,
-                                 const ElemSolver<2, P, ElemT, EquModel::Euler>& elem_solver,
-                                 Eigen::Vector<Real, 4>& absolute_error) {
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline std::string getBarInfo(Eigen::Vector<Real, getConservedVarNum<EquModelT>(2)>& absolute_error) {
+  return fmt::format("Residual: rho: {:.4e}, rhou: {:.4e}, rhov: {:.4e}, rhoE: {:.4e}", absolute_error(0),
+                     absolute_error(1), absolute_error(2), absolute_error(3));
+}
+
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline std::string getBarInfo(Eigen::Vector<Real, getConservedVarNum<EquModelT>(3)>& absolute_error) {
+  return fmt::format("Residual: rho: {:.4e}, rhou: {:.4e}, rhov: {:.4e}, rhow: {:.4e}, rhoE: {:.4e}", absolute_error(0),
+                     absolute_error(1), absolute_error(2), absolute_error(3), absolute_error(4));
+}
+
+template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
+inline void calElemAbsoluteError(const ElemIntegral<P, ElemT>& elem_integral, const ElemMesh<Dim, P, ElemT>& elem_mesh,
+                                 const ElemSolver<Dim, P, ElemT, EquModelT>& elem_solver,
+                                 Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)>& absolute_error) {
   for (Isize i = 0; i < elem_mesh.num_; i++) {
     absolute_error.array() +=
         (elem_solver.elem_(i).residual_ * elem_integral.basis_fun_.transpose()).array().abs().rowwise().mean();
   }
 }
 
-template <PolyOrder P, MeshType MeshT>
-inline void calAbsoluteError(const Integral<2, P, MeshT>& integral, const Mesh<2, P, MeshT>& mesh,
-                             const Solver<2, P, EquModel::Euler, MeshT>& solver,
-                             Eigen::Vector<Real, 4>& absolute_error) {
+template <int Dim, PolyOrder P, MeshType MeshT, EquModel EquModelT>
+inline std::string calAbsoluteError(const Integral<Dim, P, MeshT>& integral, const Mesh<Dim, P, MeshT>& mesh,
+                                    const Solver<Dim, P, MeshT, EquModelT>& solver,
+                                    Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)>& absolute_error) {
   absolute_error.setZero();
   if constexpr (HasTri<MeshT>) {
     calElemAbsoluteError(integral.tri_, mesh.tri_, solver.tri_, absolute_error);
@@ -46,6 +63,7 @@ inline void calAbsoluteError(const Integral<2, P, MeshT>& integral, const Mesh<2
     calElemAbsoluteError(integral.quad_, mesh.quad_, solver.quad_, absolute_error);
   }
   absolute_error /= static_cast<Real>(mesh.elem_num_);
+  return getBarInfo<EquModelT>(absolute_error);
 }
 
 }  // namespace SubrosaDG

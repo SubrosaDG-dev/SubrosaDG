@@ -30,11 +30,11 @@ namespace SubrosaDG {
 template <PolyOrder P, ElemType ElemT>
 inline void getElemIntegral(ElemIntegral<P, ElemT>& elem_integral) {
   using T = ElemIntegral<P, ElemT>;
-  std::vector<double> local_coords = getElemGaussQuad(getElemIntegralOrder(P), elem_integral);
+  std::vector<double> local_coords = getElemGaussQuad<T::kIntegralNum, P>(getElemIntegralOrder(P), elem_integral);
   int num_components;
   int num_orientations;
   std::vector<double> basis_functions;
-  gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(), local_coords,
+  gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(P), local_coords,
                                        fmt::format("Lagrange{}", static_cast<int>(P)), num_components, basis_functions,
                                        num_orientations);
   for (Isize i = 0; i < T::kIntegralNum; i++) {
@@ -43,7 +43,7 @@ inline void getElemIntegral(ElemIntegral<P, ElemT>& elem_integral) {
     }
   }
   std::vector<double> grad_basis_functions;
-  gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(), local_coords,
+  gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(P), local_coords,
                                        fmt::format("GradLagrange{}", static_cast<int>(P)), num_components,
                                        grad_basis_functions, num_orientations);
   for (Isize i = 0; i < T::kIntegralNum; i++) {

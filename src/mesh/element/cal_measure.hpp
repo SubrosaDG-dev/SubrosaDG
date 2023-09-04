@@ -26,48 +26,33 @@ namespace SubrosaDG {
 
 template <int Dim, ElemType ElemT>
   requires Is1dElem<ElemT>
-inline Real calElemMeasure(const Eigen::Matrix<Real, Dim, getNodeNum<ElemT>()>& node) {
+inline Real calMeasure(const Eigen::Matrix<Real, Dim, getNodeNum<ElemT>(PolyOrder::P1)>& node) {
   return (node.col(1) - node.col(0)).norm();
 }
 
 template <int Dim, ElemType ElemT>
   requires(Dim == 2) && Is2dElem<ElemT>
-inline Real calElemMeasure(const Eigen::Matrix<Real, Dim, getNodeNum<ElemT>()>& node) {
-  Eigen::Matrix<Real, 3, getNodeNum<ElemT>()> node3d = Eigen::Matrix<Real, 3, getNodeNum<ElemT>()>::Zero();
+inline Real calMeasure(const Eigen::Matrix<Real, Dim, getNodeNum<ElemT>(PolyOrder::P1)>& node) {
+  Eigen::Matrix<Real, 3, getNodeNum<ElemT>(PolyOrder::P1)> node3d =
+      Eigen::Matrix<Real, 3, getNodeNum<ElemT>(PolyOrder::P1)>::Zero();
   node3d(Eigen::seqN(Eigen::fix<0>, Eigen::fix<Dim>), Eigen::all) = node;
   Eigen::Vector<Real, 3> cross_product = Eigen::Vector<Real, 3>::Zero();
-  for (Isize i = 0; i < getNodeNum<ElemT>(); i++) {
-    cross_product += node3d.col(i).cross(node3d.col((i + 1) % getNodeNum<ElemT>()));
+  for (Isize i = 0; i < getNodeNum<ElemT>(PolyOrder::P1); i++) {
+    cross_product += node3d.col(i).cross(node3d.col((i + 1) % getNodeNum<ElemT>(PolyOrder::P1)));
   }
   return 0.5 * cross_product.norm();
 }
 
 template <int Dim, ElemType ElemT>
   requires(Dim == 3) && Is2dElem<ElemT>
-inline Real calElemMeasure(const Eigen::Matrix<Real, Dim, getNodeNum<ElemT>()>& node);
+inline Real calMeasure(const Eigen::Matrix<Real, Dim, getNodeNum<ElemT>()>& node);
 
 template <int Dim, PolyOrder P, ElemType ElemT>
-inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemMeasure(const ElemMesh<Dim, P, ElemT>& elem_mesh) {
-  auto measure = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(elem_mesh.num_);
+inline void calElemMeasure(ElemMesh<Dim, P, ElemT>& elem_mesh) {
   for (Isize i = 0; i < elem_mesh.num_; i++) {
-    measure->operator()(i) = calElemMeasure<Dim, ElemT>(elem_mesh.elem_(i).node_);
+    elem_mesh.elem_(i).measure_ = calMeasure<Dim, ElemT>(
+        elem_mesh.elem_(i).node_(Eigen::all, Eigen::seqN(Eigen::fix<0>, Eigen::fix<getNodeNum<ElemT>(PolyOrder::P1)>)));
   }
-  return measure;
-}
-
-template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT>
-inline std::unique_ptr<Eigen::Vector<Real, Eigen::Dynamic>> calElemMeasure(
-    const AdjacencyElemMesh<Dim, P, ElemT, MeshT>& adjacency_elem_mesh) {
-  auto measure = std::make_unique<Eigen::Vector<Real, Eigen::Dynamic>>(adjacency_elem_mesh.internal_.num_ +
-                                                                       adjacency_elem_mesh.boundary_.num_);
-  for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
-    measure->operator()(i) = calElemMeasure<Dim, ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_);
-  }
-  for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
-    measure->operator()(i + adjacency_elem_mesh.internal_.num_) =
-        calElemMeasure<Dim, ElemT>(adjacency_elem_mesh.boundary_.elem_(i).node_);
-  }
-  return measure;
 }
 
 }  // namespace SubrosaDG

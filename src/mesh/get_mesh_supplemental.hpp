@@ -36,31 +36,31 @@ struct PhysicalGroup {
   std::vector<Usize> elem_entity_tags_;
 };
 
-template <ElemType ElemT>
+template <PolyOrder P, ElemType ElemT>
 inline void concatenateElemEntityTags(const std::vector<int>& physical_group_entity_tag,
                                       std::vector<Usize>& elem_entity_tags) {
   std::vector<Usize> elem_tags;
   std::vector<Usize> elem_node_tags;
   for (const auto entity_tag : physical_group_entity_tag) {
-    gmsh::model::mesh::getElementsByType(getTopology<ElemT>(), elem_tags, elem_node_tags, entity_tag);
+    gmsh::model::mesh::getElementsByType(getTopology<ElemT>(P), elem_tags, elem_node_tags, entity_tag);
     if (!elem_tags.empty()) {
       elem_entity_tags.insert(elem_entity_tags.end(), elem_tags.begin(), elem_tags.end());
     }
   }
 }
 
-template <ElemType ElemT>
-inline PhysicalGroup getPhysicalGroup(int physical_group_tag) {
+template <PolyOrder P, ElemType ElemT>
+inline PhysicalGroup getPhysicalGroup(const int physical_group_tag) {
   std::string physical_group_name;
   std::vector<int> physical_group_entity_tag;
   gmsh::model::getPhysicalName(getDim<ElemT>(), physical_group_tag, physical_group_name);
   gmsh::model::getEntitiesForPhysicalGroup(getDim<ElemT>(), physical_group_tag, physical_group_entity_tag);
   std::vector<Usize> elem_entity_tags;
-  concatenateElemEntityTags<ElemT>(physical_group_entity_tag, elem_entity_tags);
+  concatenateElemEntityTags<P, ElemT>(physical_group_entity_tag, elem_entity_tags);
   return {physical_group_name, elem_entity_tags};
 }
 
-template <typename T, ElemType ElemT>
+template <typename T, PolyOrder P, ElemType ElemT>
 inline void getMeshSupplemental(const std::unordered_map<std::string_view, T>& name_map,
                                 MeshSupplemental<ElemT>& mesh_supplemental) {
   std::vector<std::pair<int, int>> physical_group_tags;
@@ -68,14 +68,15 @@ inline void getMeshSupplemental(const std::unordered_map<std::string_view, T>& n
   std::vector<PhysicalGroup> physical_groups;
   physical_groups.reserve(physical_group_tags.size());
   for (const auto& [dimension, physical_group_tag] : physical_group_tags) {
-    physical_groups.emplace_back(getPhysicalGroup<ElemT>(physical_group_tag));
+    physical_groups.emplace_back(getPhysicalGroup<P, ElemT>(physical_group_tag));
   }
   std::vector<Usize> all_elem_entity_tags;
   for (const auto& physical_group : physical_groups) {
     all_elem_entity_tags.insert(all_elem_entity_tags.end(), physical_group.elem_entity_tags_.begin(),
                                 physical_group.elem_entity_tags_.end());
   }
-  mesh_supplemental.range_ = std::make_pair(all_elem_entity_tags.front(), all_elem_entity_tags.back());
+  const auto [elem_min_tag, elem_max_tag] = std::ranges::minmax_element(all_elem_entity_tags);
+  mesh_supplemental.range_ = std::make_pair(*elem_min_tag, *elem_max_tag);
   mesh_supplemental.num_ = mesh_supplemental.range_.second - mesh_supplemental.range_.first + 1;
   mesh_supplemental.index_.resize(mesh_supplemental.num_);
   try {

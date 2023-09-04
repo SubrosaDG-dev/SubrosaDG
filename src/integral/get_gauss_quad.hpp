@@ -18,6 +18,7 @@
 
 #include <vector>
 
+#include "basic/constant.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
 #include "integral/get_standard.hpp"
@@ -26,13 +27,13 @@
 
 namespace SubrosaDG {
 
-template <int IntegralNum, ElemType ElemT>
+template <int IntegralNum, PolyOrder P, ElemType ElemT>
 inline std::vector<double> getElemGaussQuad(const int gauss_accuracy,
-                                            ElemGaussQuad<IntegralNum, ElemT>& elem_gauss_quad) {
-  getElemStandard<ElemT>();
+                                            ElemGaussQuad<IntegralNum, P, ElemT>& elem_gauss_quad) {
+  getElemStandard<P, ElemT>();
   std::vector<double> local_coords;
   std::vector<double> weights;
-  gmsh::model::mesh::getIntegrationPoints(getTopology<ElemT>(), fmt::format("Gauss{}", gauss_accuracy), local_coords,
+  gmsh::model::mesh::getIntegrationPoints(getTopology<ElemT>(P), fmt::format("Gauss{}", gauss_accuracy), local_coords,
                                           weights);
   for (Isize i = 0; i < IntegralNum; i++) {
     for (Isize j = 0; j < getDim<ElemT>(); j++) {

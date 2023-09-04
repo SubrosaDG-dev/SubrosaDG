@@ -29,15 +29,16 @@ namespace SubrosaDG {
 
 template <int Dim, PolyOrder P, ElemType ElemT>
 struct PerElemMeshBase {
-  Eigen::Matrix<Real, Dim, getNodeNum<ElemT>()> node_;
-  Eigen::Vector<Isize, getNodeNum<ElemT>()> index_;
+  Eigen::Matrix<Real, Dim, getNodeNum<ElemT>(P)> node_;
+  Eigen::Vector<Isize, getNodeNum<ElemT>(P)> index_;
   Eigen::Vector<Real, getElemIntegralNum<ElemT>(P)> jacobian_det_;
 };
 
 template <int Dim, PolyOrder P, ElemType ElemT>
 struct PerElemMesh : PerElemMeshBase<Dim, P, ElemT> {
   Eigen::Matrix<Real, calBasisFunNum<ElemT>(P), calBasisFunNum<ElemT>(P)> local_mass_mat_inv_;
-  Eigen::Matrix<Real, Dim, getElemIntegralNum<ElemT>(P) * Dim> jacobian_inv_;
+  Eigen::Matrix<Real, Dim, getElemIntegralNum<ElemT>(P) * Dim> jacobian_trans_inv_;
+  Real measure_;
   Eigen::Vector<Real, Dim> projection_measure_;
 };
 
@@ -94,6 +95,7 @@ template <int Dim, PolyOrder P>
 struct MeshBase {
   Isize node_num_;
   Eigen::Matrix<Real, Dim, Eigen::Dynamic> node_;
+  Eigen::Vector<Real, Eigen::Dynamic> node_elem_measure_;
 
   Isize elem_num_{0};
 

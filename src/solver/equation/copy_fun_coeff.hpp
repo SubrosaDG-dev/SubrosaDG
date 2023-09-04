@@ -21,16 +21,16 @@
 
 namespace SubrosaDG {
 
-template <PolyOrder P, ElemType ElemT>
-inline void copyElemFunCoeff(const ElemMesh<2, P, ElemT>& elem_mesh,
-                             ElemSolver<2, P, ElemT, EquModel::Euler>& elem_solver) {
+template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
+inline void copyElemFunCoeff(const ElemMesh<Dim, P, ElemT>& elem_mesh,
+                             ElemSolver<Dim, P, ElemT, EquModelT>& elem_solver) {
   for (Isize i = 0; i < elem_mesh.num_; i++) {
     elem_solver.elem_(i).basis_fun_coeff_(0).noalias() = elem_solver.elem_(i).basis_fun_coeff_(1);
   }
 }
 
-template <PolyOrder P, MeshType MeshT>
-inline void copyFunCoeff(const Mesh<2, P, MeshT>& mesh, Solver<2, P, EquModel::Euler, MeshT>& solver) {
+template <PolyOrder P, MeshType MeshT, EquModel EquModelT>
+inline void copyFunCoeff(const Mesh<2, P, MeshT>& mesh, Solver<2, P, MeshT, EquModelT>& solver) {
   if constexpr (HasTri<MeshT>) {
     copyElemFunCoeff(mesh.tri_, solver.tri_);
   }

@@ -16,10 +16,15 @@
 #include <Eigen/Core>
 
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
-inline void calConvectiveVar(const Eigen::Vector<Real, 5>& primitive_var, Eigen::Matrix<Real, 4, 2>& convective_var) {
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline void calConvectiveVar(const Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(2)>& primitive_var,
+                             Eigen::Matrix<Real, getConservedVarNum<EquModelT>(2), 2>& convective_var) {
   const Real rho = primitive_var(0);
   const Real u = primitive_var(1);
   const Real v = primitive_var(2);
@@ -29,7 +34,10 @@ inline void calConvectiveVar(const Eigen::Vector<Real, 5>& primitive_var, Eigen:
   convective_var.col(1) << rho * v, rho * u * v, rho * v * v + p, rho * v * capital_e + p * v;
 }
 
-inline void calConvectiveVar(const Eigen::Vector<Real, 6>& primitive_var, Eigen::Matrix<Real, 5, 3>& convective_var) {
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline void calConvectiveVar(const Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(3)>& primitive_var,
+                             Eigen::Matrix<Real, getConservedVarNum<EquModelT>(3), 3>& convective_var) {
   const Real rho = primitive_var(0);
   const Real u = primitive_var(1);
   const Real v = primitive_var(2);

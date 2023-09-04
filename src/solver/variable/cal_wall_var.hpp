@@ -14,19 +14,22 @@
 #define SUBROSA_DG_CAL_WALL_VAR_HPP_
 
 #include <Eigen/Core>
+#include <iostream>
 
 #include "basic/data_type.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
-inline void calWallPrimitiveVar(const Eigen::Vector<Real, 5>& primitive_var,
-                                Eigen::Vector<Real, 5>& wall_primitive_var) {
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline void calWallPrimitiveVar(const Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(2)>& primitive_var,
+                                Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(2)>& wall_primitive_var) {
   wall_primitive_var(0) = primitive_var(0);
-  wall_primitive_var(1) = 0;
-  wall_primitive_var(2) = 0;
+  wall_primitive_var(1) = -primitive_var(1);
+  wall_primitive_var(2) = -primitive_var(2);
   wall_primitive_var(3) = primitive_var(3);
-  wall_primitive_var(3) =
-      primitive_var(4) - 0.5 * (primitive_var(1) * primitive_var(1) + primitive_var(2) * primitive_var(2));
+  wall_primitive_var(4) = primitive_var(4);
 }
 
 }  // namespace SubrosaDG

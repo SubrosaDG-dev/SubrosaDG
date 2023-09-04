@@ -26,7 +26,9 @@ using namespace std::string_view_literals;
 
 inline constexpr int kDim{2};
 
-inline constexpr SubrosaDG::PolyOrder kPolyOrder{1};
+inline constexpr SubrosaDG::PolyOrder kPolyOrder{3};
+
+inline constexpr int kStep{1};
 
 inline constexpr SubrosaDG::MeshType kMeshType{SubrosaDG::MeshType::TriQuad};
 
@@ -34,7 +36,8 @@ inline constexpr SubrosaDG::EquModel kEquModel{SubrosaDG::EquModel::Euler};
 
 inline const std::filesystem::path kProjectDir{SubrosaDG::kProjectSourceDir / "build/out/cylinder_2d_euler"};
 
-inline constexpr SubrosaDG::TimeVar<SubrosaDG::TimeDiscrete::ForwardEuler> kTimeVar{1000, 0.5, 1e-10};
+inline constexpr SubrosaDG::TimeVar<SubrosaDG::TimeDiscrete::ForwardEuler> kTimeVar{
+    kStep, 1 / (2 * static_cast<SubrosaDG::Real>(kPolyOrder) + 1), 1e-10};
 
 inline constexpr SubrosaDG::SpatialDiscreteEuler<SubrosaDG::ConvectiveFlux::Roe> kSpatialDiscrete;
 
@@ -42,14 +45,17 @@ inline constexpr SubrosaDG::ThermoModel<SubrosaDG::EquModel::Euler> kThermoModel
 
 inline const std::unordered_map<std::string_view, int> kRegionIdMap{{"vc-1"sv, 0}};
 
-inline const std::vector<SubrosaDG::FlowVar<2>> kFlowVar{SubrosaDG::FlowVar<2>{{0.38, 0.0}, 1.4, 1.0, 1.0}};
+inline const std::vector<SubrosaDG::FlowVar<2, kEquModel>> kFlowVar{
+    SubrosaDG::FlowVar<2, kEquModel>{{0.38, 0.0}, 1.4, 1.0, 1.0}};
 
-inline const SubrosaDG::InitVar<2> kInitVar{kRegionIdMap, kFlowVar};
+inline const SubrosaDG::InitVar<2, kEquModel> kInitVar{kRegionIdMap, kFlowVar};
 
 inline const std::unordered_map<std::string_view, SubrosaDG::Boundary> kBoundaryTMap{
-    {"bc-1", SubrosaDG::Boundary::Farfield}, {"bc-2", SubrosaDG::Boundary::Farfield}};
+    {"bc-1", SubrosaDG::Boundary::Farfield}, {"bc-2", SubrosaDG::Boundary::Wall}};
 
-inline constexpr SubrosaDG::FarfieldVar<2> kFarfieldVar{{0.38, 0.0}, 1.4, 1.0, 1.0};
+inline constexpr SubrosaDG::FarfieldVar<2, kEquModel> kFarfieldVar{{0.38, 0.0}, 1.4, 1.0, 1.0};
+
+inline const SubrosaDG::ViewConfig kViewConfig{kStep, kProjectDir, "cylinder_2d", SubrosaDG::ViewType::Dat};
 
 void generateMesh(const std::filesystem::path& mesh_file) {
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_point;
@@ -60,12 +66,13 @@ void generateMesh(const std::filesystem::path& mesh_file) {
   std::vector<int> cylinder_point_tag;
   std::vector<int> farfield_line_tag;
   std::vector<int> cylinder_line_tag;
+  gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
   gmsh::model::add("cylinder_2d");
   for (const auto& row : farfield_point.rowwise()) {
-    farfield_point_tag.emplace_back(gmsh::model::occ::addPoint(row.x(), row.y(), row.z(), 1.0));
+    farfield_point_tag.emplace_back(gmsh::model::occ::addPoint(row.x(), row.y(), row.z(), 0.5));
   }
   for (const auto& row : cylinder_point.rowwise()) {
-    cylinder_point_tag.emplace_back(gmsh::model::occ::addPoint(row.x(), row.y(), row.z(), 0.1));
+    cylinder_point_tag.emplace_back(gmsh::model::occ::addPoint(row.x(), row.y(), row.z(), 0.05));
   }
   for (std::size_t i = 0; i < farfield_point_tag.size(); i++) {
     farfield_line_tag.emplace_back(
@@ -82,7 +89,7 @@ void generateMesh(const std::filesystem::path& mesh_file) {
   std::vector<double> cylinder_line_tag_double_cast{cylinder_line_tag.begin(), cylinder_line_tag.end()};
   const int cylinder_boundary_layer = gmsh::model::mesh::field::add("BoundaryLayer");
   gmsh::model::mesh::field::setNumbers(cylinder_boundary_layer, "CurvesList", cylinder_line_tag_double_cast);
-  gmsh::model::mesh::field::setNumber(cylinder_boundary_layer, "Size", 0.1);
+  gmsh::model::mesh::field::setNumber(cylinder_boundary_layer, "Size", 0.05);
   gmsh::model::mesh::field::setNumber(cylinder_boundary_layer, "Ratio", 1.1);
   gmsh::model::mesh::field::setNumber(cylinder_boundary_layer, "Quads", 1);
   gmsh::model::mesh::field::setNumber(cylinder_boundary_layer, "Thickness", 0.5);
@@ -90,7 +97,8 @@ void generateMesh(const std::filesystem::path& mesh_file) {
   gmsh::model::addPhysicalGroup(1, farfield_line_tag, -1, "bc-1");
   gmsh::model::addPhysicalGroup(1, cylinder_line_tag, -1, "bc-2");
   gmsh::model::addPhysicalGroup(2, {cylinder_plane_surface}, -1, "vc-1");
-  gmsh::model::mesh::generate(2);
+  gmsh::model::mesh::generate(kDim);
+  gmsh::model::mesh::setOrder(static_cast<int>(kPolyOrder));
   gmsh::write(mesh_file.string());
 }
 
@@ -102,10 +110,12 @@ int main(int argc, char* argv[]) {
   generateMesh(mesh_file);
   SubrosaDG::Integral<kDim, kPolyOrder, kMeshType> integral;
   SubrosaDG::Mesh<kDim, kPolyOrder, kMeshType> mesh{mesh_file};
-  SubrosaDG::Solver<kDim, kPolyOrder, kEquModel, kMeshType> solver;
+  SubrosaDG::Solver<kDim, kPolyOrder, kMeshType, kEquModel> solver;
+  SubrosaDG::View<kDim, kPolyOrder, kMeshType, kEquModel> view;
   SubrosaDG::getIntegral(integral);
   SubrosaDG::getMesh(kBoundaryTMap, integral, mesh);
   SubrosaDG::getSolver<decltype(kSpatialDiscrete)>(integral, mesh, kThermoModel, kTimeVar, kInitVar, kFarfieldVar,
-                                                   kProjectDir, solver);
+                                                   kViewConfig, solver);
+  SubrosaDG::getView(mesh, kThermoModel, kTimeVar, kViewConfig, view);
   return EXIT_SUCCESS;
 }

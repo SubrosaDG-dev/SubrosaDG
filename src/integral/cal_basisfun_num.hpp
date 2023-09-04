@@ -21,17 +21,17 @@ template <ElemType ElemT>
 inline consteval int calBasisFunNum(PolyOrder poly_order);
 
 template <>
-inline consteval int calBasisFunNum<ElemType::Line>(PolyOrder poly_order) {
+inline consteval int calBasisFunNum<ElemType::Line>(const PolyOrder poly_order) {
   return static_cast<int>(poly_order) + 1;
 }
 
 template <>
-inline consteval int calBasisFunNum<ElemType::Tri>(PolyOrder poly_order) {
+inline consteval int calBasisFunNum<ElemType::Tri>(const PolyOrder poly_order) {
   return (static_cast<int>(poly_order) + 1) * (static_cast<int>(poly_order) + 2) / 2;
 }
 
 template <>
-inline consteval int calBasisFunNum<ElemType::Quad>(PolyOrder poly_order) {
+inline consteval int calBasisFunNum<ElemType::Quad>(const PolyOrder poly_order) {
   return (static_cast<int>(poly_order) + 1) * (static_cast<int>(poly_order) + 1);
 }
 

@@ -23,21 +23,21 @@
 
 namespace SubrosaDG {
 
-template <ElemType ElemT>
+template <PolyOrder P, ElemType ElemT>
 struct ElemStandard {
   inline static Real measure;
-  inline static Eigen::Matrix<Real, getNodeNum<ElemT>(), getDim<ElemT>()> coord;
+  inline static Eigen::Matrix<Real, getDim<ElemT>(), getNodeNum<ElemT>(P)> node;
 };
 
-template <int IntegralNum, ElemType ElemT>
-struct ElemGaussQuad : ElemStandard<ElemT> {
+template <int IntegralNum, PolyOrder P, ElemType ElemT>
+struct ElemGaussQuad : ElemStandard<P, ElemT> {
   inline static constexpr int kIntegralNum{IntegralNum};
   Eigen::Matrix<Real, getDim<ElemT>(), IntegralNum> integral_point_;
   Eigen::Vector<Real, IntegralNum> weight_;
 };
 
 template <PolyOrder P, ElemType ElemT>
-struct ElemIntegral : ElemGaussQuad<getElemIntegralNum<ElemT>(P), ElemT> {
+struct ElemIntegral : ElemGaussQuad<getElemIntegralNum<ElemT>(P), P, ElemT> {
   inline static constexpr int kBasisFunNum{calBasisFunNum<ElemT>(P)};
   Eigen::Matrix<Real, getElemIntegralNum<ElemT>(P), kBasisFunNum, Eigen::RowMajor> basis_fun_;
   Eigen::Matrix<Real, getElemIntegralNum<ElemT>(P) * getDim<ElemT>(), kBasisFunNum> grad_basis_fun_;
@@ -58,18 +58,19 @@ template <PolyOrder P, ElemType ElemT, MeshType MeshT>
 struct AdjacencyElemIntegral;
 
 template <PolyOrder P, ElemType ElemT>
-struct AdjacencyElemIntegral<P, ElemT, MeshType::Tri> : ElemGaussQuad<getAdjacencyElemIntegralNum<ElemT>(P), ElemT> {
+struct AdjacencyElemIntegral<P, ElemT, MeshType::Tri> : ElemGaussQuad<getAdjacencyElemIntegralNum<ElemT>(P), P, ElemT> {
   TriElemAdjacencyIntegral<P> tri_;
 };
 
 template <PolyOrder P, ElemType ElemT>
-struct AdjacencyElemIntegral<P, ElemT, MeshType::Quad> : ElemGaussQuad<getAdjacencyElemIntegralNum<ElemT>(P), ElemT> {
+struct AdjacencyElemIntegral<P, ElemT, MeshType::Quad>
+    : ElemGaussQuad<getAdjacencyElemIntegralNum<ElemT>(P), P, ElemT> {
   QuadElemAdjacencyIntegral<P> quad_;
 };
 
 template <PolyOrder P, ElemType ElemT>
 struct AdjacencyElemIntegral<P, ElemT, MeshType::TriQuad>
-    : ElemGaussQuad<getAdjacencyElemIntegralNum<ElemT>(P), ElemT> {
+    : ElemGaussQuad<getAdjacencyElemIntegralNum<ElemT>(P), P, ElemT> {
   TriElemAdjacencyIntegral<P> tri_;
   QuadElemAdjacencyIntegral<P> quad_;
 };

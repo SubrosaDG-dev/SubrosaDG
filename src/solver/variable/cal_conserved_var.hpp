@@ -20,11 +20,14 @@
 #include "basic/enum.hpp"
 #include "config/flow_var.hpp"
 #include "config/thermo_model.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
-inline void calConservedVar(const ThermoModel<EquModel::Euler>& thermo_model, const FlowVar<2>& flow_var,
-                            Eigen::Vector<Real, 4>& conserved_var) {
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline void calConservedVar(const ThermoModel<EquModelT>& thermo_model, const FlowVar<2, EquModelT>& flow_var,
+                            Eigen::Vector<Real, getConservedVarNum<EquModelT>(2)>& conserved_var) {
   const Real rho = flow_var.rho_;
   const Real rho_u = rho * flow_var.u_[0];
   const Real rho_v = rho * flow_var.u_[1];
@@ -33,8 +36,10 @@ inline void calConservedVar(const ThermoModel<EquModel::Euler>& thermo_model, co
   conserved_var << rho, rho_u, rho_v, rho_capital_e;
 }
 
-inline void calConservedVar(const ThermoModel<EquModel::Euler>& thermo_model, const FlowVar<3>& flow_var,
-                            Eigen::Vector<Real, 5>& conserved_var) {
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline void calConservedVar(const ThermoModel<EquModelT>& thermo_model, const FlowVar<3, EquModelT>& flow_var,
+                            Eigen::Vector<Real, getConservedVarNum<EquModelT>(3)>& conserved_var) {
   const Real rho = flow_var.rho_;
   const Real rho_u = rho * flow_var.u_[0];
   const Real rho_v = rho * flow_var.u_[1];

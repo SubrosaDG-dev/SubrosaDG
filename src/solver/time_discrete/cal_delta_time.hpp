@@ -25,15 +25,17 @@
 #include "mesh/mesh_structure.hpp"
 #include "solver/solver_structure.hpp"
 #include "solver/variable/cal_primitive_var.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
 template <PolyOrder P, ElemType ElemT, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
+  requires IsExplicit<TimeDiscreteT>
 inline void calElemDeltaTime(const ElemIntegral<P, ElemT>& elem_integral, const ElemMesh<2, P, ElemT>& elem_mesh,
                              const ElemSolver<2, P, ElemT, EquModelT>& elem_solver,
-                             SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental) {
-  Eigen::Vector<Real, 4> conserved_var;
-  Eigen::Vector<Real, 5> primitive_var;
+                             SolverSupplemental<2, EquModelT, TimeDiscreteT>& solver_supplemental) {
+  Eigen::Vector<Real, getConservedVarNum<EquModelT>(2)> conserved_var;
+  Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(2)> primitive_var;
   Real u;
   Real v;
   Real a;
@@ -57,9 +59,10 @@ inline void calElemDeltaTime(const ElemIntegral<P, ElemT>& elem_integral, const 
 }
 
 template <PolyOrder P, MeshType MeshT, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
+  requires IsExplicit<TimeDiscreteT>
 inline void calDeltaTime(const Integral<2, P, MeshT>& integral, const Mesh<2, P, MeshT>& mesh,
-                         const Solver<2, P, EquModelT, MeshT>& solver,
-                         SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental) {
+                         const Solver<2, P, MeshT, EquModelT>& solver,
+                         SolverSupplemental<2, EquModelT, TimeDiscreteT>& solver_supplemental) {
   solver_supplemental.delta_t_ = kMax;
   if constexpr (HasTri<MeshT>) {
     calElemDeltaTime(integral.tri_, mesh.tri_, solver.tri_, solver_supplemental);

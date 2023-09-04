@@ -24,5 +24,6 @@ TEST_F(Test2d, GetMesh) { SubrosaDG::getMesh(kBoundaryTMap, *integral, *mesh); }
 
 TEST_F(Test2d, Develop) {
   SubrosaDG::getSolver<decltype(kSpatialDiscrete)>(*integral, *mesh, kThermoModel, kTimeVar, kInitVar, kFarfieldVar,
-                                                   kProjectDir, *solver);
+                                                   kViewConfig, *solver);
+  SubrosaDG::getView(*mesh, kThermoModel, kTimeVar, kViewConfig, *view);
 }

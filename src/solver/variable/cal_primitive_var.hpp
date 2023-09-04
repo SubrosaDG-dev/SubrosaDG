@@ -20,11 +20,14 @@
 #include "basic/enum.hpp"
 #include "config/flow_var.hpp"
 #include "config/thermo_model.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
-inline void calPrimitiveVar(const ThermoModel<EquModel::Euler>& thermo_model, const FarfieldVar<2>& farfield_var,
-                            Eigen::Vector<Real, 5>& primitive_var) {
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline void calPrimitiveVar(const ThermoModel<EquModelT>& thermo_model, const FarfieldVar<2, EquModelT>& farfield_var,
+                            Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(2)>& primitive_var) {
   const Real rho = farfield_var.rho_;
   const Real u = farfield_var.u_[0];
   const Real v = farfield_var.u_[1];
@@ -33,8 +36,10 @@ inline void calPrimitiveVar(const ThermoModel<EquModel::Euler>& thermo_model, co
   primitive_var << rho, u, v, p, capital_e;
 }
 
-inline void calPrimitiveVar(const ThermoModel<EquModel::Euler>& thermo_model, const FarfieldVar<3>& farfield_var,
-                            Eigen::Vector<Real, 6>& primitive_var) {
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline void calPrimitiveVar(const ThermoModel<EquModelT>& thermo_model, const FarfieldVar<3, EquModelT>& farfield_var,
+                            Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(3)>& primitive_var) {
   const Real rho = farfield_var.rho_;
   const Real u = farfield_var.u_[0];
   const Real v = farfield_var.u_[1];
@@ -44,8 +49,11 @@ inline void calPrimitiveVar(const ThermoModel<EquModel::Euler>& thermo_model, co
   primitive_var << rho, u, v, w, p, capital_e;
 }
 
-inline void calPrimitiveVar(const ThermoModel<EquModel::Euler>& thermo_model,
-                            const Eigen::Vector<Real, 4>& conserved_var, Eigen::Vector<Real, 5>& primitive_var) {
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline void calPrimitiveVar(const ThermoModel<EquModelT>& thermo_model,
+                            const Eigen::Vector<Real, getConservedVarNum<EquModelT>(2)>& conserved_var,
+                            Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(2)>& primitive_var) {
   const Real rho = conserved_var(0);
   const Real u = conserved_var(1) / rho;
   const Real v = conserved_var(2) / rho;
@@ -54,8 +62,11 @@ inline void calPrimitiveVar(const ThermoModel<EquModel::Euler>& thermo_model,
   primitive_var << rho, u, v, p, capital_e;
 }
 
-inline void calPrimitiveVar(const ThermoModel<EquModel::Euler>& thermo_model,
-                            const Eigen::Vector<Real, 5>& conserved_var, Eigen::Vector<Real, 6>& primitive_var) {
+template <EquModel EquModelT>
+  requires(EquModelT == EquModel::Euler || EquModelT == EquModel::NS)
+inline void calPrimitiveVar(const ThermoModel<EquModelT>& thermo_model,
+                            const Eigen::Vector<Real, getConservedVarNum<EquModelT>(3)>& conserved_var,
+                            Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(3)>& primitive_var) {
   const Real rho = conserved_var(0);
   const Real u = conserved_var(1) / rho;
   const Real v = conserved_var(2) / rho;

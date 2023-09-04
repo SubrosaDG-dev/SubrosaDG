@@ -25,6 +25,7 @@ inline constexpr Real kEuler = std::numbers::e_v<Real>;
 
 inline constexpr Real kMax = std::numeric_limits<Real>::max();
 inline constexpr Real kEpsilon = std::numeric_limits<Real>::epsilon();
+inline constexpr int kSignificantDigits = std::numeric_limits<Real>::digits10;
 
 }  // namespace SubrosaDG
 

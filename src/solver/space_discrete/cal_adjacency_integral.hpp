@@ -27,20 +27,21 @@
 #include "solver/variable/cal_primitive_var.hpp"
 #include "solver/variable/cal_wall_var.hpp"
 #include "solver/variable/get_parent_var.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
-template <PolyOrder P, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
 inline void calInternalAdjacencyElemIntegral(const AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral,
-                                             const AdjacencyElemMesh<2, P, ElemT, MeshT>& adjacency_elem_mesh,
-                                             const ThermoModel<EquModel::Euler>& thermo_model,
-                                             Solver<2, P, EquModelT, MeshT>& solver) {
-  Eigen::Vector<Real, 4> l_conserved_var;
-  Eigen::Vector<Real, 5> l_primitive_var;
-  Eigen::Vector<Real, 4> r_conserved_var;
-  Eigen::Vector<Real, 5> r_primitive_var;
-  Eigen::Vector<Real, 4> convective_flux;
-  Eigen::Vector<Real, 4> adjancy_integral;
+                                             const AdjacencyElemMesh<Dim, P, ElemT, MeshT>& adjacency_elem_mesh,
+                                             const ThermoModel<EquModelT>& thermo_model,
+                                             Solver<Dim, P, MeshT, EquModelT>& solver) {
+  Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)> l_conserved_var;
+  Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(Dim)> l_primitive_var;
+  Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)> r_conserved_var;
+  Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(Dim)> r_primitive_var;
+  Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)> convective_flux;
+  Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)> adjancy_integral;
   Isize l_elem_tag;
   Isize l_adjacency_order;
   Isize r_elem_tag;
@@ -95,17 +96,17 @@ inline void calInternalAdjacencyElemIntegral(const AdjacencyElemIntegral<P, Elem
   }
 }
 
-template <PolyOrder P, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
-inline void calBoundaryAdjacencyElemIntegral(const AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral,
-                                             const AdjacencyElemMesh<2, P, ElemT, MeshT>& adjacency_elem_mesh,
-                                             const ThermoModel<EquModel::Euler>& thermo_model,
-                                             const Eigen::Vector<Real, 5> farfield_primitive_var,
-                                             Solver<2, P, EquModelT, MeshT>& solver) {
-  Eigen::Vector<Real, 4> l_conserved_var;
-  Eigen::Vector<Real, 5> l_primitive_var;
-  Eigen::Vector<Real, 5> wall_primitive_var;
-  Eigen::Vector<Real, 4> convective_flux;
-  Eigen::Vector<Real, 4> adjancy_integral;
+template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT, EquModel EquModelT, ConvectiveFlux ConvectiveFluxT>
+inline void calBoundaryAdjacencyElemIntegral(
+    const AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral,
+    const AdjacencyElemMesh<Dim, P, ElemT, MeshT>& adjacency_elem_mesh, const ThermoModel<EquModelT>& thermo_model,
+    const Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(Dim)> farfield_primitive_var,
+    Solver<Dim, P, MeshT, EquModelT>& solver) {
+  Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)> l_conserved_var;
+  Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(Dim)> l_primitive_var;
+  Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(Dim)> wall_primitive_var;
+  Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)> convective_flux;
+  Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)> adjancy_integral;
   Isize l_elem_tag;
   Isize l_adjacency_order;
   Isize r_boundary_tag;
@@ -137,7 +138,7 @@ inline void calBoundaryAdjacencyElemIntegral(const AdjacencyElemIntegral<P, Elem
         }
         break;
       case Boundary::Wall:
-        calWallPrimitiveVar(l_primitive_var, wall_primitive_var);
+        calWallPrimitiveVar<EquModelT>(l_primitive_var, wall_primitive_var);
         if constexpr (ConvectiveFluxT == ConvectiveFlux::Roe) {
           calRoeFlux(thermo_model, adjacency_elem_mesh.boundary_.elem_(i).norm_vec_, l_primitive_var,
                      wall_primitive_var, convective_flux);
@@ -161,10 +162,10 @@ inline void calBoundaryAdjacencyElemIntegral(const AdjacencyElemIntegral<P, Elem
 template <typename T, PolyOrder P, MeshType MeshT, EquModel EquModelT, TimeDiscrete TimeDiscreteT>
 inline void calAdjacencyElemIntegral(const Integral<2, P, MeshT>& integral, const Mesh<2, P, MeshT>& mesh,
                                      const SolverSupplemental<2, EquModelT, TimeDiscreteT>& solver_supplemental,
-                                     Solver<2, P, EquModelT, MeshT>& solver) {
-  calInternalAdjacencyElemIntegral<P, ElemType::Line, MeshT, EquModelT, T::kConvectiveFlux>(
+                                     Solver<2, P, MeshT, EquModelT>& solver) {
+  calInternalAdjacencyElemIntegral<2, P, ElemType::Line, MeshT, EquModelT, T::kConvectiveFlux>(
       integral.line_, mesh.line_, solver_supplemental.thermo_model_, solver);
-  calBoundaryAdjacencyElemIntegral<P, ElemType::Line, MeshT, EquModelT, T::kConvectiveFlux>(
+  calBoundaryAdjacencyElemIntegral<2, P, ElemType::Line, MeshT, EquModelT, T::kConvectiveFlux>(
       integral.line_, mesh.line_, solver_supplemental.thermo_model_, solver_supplemental.farfield_primitive_var_,
       solver);
 }

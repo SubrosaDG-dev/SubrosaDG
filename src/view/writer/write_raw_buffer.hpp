@@ -18,21 +18,29 @@
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "integral/cal_basisfun_num.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "solver/solver_structure.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
-template <int Dim, PolyOrder P, ElemType ElemT>
+template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
 inline void writeElemRawBuffer(const ElemMesh<Dim, P, ElemT>& elem_mesh,
-                               const ElemSolver<Dim, P, ElemT, EquModel::Euler>& elem_solver, std::ofstream& fout) {
+                               const ElemSolver<Dim, P, ElemT, EquModelT>& elem_solver, std::ofstream& fout) {
   for (Isize i = 0; i < elem_mesh.num_; i++) {
-    fout << elem_solver.elem_(i).basis_fun_coeff_(1) << std::endl << std::endl;
+#ifndef SUBROSA_DG_DEVELOP
+    fout.write(
+        reinterpret_cast<const char*>(elem_solver.elem_(i).basis_fun_coeff_(1).data()),
+        getConservedVarNum<EquModelT>(Dim) * calBasisFunNum<ElemT>(P) * static_cast<std::streamsize>(sizeof(Real)));
+#else
+    fout << elem_solver.elem_(i).basis_fun_coeff_(1) << std::endl;
+#endif
   }
 }
 
-template <PolyOrder P, MeshType MeshT>
-inline void writeRawBuffer(const Mesh<2, P, MeshT>& mesh, const Solver<2, P, EquModel::Euler, MeshT>& solver,
+template <PolyOrder P, MeshType MeshT, EquModel EquModelT>
+inline void writeRawBuffer(const Mesh<2, P, MeshT>& mesh, const Solver<2, P, MeshT, EquModelT>& solver,
                            std::ofstream& fout) {
   if constexpr (HasTri<MeshT>) {
     writeElemRawBuffer(mesh.tri_, solver.tri_, fout);

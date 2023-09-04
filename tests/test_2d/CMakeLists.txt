@@ -10,8 +10,8 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/test_2d)
+cmake_minimum_required(VERSION 3.25)
 
-add_gtest(test_mesh_2d "test_mesh_2d.cpp")
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/test_2d)
 
 add_gtest(test_solver_2d "test_solver_2d.cpp")

@@ -23,10 +23,10 @@
 
 namespace SubrosaDG {
 
-template <PolyOrder P, ElemType ElemT>
-inline void calElemFunCoeff(const ElemMesh<2, P, ElemT>& elem_mesh, const Real delta_t,
+template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
+inline void calElemFunCoeff(const ElemMesh<Dim, P, ElemT>& elem_mesh, const Real delta_t,
                             const std::array<Real, 3>& time_discrete_coeff,
-                            ElemSolver<2, P, ElemT, EquModel::Euler>& elem_solver) {
+                            ElemSolver<Dim, P, ElemT, EquModelT>& elem_solver) {
 #ifdef SUBROSA_DG_WITH_OPENMP
 #pragma omp parallel for default(none) schedule(auto) shared(elem_mesh, delta_t, time_discrete_coeff, elem_solver)
 #endif
@@ -38,10 +38,10 @@ inline void calElemFunCoeff(const ElemMesh<2, P, ElemT>& elem_mesh, const Real d
   }
 }
 
-template <PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT>
+template <PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT, EquModel EquModelT>
 inline void calFunCoeff(const Mesh<2, P, MeshT>& mesh,
-                        const SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental,
-                        const std::array<Real, 3>& time_discrete_coeff, Solver<2, P, EquModel::Euler, MeshT>& solver) {
+                        const SolverSupplemental<2, EquModelT, TimeDiscreteT>& solver_supplemental,
+                        const std::array<Real, 3>& time_discrete_coeff, Solver<2, P, MeshT, EquModelT>& solver) {
   if constexpr (HasTri<MeshT>) {
     calElemFunCoeff(mesh.tri_, solver_supplemental.delta_t_, time_discrete_coeff, solver.tri_);
   }

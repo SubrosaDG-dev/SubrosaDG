@@ -19,13 +19,15 @@
 #include "basic/enum.hpp"
 #include "mesh/get_elem_info.hpp"
 #include "solver/solver_structure.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
 template <PolyOrder P, MeshType MeshT, EquModel EquModelT>
-inline void storeAdjacencyIntegralToElem(const Isize elem_tag, const Isize adjacency_integral_order,
-                                         const Eigen::Vector<Real, 4>& adjacency_integral,
-                                         Solver<2, P, EquModelT, MeshT>& solver) {
+inline void storeAdjacencyIntegralToElem(
+    const Isize elem_tag, const Isize adjacency_integral_order,
+    const Eigen::Vector<Real, getConservedVarNum<EquModelT>(2)>& adjacency_integral,
+    Solver<2, P, MeshT, EquModelT>& solver) {
   if constexpr (MeshT == MeshType::Tri) {
     solver.tri_.elem_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
   } else if constexpr (MeshT == MeshType::Quad) {
@@ -34,15 +36,15 @@ inline void storeAdjacencyIntegralToElem(const Isize elem_tag, const Isize adjac
 }
 
 template <PolyOrder P, EquModel EquModelT>
-inline void storeAdjacencyIntegralToElem(const int elem_topology, const Isize elem_tag,
-                                         const Isize adjacency_integral_order,
-                                         const Eigen::Vector<Real, 4>& adjacency_integral,
-                                         Solver<2, P, EquModelT, MeshType::TriQuad>& solver) {
+inline void storeAdjacencyIntegralToElem(
+    const int elem_topology, const Isize elem_tag, const Isize adjacency_integral_order,
+    const Eigen::Vector<Real, getConservedVarNum<EquModelT>(2)>& adjacency_integral,
+    Solver<2, P, MeshType::TriQuad, EquModelT>& solver) {
   switch (elem_topology) {
-  case getTopology<ElemType::Tri>():
+  case getTopology<ElemType::Tri>(P):
     solver.tri_.elem_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
     break;
-  case getTopology<ElemType::Quad>():
+  case getTopology<ElemType::Quad>(P):
     solver.quad_.elem_(elem_tag).adjacency_integral_.col(adjacency_integral_order) = adjacency_integral;
     break;
   }

@@ -25,8 +25,9 @@ namespace SubrosaDG {
 
 template <EquModel EquModelT>
 inline void calRoeFlux(const ThermoModel<EquModelT>& thermo_model, const Eigen::Vector<Real, 2>& norm_vec,
-                       const Eigen::Vector<Real, 5>& l_primitive_var, const Eigen::Vector<Real, 5>& r_primitive_var,
-                       Eigen::Vector<Real, 4>& roe_flux) {
+                       const Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(2)>& l_primitive_var,
+                       const Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(2)>& r_primitive_var,
+                       Eigen::Vector<Real, getConservedVarNum<EquModelT>(2)>& roe_flux) {
   const Real l_sqrt_rho = std::sqrt(l_primitive_var(0));
   const Real r_sqrt_rho = std::sqrt(r_primitive_var(0));
   const Real rho_average = l_sqrt_rho + r_sqrt_rho;
@@ -48,19 +49,19 @@ inline void calRoeFlux(const ThermoModel<EquModelT>& thermo_model, const Eigen::
   roe_var_f1 << 1.0, roe_u - roe_a * norm_vec.x(), roe_v - roe_a * norm_vec.y(), roe_capital_h - roe_a * roe_norm_q;
   roe_var_f1 *= std::fabs(roe_norm_q - roe_a) * (delta_p - roe_rho * roe_a * delta_norm_q) / (2.0 * roe_a * roe_a);
   Eigen::Vector<Real, 4> roe_var_f2;
-  roe_var_f2 << 1, roe_u, roe_v, 0.5 * roe_q2;
+  roe_var_f2 << 1.0, roe_u, roe_v, 0.5 * roe_q2;
   roe_var_f2 *= (delta_rho - delta_p / (roe_a * roe_a));
   Eigen::Vector<Real, 4> roe_var_f34;
-  roe_var_f34 << 0, delta_u - delta_norm_q * norm_vec.x(), delta_v - delta_norm_q * norm_vec.y(),
+  roe_var_f34 << 0.0, delta_u - delta_norm_q * norm_vec.x(), delta_v - delta_norm_q * norm_vec.y(),
       roe_u * delta_u + roe_v * delta_v - roe_norm_q * delta_norm_q;
   roe_var_f34 *= roe_rho;
   Eigen::Vector<Real, 4> roe_var_f5;
-  roe_var_f5 << 1, roe_u + roe_a * norm_vec.x(), roe_v + roe_a * norm_vec.y(), roe_capital_h + roe_a * roe_norm_q;
+  roe_var_f5 << 1.0, roe_u + roe_a * norm_vec.x(), roe_v + roe_a * norm_vec.y(), roe_capital_h + roe_a * roe_norm_q;
   roe_var_f5 *= std::fabs(roe_norm_q + roe_a) * (delta_p + roe_rho * roe_a * delta_norm_q) / (2.0 * roe_a * roe_a);
   Eigen::Matrix<Real, 4, 2> l_convective_var;
   Eigen::Matrix<Real, 4, 2> r_convective_var;
-  calConvectiveVar(l_primitive_var, l_convective_var);
-  calConvectiveVar(r_primitive_var, r_convective_var);
+  calConvectiveVar<EquModelT>(l_primitive_var, l_convective_var);
+  calConvectiveVar<EquModelT>(r_primitive_var, r_convective_var);
   roe_flux.noalias() = ((l_convective_var + r_convective_var) * norm_vec -
                         (roe_var_f1 + std::fabs(roe_norm_q) * (roe_var_f2 + roe_var_f34) + roe_var_f5)) /
                        2.0;

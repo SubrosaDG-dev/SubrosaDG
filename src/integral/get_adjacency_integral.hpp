@@ -39,9 +39,9 @@ inline void getAdjacencyElemIntegralFromParent(const std::vector<double>& coords
   for (Isize i = 0; i < getElemAdjacencyNum<ParentElemT>(); i++) {
     for (Isize j = 0; j < T::kIntegralNum; j++) {
       parent_coords(Eigen::seqN(Eigen::fix<0>, Eigen::fix<getDim<ParentElemT>()>), i * T::kIntegralNum + j).noalias() =
-          (ElemStandard<ParentElemT>::coord.row((i + 1) % getElemAdjacencyNum<ParentElemT>()) *
+          (ElemStandard<P, ParentElemT>::node.col((i + 1) % getElemAdjacencyNum<ParentElemT>()) *
                coords_basis_functions[static_cast<Usize>(j * getElemAdjacencyNum<ElemT>() + 1)] +
-           ElemStandard<ParentElemT>::coord.row(i) *
+           ElemStandard<P, ParentElemT>::node.col(i) *
                coords_basis_functions[static_cast<Usize>(j * getElemAdjacencyNum<ElemT>())])
               .transpose();
     }
@@ -50,7 +50,7 @@ inline void getAdjacencyElemIntegralFromParent(const std::vector<double>& coords
   int num_orientations;
   std::vector<double> basis_functions;
   gmsh::model::mesh::getBasisFunctions(
-      getTopology<ParentElemT>(), {parent_coords.data(), parent_coords.data() + parent_coords.size()},
+      getTopology<ParentElemT>(P), {parent_coords.data(), parent_coords.data() + parent_coords.size()},
       fmt::format("Lagrange{}", static_cast<int>(P)), num_components, basis_functions, num_orientations);
   for (Isize i = 0; i < T::kIntegralNum * getElemAdjacencyNum<ParentElemT>(); i++) {
     for (Isize j = 0; j < ParentT::kBasisFunNum; j++) {
@@ -62,11 +62,12 @@ inline void getAdjacencyElemIntegralFromParent(const std::vector<double>& coords
 
 template <PolyOrder P, ElemType ElemT, MeshType MeshT>
 inline void getAdjacencyElemIntegral(AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral) {
-  std::vector<double> local_coords = getElemGaussQuad(getElemAdjacencyIntegralOrder(P), adjacency_elem_integral);
+  using T = AdjacencyElemIntegral<P, ElemT, MeshT>;
+  std::vector<double> local_coords = getElemGaussQuad<T::kIntegralNum, P>(getElemAdjacencyIntegralOrder(P), adjacency_elem_integral);
   int num_components;
   int num_orientations;
   std::vector<double> cooords_basis_functions;
-  gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(), local_coords, "Lagrange1", num_components,
+  gmsh::model::mesh::getBasisFunctions(getTopology<ElemT>(P), local_coords, "Lagrange1", num_components,
                                        cooords_basis_functions, num_orientations);
   if constexpr (HasTri<MeshT>) {
     getAdjacencyElemIntegralFromParent<P, ElemT, ElemType::Tri, MeshT>(cooords_basis_functions,

@@ -29,14 +29,14 @@
 
 namespace SubrosaDG {
 
-template <PolyOrder P, ElemType ElemT>
-inline void initElemSolver(const Isize elem_num, const InitVar<2>& init_var,
-                           const ThermoModel<EquModel::Euler>& thermo_model,
-                           ElemSolver<2, P, ElemT, EquModel::Euler>& elem_solver) {
+template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
+inline void initElemSolver(const Isize elem_num, const InitVar<Dim, EquModelT>& init_var,
+                           const ThermoModel<EquModelT>& thermo_model,
+                           ElemSolver<Dim, P, ElemT, EquModelT>& elem_solver) {
   elem_solver.elem_.resize(elem_num);
   MeshSupplemental<ElemT> internal_supplemental;
-  getMeshSupplemental<int, ElemT>(init_var.region_map_, internal_supplemental);
-  std::vector<Eigen::Vector<Real, 4>> init_conserved_var;
+  getMeshSupplemental<int, P, ElemT>(init_var.region_map_, internal_supplemental);
+  std::vector<Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)>> init_conserved_var;
   init_conserved_var.resize(init_var.flow_var_.size());
   for (Usize i = 0; i < init_var.flow_var_.size(); i++) {
     calConservedVar(thermo_model, init_var.flow_var_[i], init_conserved_var[i]);
@@ -47,10 +47,11 @@ inline void initElemSolver(const Isize elem_num, const InitVar<2>& init_var,
   }
 }
 
-template <PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT>
-inline void initSolver(const Mesh<2, P, MeshT>& mesh, const InitVar<2>& init_var, const FarfieldVar<2> farfield_var,
-                       SolverSupplemental<2, EquModel::Euler, TimeDiscreteT>& solver_supplemental,
-                       Solver<2, P, EquModel::Euler, MeshT>& solver) {
+template <PolyOrder P, MeshType MeshT, TimeDiscrete TimeDiscreteT, EquModel EquModelT>
+inline void initSolver(const Mesh<2, P, MeshT>& mesh, const InitVar<2, EquModelT>& init_var,
+                       const FarfieldVar<2, EquModelT> farfield_var,
+                       SolverSupplemental<2, EquModelT, TimeDiscreteT>& solver_supplemental,
+                       Solver<2, P, MeshT, EquModelT>& solver) {
   calPrimitiveVar(solver_supplemental.thermo_model_, farfield_var, solver_supplemental.farfield_primitive_var_);
   if constexpr (HasTri<MeshT>) {
     initElemSolver(mesh.tri_.num_, init_var, solver_supplemental.thermo_model_, solver.tri_);

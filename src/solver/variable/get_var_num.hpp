@@ -18,16 +18,29 @@
 namespace SubrosaDG {
 
 template <EquModel EquModelT>
-inline consteval int getVarNum(int dim);
+inline consteval int getConservedVarNum(int dim);
 
 template <>
-inline consteval int getVarNum<EquModel::Euler>(const int dim) {
+inline consteval int getConservedVarNum<EquModel::Euler>(const int dim) {
   return dim + 2;
 }
 
 template <>
-inline consteval int getVarNum<EquModel::NS>(const int dim) {
+inline consteval int getConservedVarNum<EquModel::NS>(const int dim) {
   return dim + 2;
+}
+
+template <EquModel EquModelT>
+inline consteval int getPrimitiveVarNum(int dim);
+
+template <>
+inline consteval int getPrimitiveVarNum<EquModel::Euler>(const int dim) {
+  return dim + 3;
+}
+
+template <>
+inline consteval int getPrimitiveVarNum<EquModel::NS>(const int dim) {
+  return dim + 3;
 }
 
 }  // namespace SubrosaDG

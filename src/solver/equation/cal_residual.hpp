@@ -22,11 +22,11 @@
 
 namespace SubrosaDG {
 
-template <PolyOrder P, ElemType ElemT>
+template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
 inline void calElemResidual(const ElemIntegral<P, ElemT>& elem_integral,
                             const ElemAdjacencyIntegral<P, ElemT>& elem_adjacency_integral,
-                            const ElemMesh<2, P, ElemT>& elem_mesh,
-                            ElemSolver<2, P, ElemT, EquModel::Euler>& elem_solver) {
+                            const ElemMesh<Dim, P, ElemT>& elem_mesh,
+                            ElemSolver<Dim, P, ElemT, EquModelT>& elem_solver) {
 #ifdef SUBROSA_DG_WITH_OPENMP
 #pragma omp parallel for default(none) schedule(auto) \
     shared(elem_mesh, elem_integral, elem_adjacency_integral, elem_solver)
@@ -38,9 +38,9 @@ inline void calElemResidual(const ElemIntegral<P, ElemT>& elem_integral,
   }
 }
 
-template <PolyOrder P, MeshType MeshT>
+template <PolyOrder P, MeshType MeshT, EquModel EquModelT>
 inline void calResidual(const Integral<2, P, MeshT>& integral, const Mesh<2, P, MeshT>& mesh,
-                        Solver<2, P, EquModel::Euler, MeshT>& solver) {
+                        Solver<2, P, MeshT, EquModelT>& solver) {
   if constexpr (HasTri<MeshT>) {
     calElemResidual(integral.tri_, integral.line_.tri_, mesh.tri_, solver.tri_);
   }

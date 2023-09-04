@@ -30,7 +30,7 @@ add_custom_target(iwyu-search
     --update_comments
     -Xiwyu
     --check_also=**/SubrosaDG/src/**
-    > iwyu.out
+    > iwyu.txt
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
@@ -39,7 +39,7 @@ add_custom_target(iwyu-fix
     COMMENT "Running iwyu to fix file head"
     COMMAND ${IWYU_FIX_TOOL}
     --nosafe_headers
-    < iwyu.out
+    < iwyu.txt
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 

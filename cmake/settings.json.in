@@ -45,5 +45,30 @@
     ],
     "[c, cpp]": {
         "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+    },
+
+    // latex
+    "files.exclude": {
+        "**/*.aux": true,
+        "**/*.bbl": true,
+        "**/*.bcf": true,
+        "**/*.blg": true,
+        "**/*.fls": true,
+        "**/*.fff": true,
+        "**/*.listing": true,
+        "**/*.lof": true,
+        "**/*.lot": true,
+        "**/*.out": true,
+        "**/*.run.xml": true,
+        "**/*.synctex": true,
+        "**/*.synctex(busy)": true,
+        "**/*.synctex.gz": true,
+        "**/*.synctex.gz(busy)": true,
+        "**/*.idx": true,
+        "**/*.nav": true,
+        "**/*.snm": true,
+        "**/*.ptc": true,
+        "**/*.toc": true,
+        "**/*.ttt": true,
     }
 }

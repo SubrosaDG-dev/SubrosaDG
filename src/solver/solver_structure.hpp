@@ -22,25 +22,26 @@
 #include "integral/cal_basisfun_num.hpp"
 #include "integral/get_integral_num.hpp"
 #include "solver/time_discrete/time_solver.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
-template <int Dim, PolyOrder P, ElemType ElemT>
+template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
 struct PerElemSolverBase {
-  Eigen::Vector<Eigen::Matrix<Real, Dim + 2, calBasisFunNum<ElemT>(P)>, 2> basis_fun_coeff_;
-  Eigen::Matrix<Real, Dim + 2, getElemAdjacencyIntegralNum<ElemT>(P)> adjacency_integral_;
-  Eigen::Matrix<Real, Dim + 2, getElemIntegralNum<ElemT>(P) * Dim> elem_integral_;
-  Eigen::Matrix<Real, Dim + 2, calBasisFunNum<ElemT>(P)> residual_;
+  Eigen::Vector<Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), calBasisFunNum<ElemT>(P)>, 2> basis_fun_coeff_;
+  Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), getElemAdjacencyIntegralNum<ElemT>(P)> adjacency_integral_;
+  Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), getElemIntegralNum<ElemT>(P) * Dim> elem_integral_;
+  Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), calBasisFunNum<ElemT>(P)> residual_;
 };
 
 template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
 struct PerElemSolver;
 
 template <int Dim, PolyOrder P, ElemType ElemT>
-struct PerElemSolver<Dim, P, ElemT, EquModel::Euler> : PerElemSolverBase<Dim, P, ElemT> {};
+struct PerElemSolver<Dim, P, ElemT, EquModel::Euler> : PerElemSolverBase<Dim, P, ElemT, EquModel::Euler> {};
 
 template <int Dim, PolyOrder P, ElemType ElemT>
-struct PerElemSolver<Dim, P, ElemT, EquModel::NS> : PerElemSolverBase<Dim, P, ElemT> {};
+struct PerElemSolver<Dim, P, ElemT, EquModel::NS> : PerElemSolverBase<Dim, P, ElemT, EquModel::NS> {};
 
 template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
 struct ElemSolver {
@@ -53,21 +54,21 @@ using TriElemSolver = ElemSolver<2, P, ElemType::Tri, EquModelT>;
 template <PolyOrder P, EquModel EquModelT>
 using QuadElemSolver = ElemSolver<2, P, ElemType::Quad, EquModelT>;
 
-template <int Dim, PolyOrder P, EquModel EquModelT, MeshType MeshT>
+template <int Dim, PolyOrder P, MeshType MeshT, EquModel EquModelT>
 struct Solver;
 
 template <PolyOrder P, EquModel EquModelT>
-struct Solver<2, P, EquModelT, MeshType::Tri> {
+struct Solver<2, P, MeshType::Tri, EquModelT> {
   TriElemSolver<P, EquModelT> tri_;
 };
 
 template <PolyOrder P, EquModel EquModelT>
-struct Solver<2, P, EquModelT, MeshType::Quad> {
+struct Solver<2, P, MeshType::Quad, EquModelT> {
   QuadElemSolver<P, EquModelT> quad_;
 };
 
 template <PolyOrder P, EquModel EquModelT>
-struct Solver<2, P, EquModelT, MeshType::TriQuad> {
+struct Solver<2, P, MeshType::TriQuad, EquModelT> {
   TriElemSolver<P, EquModelT> tri_;
   QuadElemSolver<P, EquModelT> quad_;
 };

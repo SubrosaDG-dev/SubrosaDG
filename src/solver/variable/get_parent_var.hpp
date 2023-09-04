@@ -20,13 +20,15 @@
 #include "integral/integral_structure.hpp"
 #include "mesh/get_elem_info.hpp"
 #include "solver/solver_structure.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 
 template <PolyOrder P, ElemType ElemT, MeshType MeshT, EquModel EquModelT>
 inline void getParentVar(const Isize elem_tag, const Isize adjacency_integral_order,
                          const AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral,
-                         const Solver<2, P, EquModelT, MeshT>& solver, Eigen::Vector<Real, 4>& parent_conserved_var) {
+                         const Solver<2, P, MeshT, EquModelT>& solver,
+                         Eigen::Vector<Real, getConservedVarNum<EquModelT>(2)>& parent_conserved_var) {
   if constexpr (MeshT == MeshType::Tri) {
     parent_conserved_var.noalias() = solver.tri_.elem_(elem_tag).basis_fun_coeff_(1) *
                                      adjacency_elem_integral.tri_.basis_fun_.row(adjacency_integral_order).transpose();
@@ -39,14 +41,14 @@ inline void getParentVar(const Isize elem_tag, const Isize adjacency_integral_or
 template <PolyOrder P, ElemType ElemT, EquModel EquModelT>
 inline void getParentVar(const int elem_topology, const Isize elem_tag, const Isize adjacency_integral_order,
                          const AdjacencyElemIntegral<P, ElemT, MeshType::TriQuad>& adjacency_elem_integral,
-                         const Solver<2, P, EquModelT, MeshType::TriQuad>& solver,
-                         Eigen::Vector<Real, 4>& parent_conserved_var) {
+                         const Solver<2, P, MeshType::TriQuad, EquModelT>& solver,
+                         Eigen::Vector<Real, getConservedVarNum<EquModelT>(2)>& parent_conserved_var) {
   switch (elem_topology) {
-  case getTopology<ElemType::Tri>():
+  case getTopology<ElemType::Tri>(P):
     parent_conserved_var.noalias() = solver.tri_.elem_(elem_tag).basis_fun_coeff_(1) *
                                      adjacency_elem_integral.tri_.basis_fun_.row(adjacency_integral_order).transpose();
     break;
-  case getTopology<ElemType::Quad>():
+  case getTopology<ElemType::Quad>(P):
     parent_conserved_var.noalias() = solver.quad_.elem_(elem_tag).basis_fun_coeff_(1) *
                                      adjacency_elem_integral.quad_.basis_fun_.row(adjacency_integral_order).transpose();
     break;
