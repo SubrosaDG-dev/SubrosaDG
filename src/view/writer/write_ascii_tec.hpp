@@ -17,12 +17,15 @@
 
 #include <Eigen/Core>
 #include <fstream>
+#include <string>
 
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "mesh/get_elem_info.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "view/index/cal_elem_num.hpp"
+#include "view/index/get_subelem_num.hpp"
 #include "view/variable/get_output_var_num.hpp"
 #include "view/view_structure.hpp"
 

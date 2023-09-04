@@ -13,12 +13,11 @@
 #ifndef SUBROSA_DG_GET_GAUSS_QUAD_HPP_
 #define SUBROSA_DG_GET_GAUSS_QUAD_HPP_
 
-#include <fmt/core.h>
 #include <gmsh.h>
+#include <fmt/core.h>
 
 #include <vector>
 
-#include "basic/constant.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
 #include "integral/get_standard.hpp"

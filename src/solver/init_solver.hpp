@@ -26,6 +26,7 @@
 #include "solver/solver_structure.hpp"
 #include "solver/variable/cal_conserved_var.hpp"
 #include "solver/variable/cal_primitive_var.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 

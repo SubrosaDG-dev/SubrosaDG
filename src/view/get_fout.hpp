@@ -19,7 +19,6 @@
 #include <fstream>
 #include <string_view>
 
-#include "basic/constant.hpp"
 #include "basic/enum.hpp"
 #include "config/view_config.hpp"
 

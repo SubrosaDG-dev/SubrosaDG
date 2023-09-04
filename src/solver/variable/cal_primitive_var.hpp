@@ -14,7 +14,6 @@
 #define SUBROSA_DG_CAL_PRIMITIVE_VAR_HPP_
 
 #include <Eigen/Core>
-#include <array>
 
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"

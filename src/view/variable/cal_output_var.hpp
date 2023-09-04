@@ -18,6 +18,8 @@
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
 #include "config/thermo_model.hpp"
+#include "solver/variable/get_var_num.hpp"
+#include "view/variable/get_output_var_num.hpp"
 
 namespace SubrosaDG {
 

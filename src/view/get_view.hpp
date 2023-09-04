@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <fstream>
 
+#include "basic/constant.hpp"
 #include "basic/enum.hpp"
 #include "config/thermo_model.hpp"
 #include "config/time_var.hpp"

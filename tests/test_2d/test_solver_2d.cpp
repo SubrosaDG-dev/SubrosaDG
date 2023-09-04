@@ -14,6 +14,9 @@
 
 #include <Eigen/Core>
 #include <Eigen/LU>
+#include <map>
+#include <stdexcept>
+#include <vector>
 
 #include "SubrosaDG"
 #include "test_structure_2d.h"

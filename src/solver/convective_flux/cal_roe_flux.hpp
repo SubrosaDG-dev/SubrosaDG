@@ -20,6 +20,7 @@
 #include "basic/enum.hpp"
 #include "config/thermo_model.hpp"
 #include "solver/variable/cal_convective_var.hpp"
+#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 

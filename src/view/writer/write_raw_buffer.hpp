@@ -18,10 +18,8 @@
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
-#include "integral/cal_basisfun_num.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "solver/solver_structure.hpp"
-#include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {
 

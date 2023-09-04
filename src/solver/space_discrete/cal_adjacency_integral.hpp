@@ -49,8 +49,8 @@ inline void calInternalAdjacencyElemIntegral(const AdjacencyElemIntegral<P, Elem
 #ifdef SUBROSA_DG_WITH_OPENMP
 #pragma omp parallel for default(none)                                                                          \
     schedule(auto) private(l_conserved_var, l_primitive_var, r_conserved_var, r_primitive_var, convective_flux, \
-                               adjancy_integral, l_elem_tag, l_adjacency_order, r_elem_tag, r_adjacency_order)  \
-    shared(adjacency_elem_mesh, adjacency_elem_integral, thermo_model, solver)
+                           adjancy_integral, l_elem_tag, l_adjacency_order, r_elem_tag, r_adjacency_order)      \
+        shared(adjacency_elem_mesh, adjacency_elem_integral, thermo_model, solver)
 #endif
   for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
     l_elem_tag = adjacency_elem_mesh.internal_.elem_(i).parent_index_(0);
@@ -113,8 +113,8 @@ inline void calBoundaryAdjacencyElemIntegral(
 #ifdef SUBROSA_DG_WITH_OPENMP
 #pragma omp parallel for default(none)                                                                              \
     schedule(auto) private(l_conserved_var, l_primitive_var, wall_primitive_var, convective_flux, adjancy_integral, \
-                               l_elem_tag, l_adjacency_order, r_boundary_tag)                                       \
-    shared(adjacency_elem_mesh, adjacency_elem_integral, thermo_model, farfield_primitive_var, solver)
+                           l_elem_tag, l_adjacency_order, r_boundary_tag)                                           \
+        shared(adjacency_elem_mesh, adjacency_elem_integral, thermo_model, farfield_primitive_var, solver)
 #endif
   for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
     l_elem_tag = adjacency_elem_mesh.boundary_.elem_(i).parent_index_(0);

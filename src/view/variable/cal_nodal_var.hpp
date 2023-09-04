@@ -22,8 +22,8 @@
 #include "mesh/get_elem_info.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "solver/variable/get_var_num.hpp"
-#include "view/index/get_subelem_num.hpp"
 #include "view/variable/cal_output_var.hpp"
+#include "view/variable/get_output_var_num.hpp"
 #include "view/view_structure.hpp"
 
 namespace SubrosaDG {

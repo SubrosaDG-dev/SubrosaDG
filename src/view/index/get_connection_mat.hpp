@@ -16,6 +16,7 @@
 #include <Eigen/Core>
 
 #include "basic/concept.hpp"
+#include "basic/enum.hpp"
 #include "mesh/get_elem_info.hpp"
 #include "view/index/get_subelem_num.hpp"
 #include "view/view_structure.hpp"

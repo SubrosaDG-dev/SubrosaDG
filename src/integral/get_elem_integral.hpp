@@ -13,8 +13,8 @@
 #ifndef SUBROSA_DG_GET_ELEM_INTEGRAL_HPP_
 #define SUBROSA_DG_GET_ELEM_INTEGRAL_HPP_
 
-#include <fmt/core.h>
 #include <gmsh.h>
+#include <fmt/core.h>
 
 #include <vector>
 

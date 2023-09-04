@@ -36,10 +36,12 @@ inline void calNormVec(const Eigen::Matrix<Real, 3, getNodeNum<ElemT>()>& node, 
 template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT>
 inline void calAdjacencyElemNormVec(AdjacencyElemMesh<Dim, P, ElemT, MeshT>& adjacency_elem_mesh) {
   for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
-    calNormVec<P, ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_, adjacency_elem_mesh.internal_.elem_(i).norm_vec_);
+    calNormVec<P, ElemT>(adjacency_elem_mesh.internal_.elem_(i).node_,
+                         adjacency_elem_mesh.internal_.elem_(i).norm_vec_);
   }
   for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
-    calNormVec<P, ElemT>(adjacency_elem_mesh.boundary_.elem_(i).node_, adjacency_elem_mesh.boundary_.elem_(i).norm_vec_);
+    calNormVec<P, ElemT>(adjacency_elem_mesh.boundary_.elem_(i).node_,
+                         adjacency_elem_mesh.boundary_.elem_(i).norm_vec_);
   }
 }
 

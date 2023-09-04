@@ -14,9 +14,9 @@
 #define SUBROSA_DG_CAL_WALL_VAR_HPP_
 
 #include <Eigen/Core>
-#include <iostream>
 
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 #include "solver/variable/get_var_num.hpp"
 
 namespace SubrosaDG {

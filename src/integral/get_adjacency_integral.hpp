@@ -13,8 +13,8 @@
 #ifndef SUBROSA_DG_GET_ADJACENCY_INTEGRAL_HPP_
 #define SUBROSA_DG_GET_ADJACENCY_INTEGRAL_HPP_
 
-#include <fmt/core.h>
 #include <gmsh.h>
+#include <fmt/core.h>
 
 #include <Eigen/Core>
 #include <vector>
@@ -63,7 +63,8 @@ inline void getAdjacencyElemIntegralFromParent(const std::vector<double>& coords
 template <PolyOrder P, ElemType ElemT, MeshType MeshT>
 inline void getAdjacencyElemIntegral(AdjacencyElemIntegral<P, ElemT, MeshT>& adjacency_elem_integral) {
   using T = AdjacencyElemIntegral<P, ElemT, MeshT>;
-  std::vector<double> local_coords = getElemGaussQuad<T::kIntegralNum, P>(getElemAdjacencyIntegralOrder(P), adjacency_elem_integral);
+  std::vector<double> local_coords =
+      getElemGaussQuad<T::kIntegralNum, P>(getElemAdjacencyIntegralOrder(P), adjacency_elem_integral);
   int num_components;
   int num_orientations;
   std::vector<double> cooords_basis_functions;

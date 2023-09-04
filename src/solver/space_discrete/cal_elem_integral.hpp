@@ -37,9 +37,9 @@ inline void calElemIntegral(const ElemIntegral<P, ElemT>& elem_integral, const E
   Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), Dim> convective_var;
   Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), Dim> elem_solver_integral;
 #ifdef SUBROSA_DG_WITH_OPENMP
-#pragma omp parallel for default(none) schedule(auto)                                                 \
-    shared(Eigen::all, Eigen::fix<Dim>, elem_mesh, elem_integral, thermo_model, elem_solver) private( \
-            conserved_var, primitive_var, convective_var, elem_solver_integral)
+#pragma omp parallel for default(none) schedule(auto)                                                  \
+    shared(Eigen::all, Eigen::fix <Dim>, elem_mesh, elem_integral, thermo_model, elem_solver) private( \
+        conserved_var, primitive_var, convective_var, elem_solver_integral)
 #endif
   for (Isize i = 0; i < elem_mesh.num_; i++) {
     for (Isize j = 0; j < elem_integral.kIntegralNum; j++) {

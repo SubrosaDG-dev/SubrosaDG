@@ -16,6 +16,7 @@
 #include <fmt/core.h>
 
 #include <Eigen/Core>
+#include <string>
 
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"

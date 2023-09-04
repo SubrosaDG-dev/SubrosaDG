@@ -13,11 +13,11 @@
 #ifndef SUBROSA_DG_CAL_ELEM_NUM_HPP_
 #define SUBROSA_DG_CAL_ELEM_NUM_HPP_
 
-#include <Eigen/Core>
-
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
+#include "basic/enum.hpp"
 #include "mesh/mesh_structure.hpp"
+#include "view/index/get_subelem_num.hpp"
 
 namespace SubrosaDG {
 

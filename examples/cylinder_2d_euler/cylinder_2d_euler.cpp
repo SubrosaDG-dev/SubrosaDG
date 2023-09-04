@@ -16,6 +16,8 @@
 #include <Eigen/LU>
 #include <cstdlib>
 #include <filesystem>
+#include <map>
+#include <stdexcept>
 #include <string_view>
 #include <unordered_map>
 #include <vector>

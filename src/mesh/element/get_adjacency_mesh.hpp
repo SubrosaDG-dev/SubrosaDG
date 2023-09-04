@@ -17,9 +17,9 @@
 
 #include <Eigen/Core>
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <map>
-#include <ranges>
 #include <string_view>
 #include <unordered_map>
 #include <utility>

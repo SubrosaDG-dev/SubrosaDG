@@ -13,12 +13,9 @@
 #ifndef SUBROSA_DG_GET_SOLVER_HPP_
 #define SUBROSA_DG_GET_SOLVER_HPP_
 
-#include <fmt/core.h>
-
 #include <Eigen/Core>
 #include <filesystem>
 #include <fstream>
-#include <string>
 #include <tqdm.hpp>
 
 #include "basic/concept.hpp"

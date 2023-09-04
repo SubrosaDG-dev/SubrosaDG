@@ -16,6 +16,7 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
+#include <Eigen/LU>
 #include <vector>
 
 #include "basic/data_type.hpp"

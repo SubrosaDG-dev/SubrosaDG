@@ -22,7 +22,6 @@
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
-#include "integral/cal_basisfun_num.hpp"
 #include "integral/integral_structure.hpp"
 #include "mesh/element/cal_mass_mat.hpp"
 #include "mesh/element/cal_measure.hpp"
@@ -31,6 +30,7 @@
 #include "mesh/element/get_adjacency_mesh.hpp"
 #include "mesh/element/get_elem_mesh.hpp"
 #include "mesh/element/get_jacobian.hpp"
+#include "mesh/get_elem_info.hpp"
 #include "mesh/mesh_structure.hpp"
 
 namespace SubrosaDG {

@@ -15,6 +15,7 @@
 
 #include <array>
 
+#include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
 #include "integral/integral_structure.hpp"
