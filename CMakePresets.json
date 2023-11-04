@@ -68,7 +68,8 @@
             "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
-                "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++"
+                "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+                "CMAKE_OSX_ARCHITECTURES": "arm64"
             },
             "condition": {
                 "type": "equals",

@@ -28,7 +28,8 @@ namespace SubrosaDG {
 
 template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
 struct PerElemSolverBase {
-  Eigen::Vector<Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), calBasisFunNum<ElemT>(P)>, 2> basis_fun_coeff_;
+  Eigen::Array<Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), calBasisFunNum<ElemT>(P)>, 2, 1>
+      basis_fun_coeff_;
   Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), getElemAdjacencyIntegralNum<ElemT>(P)> adjacency_integral_;
   Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), getElemIntegralNum<ElemT>(P) * Dim> elem_integral_;
   Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), calBasisFunNum<ElemT>(P)> residual_;
@@ -45,7 +46,7 @@ struct PerElemSolver<Dim, P, ElemT, EquModel::NS> : PerElemSolverBase<Dim, P, El
 
 template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
 struct ElemSolver {
-  Eigen::Vector<PerElemSolver<Dim, P, ElemT, EquModelT>, Eigen::Dynamic> elem_;
+  Eigen::Array<PerElemSolver<Dim, P, ElemT, EquModelT>, Eigen::Dynamic, 1> elem_;
 };
 
 template <PolyOrder P, EquModel EquModelT>

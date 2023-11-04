@@ -20,6 +20,7 @@
 #include <array>
 #include <functional>
 #include <map>
+#include <ranges>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -61,7 +62,7 @@ inline void getAdjacencyParentElem(std::map<Isize, AdjacencyElemMeshSupplemental
   std::vector<Usize> elem_node_tags;
   gmsh::model::mesh::getElementsByType(getTopology<ParentElemT>(P), elem_tags, elem_node_tags);
   for (Usize i = 0; i < edge_tags.size(); i++) {
-    if (!adjacency_elem_map.contains(static_cast<Isize>(edge_tags[i]))) {
+    if (!adjacency_elem_map.contains(static_cast<Isize>(edge_tags[i]))) {  // NOTE: resize
       adjacency_elem_map[static_cast<Isize>(edge_tags[i])].is_recorded_ = false;
       for (Usize j = 0; j < getNodeNum<ElemT>(P); j++) {
         adjacency_elem_map[static_cast<Isize>(edge_tags[i])].node_tags_[j] =

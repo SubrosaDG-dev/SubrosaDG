@@ -25,7 +25,6 @@
 #include "mesh/get_elem_info.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "view/index/cal_elem_num.hpp"
-#include "view/index/get_subelem_num.hpp"
 #include "view/variable/get_output_var_num.hpp"
 #include "view/view_structure.hpp"
 
@@ -76,25 +75,24 @@ inline void writeAsciiTecNodeVar(const Mesh<Dim, P, MeshT>& mesh, const View<Dim
   fout << node_all_var.transpose() << std::endl;
 }
 
-template <PolyOrder P, ElemType ElemT, EquModel EquModelT>
-inline void writeAsciiTecIndex(const ElemMesh<2, P, ElemT>& elem_mesh,
-                               const ElemSolverView<2, P, ElemT, EquModelT>& elem_solver_view, std::ofstream& fout) {
-  Eigen::Matrix<Isize, 4, Eigen::Dynamic> elem_index(4, elem_mesh.num_ * getSubElemNum<ElemT>(PolyOrder::P1));
-  // Eigen::Matrix<Isize, 4, Eigen::Dynamic> elem_index(4, elem_mesh.num_ * getSubElemNum<ElemT>(P));
+template <PolyOrder P, ElemType ElemT>
+inline void writeAsciiTecIndex(const ElemMesh<2, P, ElemT>& elem_mesh, std::ofstream& fout) {
+  // Eigen::Matrix<Isize, 4, Eigen::Dynamic> elem_index(4, elem_mesh.num_ * getSubElemNum<ElemT>(PolyOrder::P1));
+  Eigen::Matrix<Isize, 4, Eigen::Dynamic> elem_index(4, elem_mesh.num_ * getSubElemNum<ElemT>(P));
   for (Isize i = 0; i < elem_mesh.num_; i++) {
-    elem_index(Eigen::seqN(Eigen::fix<0>, Eigen::fix<getNodeNum<ElemT>(PolyOrder::P1)>), i) =
-        elem_mesh.elem_(i).index_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<getNodeNum<ElemT>(PolyOrder::P1)>));
-    if constexpr (ElemT == ElemType::Tri) {
-      elem_index(3, i) = elem_mesh.elem_(i).index_(2);
-    }
-    // for (Isize j = 0; j < getSubElemNum<ElemT>(P); j++) {
-    //   elem_index.col(i * getSubElemNum<ElemT>(P) + j)
-    //       << elem_mesh.elem_(i).index_(elem_solver_view.subelem_connection_mat_.col(j));
-    //   if constexpr (ElemT == ElemType::Tri) {
-    //     elem_index(3, i * getSubElemNum<ElemT>(P) + j) =
-    //         elem_mesh.elem_(i).index_(elem_solver_view.subelem_connection_mat_(Eigen::last, j));
-    //   }
+    // elem_index(Eigen::seqN(Eigen::fix<0>, Eigen::fix<getNodeNum<ElemT>(PolyOrder::P1)>), i) =
+    //     elem_mesh.elem_(i).index_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<getNodeNum<ElemT>(PolyOrder::P1)>));
+    // if constexpr (ElemT == ElemType::Tri) {
+    //   elem_index(3, i) = elem_mesh.elem_(i).index_(2);
     // }
+    for (Isize j = 0; j < getSubElemNum<ElemT>(P); j++) {
+      if constexpr (ElemT == ElemType::Tri) {
+        elem_index.col(i * getSubElemNum<ElemT>(P) + j) << elem_mesh.elem_(i).index_(elem_mesh.subelem_index_.col(j)),
+            elem_mesh.elem_(i).index_(elem_mesh.subelem_index_(Eigen::last, j));
+      } else if constexpr (ElemT == ElemType::Quad) {
+        elem_index.col(i * getSubElemNum<ElemT>(P) + j) << elem_mesh.elem_(i).index_(elem_mesh.subelem_index_.col(j));
+      }
+    }
   }
   fout << elem_index.transpose() << std::endl;
 }
@@ -105,10 +103,10 @@ inline void writeAsciiTec(const int step, const Mesh<2, P, MeshT>& mesh, const V
   writeAsciiTecHeader<P, MeshT, EquModelT>(step, mesh, fout);
   writeAsciiTecNodeVar(mesh, view, fout);
   if constexpr (HasTri<MeshT>) {
-    writeAsciiTecIndex(mesh.tri_, view.tri_, fout);
+    writeAsciiTecIndex(mesh.tri_, fout);
   }
   if constexpr (HasQuad<MeshT>) {
-    writeAsciiTecIndex(mesh.quad_, view.quad_, fout);
+    writeAsciiTecIndex(mesh.quad_, fout);
   }
 }
 

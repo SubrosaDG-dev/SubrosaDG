@@ -11,8 +11,8 @@ The project is still in early development stage.
 - [ ] 2D Euler equation(Lax-Friedrichs scheme and HLLC scheme)
 - [ ] Local time stepping
 - [ ] Curved elements and high-order gmsh .msh input
-- [ ] Ascii tecplot output(reconstruction for high-order solution)
-- [ ] Documentation for variable setting
+- [x] Ascii tecplot output(reconstruction for high-order solution)
+- [ ] Documentation for variable storage
 - [ ] 2D Navier-Stokes equation(BR2 scheme)
 
   ...

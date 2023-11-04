@@ -13,6 +13,8 @@
 #ifndef SUBROSA_DG_CAL_RESIDUAL_HPP_
 #define SUBROSA_DG_CAL_RESIDUAL_HPP_
 
+#include <Eigen/Core>
+
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
@@ -29,7 +31,7 @@ inline void calElemResidual(const ElemIntegral<P, ElemT>& elem_integral,
                             ElemSolver<Dim, P, ElemT, EquModelT>& elem_solver) {
 #ifdef SUBROSA_DG_WITH_OPENMP
 #pragma omp parallel for default(none) schedule(auto) \
-    shared(elem_mesh, elem_integral, elem_adjacency_integral, elem_solver)
+    shared(Eigen::Dynamic, elem_mesh, elem_integral, elem_adjacency_integral, elem_solver)
 #endif
   for (Isize i = 0; i < elem_mesh.num_; i++) {
     elem_solver.elem_(i).residual_.noalias() =

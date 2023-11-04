@@ -70,6 +70,17 @@ inline consteval int getElemAdjacencyNum() {
   }
 }
 
+template <ElemType ElemT>
+inline consteval int getSubElemNum(PolyOrder poly_order) {
+  if constexpr (Is1dElem<ElemT>) {
+    return (static_cast<int>(poly_order));
+  } else if constexpr (Is2dElem<ElemT>) {
+    return (static_cast<int>(poly_order) * static_cast<int>(poly_order));
+  } else if constexpr (Is3dElem<ElemT>) {
+    return (static_cast<int>(poly_order) * static_cast<int>(poly_order) * static_cast<int>(poly_order));
+  }
+}
+
 template <ElemType ElemT, PolyOrder P>
   requires(ElemT == ElemType::Line)
 inline void getNodeOrder(Eigen::Vector<int, getNodeNum<ElemT>(P)>& node_order) {

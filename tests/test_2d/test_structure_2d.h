@@ -34,7 +34,7 @@ using namespace std::string_view_literals;
 
 inline constexpr int kDim{2};
 
-inline constexpr SubrosaDG::PolyOrder kPolyOrder{3};
+inline constexpr SubrosaDG::PolyOrder kPolyOrder{2};
 
 inline constexpr SubrosaDG::MeshType kMeshType{SubrosaDG::MeshType::TriQuad};
 
@@ -68,7 +68,6 @@ void generateMesh(const std::filesystem::path& mesh_file) {
   // gmsh::option::setNumber("Mesh.RecombinationAlgorithm", 1);
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> points;
   points << -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0;
-  gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
   gmsh::model::add("test_2d");
   for (const auto& row : points.rowwise()) {
     gmsh::model::occ::addPoint(row.x(), row.y(), row.z(), 1);
@@ -87,8 +86,8 @@ void generateMesh(const std::filesystem::path& mesh_file) {
   gmsh::model::addPhysicalGroup(1, {1, 2}, -1, "bc-2");
   gmsh::model::addPhysicalGroup(2, {1, 2}, -1, "vc-1");
   gmsh::model::mesh::setRecombine(2, 2);
-  gmsh::model::mesh::generate(2);
-  gmsh::model::mesh::setOrder(3);
+  gmsh::model::mesh::generate(kDim);
+  gmsh::model::mesh::setOrder(static_cast<int>(kPolyOrder));
   gmsh::write(mesh_file.string());
 }
 

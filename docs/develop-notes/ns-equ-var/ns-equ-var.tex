@@ -67,14 +67,14 @@ where $\mu$ is the dynamic viscosity coefficient, $\mathrm{Pr}$ is the Prandtl n
 
 \section{Spatial Discretization}
 
-Here for the spatial discretization of DG the reference is from bassi's paper\footnote{F. Bassi and S. Rebay, ``A High-Order Accurate Discontinuous Finite Element Method for the Numerical Solution of the Compressible Navier-Stokes Equations,'' Journal of Computational Physics, vol. 131, no. 2, pp. 267-279, Mar. 1997, doi: \href{https://doi.org/10.1006/jcph.1996.5572}{10.1006/jcph.1996.5572}.}, which proposed the BR1 format. As a supplement, we also discuss the BR2 format, which you can find in this paper\footnote{F. Bassi, A. Crivellini, S. Rebay, and M. Savini, ``Discontinuous Galerkin solution of the Reynolds-averaged Navier-Stokes and k-omega turbulence model equations,'' Computers \& Fluids, vol. 34, no. 4, pp. 507-540, May 2005, doi: \href{https://doi.org/10.1016/j.compfluid.2003.08.004}{10.1016/j.compfluid.2003.08.004}.}, but the BR2 format was first proposed in this conference paper\footnote{F. Bassi, S. Rebay, G. Mariotti, S. Pedinotti, and M. Savini, “A high order accurate discontinuous finite element method for inviscid and viscous turbomachinery flows,” presented at the Turbomachinery - Fluid Dynamics and Thermodynamics, European Conference, 2, 1997, pp. 99-108.}.
+Here for the spatial discretization of DG the reference is from bassi's paper\cite{bassiHighOrderAccurateDiscontinuous1997a}, which proposed the BR1 format. As a supplement, we also discuss the BR2 format, which you can find in this paper\cite{bassiDiscontinuousGalerkinSolution2005}, but the BR2 format was first proposed in this conference paper\cite{bassiHighOrderAccurate1997}.
 
 By multiplying by a ``test function'' $\mathbf{v}$ and integrating over the domain $\Omega$ we obtain the weighted residual formulation,
 \begin{equation}
   \label{eq:4}
   \int_{\Omega}\mathbf{v}\partial_{t}\mathbf{u}\mathrm{d}\Omega+\int_{\Omega}\mathbf{v}\nabla\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega=\sum_{E}\left(\int_{E}\mathbf{v}\partial_{t}\mathbf{u}\mathrm{d}\Omega+\int_{E}\mathbf{v}\nabla\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega\right)=0\quad\forall\mathbf{v},
 \end{equation}
-where $\mathbf{F}(\mathbf{u},\nabla\mathbf{u})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$, and the integrals over the domain $\Omega$ have been expanded into the sum of integrals over a collection of nonoverlapping elements ${E}$, which have been assumed to be triangles and quadrangles. By integrating by parts each elemental contribution of \autoref{eq:4} which contains the divergence of the Navier-Stokes flux function, we obtain the weak formulation
+where $\mathbf{F}(\mathbf{u},\nabla\mathbf{u})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$, and the integrals over the domain $\Omega$ have been expanded into the sum of integrals over a collection of non-overlapping elements ${E}$, which have been assumed to be triangles and quadrangles. By integrating by parts each elemental contribution of \autoref{eq:4} which contains the divergence of the Navier-Stokes flux function, we obtain the weak formulation
 \begin{equation}
   \label{eq:5}
   \sum_{E}\left(\int_{E}\mathbf{v}\partial_{t}\mathbf{u}\mathrm{d}\Omega+\oint_{\partial E}\mathbf{v}\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\cdot\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\mathbf{v}\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega\right)=0\quad\forall\mathbf{v},
@@ -140,7 +140,7 @@ Here, unlike bassi, we do not assemble all the mass matrices, but solve \autoref
     &-\int_{E}\nabla\phi_{i}^{k}\cdot(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{S}_{h}))\mathrm{d}\Omega=0\quad 1\leqslant i\leqslant N_{k},
   \end{aligned}
 \end{equation}
-in which, once again, the boundary integral contains flux terms which are not uniquely defined. It is therefore neces- sary to replace the term $\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{S}_{h})$ with the numerical flux function $\mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{S}^{-},\mathbf{u}^{+},\mathbf{S}^{+};\mathbf{n})$, defined in a ``centered'' way as
+in which, once again, the boundary integral contains flux terms which are not uniquely defined. It is therefore necessary to replace the term $\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{S}_{h})$ with the numerical flux function $\mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{S}^{-},\mathbf{u}^{+},\mathbf{S}^{+};\mathbf{n})$, defined in a ``centered'' way as
 \begin{equation}
   \mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{S}^{-},\mathbf{u}^{+},\mathbf{S}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{S}^{-})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{+},\mathbf{S}^{+}))\cdot\mathbf{n}
 \end{equation}
@@ -276,14 +276,141 @@ As the isoparametric element is used here, which means that the interpolation fu
 \end{equation}
 Therefore, we can use this formula to calculate the jacobi matrix $[\mathbf{J}]$ and its transpose inverse matrix $[\mathbf{J}]^{-\mathrm{T}}$. In the program, we directly use gmsh's API to obtain the derivative values of the basis functions with respect to the reference element and the inverse matrix of the Jacobian for each element. Then, we calculate the derivative values of the basis functions with respect to the actual element. The \autoref{eq:8} in reference element $E'$ can be written as
 \begin{equation}
+  \label{eq:30}
   \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E'}\phi_{i}^{k}\mathbf{u}_{h}|\mathbf{J}|\mathrm{d}\Omega'+\oint_{\partial E'}\phi_{i}^{k}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}|\mathbf{J}|\mathrm{d}\sigma'-\int_{E'}[\mathbf{J}]^{-\mathrm{T}}\cdot\nabla\phi_{i}^{k}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})|\mathbf{J}|\mathrm{d}\Omega'=0\quad 1\leqslant i\leqslant N_{k}.
+\end{equation}
+
+\section{Numerical Integral}
+
+For the integrals in \autoref{eq:30}, both on the elements and at element edges, numerical integration is typically employed, such as Gauss quadrature. Cockburn's paper\cite{cockburnRungeKuttaLocalProjection1990} provides the order requirements for Gauss quadrature for different integrals in this context. Here's a direct excerpt from the original text: \textit{Assume that the family of triangulations $\mathscr{F}$ is regular and \textbf{B}-uniform. Suppose that $V(K)\supset P^{k}(K)$, $\forall K\in\mathscr{T}_{h}$, $\forall\mathscr{T}_{h}\in\mathscr{F}$, and that the quadrature rule over the edges is exact for polynomials of degree $(2k +1)$, and the quadrature rule over the elements is exact for polynomials of degree $2k$. Then:}
+\begin{enumerate}
+  \item \textit{The RKDG method is formally uniformly $(k+1)$st-order accurate in time and space if $\Delta t=\mathcal{O}(h)$};
+  \item \textit{The approximate solution generated by the RKDG method verifies the maximum principle $(2.8)$ if the cfl-condition $(2.19)$ is verified with $\delta=\mathrm{max}_{i,l}\left|\frac{\beta_{i,l}}{\alpha_{i,l}}\right|$};
+  \item \textit{The approximate solution converges to a weak solution of $(1.1)$ if there is a constant $C$ such that $||\bar{u}_{h}||_{BV(\Omega)}\le C$};
+\end{enumerate}
+
+The discussion about Gauss quadrature is largely based on Solin\cite{solinHigherOrderFiniteElement2003}, and you can find tables of weights and integration points for different orders of Gaussian quadrature in the book. So let's start from one-dimensional domain. The quadrature rules of the Gauss type are based on the summation of weighted function values on nonequidistantly distributed integration points. The $n$-point Gauss quadrature rule for the one-dimensional reference domain $K_{a}=(-1,1)$ reads
+\begin{equation}
+  \int_{-1}^{1}f(\xi)\mathrm{d}\xi\approx\sum_{i=1}^{n}w_{n,i}f(\xi_{n,i}).
+\end{equation}
+Analogously as for the Chebyshev and Lobatto (Radau) rules, the integration points and weights can be obtained after inserting sufficiently many linearly independent functions with known integrals and resolving the resulting system of nonlinear algebraic equations. Since we have $2n$ unknown parameters at our disposal ($n$ integration points $\xi_{n,i}$ and $n$ weights $w_{n,i}$), the resulting formula will be accurate for all polynomials of order $2n-1$ and lower.
+
+It can be shown that the integration points are roots of the Legendre polynomials $L_{n}(\xi)$. Hence, the complexity of the problem reduces to the level of Newton-Cotes quadrature rules, since with known points the nonlinear system comes over to a system of linear algebraic equations. The analysis leads even further; it is known that the weights $w_{n,i}$ can be expressed as
+\begin{equation}
+  w_{n,i}=\dfrac{2}{(1-\xi_{n,i}^{2})[L_{n}'(\xi_{n,i})]^{2}}, \quad i=1,\dots,n.
+\end{equation}
+For two-dimensional Gaussian quadrature in quadrilateral domain $K_{q}$, let us start with a technique that is easiest to implement - quadrature formulae based on the Cartesian product of two one-dimensional quadrature rules in the axial directions $\xi_{1}$ and $\xi_{2}$. Consider the formula
+\begin{equation}
+  \int_{K_{a}}f(\xi)\mathrm{d}\xi\approx\sum_{i=1}^{M_{a}}w_{g_{a},i}f(y_{g_{a},i}),
+\end{equation}
+where $y_{g_{a},i},w_{g_{a},i}$ are Gauss integration points and weights on the one-dimensional reference domain $K_{a}=(-1,1)$ that integrate exactly all polynomials of the order $p$ and lower. It is easy to see that the product formula
+\begin{equation}
+  \int_{K_{a}}g(\xi_{1},\xi_{2})\mathrm{d}\xi_{1}\mathrm{d}\xi_{2}\approx\sum_{i=1}^{M_{a}}\sum_{j=1}^{M_{a}}w_{g_{a},i}w_{g_{b},j}f(y_{g_{a},i},y_{g_{b},j})
+\end{equation}
+is of the order $p$ for polynomials of two independent variables $\xi_{1},\xi_{2}$. In addition to its simple implementation, the product formula has one more advantage - it can easily be generalized to polynomials with different orders of approximation in the axial directions $\xi_{1},\xi_{2}$. Such polynomials may appear naturally as a consequence of $p$-anisotropic refinements of quadrilateral elements, that may occur, e.g., within boundary and internal layers.However, the Gaussian quadrature formulas obtained in this way do not always use the minimum number of points. It is possible to achieve a more efficient Gaussian quadrature formula by eliminating some symmetric points while maintaining the original polynomial degree. We won't go into the specific details of this approach here, as it is not the one we have adopted.
+
+However, for triangular elements, the situation is more complicated. The fundamental equation for the construction of the integration points and weights for the reference triangle $K_{t}$ reads
+\begin{equation}
+  \int_{-1}^{1}\int_{-1}^{1-\xi_{1}}f(\xi_{1},\xi_{2})\mathrm{d}\xi_{2}\mathrm{d}\xi_{1}\approx\sum_{i=1}^{m}w_{k}f(\xi_{1,k},\xi_{2,k}),
+\end{equation}
+where $m$ denotes the number of integration points. Each point is characterized by three unknowns: $\omega_{k},\xi_{1,k}$ and $\xi_{2,k}$. If we want to solve for these three unknowns, we will need to solve a nonlinear system of algebraic equations. It is practically infeasible to make the calculation of the integration points and weights for higher values of $p$ by standard methods or mathematical software. Lyness\cite{lynessModerateDegreeSymmetric1975} proposed a sophisticated algorithm based on determining the points and weights within an equilateral triangle in polar coordinates, taking advantage of its multiple symmetries. The algorithm provides the minimum number of Gaussian points for any polynomial order $p$ and strongly reduces the size of the nonlinear system. Dunavant\cite{dunavantHighDegreeEfficient1985} extended the algorithm and calculated the points and weights up to the order $p=20$ (some weights being negative and some points lying outside the triangle). Position of integration points and values of the weights corresponding to other triangles can be obtained by a simple affine transformation.
+
+The fact that some of the weights are negative means that the stability of the quadrature will tend to decrease when integrating oscillatory functions whose polynomial behavior exceeds the order of accuracy of the quadrature formulae. In this case the schemes still can be used, but one has to combine them with spatial refinements of the reference element. If oscillations (or other excessive nonlinearities) in the integrated functions are expected, an application of adaptive formulae that compare results from several refinement levels mar be a good idea.
+
+\section{Non-viscous Flux}
+
+
+\section{Viscous Flux}
+
+
+\section{Time Integration}
+
+
+\section{Boundary Condition}
+
+
+\section{Post Processing}
+
+
+\section{Variable Storage}
+
+% TODO: DOP
+
+For scientific computing, storage of variables can generally be divided into two paradigms. For instance, when dealing with all the information on a particular element, you can either store each piece of information separately in an array or wrap these pieces of information into a structure and store them as an array. These two approaches are respectively known as Structure of Arrays (SOA) and Array of Structures (AOS).
+
+The SOA approach is more efficient because it can leverage CPU vectorized instructions. For example, during optimization, it can easily trigger the compiler's SIMD optimization. The AOS approach, on the other hand, cannot do this. However, the SOA approach also has a drawback in that its memory access is non-contiguous, leading to cache misses and reduced efficiency. This problem becomes more severe for unstructured grids because in a loop, you may access many data belonging to the same element. If these data are stored using SOA, cache misses can occur when accessing them, reducing efficiency.
+
+Therefore, in most of our program implementations, we organize data for the same element into a structure and then store these structures in an array. This ensures that when accessing data for the same element, the data is contiguous, avoiding cache misses. Within this structure, we use the SOA approach to store data, ensuring that when computing data belonging to the same element, we can trigger compiler SIMD optimizations. Of course, you can think of this method as a combination of SOA and AOS, that is, \href{https://en.wikipedia.org/wiki/AoS_and_SoA}{AOSOA}, but we prefer to think of it as AOS. Because in our program, we only store data in structures instead of treat the structures as a whole.
+
+Moreover, all storage for the variables required for computations is done using Eigen Matrix, Vector and Array as the underlying storage. This allows us to directly utilize Eigen API for calculations without the need to implement matrix and vector operations ourselves, significantly reducing our workload. Eigen API is highly optimized, so there is also minimal loss in efficiency.
+
+Considering that the storage order of matrices in Eigen is column-major, the order in memory is column 0, column 1... and is stored like this. Therefore, the system of equations is transposed here, that is, changing i in \autoref{eq:30} from row order to column order. In this way, when we process data within a single unit, each column represents the weighted residuals resulting from the multiplication of a certain basis function with the equation. This can help improve cache hit rates in certain loops.
+
+Regarding how the data is encapsulated, let's set that aside for now and first take a look at how various variables in the equations are stored in one element.
+
+We start with the Integral class, first the local coordinates of the integration point, which is the \texttt{integral\_point} variable in the program, is a variable of type \texttt{Eigen::Matrix}. The dimension of this matrix is \texttt{getDim<ElemT>()} $\times$ \texttt{getElemIntegralNum<ElemT>(P)}, where \texttt{getDim<ElemT>()} is the dimension of the reference element, and \texttt{getElem} \texttt{IntegralNum<ElemT>(P)} is the number of integration points of the element. Each column of this matrix stores the local coordinates of an integration point. For example, for a two-dimensional element, the variable is
+\begin{equation}
+  \begin{bNiceMatrix}
+    \xi_{1}^{0}&\xi_{1}^{1}&\Cdots&\xi_{1}^{n}\\
+    \xi_{2}^{0}&\xi_{2}^{1}&\Cdots&\xi_{2}^{n}
+  \end{bNiceMatrix}_{\texttt{Dim}\times\texttt{ElemIntegralNum}.}
+\end{equation}
+
+% The weight of the integration point, which is the \texttt{weight} variable in the program, is a variable of type \texttt{Eigen::Vector}. The dimension of this vector is \texttt{getElemIntegralNum<ElemT>(P)} $\times 1$, where \texttt{getElemIntegralNum<ElemT>(P)} is the number of integration points of the element. The column of this vector stores the weight of an integration point. For example, for an element, the variable is
+% \begin{equation}
+%   \begin{bNiceMatrix}
+%     w^{0} \\
+%     w^{1} \\
+%     \Vdots\\
+%     w^{n}
+%   \end{bNiceMatrix}_{\texttt{ElemIntegralNum}\times 1.}
+% \end{equation}
+
+The value of the basis function at each integration point, which is the \texttt{basis\_fun} variable in the program, is a variable of type \texttt{Eigen::Matrix}. The dimension of this matrix is \texttt{getElemIntegralNum<ElemT>(P)} $\times$ \texttt{calBasisFunNum<ElemT>(P)}, where \texttt{getElemIntegralNum<ElemT>(P)} is the number of integration points of the element, and \texttt{calBasisFunNum<ElemT>(P)} is the number of basis functions of the element. Each column of this matrix stores the value of a basis function at an integration point. For example, for an element, the variable is
+\begin{equation}
+  \begin{bNiceMatrix}
+    \phi_{1}^{0}&\phi_{1}^{1}&\Cdots&\phi_{1}^{n}\\
+    \phi_{2}^{0}&\phi_{2}^{1}&\Cdots&\phi_{2}^{n}\\
+    \Vdots      &\Vdots      &      &\Vdots      \\
+    \phi_{m}^{0}&\phi_{m}^{1}&\Cdots&\phi_{m}^{n}
+  \end{bNiceMatrix}_{\texttt{ElemIntegralNum}\times\texttt{BasisFunNum}.}
+\end{equation}
+
+The value of the gradient of the basis function at each integration point, which is the \texttt{basis\_fun\_grad} variable in the program, is a variable of type \texttt{Eigen::Matrix}. The dimension of this matrix is (\texttt{getElemIntegralNum<ElemT>(P)} $\times$ \texttt{getDim<ElemT>()}) $\times$ \texttt{calBasisFunNum<ElemT>(P)}, where \texttt{getElemIntegralNum<ElemT>(P)} is the number of integration points of the element,  \texttt{getDim<ElemT>()} is the dimension of the reference element, and \texttt{calBasisFunNum<ElemT>(P)} is the number of basis functions of the element. Each column of this matrix stores the value of the gradient of a basis function at an integration point. For example, for a two-dimensional element, the variable is
+\begin{equation}
+  \begin{bNiceMatrix}
+    \dfrac{\partial\phi_{1}^{0}}{\partial\xi_{1}}&\dfrac{\partial\phi_{1}^{1}}{\partial\xi_{1}}&\Cdots&\dfrac{\partial\phi_{1}^{n}}{\partial\xi_{1}}\\
+    \dfrac{\partial\phi_{1}^{0}}{\partial\xi_{2}}&\dfrac{\partial\phi_{1}^{1}}{\partial\xi_{2}}&\Cdots&\dfrac{\partial\phi_{1}^{n}}{\partial\xi_{2}}\\
+    \dfrac{\partial\phi_{2}^{0}}{\partial\xi_{1}}&\dfrac{\partial\phi_{2}^{1}}{\partial\xi_{1}}&\Cdots&\dfrac{\partial\phi_{2}^{n}}{\partial\xi_{1}}\\
+    \dfrac{\partial\phi_{2}^{0}}{\partial\xi_{2}}&\dfrac{\partial\phi_{2}^{1}}{\partial\xi_{2}}&\Cdots&\dfrac{\partial\phi_{2}^{n}}{\partial\xi_{2}}\\
+    \Vdots                                       &\Vdots                                       &      &\Vdots                                       \\
+    \dfrac{\partial\phi_{m}^{0}}{\partial\xi_{1}}&\dfrac{\partial\phi_{m}^{1}}{\partial\xi_{1}}&\Cdots&\dfrac{\partial\phi_{m}^{n}}{\partial\xi_{1}}\\
+    \dfrac{\partial\phi_{m}^{0}}{\partial\xi_{2}}&\dfrac{\partial\phi_{m}^{1}}{\partial\xi_{2}}&\Cdots&\dfrac{\partial\phi_{m}^{n}}{\partial\xi_{2}}
+  \end{bNiceMatrix}_{(\texttt{ElemIntegralNum}\times\texttt{Dim})\times\texttt{BasisFunNum}}.
+\end{equation}
+
+Next let's look at Mesh class, first the
+
+The basis function coefficients, which is the \texttt{basis\_fun\_coeff} variable in the program, is a variable of type \texttt{Eigen::Array} of \texttt{Eigen::Matrix}. The dimension of array is $2\times 1$, which means it contains two matrices. The first one is to record the data of the initial step in the explicit time integration, and the second one is to record the data of the current step. The dimension of each matrix is \texttt{getConservedVarNum<EquModelT>(Dim)} $\times$ \texttt{calBasisFunNum<ElemT>(P)}, where \texttt{getConservedVarNum<EquModelT>(Dim)} is the number of conservative variables of the equation, and \texttt{calBasisFunNum} \texttt{<ElemT>(P)} is the number of basis functions of the element. Each column of this matrix stores the basis function coefficients of a conservative variable on an element. For Navier-Stokes equations, the variable is
+\begin{equation}
+  \begin{bNiceMatrix}
+    a_{\rho}^{0}  &a_{\rho}^{1}  &\Cdots&a_{\rho}^{n}  \\
+    a_{\rho u}^{0}&a_{\rho u}^{1}&\Cdots&a_{\rho u}^{n}\\
+    a_{\rho v}^{0}&a_{\rho v}^{1}&\Cdots&a_{\rho v}^{n}\\
+    a_{\rho w}^{0}&a_{\rho w}^{1}&\Cdots&a_{\rho w}^{n}\\
+    a_{\rho E}^{0}&a_{\rho E}^{1}&\Cdots&a_{\rho E}^{n}
+  \end{bNiceMatrix}_{\texttt{ConservedVarNum}\times\texttt{BasisFunNum}.}
 \end{equation}
 
 
 
-\section{Numerical Integral}
 
 
 
+
+\newpage
+
+\bibliographystyle{ieeetr}
+\bibliography{references}
 
 \end{document}

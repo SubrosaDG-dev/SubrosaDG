@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <functional>
 #include <iostream>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <string_view>

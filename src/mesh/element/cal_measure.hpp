@@ -14,7 +14,6 @@
 #define SUBROSA_DG_CAL_MEASURE_HPP_
 
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
@@ -50,8 +49,10 @@ inline Real calMeasure(const Eigen::Matrix<Real, Dim, getNodeNum<ElemT>()>& node
 template <int Dim, PolyOrder P, ElemType ElemT>
 inline void calElemMeasure(ElemMesh<Dim, P, ElemT>& elem_mesh) {
   for (Isize i = 0; i < elem_mesh.num_; i++) {
-    elem_mesh.elem_(i).measure_ = calMeasure<Dim, ElemT>(
-        elem_mesh.elem_(i).node_(Eigen::all, Eigen::seqN(Eigen::fix<0>, Eigen::fix<getNodeNum<ElemT>(PolyOrder::P1)>)));
+    for (Isize j = 0; j < getSubElemNum<ElemT>(P); j++) {
+      elem_mesh.elem_(i).subelem_measure_(j) =
+          calMeasure<Dim, ElemT>(elem_mesh.elem_(i).node_(Eigen::all, elem_mesh.subelem_index_.col(j)));
+    }
   }
 }
 

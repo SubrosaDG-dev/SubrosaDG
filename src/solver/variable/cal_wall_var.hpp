@@ -26,10 +26,11 @@ template <EquModel EquModelT>
 inline void calWallPrimitiveVar(const Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(2)>& primitive_var,
                                 Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(2)>& wall_primitive_var) {
   wall_primitive_var(0) = primitive_var(0);
-  wall_primitive_var(1) = -primitive_var(1);
-  wall_primitive_var(2) = -primitive_var(2);
+  wall_primitive_var(1) = 0.0;
+  wall_primitive_var(2) = 0.0;
   wall_primitive_var(3) = primitive_var(3);
-  wall_primitive_var(4) = primitive_var(4);
+  wall_primitive_var(4) =
+      primitive_var(4) - 0.5 * (primitive_var(1) * primitive_var(1) + primitive_var(2) * primitive_var(2));
 }
 
 }  // namespace SubrosaDG

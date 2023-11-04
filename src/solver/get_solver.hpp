@@ -50,6 +50,8 @@ inline void getSolver(const Integral<Dim, P, MeshT>& integral, const Mesh<Dim, P
 #else
   fout.open((view_config.dir_ / "cache.raw").string(), std::ios::out | std::ios::trunc);
 #endif
+  // fout.setf(std::ios::left, std::ios::adjustfield);
+  // fout.setf(std::ios::scientific, std::ios::floatfield);
   // fout.precision(kSignificantDigits);
   SolverSupplemental<Dim, EquModelT, TimeDiscreteT> solver_supplemental{thermo_model, time_var};
   initSolver(mesh, init_var, farfield_var, solver_supplemental, solver);

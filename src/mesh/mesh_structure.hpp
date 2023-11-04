@@ -38,7 +38,6 @@ template <int Dim, PolyOrder P, ElemType ElemT>
 struct PerElemMesh : PerElemMeshBase<Dim, P, ElemT> {
   Eigen::Matrix<Real, calBasisFunNum<ElemT>(P), calBasisFunNum<ElemT>(P)> local_mass_mat_inv_;
   Eigen::Matrix<Real, Dim, getElemIntegralNum<ElemT>(P) * Dim> jacobian_trans_inv_;
-  Real measure_;
   Eigen::Vector<Real, Dim> projection_measure_;
 };
 
@@ -46,7 +45,8 @@ template <int Dim, PolyOrder P, ElemType ElemT>
 struct ElemMesh {
   std::pair<Isize, Isize> range_;
   Isize num_;
-  Eigen::Vector<PerElemMesh<Dim, P, ElemT>, Eigen::Dynamic> elem_;
+  Eigen::Array<PerElemMesh<Dim, P, ElemT>, Eigen::Dynamic, 1> elem_;
+  Eigen::Matrix<int, getNodeNum<ElemT>(PolyOrder::P1), getSubElemNum<ElemT>(P)> subelem_index_;
 };
 
 template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT, bool IsInternal>
@@ -73,7 +73,7 @@ template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT, bool IsInternal>
 struct AdjacencyElemTypeMesh {
   std::pair<Isize, Isize> range_;
   Isize num_;
-  Eigen::Vector<PerAdjacencyElemMesh<Dim, P, ElemT, MeshT, IsInternal>, Eigen::Dynamic> elem_;
+  Eigen::Array<PerAdjacencyElemMesh<Dim, P, ElemT, MeshT, IsInternal>, Eigen::Dynamic, 1> elem_;
 };
 
 template <int Dim, PolyOrder P, ElemType ElemT, MeshType MeshT>
@@ -95,7 +95,7 @@ template <int Dim, PolyOrder P>
 struct MeshBase {
   Isize node_num_;
   Eigen::Matrix<Real, Dim, Eigen::Dynamic> node_;
-  Eigen::Vector<Real, Eigen::Dynamic> node_elem_measure_;
+  Eigen::Vector<int, Eigen::Dynamic> node_elem_num_;
 
   Isize elem_num_{0};
 

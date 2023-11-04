@@ -39,7 +39,7 @@ inline void addElemNodalVar(const ElemMesh<Dim, P, ElemT>& elem_mesh,
     for (Isize j = 0; j < getNodeNum<ElemT>(P); j++) {
       conserved_var = elem_solver_view.elem_(i).basis_fun_coeff_.col(j);
       calOutputVar<EquModelT>(thermo_model, conserved_var, output_var);
-      node_solver_view.output_var_.col(elem_mesh.elem_(i).index_(j) - 1) += output_var * elem_mesh.elem_(i).measure_;
+      node_solver_view.output_var_.col(elem_mesh.elem_(i).index_(j) - 1) += output_var;
     }
   }
 }
@@ -54,7 +54,7 @@ inline void calNodalVar(const Mesh<2, P, MeshT>& mesh, const ThermoModel<EquMode
   if constexpr (HasQuad<MeshT>) {
     addElemNodalVar(mesh.quad_, view.quad_, thermo_model, view.node_);
   }
-  view.node_.output_var_.array().rowwise() /= mesh.node_elem_measure_.transpose().array();
+  view.node_.output_var_.array().rowwise() /= mesh.node_elem_num_.template cast<Real>().transpose().array();
 }
 
 }  // namespace SubrosaDG

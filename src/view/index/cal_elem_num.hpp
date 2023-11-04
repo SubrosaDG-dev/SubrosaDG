@@ -16,8 +16,8 @@
 #include "basic/concept.hpp"
 #include "basic/data_type.hpp"
 #include "basic/enum.hpp"
+#include "mesh/get_elem_info.hpp"
 #include "mesh/mesh_structure.hpp"
-#include "view/index/get_subelem_num.hpp"
 
 namespace SubrosaDG {
 

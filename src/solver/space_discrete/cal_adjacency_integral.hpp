@@ -24,6 +24,7 @@
 #include "solver/convective_flux/cal_roe_flux.hpp"
 #include "solver/solver_structure.hpp"
 #include "solver/space_discrete/store_to_elem.hpp"
+#include "solver/variable/cal_convective_var.hpp"
 #include "solver/variable/cal_primitive_var.hpp"
 #include "solver/variable/cal_wall_var.hpp"
 #include "solver/variable/get_parent_var.hpp"
@@ -47,10 +48,10 @@ inline void calInternalAdjacencyElemIntegral(const AdjacencyElemIntegral<P, Elem
   Isize r_elem_tag;
   Isize r_adjacency_order;
 #ifdef SUBROSA_DG_WITH_OPENMP
-#pragma omp parallel for default(none)                                                                          \
-    schedule(auto) private(l_conserved_var, l_primitive_var, r_conserved_var, r_primitive_var, convective_flux, \
-                           adjancy_integral, l_elem_tag, l_adjacency_order, r_elem_tag, r_adjacency_order)      \
-        shared(adjacency_elem_mesh, adjacency_elem_integral, thermo_model, solver)
+#pragma omp parallel for default(none) schedule(auto) shared(Eigen::Dynamic) private(                          \
+        l_conserved_var, l_primitive_var, r_conserved_var, r_primitive_var, convective_flux, adjancy_integral, \
+            l_elem_tag, l_adjacency_order, r_elem_tag, r_adjacency_order)                                      \
+    shared(adjacency_elem_mesh, adjacency_elem_integral, thermo_model, solver)
 #endif
   for (Isize i = 0; i < adjacency_elem_mesh.internal_.num_; i++) {
     l_elem_tag = adjacency_elem_mesh.internal_.elem_(i).parent_index_(0);
@@ -63,13 +64,13 @@ inline void calInternalAdjacencyElemIntegral(const AdjacencyElemIntegral<P, Elem
                      l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral, solver,
                      l_conserved_var);
         getParentVar(adjacency_elem_mesh.internal_.elem_(i).typology_index_(1), r_elem_tag,
-                     r_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral, solver,
-                     r_conserved_var);
+                     (r_adjacency_order + 1) * adjacency_elem_integral.kIntegralNum - (j + 1), adjacency_elem_integral,
+                     solver, r_conserved_var);
       } else {
         getParentVar(l_elem_tag, l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral,
                      solver, l_conserved_var);
-        getParentVar(r_elem_tag, r_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjacency_elem_integral,
-                     solver, r_conserved_var);
+        getParentVar(r_elem_tag, (r_adjacency_order + 1) * adjacency_elem_integral.kIntegralNum - (j + 1),
+                     adjacency_elem_integral, solver, r_conserved_var);
       }
       calPrimitiveVar(thermo_model, l_conserved_var, l_primitive_var);
       calPrimitiveVar(thermo_model, r_conserved_var, r_primitive_var);
@@ -84,12 +85,13 @@ inline void calInternalAdjacencyElemIntegral(const AdjacencyElemIntegral<P, Elem
                                      l_adjacency_order * adjacency_elem_integral.kIntegralNum + j, adjancy_integral,
                                      solver);
         storeAdjacencyIntegralToElem(adjacency_elem_mesh.internal_.elem_(i).typology_index_(1), r_elem_tag,
-                                     r_adjacency_order * adjacency_elem_integral.kIntegralNum + j, -adjancy_integral,
-                                     solver);
+                                     (r_adjacency_order + 1) * adjacency_elem_integral.kIntegralNum - (j + 1),
+                                     -adjancy_integral, solver);
       } else {
         storeAdjacencyIntegralToElem(l_elem_tag, l_adjacency_order * adjacency_elem_integral.kIntegralNum + j,
                                      adjancy_integral, solver);
-        storeAdjacencyIntegralToElem(r_elem_tag, r_adjacency_order * adjacency_elem_integral.kIntegralNum + j,
+        storeAdjacencyIntegralToElem(r_elem_tag,
+                                     (r_adjacency_order + 1) * adjacency_elem_integral.kIntegralNum - (j + 1),
                                      -adjancy_integral, solver);
       }
     }
@@ -105,16 +107,17 @@ inline void calBoundaryAdjacencyElemIntegral(
   Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)> l_conserved_var;
   Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(Dim)> l_primitive_var;
   Eigen::Vector<Real, getPrimitiveVarNum<EquModelT>(Dim)> wall_primitive_var;
+  Eigen::Matrix<Real, getConservedVarNum<EquModelT>(Dim), Dim> wall_convective_var;
   Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)> convective_flux;
   Eigen::Vector<Real, getConservedVarNum<EquModelT>(Dim)> adjancy_integral;
   Isize l_elem_tag;
   Isize l_adjacency_order;
   Isize r_boundary_tag;
 #ifdef SUBROSA_DG_WITH_OPENMP
-#pragma omp parallel for default(none)                                                                              \
-    schedule(auto) private(l_conserved_var, l_primitive_var, wall_primitive_var, convective_flux, adjancy_integral, \
-                           l_elem_tag, l_adjacency_order, r_boundary_tag)                                           \
-        shared(adjacency_elem_mesh, adjacency_elem_integral, thermo_model, farfield_primitive_var, solver)
+#pragma omp parallel for default(none) schedule(auto) shared(Eigen::Dynamic) private(                                 \
+        l_conserved_var, l_primitive_var, wall_primitive_var, wall_convective_var, convective_flux, adjancy_integral, \
+            l_elem_tag, l_adjacency_order, r_boundary_tag)                                                            \
+    shared(adjacency_elem_mesh, adjacency_elem_integral, thermo_model, farfield_primitive_var, solver)
 #endif
   for (Isize i = 0; i < adjacency_elem_mesh.boundary_.num_; i++) {
     l_elem_tag = adjacency_elem_mesh.boundary_.elem_(i).parent_index_(0);
@@ -139,10 +142,8 @@ inline void calBoundaryAdjacencyElemIntegral(
         break;
       case Boundary::Wall:
         calWallPrimitiveVar<EquModelT>(l_primitive_var, wall_primitive_var);
-        if constexpr (ConvectiveFluxT == ConvectiveFlux::Roe) {
-          calRoeFlux(thermo_model, adjacency_elem_mesh.boundary_.elem_(i).norm_vec_, l_primitive_var,
-                     wall_primitive_var, convective_flux);
-        }
+        calConvectiveVar<EquModelT>(wall_primitive_var, wall_convective_var);
+        convective_flux = wall_convective_var * adjacency_elem_mesh.boundary_.elem_(i).norm_vec_;
         break;
       }
       adjancy_integral.noalias() = convective_flux * adjacency_elem_mesh.boundary_.elem_(i).jacobian_det_(j) *

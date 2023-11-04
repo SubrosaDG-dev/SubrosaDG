@@ -15,7 +15,6 @@
 
 #include "basic/concept.hpp"
 #include "basic/enum.hpp"
-#include "index/get_connection_mat.hpp"
 #include "mesh/mesh_structure.hpp"
 #include "view/variable/get_output_var_num.hpp"
 #include "view/view_structure.hpp"
@@ -37,7 +36,6 @@ inline void initView(const Mesh<2, P, MeshT>& mesh, View<2, P, MeshT, EquModelT>
   if constexpr (HasQuad<MeshT>) {
     initElemSolverView(mesh.quad_, view.quad_);
   }
-  getSubElemConnectionMat(view);
 }
 
 }  // namespace SubrosaDG

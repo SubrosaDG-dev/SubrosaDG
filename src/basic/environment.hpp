@@ -17,8 +17,8 @@
 #include <omp.h>
 #endif
 
-#include <gmsh.h>
 #include <fmt/core.h>
+#include <gmsh.h>
 
 #include <iostream>
 #include <regex>

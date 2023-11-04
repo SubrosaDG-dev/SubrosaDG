@@ -91,7 +91,7 @@
 
 \RequirePackage{hyperref}
 \hypersetup{
-  colorlinks,linkcolor=black,anchorcolor=black,citecolor=teal,urlcolor=teal,
+  colorlinks,linkcolor=black,anchorcolor=black,citecolor=black,urlcolor=teal,
   bookmarksnumbered=true
 }
 

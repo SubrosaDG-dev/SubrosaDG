@@ -25,7 +25,7 @@ namespace SubrosaDG {
 template <ElemType ElemT>
 inline void calProjectionMeasure(const Eigen::Matrix<Real, 2, getNodeNum<ElemT>(PolyOrder::P1)>& node,
                                  Eigen::Vector<Real, 2>& projection_measure) {
-  projection_measure = node.rowwise().maxCoeff() - node.rowwise().minCoeff();
+  projection_measure = node.rowwise().maxCoeff() - node.rowwise().minCoeff();  // NOTE:
 }
 
 template <int Dim, PolyOrder P, ElemType ElemT>

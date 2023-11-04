@@ -10,6 +10,6 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-add_develop_note(ns-equ-var "${CMAKE_CURRENT_LIST_DIR}/ns-equ-var.tex")
+add_develop_note_with_bib(ns-equ-var "${CMAKE_CURRENT_LIST_DIR}/ns-equ-var.tex")
 
 file(MAKE_DIRECTORY "${DEVELOP_NOTES_OUTPUT_DIRECTORY}/ns-equ-var/figures")

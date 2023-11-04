@@ -13,8 +13,8 @@
 #ifndef SUBROSA_DG_GET_ADJACENCY_INTEGRAL_HPP_
 #define SUBROSA_DG_GET_ADJACENCY_INTEGRAL_HPP_
 
-#include <gmsh.h>
 #include <fmt/core.h>
+#include <gmsh.h>
 
 #include <Eigen/Core>
 #include <vector>

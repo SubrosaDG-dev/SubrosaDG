@@ -24,12 +24,12 @@
 #include "basic/enum.hpp"
 #include "integral/integral_structure.hpp"
 #include "mesh/element/cal_mass_mat.hpp"
-#include "mesh/element/cal_measure.hpp"
 #include "mesh/element/cal_norm_vec.hpp"
 #include "mesh/element/cal_projection_measure.hpp"
 #include "mesh/element/get_adjacency_mesh.hpp"
 #include "mesh/element/get_elem_mesh.hpp"
 #include "mesh/element/get_jacobian.hpp"
+#include "mesh/element/get_subelem_index.hpp"
 #include "mesh/get_elem_info.hpp"
 #include "mesh/mesh_structure.hpp"
 
@@ -52,20 +52,20 @@ inline void getNodes(MeshBase<Dim, P>& mesh_base) {
 }
 
 template <PolyOrder P, MeshType MeshT>
-inline void getNodeElemMeasure(Mesh<2, P, MeshT>& mesh) {
-  mesh.node_elem_measure_.resize(mesh.node_num_);
-  mesh.node_elem_measure_.setZero();
+inline void getNodeElemNum(Mesh<2, P, MeshT>& mesh) {
+  mesh.node_elem_num_.resize(mesh.node_num_);
+  mesh.node_elem_num_.setZero();
   if constexpr (HasTri<MeshT>) {
     for (Isize i = 0; i < mesh.tri_.num_; i++) {
       for (Isize j = 0; j < getNodeNum<ElemType::Tri>(P); j++) {
-        mesh.node_elem_measure_(mesh.tri_.elem_(i).index_(j) - 1) += mesh.tri_.elem_(i).measure_;
+        mesh.node_elem_num_(mesh.tri_.elem_(i).index_(j) - 1) += 1;
       }
     }
   }
   if constexpr (HasQuad<MeshT>) {
     for (Isize i = 0; i < mesh.quad_.num_; i++) {
       for (Isize j = 0; j < getNodeNum<ElemType::Quad>(P); j++) {
-        mesh.node_elem_measure_(mesh.quad_.elem_(i).index_(j) - 1) += mesh.quad_.elem_(i).measure_;
+        mesh.node_elem_num_(mesh.quad_.elem_(i).index_(j) - 1) += 1;
       }
     }
   }
@@ -87,19 +87,19 @@ inline void getMesh(const std::unordered_map<std::string_view, Boundary>& bounda
   getNodes(mesh);
   if constexpr (HasTri<MeshT>) {
     getElemMesh(mesh.node_, mesh.tri_);
-    calElemMeasure(mesh.tri_);
+    getSubElemIndex(mesh.tri_);
     calElemProjectionMeasure(mesh.tri_);
     getElemJacobian(integral.tri_, mesh.tri_);
     calElemLocalMassMatInv(integral.tri_, mesh.tri_);
   }
   if constexpr (HasQuad<MeshT>) {
     getElemMesh(mesh.node_, mesh.quad_);
-    calElemMeasure(mesh.quad_);
+    getSubElemIndex(mesh.quad_);
     calElemProjectionMeasure(mesh.quad_);
     getElemJacobian(integral.quad_, mesh.quad_);
     calElemLocalMassMatInv(integral.quad_, mesh.quad_);
   }
-  getNodeElemMeasure(mesh);
+  getNodeElemNum(mesh);
   getElemNum(mesh);
   getAdjacencyElemMesh<2, P, ElemType::Line, MeshT>(mesh.node_, boundary_type_map, mesh.line_);
   calAdjacencyElemNormVec(mesh.line_);

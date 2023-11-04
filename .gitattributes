@@ -4,11 +4,25 @@
 * -text
 
 ###############################################################################
+# Set linguist generated files to be treated as vendored
+###############################################################################
+docs/**    linguist-documentation
+libs/**    linguist-vendored
+utils/**   linguist-vendored
+
+###############################################################################
 # behavior for mesh files
 #
 # mesh files are treated as binary by default.
 ###############################################################################
-*.cgns   binary
+*.cgns  binary
+
+###############################################################################
+# behavior for pdf files
+#
+# pdf files are treated as binary by default.
+###############################################################################
+*.pdf   binary
 
 ###############################################################################
 # behavior for image files
@@ -18,7 +32,3 @@
 *.jpg   binary
 *.png   binary
 *.gif   binary
-
-docs/**    linguist-documentation
-libs/**    linguist-vendored
-utils/**   linguist-vendored

@@ -18,9 +18,7 @@
 
 #include "basic/data_type.hpp"
 #include "integral/cal_basisfun_num.hpp"
-#include "mesh/get_elem_info.hpp"
 #include "solver/variable/get_var_num.hpp"
-#include "view/index/get_subelem_num.hpp"
 #include "view/variable/get_output_var_num.hpp"
 
 namespace SubrosaDG {
@@ -37,8 +35,7 @@ struct PerElemSolverView {
 
 template <int Dim, PolyOrder P, ElemType ElemT, EquModel EquModelT>
 struct ElemSolverView {
-  Eigen::Vector<PerElemSolverView<Dim, P, ElemT, EquModelT>, Eigen::Dynamic> elem_;
-  Eigen::Matrix<int, getNodeNum<ElemT>(PolyOrder::P1), getSubElemNum<ElemT>(P)> subelem_connection_mat_;
+  Eigen::Array<PerElemSolverView<Dim, P, ElemT, EquModelT>, Eigen::Dynamic, 1> elem_;
 };
 
 template <int Dim, PolyOrder P, MeshType MeshT, EquModel EquModelT>

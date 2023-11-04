@@ -13,8 +13,8 @@
 #ifndef SUBROSA_DG_GET_GAUSS_QUAD_HPP_
 #define SUBROSA_DG_GET_GAUSS_QUAD_HPP_
 
-#include <gmsh.h>
 #include <fmt/core.h>
+#include <gmsh.h>
 
 #include <vector>
 

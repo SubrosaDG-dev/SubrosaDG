@@ -16,8 +16,6 @@
 #include <Eigen/LU>
 #include <cstdlib>
 #include <filesystem>
-#include <map>
-#include <stdexcept>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -28,9 +26,9 @@ using namespace std::string_view_literals;
 
 inline constexpr int kDim{2};
 
-inline constexpr SubrosaDG::PolyOrder kPolyOrder{3};
+inline constexpr SubrosaDG::PolyOrder kPolyOrder{2};
 
-inline constexpr int kStep{1};
+inline constexpr int kStep{1000};
 
 inline constexpr SubrosaDG::MeshType kMeshType{SubrosaDG::MeshType::TriQuad};
 
@@ -38,7 +36,7 @@ inline constexpr SubrosaDG::EquModel kEquModel{SubrosaDG::EquModel::Euler};
 
 inline const std::filesystem::path kProjectDir{SubrosaDG::kProjectSourceDir / "build/out/cylinder_2d_euler"};
 
-inline constexpr SubrosaDG::TimeVar<SubrosaDG::TimeDiscrete::ForwardEuler> kTimeVar{
+inline constexpr SubrosaDG::TimeVar<SubrosaDG::TimeDiscrete::RK3SSP> kTimeVar{
     kStep, 1 / (2 * static_cast<SubrosaDG::Real>(kPolyOrder) + 1), 1e-10};
 
 inline constexpr SubrosaDG::SpatialDiscreteEuler<SubrosaDG::ConvectiveFlux::Roe> kSpatialDiscrete;
@@ -68,26 +66,25 @@ void generateMesh(const std::filesystem::path& mesh_file) {
   std::vector<int> cylinder_point_tag;
   std::vector<int> farfield_line_tag;
   std::vector<int> cylinder_line_tag;
-  gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
   gmsh::model::add("cylinder_2d");
   for (const auto& row : farfield_point.rowwise()) {
-    farfield_point_tag.emplace_back(gmsh::model::occ::addPoint(row.x(), row.y(), row.z(), 0.5));
+    farfield_point_tag.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 1));
   }
   for (const auto& row : cylinder_point.rowwise()) {
-    cylinder_point_tag.emplace_back(gmsh::model::occ::addPoint(row.x(), row.y(), row.z(), 0.05));
+    cylinder_point_tag.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 0.2));
   }
   for (std::size_t i = 0; i < farfield_point_tag.size(); i++) {
     farfield_line_tag.emplace_back(
-        gmsh::model::occ::addLine(farfield_point_tag[i], farfield_point_tag[(i + 1) % farfield_point_tag.size()]));
+        gmsh::model::geo::addLine(farfield_point_tag[i], farfield_point_tag[(i + 1) % farfield_point_tag.size()]));
   }
   for (std::size_t i = 1; i < cylinder_point_tag.size(); i++) {
-    cylinder_line_tag.emplace_back(gmsh::model::occ::addCircleArc(
+    cylinder_line_tag.emplace_back(gmsh::model::geo::addCircleArc(
         cylinder_point_tag[i], cylinder_point_tag[0], cylinder_point_tag[i % (cylinder_point_tag.size() - 1) + 1]));
   }
-  const int farfield_line_loop = gmsh::model::occ::addCurveLoop(farfield_line_tag);
-  const int cylinder_line_loop = gmsh::model::occ::addCurveLoop(cylinder_line_tag);
-  const int cylinder_plane_surface = gmsh::model::occ::addPlaneSurface({farfield_line_loop, cylinder_line_loop});
-  gmsh::model::occ::synchronize();
+  const int farfield_line_loop = gmsh::model::geo::addCurveLoop(farfield_line_tag);
+  const int cylinder_line_loop = gmsh::model::geo::addCurveLoop(cylinder_line_tag);
+  const int cylinder_plane_surface = gmsh::model::geo::addPlaneSurface({farfield_line_loop, cylinder_line_loop});
+  gmsh::model::geo::synchronize();
   std::vector<double> cylinder_line_tag_double_cast{cylinder_line_tag.begin(), cylinder_line_tag.end()};
   const int cylinder_boundary_layer = gmsh::model::mesh::field::add("BoundaryLayer");
   gmsh::model::mesh::field::setNumbers(cylinder_boundary_layer, "CurvesList", cylinder_line_tag_double_cast);
