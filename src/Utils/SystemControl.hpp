@@ -119,7 +119,7 @@ struct System {
   inline void setViewConfig(int io_interval, const std::filesystem::path& output_directory,
                             const std::string& output_file_name_prefix);
 
-  inline std::string getProgressBarInfo();
+  [[nodiscard]] inline std::string getProgressBarInfo() const;
 
   inline void solve();
 
@@ -153,7 +153,7 @@ inline void System<SimulationControl>::setViewConfig(const int io_interval,
 }
 
 template <typename SimulationControl>
-inline std::string System<SimulationControl>::getProgressBarInfo() {
+[[nodiscard]] inline std::string System<SimulationControl>::getProgressBarInfo() const {
   if constexpr (SimulationControl::kDimension == 2) {
     return fmt::format("Residual: rho: {:.4e}, rhou: {:.4e}, rhov: {:.4e}, rhoE: {:.4e}",
                        this->solver_.absolute_error_(0), this->solver_.absolute_error_(1),

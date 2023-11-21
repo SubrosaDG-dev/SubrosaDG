@@ -80,7 +80,7 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system(generateMesh, kProjectDirectory / "cylinder_2d.msh");
   system.addInitialCondition("vc-1", {1.4, 0.38, 0.0, 1.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::NormalFarfield>("bc-1", {1.4, 0.38, 0.0, 1.0, 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::RiemannFarfield>("bc-1", {1.4, 0.38, 0.0, 1.0, 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryCondition::NoSlipWall>("bc-2");
   system.setTimeIntegration(false, 1, 1.0, 1e-10);
   system.setViewConfig(-1, kProjectDirectory, "cylinder_2d");

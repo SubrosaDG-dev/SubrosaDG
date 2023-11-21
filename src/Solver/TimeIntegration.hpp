@@ -97,7 +97,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
       variable.template getFromSelf<ElementTrait>(i, j, element_mesh, thermal_model, *this);
       velocity_x = variable.primitive_(1);
       velocity_y = variable.primitive_(2);
-      sound_speed = thermal_model.getSoundSpeedFromInternalEnergy(
+      sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
           variable.primitive_(3) - 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y));
       lambda_x = std::fabs(velocity_x) * (1 + sound_speed / (velocity_x * velocity_x + velocity_y * velocity_y)) *
                  element_mesh.element_(i).projection_measure_.x();

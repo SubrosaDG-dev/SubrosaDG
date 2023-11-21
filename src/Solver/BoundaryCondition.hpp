@@ -31,7 +31,7 @@ struct BoundaryConditionBase {
       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl, SimulationControl::kDimension>& left_quadrature_node_variable,
-      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& boundary_flux) = 0;
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& boundary_flux) const = 0;
 
   virtual ~BoundaryConditionBase() = default;
 };
@@ -46,7 +46,7 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::NormalFarfiel
       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl, SimulationControl::kDimension>& left_quadrature_node_variable,
-      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& boundary_flux) override {
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& boundary_flux) const override {
     calculateConvectiveFlux<SimulationControl>(thermal_model, normal_vector, left_quadrature_node_variable,
                                                this->variable_, boundary_flux);
   }
@@ -54,7 +54,47 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::NormalFarfiel
 
 template <typename SimulationControl>
 struct BoundaryConditionData<SimulationControl, BoundaryCondition::RiemannFarfield>
-    : BoundaryConditionBase<SimulationControl> {};
+    : BoundaryConditionBase<SimulationControl> {
+  inline void calculateBoundaryConvectiveFlux(
+      [[maybe_unused]] const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl, SimulationControl::kDimension>& left_quadrature_node_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& boundary_flux) const override {
+    if constexpr (SimulationControl::kDimension == 2) {
+      Variable<SimulationControl, SimulationControl::kDimension> wall_variable;
+      Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
+          boundary_convective_variable;
+      const Real velocity_normal = left_quadrature_node_variable.primitive_(1) * normal_vector(0) +
+                                   left_quadrature_node_variable.primitive_(2) * normal_vector(1);
+      const Real mach_number_normal = velocity_normal / thermal_model.calculateSoundSpeedFromInternalEnergy(
+                                                            left_quadrature_node_variable.primitive_(4));
+      const bool is_supersonic = (std::fabs(mach_number_normal) <=> 1.0) == std::partial_ordering::greater;
+      const bool is_positive = (mach_number_normal <=> 0.0) == std::partial_ordering::greater;
+      if (is_supersonic) {
+        if (is_positive) {
+          calculateConvectiveVariable(left_quadrature_node_variable, boundary_convective_variable);
+        } else {
+          calculateConvectiveVariable(this->variable_, boundary_convective_variable);
+        }
+        boundary_flux.noalias() = boundary_convective_variable * normal_vector;
+      } else {
+        if (is_positive) {
+          wall_variable.primitive_(0) = left_quadrature_node_variable.primitive_(0);
+          wall_variable.primitive_(1) = left_quadrature_node_variable.primitive_(1);
+          wall_variable.primitive_(2) = left_quadrature_node_variable.primitive_(2);
+          wall_variable.primitive_(3) = thermal_model.calculatePressureFormDensityInternalEnergy(
+              left_quadrature_node_variable.primitive_(0), this->variable_.primitive_(4));
+          wall_variable.primitive_(4) = this->variable_.primitive_(4);
+          calculateConvectiveVariable(wall_variable, boundary_convective_variable);
+          boundary_flux.noalias() = boundary_convective_variable * normal_vector;
+        } else {
+          calculateConvectiveFlux<SimulationControl>(thermal_model, normal_vector, left_quadrature_node_variable,
+                                                     this->variable_, boundary_flux);
+        }
+      }
+    }
+  }
+};
 
 template <typename SimulationControl>
 struct BoundaryConditionData<SimulationControl, BoundaryCondition::NoSlipWall>
@@ -63,17 +103,14 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::NoSlipWall>
       [[maybe_unused]] const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl, SimulationControl::kDimension>& left_quadrature_node_variable,
-      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& boundary_flux) override {
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& boundary_flux) const override {
     Variable<SimulationControl, SimulationControl::kDimension> wall_variable;
     if constexpr (SimulationControl::kDimension == 2) {
       wall_variable.primitive_(0) = left_quadrature_node_variable.primitive_(0);
       wall_variable.primitive_(1) = 0.0;
       wall_variable.primitive_(2) = 0.0;
       wall_variable.primitive_(3) = left_quadrature_node_variable.primitive_(3);
-      wall_variable.primitive_(4) =
-          left_quadrature_node_variable.primitive_(4) -
-          0.5 * (left_quadrature_node_variable.primitive_(1) * left_quadrature_node_variable.primitive_(1) +
-                 left_quadrature_node_variable.primitive_(2) * left_quadrature_node_variable.primitive_(2));
+      wall_variable.primitive_(4) = left_quadrature_node_variable.primitive_(4);
       Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
           boundary_convective_variable;
       calculateConvectiveVariable(wall_variable, boundary_convective_variable);

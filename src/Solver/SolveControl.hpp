@@ -98,34 +98,35 @@ struct ElementSolver {
   inline void writeElementRawBinary(std::fstream& fout) const;
 };
 
-// template <typename AdjacencyElementTrait, typename SimulationControl>
-// struct AdjacencyElementSolver {
-//   inline void storeAdjacencyElementNodeGaussianQuadrature(
-//       Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
-//       const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
-//           adjacency_element_gaussian_quadrature_node_temporary_variable,
-//       Solver<SimulationControl, SimulationControl::kDimension>& solver);
+template <typename AdjacencyElementTrait, typename SimulationControl>
+struct AdjacencyElementSolver {
+  inline void storeAdjacencyElementNodeGaussianQuadrature(
+      Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          adjacency_element_gaussian_quadrature_node_temporary_variable,
+      Solver<SimulationControl, SimulationControl::kDimension>& solver);
 
-//   inline void calculateInteriorAdjacencyElementGaussianQuadrature(
-//       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-//       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-//       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-//       Solver<SimulationControl, SimulationControl::kDimension>& solver);
+  inline void calculateInteriorAdjacencyElementGaussianQuadrature(
+      const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+      Solver<SimulationControl, SimulationControl::kDimension>& solver);
 
-//   inline void calculateBoundaryAdjacencyElementGaussianQuadrature(
-//       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-//       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-//       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-//       const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-//           boundary_condition,
-//       Solver<SimulationControl, SimulationControl::kDimension>& solver);
-// };
+  inline void calculateBoundaryAdjacencyElementGaussianQuadrature(
+      const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
+          boundary_condition,
+      Solver<SimulationControl, SimulationControl::kDimension>& solver);
+};
 
 template <typename SimulationControl, int Dimension>
 struct Solver;
 
 template <typename SimulationControl>
 struct Solver<SimulationControl, 2> {
+  AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
   ElementSolver<TriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
                 SimulationControl::kEquationModel>
       triangle_;
@@ -152,25 +153,6 @@ struct Solver<SimulationControl, 2> {
   inline void calculateGaussianQuadrature(
       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model);
-
-  inline void storeAdjacencyNodeGaussianQuadrature(
-      Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
-      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
-          adjacency_element_gaussian_quadrature_node_temporary_variable);
-
-  template <typename AdjacencyElementTrait>
-  inline void calculateInteriorAdjacencyGaussianQuadrature(
-      const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model);
-
-  template <typename AdjacencyElementTrait>
-  inline void calculateBoundaryAdjacencyGaussianQuadrature(
-      const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-          boundary_condition);
 
   inline void calculateAdjacencyGaussianQuadrature(
       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,

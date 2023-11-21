@@ -32,7 +32,7 @@ inline void calculateConvectiveVariable(const Variable<SimulationControl, Simula
     const Real velocity_x = variable.primitive_(1);
     const Real velocity_y = variable.primitive_(2);
     const Real pressure = variable.primitive_(3);
-    const Real total_energy = variable.primitive_(4);
+    const Real total_energy = variable.primitive_(4) + 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y);
     convective_variable.col(0) << density * velocity_x, density * velocity_x * velocity_x + pressure,
         density * velocity_x * velocity_y, density * velocity_x * total_energy + pressure * velocity_x;
     convective_variable.col(1) << density * velocity_y, density * velocity_y * velocity_x,
@@ -43,7 +43,8 @@ inline void calculateConvectiveVariable(const Variable<SimulationControl, Simula
     const Real velocity_y = variable.primitive_(2);
     const Real velocity_z = variable.primitive_(3);
     const Real pressure = variable.primitive_(4);
-    const Real total_energy = variable.primitive_(5);
+    const Real total_energy =
+        variable.primitive_(5) + 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
     convective_variable.col(0) << density * velocity_x, density * velocity_x * velocity_x + pressure,
         density * velocity_x * velocity_y, density * velocity_x * velocity_z,
         density * velocity_x * total_energy + pressure * velocity_x;
@@ -85,19 +86,15 @@ inline void calculateConvectiveFlux(
       const Real roe_velocity_y = (left_sqrt_density * left_quadrature_node_variable.primitive_(2) +
                                    right_sqrt_density * right_quadrature_node_variable.primitive_(2)) /
                                   sqrt_density_summation;
-      const Real left_enthalpy = thermal_model.getEnthalpyFromInternalEnergy(
-          left_quadrature_node_variable.primitive_(4) -
-          0.5 * (left_quadrature_node_variable.primitive_(1) * left_quadrature_node_variable.primitive_(1) +
-                 left_quadrature_node_variable.primitive_(2) * left_quadrature_node_variable.primitive_(2)));
-      const Real right_enthalpy = thermal_model.getEnthalpyFromInternalEnergy(
-          right_quadrature_node_variable.primitive_(4) -
-          0.5 * (right_quadrature_node_variable.primitive_(1) * right_quadrature_node_variable.primitive_(1) +
-                 right_quadrature_node_variable.primitive_(2) * right_quadrature_node_variable.primitive_(2)));
+      const Real left_enthalpy =
+          thermal_model.calculateEnthalpyFromInternalEnergy(left_quadrature_node_variable.primitive_(4));
+      const Real right_enthalpy =
+          thermal_model.calculateEnthalpyFromInternalEnergy(right_quadrature_node_variable.primitive_(4));
       const Real roe_enthalpy =
           (left_sqrt_density * left_enthalpy + right_sqrt_density * right_enthalpy) / sqrt_density_summation;
       const Real roe_velocity_square_summation = roe_velocity_x * roe_velocity_x + roe_velocity_y * roe_velocity_y;
-      const Real roe_normal_velocity = roe_velocity_x * normal_vector.x() + roe_velocity_y * normal_vector.y();
-      const Real roe_sound_speed = thermal_model.getSoundSpeedFromEnthalpySubtractVelocitySquareSummation(
+      const Real roe_velocity_normal = roe_velocity_x * normal_vector.x() + roe_velocity_y * normal_vector.y();
+      const Real roe_sound_speed = thermal_model.calculateSoundSpeedFromEnthalpySubtractVelocitySquareSummation(
           roe_enthalpy - 0.5 * roe_velocity_square_summation);
       const Real delta_density =
           right_quadrature_node_variable.primitive_(0) - left_quadrature_node_variable.primitive_(0);
@@ -107,27 +104,27 @@ inline void calculateConvectiveFlux(
           right_quadrature_node_variable.primitive_(2) - left_quadrature_node_variable.primitive_(2);
       const Real delta_pressure =
           right_quadrature_node_variable.primitive_(3) - left_quadrature_node_variable.primitive_(3);
-      const Real delta_normal_velocity = delta_velocity_x * normal_vector(0) + delta_velocity_y * normal_vector(1);
+      const Real delta_velocity_normal = delta_velocity_x * normal_vector(0) + delta_velocity_y * normal_vector(1);
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> roe_temporary_flux_1;
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> roe_temporary_flux_2;
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> roe_temporary_flux_34;
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> roe_temporary_flux_5;
       roe_temporary_flux_1 << 1.0, roe_velocity_x - roe_sound_speed * normal_vector.x(),
-          roe_velocity_y - roe_sound_speed * normal_vector.y(), roe_enthalpy - roe_sound_speed * roe_normal_velocity;
-      roe_temporary_flux_1 *= std::fabs(roe_normal_velocity - roe_sound_speed) *
-                              (delta_pressure - roe_density * roe_sound_speed * delta_normal_velocity) /
+          roe_velocity_y - roe_sound_speed * normal_vector.y(), roe_enthalpy - roe_sound_speed * roe_velocity_normal;
+      roe_temporary_flux_1 *= std::fabs(roe_velocity_normal - roe_sound_speed) *
+                              (delta_pressure - roe_density * roe_sound_speed * delta_velocity_normal) /
                               (2.0 * roe_sound_speed * roe_sound_speed);
       roe_temporary_flux_2 << 1.0, roe_velocity_x, roe_velocity_y, 0.5 * roe_velocity_square_summation;
       roe_temporary_flux_2 *= (delta_density - delta_pressure / (roe_sound_speed * roe_sound_speed));
-      roe_temporary_flux_34 << 0.0, delta_velocity_x - delta_normal_velocity * normal_vector.x(),
-          delta_velocity_y - delta_normal_velocity * normal_vector.y(),
+      roe_temporary_flux_34 << 0.0, delta_velocity_x - delta_velocity_normal * normal_vector.x(),
+          delta_velocity_y - delta_velocity_normal * normal_vector.y(),
           roe_velocity_x * delta_velocity_x + roe_velocity_y * delta_velocity_y -
-              roe_normal_velocity * delta_normal_velocity;
+              roe_velocity_normal * delta_velocity_normal;
       roe_temporary_flux_34 *= roe_density;
       roe_temporary_flux_5 << 1.0, roe_velocity_x + roe_sound_speed * normal_vector.x(),
-          roe_velocity_y + roe_sound_speed * normal_vector.y(), roe_enthalpy + roe_sound_speed * roe_normal_velocity;
-      roe_temporary_flux_5 *= std::fabs(roe_normal_velocity + roe_sound_speed) *
-                              (delta_pressure + roe_density * roe_sound_speed * delta_normal_velocity) /
+          roe_velocity_y + roe_sound_speed * normal_vector.y(), roe_enthalpy + roe_sound_speed * roe_velocity_normal;
+      roe_temporary_flux_5 *= std::fabs(roe_velocity_normal + roe_sound_speed) *
+                              (delta_pressure + roe_density * roe_sound_speed * delta_velocity_normal) /
                               (2.0 * roe_sound_speed * roe_sound_speed);
       Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
           left_quadrature_node_convective_variable;
@@ -138,7 +135,7 @@ inline void calculateConvectiveFlux(
       convective_flux.noalias() =
           0.5 * (left_quadrature_node_convective_variable + right_quadrature_node_convective_variable) * normal_vector -
           0.5 *
-              (roe_temporary_flux_1 + std::fabs(roe_normal_velocity) * (roe_temporary_flux_2 + roe_temporary_flux_34) +
+              (roe_temporary_flux_1 + std::fabs(roe_velocity_normal) * (roe_temporary_flux_2 + roe_temporary_flux_34) +
                roe_temporary_flux_5);
     }
   }

@@ -33,7 +33,7 @@ struct Variable<SimulationControl, 2> {
     const Real density = this->primitive_(0);
     const Real velocity_x = this->primitive_(1);
     const Real velocity_y = this->primitive_(2);
-    const Real total_energy = this->primitive_(4);
+    const Real total_energy = this->primitive_(4) + 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y);
     this->conserved_ << density, density * velocity_x, density * velocity_y, density * total_energy;
   }
 
@@ -42,10 +42,10 @@ struct Variable<SimulationControl, 2> {
     const Real density = this->conserved_(0);
     const Real velocity_x = this->conserved_(1) / density;
     const Real velocity_y = this->conserved_(2) / density;
-    const Real total_energy = this->conserved_(3) / density;
-    const Real internal_energy = total_energy - 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y);
-    const Real pressure = thermal_model.getPressureFormInternalEnergy(density, internal_energy);
-    this->primitive_ << density, velocity_x, velocity_y, pressure, total_energy;  // NOTE change to internal energy
+    const Real internal_energy =
+        this->conserved_(3) / density - 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y);
+    const Real pressure = thermal_model.calculatePressureFormDensityInternalEnergy(density, internal_energy);
+    this->primitive_ << density, velocity_x, velocity_y, pressure, internal_energy;
   }
 
   inline void calculateConservedFromHumanReadablePrimitive(
@@ -54,8 +54,8 @@ struct Variable<SimulationControl, 2> {
     const Real velocity_x = this->human_readable_primitive_(1);
     const Real velocity_y = this->human_readable_primitive_(2);
     const Real temperature = this->human_readable_primitive_(4);
-    const Real total_energy =  // NOTE remember ConstantH
-        thermal_model.getInternalEnergy(temperature) + 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y);
+    const Real total_energy = thermal_model.calculateInternalEnergyFromTemperature(temperature) +
+                              0.5 * (velocity_x * velocity_x + velocity_y * velocity_y);
     this->conserved_ << density, density * velocity_x, density * velocity_y, density * total_energy;
   }
 
@@ -66,9 +66,8 @@ struct Variable<SimulationControl, 2> {
     const Real velocity_y = this->human_readable_primitive_(2);
     const Real pressure = this->human_readable_primitive_(3);
     const Real temperature = this->human_readable_primitive_(4);
-    const Real total_energy =  // NOTE remember ConstantH
-        thermal_model.getInternalEnergy(temperature) + 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y);
-    this->primitive_ << density, velocity_x, velocity_y, pressure, total_energy;
+    const Real internal_energy = thermal_model.calculateInternalEnergyFromTemperature(temperature);
+    this->primitive_ << density, velocity_x, velocity_y, pressure, internal_energy;
   }
 
   inline void calculateHumanReadablePrimitiveFromConserved(
@@ -76,10 +75,9 @@ struct Variable<SimulationControl, 2> {
     const Real density = this->conserved_(0);
     const Real velocity_x = this->conserved_(1) / density;
     const Real velocity_y = this->conserved_(2) / density;
-    const Real total_energy = this->conserved_(3) / density;
-    const Real internal_energy = total_energy - 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y);
-    const Real pressure = thermal_model.getPressureFormInternalEnergy(density, internal_energy);
-    const Real temperature = thermal_model.getTemperature(internal_energy);
+    const Real internal_energy = this->conserved_(3) / density;
+    const Real pressure = thermal_model.calculatePressureFormDensityInternalEnergy(density, internal_energy);
+    const Real temperature = thermal_model.calculateTemperatureFromInternalEnergy(internal_energy);
     this->human_readable_primitive_ << density, velocity_x, velocity_y, pressure, temperature;
   }
 
@@ -112,62 +110,6 @@ struct Variable<SimulationControl, 2> {
               .transpose();
     }
     this->calculatePrimitiveFromConserved(thermal_model);
-  }
-};
-
-template <typename SimulationControl>
-struct Variable<SimulationControl, 3> {
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> conserved_;
-  Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber> primitive_;
-  Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber> human_readable_primitive_;
-
-  inline void calculateConservedFromPrimitive() {
-    const Real density = this->primitive_(0);
-    const Real velocity_x = this->primitive_(1);
-    const Real velocity_y = this->primitive_(2);
-    const Real velocity_z = this->primitive_(3);
-    const Real total_energy = this->primitive_(5);
-    this->conserved_ << density, density * velocity_x, density * velocity_y, density * velocity_z,
-        density * total_energy;
-  }
-
-  inline void calculatePrimitiveFromConserved(
-      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model) {
-    const Real density = this->conserved_(0);
-    const Real velocity_x = this->conserved_(1) / density;
-    const Real velocity_y = this->conserved_(2) / density;
-    const Real velocity_z = this->conserved_(3) / density;
-    const Real total_energy = this->conserved_(4) / density;
-    const Real internal_energy =
-        total_energy - 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-    const Real pressure = thermal_model.getPressureFormInternalEnergy(density, internal_energy);
-    this->primitive_ << density, velocity_x, velocity_y, velocity_z, pressure, total_energy;
-  }
-
-  inline void calculateConservedFromHumanReadablePrimitive(
-      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model) {
-    const Real density = this->human_readable_primitive_(0);
-    const Real velocity_x = this->human_readable_primitive_(1);
-    const Real velocity_y = this->human_readable_primitive_(2);
-    const Real velocity_z = this->human_readable_primitive_(3);
-    const Real temperature = this->human_readable_primitive_(5);
-    const Real total_energy = thermal_model.getInternalEnergy(temperature) +
-                              0.5 * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-    this->conserved_ << density, density * velocity_x, density * velocity_y, density * velocity_z,
-        density * total_energy;
-  }
-
-  inline void calculatePrimitiveFromHumanReadablePrimitive(
-      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model) {
-    const Real density = this->human_readable_primitive_(0);
-    const Real velocity_x = this->human_readable_primitive_(1);
-    const Real velocity_y = this->human_readable_primitive_(2);
-    const Real velocity_z = this->human_readable_primitive_(3);
-    const Real pressure = this->human_readable_primitive_(4);
-    const Real temperature = this->human_readable_primitive_(5);
-    const Real total_energy = thermal_model.getInternalEnergy(temperature) +
-                              0.5 * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-    this->primitive_ << density, velocity_x, velocity_y, velocity_z, pressure, total_energy;
   }
 };
 
