@@ -11,7 +11,7 @@
 #]]
 
 function(subrosa_dg_extract_version)
-    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/utils/version.hpp" file_contents)
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/Utils/Version.hpp" file_contents)
     string(REGEX MATCH "SUBROSA_DG_VERSION_MAJOR ([0-9]+)" _ "${file_contents}")
     if(NOT ${CMAKE_MATCH_COUNT} EQUAL 1)
         message(FATAL_ERROR "Could not extract major version number from version.h")

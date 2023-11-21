@@ -12,18 +12,6 @@
 
 #include <gtest/gtest.h>
 
-#include <Eigen/Core>
-#include <Eigen/LU>
-
-#include "SubrosaDG"
 #include "test_structure_2d.h"
 
-TEST_F(Test2d, GetIntegral) { SubrosaDG::getIntegral(*integral); }
-
-TEST_F(Test2d, GetMesh) { SubrosaDG::getMesh(kBoundaryTMap, *integral, *mesh); }
-
-TEST_F(Test2d, Develop) {
-  SubrosaDG::getSolver<decltype(kSpatialDiscrete)>(*integral, *mesh, kThermoModel, kTimeVar, kInitVar, kFarfieldVar,
-                                                   kViewConfig, *solver);
-  SubrosaDG::getView(*mesh, kThermoModel, kTimeVar, kViewConfig, *view);
-}
+TEST_F(Test2d, Develop) { system->solve(); }

@@ -1,5 +1,6 @@
 [
     { "ref": "utils/include-what-you-use/libcxx.imp" },
+    { include: ["@<__fwd/.*>", private, "<fstream>", public ] },
     { "include": ["@<Eigen/src/Core/.*>", "private", "<Eigen/Core>", "public"] },
     { "include": ["@<Eigen/src/LU/.*>", "private", "<Eigen/LU>", "public"] },
     { "include": ["@<Eigen/src/Cholesky/.*>", "private", "<Eigen/Cholesky>", "public"] },

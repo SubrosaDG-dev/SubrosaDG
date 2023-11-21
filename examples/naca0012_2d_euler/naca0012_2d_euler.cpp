@@ -16,14 +16,18 @@
 #include <array>
 #include <cstdlib>
 #include <filesystem>
-#include <string_view>
 #include <vector>
 
 #include "SubrosaDG"
 
-using namespace std::string_view_literals;
+inline const std::filesystem::path kProjectDirectory{SubrosaDG::kProjectSourceDirectory /
+                                                     "build/out/naca0012_2d_euler"};
 
-inline const std::filesystem::path kProjectDir{SubrosaDG::kProjectSourceDir / "build/out/naca0012_2d_euler"};
+using SimulationControl =
+    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P3, SubrosaDG::MeshModel::TriangleQuadrangle,
+                                      SubrosaDG::MeshHighOrderModel::Straight, SubrosaDG::ThermodynamicModel::ConstantE,
+                                      SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::Roe,
+                                      SubrosaDG::TimeIntegration::RK3SSP, SubrosaDG::ViewModel::Dat>;
 
 inline std::array<double, 130> naca0012_point_flattened{
     0.9987518, 0.0014399, 0.9976658, 0.0015870, 0.9947532, 0.0019938, 0.9906850, 0.0025595, 0.9854709, 0.0032804,
@@ -40,7 +44,8 @@ inline std::array<double, 130> naca0012_point_flattened{
     0.0465628, 0.0344792, 0.0369127, 0.0311559, 0.0283441, 0.0276827, 0.0208771, 0.0240706, 0.0145291, 0.0203300,
     0.0093149, 0.0164706, 0.0052468, 0.0125011, 0.0023342, 0.0084289, 0.0005839, 0.0042603, 0.0000000, 0.0000000};
 
-void generateMesh(const std::filesystem::path& mesh_file) {
+void generateMesh() {
+  gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
   Eigen::Map<Eigen::Matrix<double, 2, 65>> naca0012_point{naca0012_point_flattened.data()};
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_point;
   farfield_point << -10, -10, 0, 10, -10, 0, 10, 10, 0, -10, 10, 0;
@@ -81,15 +86,22 @@ void generateMesh(const std::filesystem::path& mesh_file) {
   gmsh::model::addPhysicalGroup(1, farfield_line_tag, -1, "bc-1");
   gmsh::model::addPhysicalGroup(1, naca0012_line_tag, -1, "bc-2");
   gmsh::model::addPhysicalGroup(2, {naca0012_plane_surface}, -1, "vc-1");
-  gmsh::model::mesh::generate(2);
-  gmsh::write(mesh_file.string());
+  gmsh::model::mesh::generate(SimulationControl::kDimension);
+  gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
+  gmsh::write(kProjectDirectory / "naca0012_2d.msh");
 }
+
+void generateMeshShell(){};
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::EnvGardian environment_gardian;
-  std::filesystem::path mesh_file = kProjectDir / "naca0012_2d.msh";
-  generateMesh(mesh_file);
+  SubrosaDG::System<SimulationControl> system(generateMesh, kProjectDirectory / "naca0012_2d.msh");
+  system.addInitialCondition("vc-1", {1.4, 0.8, 0.0, 1.0, 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::NormalFarfield>("bc-1", {1.4, 0.8, 0.0, 1.0, 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::NoSlipWall>("bc-2");
+  system.setTimeIntegration(false, 1, 1.0, 1e-10);
+  system.setViewConfig(-1, kProjectDirectory, "naca0012_2d");
+  system.solve();
   return EXIT_SUCCESS;
 }

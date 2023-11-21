@@ -67,7 +67,7 @@ if(SUBROSA_DG_WITH_MPI)
 endif()
 
 # set project
-project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
+project(subrosa_dg LANGUAGES CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
 
 # message error if build in source dir
 if(${PROJECT_SOURCE_DIR} STREQUAL ${PROJECT_BINARY_DIR})
@@ -260,12 +260,12 @@ set(SUBROSA_DG_CXX_FLAGS_DEBUG)
 set(SUBROSA_DG_CXX_FLAGS_RELEASE)
 
 # link to libc++ if available
-# find_library(LIBCXX NAMES libc++.so)
+# find_library(LIBCXX NAMES libc++${CMAKE_SHARED_LIBRARY_SUFFIX})
 # if(LIBCXX)
 #     string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ ")
 # #   the following two lines choose one of them
 #     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
-#     set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-stdlib=libc++")
+#     # set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-stdlib=libc++")
 # endif()
 
 # add coverage compilation option
@@ -286,7 +286,7 @@ set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
 string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
 
 # create and include the cmake header
-configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake.hpp.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/cmake.hpp @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/cmake/Cmake.hpp.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/Cmake.hpp @ONLY)
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
 
 # create and include the SubrosaDG header
@@ -340,13 +340,13 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES ${GMSH_LIBRARY})
 # set for openmp
 if(SUBROSA_DG_WITH_OPENMP)
     find_package(OpenMP REQUIRED)
-    list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_C OpenMP::OpenMP_CXX)
+    list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
 endif()
 
 # set for mpi
 if(SUBROSA_DG_WITH_MPI)
     find_package(MPI REQUIRED)
-    list(APPEND SUBROSA_DG_LINK_LIBRARIES MPI::MPI_C MPI::MPI_CXX)
+    list(APPEND SUBROSA_DG_LINK_LIBRARIES MPI::MPI_CXX)
 endif()
 
 # set compilation definitions
