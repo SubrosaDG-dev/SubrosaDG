@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 
+#include "Utils/SystemControl.hpp"
 #include "test_structure_2d.h"
 
 TEST_F(Test2d, Develop) { system->solve(); }

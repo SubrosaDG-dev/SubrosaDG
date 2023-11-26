@@ -100,7 +100,7 @@ enum class ViewModel {
   Msh = 1,
   Dat,
   Plt,
-  Vtk,
+  Vtu,
 };
 
 enum class ViewElementVariable {

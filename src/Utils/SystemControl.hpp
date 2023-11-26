@@ -36,7 +36,6 @@
 #include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
 #include "Solver/TimeIntegration.hpp"
-#include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Enum.hpp"
 #include "View/IOControl.hpp"

@@ -14,12 +14,14 @@
 #define SUBROSA_DG_BOUNDARY_CONDITION_HPP_
 
 #include <Eigen/Core>
-#include <Utils/Enum.hpp>
+#include <cmath>
+#include <compare>
 
 #include "Solver/ConvectiveFlux.hpp"
+#include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
-#include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
+#include "Utils/Enum.hpp"
 
 namespace SubrosaDG {
 

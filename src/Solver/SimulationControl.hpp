@@ -287,11 +287,14 @@ struct ElementTraitBase {
   inline static constexpr int kAllNodeNumber{getElementNodeNumber<ElementType, P>()};
   inline static constexpr std::array<Real, kDimension * kBasicNodeNumber> kBasicNodeCoordinate{
       getElementNodeCoordinate<ElementType, PolynomialOrder::P1>()};
+  inline static constexpr std::array<Real, kDimension * kAllNodeNumber> kAllNodeCoordinate{
+      getElementNodeCoordinate<ElementType, P>()};
   inline static constexpr int kAdjacencyNumber{getElementAdjacencyNumber<ElementType>()};
 };
 
 template <Element ElementType, PolynomialOrder P>
 struct AdjacencyElementTrait : ElementTraitBase<ElementType, P> {
+  inline static constexpr int kSubNumber{getElementSubNumber<ElementType, P>()};
   inline static constexpr int kQuadratureOrder{getAdjacencyElementGaussianQuadratureOrder<P>()};
   inline static constexpr int kQuadratureNumber{getAdjacencyElementGaussianQuadratureNumber<ElementType, P>()};
 };

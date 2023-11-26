@@ -99,7 +99,14 @@ struct ElementSolver {
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
-struct AdjacencyElementSolver {
+struct AdjacencyElementSolver;
+
+template <typename SimulationControl>
+struct AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> {
+  [[nodiscard]] inline Isize getAdjacencyParentElementQuadratureNodeSequenceInParent(
+      [[maybe_unused]] Isize parent_gmsh_type_number, bool is_left, Isize adjacency_sequence_in_parent,
+      Isize qudrature_sequence_in_adjacency) const;
+
   inline void storeAdjacencyElementNodeGaussianQuadrature(
       Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
       const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
@@ -108,13 +115,13 @@ struct AdjacencyElementSolver {
 
   inline void calculateInteriorAdjacencyElementGaussianQuadrature(
       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+      const AdjacencyElementMesh<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>& adjacency_element_mesh,
       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
       Solver<SimulationControl, SimulationControl::kDimension>& solver);
 
   inline void calculateBoundaryAdjacencyElementGaussianQuadrature(
       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+      const AdjacencyElementMesh<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>& adjacency_element_mesh,
       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
       const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
           boundary_condition,

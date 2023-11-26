@@ -46,10 +46,10 @@
 #include "Utils/Version.hpp"
 #include "View/Gmsh.hpp"
 #include "View/IOControl.hpp"
+#include "View/Paraview.hpp"
 #include "View/RawBinary.hpp"
 #include "View/TecplotAscii.hpp"
 #include "View/TecplotBindary.hpp"
-#include "View/VTK.hpp"
 
 // IWYU pragma: end_exports
 

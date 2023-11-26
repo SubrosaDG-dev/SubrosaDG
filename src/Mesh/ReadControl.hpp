@@ -75,10 +75,9 @@ struct ElementMesh {
       sub_element_connectivity_{
           getSubElementConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>().data()};
 
-  inline void getElementMesh(
-      const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& global_node_coordinate,
-      const std::unordered_map<Isize, std::string>& global_gmsh_physical_name,
-      std::unordered_map<Isize, Isize>& global_gmsh_tag);
+  inline void getElementMesh(const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
+                             const std::unordered_map<Isize, std::string>& gmsh_tag_to_physical_name,
+                             std::unordered_map<Isize, Isize>& gmsh_tag_to_index);
 
   inline void getElementJacobian();
 
@@ -105,25 +104,29 @@ struct AdjacencyElementMesh {
   Isize interior_number_{0};
   Isize boundary_number_{0};
   Eigen::Array<PerAdjacencyElementMesh<AdjacencyElementTrait>, Eigen::Dynamic, 1> element_;
+  Eigen::Matrix<int, AdjacencyElementTrait::kBasicNodeNumber, AdjacencyElementTrait::kSubNumber, Eigen::RowMajor>
+      sub_element_connectivity_{
+          getSubElementConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()
+              .data()};
 
   inline void getAdjacencyElementBoundaryMesh(
-      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& global_node_coordinate,
-      const std::unordered_map<Isize, std::string>& global_gmsh_physical_name,
-      std::unordered_map<Isize, Isize>& global_gmsh_tag, const std::vector<Isize>& boundary_tag,
+      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
+      const std::unordered_map<Isize, std::string>& gmsh_tag_to_physical_name,
+      std::unordered_map<Isize, Isize>& gmsh_tag_to_index, const std::vector<Isize>& boundary_tag,
       const std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
           adjacency_element_mesh_supplemental_map);
 
   inline void getAdjacencyElementInteriorMesh(
-      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& global_node_coordinate,
-      const std::unordered_map<Isize, Isize>& global_gmsh_tag, const std::vector<Isize>& interior_tag,
+      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
+      const std::unordered_map<Isize, Isize>& gmsh_tag_to_index, const std::vector<Isize>& interior_tag,
       const std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
           adjacency_element_mesh_supplemental_map);
 
   template <MeshModel MeshModelType>
   inline void getAdjacencyElementMesh(
-      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& global_node_coordinate,
-      const std::unordered_map<Isize, std::string>& global_gmsh_physical_name,
-      std::unordered_map<Isize, Isize>& global_gmsh_tag);
+      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
+      const std::unordered_map<Isize, std::string>& gmsh_tag_to_physical_name,
+      std::unordered_map<Isize, Isize>& gmsh_tag_to_index);
 
   inline void getAdjacencyElementJacobian();
 
@@ -134,7 +137,7 @@ struct AdjacencyElementMesh {
 
 template <typename SimulationControl>
 struct MeshBase {
-  Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> global_node_coordinate_;
+  Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> node_coordinate_;
 
   std::vector<std::pair<int, std::string>> physical_dimension_and_name_;
   std::unordered_map<std::string, std::vector<std::pair<Isize, Isize>>> physical_name_to_gmsh_type_and_tag_;
@@ -177,10 +180,10 @@ inline void MeshBase<SimulationControl>::getNode() {
   std::vector<double> coord;
   std::vector<double> parametric_coord;
   gmsh::model::mesh::getNodes(node_tags, coord, parametric_coord);
-  this->global_node_coordinate_.resize(Eigen::NoChange, static_cast<Isize>(node_tags.size()));
+  this->node_coordinate_.resize(Eigen::NoChange, static_cast<Isize>(node_tags.size()));
   for (const auto node_tag : node_tags) {
     for (Isize i = 0; i < SimulationControl::kDimension; i++) {
-      this->global_node_coordinate_(i, static_cast<Isize>(node_tag) - 1) =
+      this->node_coordinate_(i, static_cast<Isize>(node_tag) - 1) =
           static_cast<Real>(coord[3 * (node_tag - 1) + static_cast<Usize>(i)]);
     }
   }
@@ -242,16 +245,15 @@ inline Mesh<SimulationControl, 2>::Mesh(const std::function<void()>& generate_me
                                         const std::filesystem::path& mesh_file_path)
     : MeshBase<SimulationControl>(generate_mesh_function, mesh_file_path) {
   if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-    this->triangle_.getElementMesh(this->global_node_coordinate_, this->gmsh_tag_to_physical_name_,
-                                   this->gmsh_tag_to_index_);
+    this->triangle_.getElementMesh(this->node_coordinate_, this->gmsh_tag_to_physical_name_, this->gmsh_tag_to_index_);
   }
   if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-    this->quadrangle_.getElementMesh(this->global_node_coordinate_, this->gmsh_tag_to_physical_name_,
+    this->quadrangle_.getElementMesh(this->node_coordinate_, this->gmsh_tag_to_physical_name_,
                                      this->gmsh_tag_to_index_);
   }
   this->element_number_ += this->triangle_.number_ + this->quadrangle_.number_;
   this->line_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(
-      this->global_node_coordinate_, this->gmsh_tag_to_physical_name_, this->gmsh_tag_to_index_);
+      this->node_coordinate_, this->gmsh_tag_to_physical_name_, this->gmsh_tag_to_index_);
   this->adjacency_element_number_ += this->line_.interior_number_ + this->line_.boundary_number_;
 }
 

@@ -9,10 +9,13 @@ The project is still in early development stage.
 - [x] 2D Euler equation(Roe scheme)
 - [x] Ascii tecplot output(for 1 order solution)
 - [ ] 2D Euler equation(Lax-Friedrichs scheme and HLLC scheme)
-- [ ] Local time stepping
-- [ ] Curved elements and high-order gmsh .msh input
+- [x] Local time stepping
 - [x] Ascii tecplot output(reconstruction for high-order solution)
+- [ ] Ascii tecplot output(for different physical group)
+- [ ] High-order gmsh .msh output
+- [ ] Ascii VTU output
 - [ ] Documentation for variable storage
+- [ ] Curved elements
 - [ ] 2D Navier-Stokes equation(BR2 scheme)
 
   ...

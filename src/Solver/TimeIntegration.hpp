@@ -26,7 +26,6 @@
 #include "Solver/SimulationControl.hpp"
 #include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
-#include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
 #include "Utils/Constant.hpp"

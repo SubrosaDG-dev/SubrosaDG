@@ -28,11 +28,24 @@
 
 namespace SubrosaDG {
 
-template <typename ElementTrait, typename SimulationControl>
-struct ElementViewData {
+template <typename AdjacencyElementTrait, PolynomialOrder P>
+struct AdjacencyElementViewBasisFunction;
+
+template <PolynomialOrder P>
+struct AdjacencyElementViewBasisFunction<AdjacencyLineTrait<P>, P> {
+  [[nodiscard]] inline Isize getAdjacencyParentElementViewBasisFunctionSequenceInParent(
+      Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent, Isize node_sequence_in_adjacency) const;
+};
+
+template <typename ElementTrait>
+struct ElementViewBasisFunction {
   Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kAllNodeNumber> basis_function_value_;
-  Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kAdjacencyNodeNumber>
-      basis_function_adjacency_value_;
+
+  inline ElementViewBasisFunction();
+};
+
+template <typename ElementTrait, typename SimulationControl>
+struct ElementViewData : ElementViewBasisFunction<ElementTrait> {
   Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
                Eigen::Dynamic, 1>
       conserved_variable_basis_function_coefficient_;
@@ -47,6 +60,9 @@ struct ViewData;
 
 template <typename SimulationControl>
 struct ViewData<SimulationControl, 2> {
+  AdjacencyElementViewBasisFunction<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>,
+                                    SimulationControl::kPolynomialOrder>
+      line_;
   ElementViewData<TriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> triangle_;
   ElementViewData<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> quadrangle_;
 
@@ -83,10 +99,42 @@ struct View<SimulationControl, ViewModel::Dat> : ViewBase<SimulationControl> {
                     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model);
 };
 
-template <typename ElementTrait, typename SimulationControl>
-inline ElementViewData<ElementTrait, SimulationControl>::ElementViewData() {
+template <PolynomialOrder P>
+[[nodiscard]] inline Isize
+AdjacencyElementViewBasisFunction<AdjacencyLineTrait<P>, P>::getAdjacencyParentElementViewBasisFunctionSequenceInParent(
+    const Isize parent_gmsh_type_number, const Isize adjacency_sequence_in_parent,
+    const Isize node_sequence_in_adjacency) const {
+  if (parent_gmsh_type_number == TriangleTrait<P>::kGmshTypeNumber) {
+    if (adjacency_sequence_in_parent == TriangleTrait<P>::kAdjacencyNumber - 1 && node_sequence_in_adjacency == 1) {
+      return 0;
+    }
+    if (node_sequence_in_adjacency < AdjacencyLineTrait<P>::kBasicNodeNumber) {
+      return adjacency_sequence_in_parent + node_sequence_in_adjacency;
+    }
+    return TriangleTrait<P>::kBasicNodeNumber +
+           adjacency_sequence_in_parent *
+               (AdjacencyLineTrait<P>::kAllNodeNumber - AdjacencyLineTrait<P>::kBasicNodeNumber) +
+           node_sequence_in_adjacency - AdjacencyLineTrait<P>::kBasicNodeNumber;
+  }
+  if (parent_gmsh_type_number == QuadrangleTrait<P>::kGmshTypeNumber) {
+    if (adjacency_sequence_in_parent == QuadrangleTrait<P>::kAdjacencyNumber - 1 && node_sequence_in_adjacency == 1) {
+      return 0;
+    }
+    if (node_sequence_in_adjacency < AdjacencyLineTrait<P>::kBasicNodeNumber) {
+      return adjacency_sequence_in_parent + node_sequence_in_adjacency;
+    }
+    return QuadrangleTrait<P>::kBasicNodeNumber +
+           adjacency_sequence_in_parent *
+               (AdjacencyLineTrait<P>::kAllNodeNumber - AdjacencyLineTrait<P>::kBasicNodeNumber) +
+           node_sequence_in_adjacency - AdjacencyLineTrait<P>::kBasicNodeNumber;
+  }
+  return -1;
+}
+
+template <typename ElementTrait>
+inline ElementViewBasisFunction<ElementTrait>::ElementViewBasisFunction() {
   Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kAllNodeNumber> all_node_coordinate{
-      getElementNodeCoordinate<ElementTrait::kElementType, SimulationControl::kPolynomialOrder>().data()};
+      ElementTrait::kAllNodeCoordinate.data()};
   Eigen::Matrix<double, 3, ElementTrait::kAllNodeNumber> local_coord_gmsh_matrix;
   local_coord_gmsh_matrix.setZero();
   local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>), Eigen::all) =
@@ -101,6 +149,9 @@ inline ElementViewData<ElementTrait, SimulationControl>::ElementViewData() {
     }
   }
 }
+
+template <typename ElementTrait, typename SimulationControl>
+inline ElementViewData<ElementTrait, SimulationControl>::ElementViewData() : ElementViewBasisFunction<ElementTrait>(){};
 
 template <typename SimulationControl>
 inline void ViewBase<SimulationControl>::initializeViewRawBinary() {
@@ -122,8 +173,8 @@ inline void ViewBase<SimulationControl>::initializeView() {
     view_output_directory = this->output_directory_ / "msh";
   } else if constexpr (SimulationControl::kViewModel == ViewModel::Plt) {
     view_output_directory = this->output_directory_ / "plt";
-  } else if constexpr (SimulationControl::kViewModel == ViewModel::Vtk) {
-    view_output_directory = this->output_directory_ / "vtk";
+  } else if constexpr (SimulationControl::kViewModel == ViewModel::Vtu) {
+    view_output_directory = this->output_directory_ / "vtu";
   }
   if (std::filesystem::exists(view_output_directory)) {
     std::filesystem::remove_all(view_output_directory);

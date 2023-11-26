@@ -28,9 +28,9 @@ namespace SubrosaDG {
 
 template <typename ElementTrait>
 inline void ElementMesh<ElementTrait>::getElementMesh(
-    const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& global_node_coordinate,
-    const std::unordered_map<Isize, std::string>& global_gmsh_physical_name,
-    std::unordered_map<Isize, Isize>& global_gmsh_tag) {
+    const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
+    const std::unordered_map<Isize, std::string>& gmsh_tag_to_physical_name,
+    std::unordered_map<Isize, Isize>& gmsh_tag_to_index) {
   std::vector<std::size_t> element_tags;
   std::vector<std::size_t> node_tags;
   gmsh::model::mesh::getElementsByType(ElementTrait::kGmshTypeNumber, element_tags, node_tags);
@@ -38,11 +38,11 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
   this->element_.resize(this->number_);
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).gmsh_tag_ = static_cast<Isize>(element_tags[static_cast<Usize>(i)]);
-    global_gmsh_tag[static_cast<Isize>(element_tags[static_cast<Usize>(i)])] = i;
-    this->element_(i).gmsh_physical_name_ = global_gmsh_physical_name.at(this->element_(i).gmsh_tag_);
+    gmsh_tag_to_index[static_cast<Isize>(element_tags[static_cast<Usize>(i)])] = i;
+    this->element_(i).gmsh_physical_name_ = gmsh_tag_to_physical_name.at(this->element_(i).gmsh_tag_);
     for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
       const auto node_tag = static_cast<Isize>(node_tags[static_cast<Usize>(i * ElementTrait::kAllNodeNumber + j)]);
-      this->element_(i).node_coordinate_.col(j) = global_node_coordinate.col(node_tag - 1);
+      this->element_(i).node_coordinate_.col(j) = node_coordinate.col(node_tag - 1);
       this->element_(i).node_tag_(j) = node_tag;
     }
   }

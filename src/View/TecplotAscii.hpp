@@ -18,11 +18,12 @@
 #include <Eigen/Core>
 #include <fstream>
 #include <string>
+#include <string_view>
 
 #include "Mesh/ReadControl.hpp"
 #include "Solver/SimulationControl.hpp"
+#include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
-#include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Enum.hpp"
 #include "View/IOControl.hpp"
@@ -49,7 +50,7 @@ inline void writeTecplotAsciiVariableList(std::ofstream& view_fout) {
 }
 
 template <int Dimension>
-inline void writeTecplotAsciiHeader(const std::string& physical_name, const Isize node_number,
+inline void writeTecplotAsciiHeader(const std::string_view physical_name, const Isize node_number,
                                     const Isize element_number, std::ofstream& view_fout) {
   std::string header;
   if constexpr (Dimension == 1) {
@@ -65,13 +66,75 @@ inline void writeTecplotAsciiHeader(const std::string& physical_name, const Isiz
   view_fout << header << '\n';
 }
 
-// template <typename SimulationControl>
-// inline void writeTecplotFELinesegAdjacencyElement(
-//         const std::string& physical_name, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-//     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-//     const ViewData<SimulationControl, SimulationControl::kDimension>& view_data, std::ofstream& view_fout) {
-
-// }
+template <typename SimulationControl>
+inline void writeTecplotFELinesegAdjacencyElement(
+    const std::string& physical_name, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+    const ViewData<SimulationControl, SimulationControl::kDimension>& view_data, std::ofstream& view_fout) {
+  Variable<SimulationControl, SimulationControl::kDimension> node_variable;
+  Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> node_coordinate;
+  Eigen::Matrix<Real, SimulationControl::kPrimitiveVariableNumber, Eigen::Dynamic> node_primitive_variable;
+  Eigen::Matrix<Real, SimulationControl::kDimension + SimulationControl::kPrimitiveVariableNumber, Eigen::Dynamic>
+      node_all_variable;
+  Eigen::Matrix<int, 2, Eigen::Dynamic> element_node_index;
+  const Isize node_number = mesh.physical_name_to_node_number_.at(physical_name);
+  const auto element_number = static_cast<Isize>(mesh.physical_name_to_gmsh_type_and_tag_.at(physical_name).size());
+  const Isize line_all_node_number = AdjacencyLineTrait<SimulationControl::kPolynomialOrder>::kAllNodeNumber;
+  const Isize element_sub_number = getElementSubNumber<Element::Line, SimulationControl::kPolynomialOrder>();
+  node_coordinate.resize(Eigen::NoChange, node_number);
+  node_primitive_variable.resize(Eigen::NoChange, node_number);
+  node_all_variable.resize(Eigen::NoChange, node_number);
+  element_node_index.resize(Eigen::NoChange, element_number * element_sub_number);
+  Isize parent_index_each_type;
+  Isize adjacency_sequence_in_parent;
+  Isize adjacency_parent_element_view_basis_function_sequence_in_parent;
+  Isize parent_gmsh_type_number;
+  for (Isize i = 0, column = 0; i < element_number; i++) {
+    const auto [gmsh_type, gmsh_tag] =
+        mesh.physical_name_to_gmsh_type_and_tag_.at(physical_name)[static_cast<Usize>(i)];
+    const Isize element_index = mesh.gmsh_tag_to_index_.at(gmsh_tag);
+    parent_index_each_type = mesh.line_.element_(element_index).parent_index_each_type_(0);
+    adjacency_sequence_in_parent = mesh.line_.element_(element_index).adjacency_sequence_in_parent_(0);
+    parent_gmsh_type_number = mesh.line_.element_(element_index).parent_gmsh_type_number_(0);
+    node_coordinate(Eigen::all, Eigen::seqN(column, line_all_node_number)) =
+        mesh.line_.element_(element_index).node_coordinate_;
+    if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      for (Isize j = 0; j < line_all_node_number; j++) {
+        adjacency_parent_element_view_basis_function_sequence_in_parent =
+            view_data.line_.getAdjacencyParentElementViewBasisFunctionSequenceInParent(parent_gmsh_type_number,
+                                                                                       adjacency_sequence_in_parent, j);
+        node_variable.conserved_.noalias() =
+            view_data.triangle_.conserved_variable_basis_function_coefficient_(parent_index_each_type) *
+            view_data.triangle_.basis_function_value_.col(
+                adjacency_parent_element_view_basis_function_sequence_in_parent);
+        node_variable.calculateHumanReadablePrimitiveFromConserved(thermal_model);
+        node_primitive_variable(Eigen::all, column + j) = node_variable.human_readable_primitive_;
+      }
+      element_node_index(Eigen::all, Eigen::seqN(i * element_sub_number, element_sub_number)) =
+          mesh.line_.sub_element_connectivity_.array() + column + 1;
+      column += line_all_node_number;
+    } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      for (Isize j = 0; j < line_all_node_number; j++) {
+        adjacency_parent_element_view_basis_function_sequence_in_parent =
+            view_data.line_.getAdjacencyParentElementViewBasisFunctionSequenceInParent(parent_gmsh_type_number,
+                                                                                       adjacency_sequence_in_parent, j);
+        node_variable.conserved_.noalias() =
+            view_data.quadrangle_.conserved_variable_basis_function_coefficient_(parent_index_each_type) *
+            view_data.quadrangle_.basis_function_value_.col(
+                adjacency_parent_element_view_basis_function_sequence_in_parent);
+        node_variable.calculateHumanReadablePrimitiveFromConserved(thermal_model);
+        node_primitive_variable(Eigen::all, column + j) = node_variable.human_readable_primitive_;
+      }
+      element_node_index(Eigen::all, Eigen::seqN(i * element_sub_number, element_sub_number)) =
+          mesh.line_.sub_element_connectivity_.array() + column + 1;
+      column += line_all_node_number;
+    }
+  }
+  node_all_variable << node_coordinate, node_primitive_variable;
+  writeTecplotAsciiHeader<1>(physical_name, node_number, element_number * element_sub_number, view_fout);
+  view_fout << node_all_variable.transpose() << '\n';
+  view_fout << element_node_index.transpose() << '\n';
+}
 
 template <typename SimulationControl>
 inline void writeTecplotFEQuadrilateralAdjacencyElement();
@@ -132,8 +195,7 @@ inline void writeTecplotFEQuadrilateralElement(
     }
   }
   node_all_variable << node_coordinate, node_primitive_variable;
-  writeTecplotAsciiHeader<SimulationControl::kDimension>(physical_name, node_number,
-                                                         element_number * element_sub_number, view_fout);
+  writeTecplotAsciiHeader<2>(physical_name, node_number, element_number * element_sub_number, view_fout);
   view_fout << node_all_variable.transpose() << '\n';
   view_fout << element_node_index.transpose() << '\n';
 }
@@ -145,7 +207,10 @@ inline void View<SimulationControl, ViewModel::Dat>::writeStep(
   writeTecplotAsciiVariableList<SimulationControl>(this->view_fout_);
   for (const auto& [dim, physical_name] : mesh.physical_dimension_and_name_) {
     if constexpr (SimulationControl::kDimension == 2) {
-      if (dim == 2) {
+      if (dim == 1) {
+        // writeTecplotFELinesegAdjacencyElement(physical_name, mesh, thermal_model, this->data_, this->view_fout_);
+        // NOTE: The ParaView can not read the Tecplot ASCII file with FELINESG.
+      } else if (dim == 2) {
         writeTecplotFEQuadrilateralElement(physical_name, mesh, thermal_model, this->data_, this->view_fout_);
       }
     }
