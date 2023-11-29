@@ -71,7 +71,6 @@ inline void writeTecplotFELinesegAdjacencyElement(
     const std::string& physical_name, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
     const ViewData<SimulationControl, SimulationControl::kDimension>& view_data, std::ofstream& view_fout) {
-  Variable<SimulationControl, SimulationControl::kDimension> node_variable;
   Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> node_coordinate;
   Eigen::Matrix<Real, SimulationControl::kPrimitiveVariableNumber, Eigen::Dynamic> node_primitive_variable;
   Eigen::Matrix<Real, SimulationControl::kDimension + SimulationControl::kPrimitiveVariableNumber, Eigen::Dynamic>
@@ -90,6 +89,7 @@ inline void writeTecplotFELinesegAdjacencyElement(
   Isize adjacency_parent_element_view_basis_function_sequence_in_parent;
   Isize parent_gmsh_type_number;
   for (Isize i = 0, column = 0; i < element_number; i++) {
+    Variable<SimulationControl, SimulationControl::kDimension> node_variable;
     const auto [gmsh_type, gmsh_tag] =
         mesh.physical_name_to_gmsh_type_and_tag_.at(physical_name)[static_cast<Usize>(i)];
     const Isize element_index = mesh.gmsh_tag_to_index_.at(gmsh_tag);
@@ -144,7 +144,6 @@ inline void writeTecplotFEQuadrilateralElement(
     const std::string& physical_name, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
     const ViewData<SimulationControl, SimulationControl::kDimension>& view_data, std::ofstream& view_fout) {
-  Variable<SimulationControl, SimulationControl::kDimension> node_variable;
   Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> node_coordinate;
   Eigen::Matrix<Real, SimulationControl::kPrimitiveVariableNumber, Eigen::Dynamic> node_primitive_variable;
   Eigen::Matrix<Real, SimulationControl::kDimension + SimulationControl::kPrimitiveVariableNumber, Eigen::Dynamic>
@@ -160,6 +159,7 @@ inline void writeTecplotFEQuadrilateralElement(
   node_all_variable.resize(Eigen::NoChange, node_number);
   element_node_index.resize(Eigen::NoChange, element_number * element_sub_number);
   for (Isize i = 0, column = 0; i < element_number; i++) {
+    Variable<SimulationControl, SimulationControl::kDimension> node_variable;
     const auto [gmsh_type, gmsh_tag] =
         mesh.physical_name_to_gmsh_type_and_tag_.at(physical_name)[static_cast<Usize>(i)];
     const Isize element_index = mesh.gmsh_tag_to_index_.at(gmsh_tag);

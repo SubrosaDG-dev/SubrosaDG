@@ -30,11 +30,13 @@ inline void ElementMesh<ElementTrait>::getElementJacobian() {
     std::vector<double> jacobians;
     std::vector<double> determinants;
     std::vector<double> coord;
-    Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kDimension> jacobian_transpose;
     gmsh::model::mesh::getJacobian(static_cast<std::size_t>(this->element_(i).gmsh_tag_),
                                    this->gaussian_quadrature_.local_coord_, jacobians, determinants, coord);
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
+      Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kDimension> jacobian_transpose;
       for (Isize k = 0; k < ElementTrait::kDimension; k++) {
+        this->element_(i).gaussian_quadrature_node_coordinate_(k, j) =
+            static_cast<Real>(coord[static_cast<Usize>(j * 3 + k)]);
         for (Isize l = 0; l < ElementTrait::kDimension; l++) {
           jacobian_transpose(k, l) = static_cast<Real>(jacobians[static_cast<Usize>(j * 9 + k * 3 + l)]);
         }

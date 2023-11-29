@@ -27,7 +27,7 @@ using SimulationControl =
     SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P3, SubrosaDG::MeshModel::TriangleQuadrangle,
                                       SubrosaDG::MeshHighOrderModel::Straight, SubrosaDG::ThermodynamicModel::ConstantE,
                                       SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::Roe,
-                                      SubrosaDG::TimeIntegration::RK3SSP, SubrosaDG::ViewModel::Dat>;
+                                      SubrosaDG::TimeIntegration::SSPRK3, SubrosaDG::ViewModel::Dat>;
 
 inline std::array<double, 130> naca0012_point_flattened{
     0.9987518, 0.0014399, 0.9976658, 0.0015870, 0.9947532, 0.0019938, 0.9906850, 0.0025595, 0.9854709, 0.0032804,
@@ -97,7 +97,9 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system(generateMesh, kProjectDirectory / "naca0012_2d.msh");
-  system.addInitialCondition("vc-1", {1.4, 0.8, 0.0, 1.0, 1.0});
+  system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
+    return Eigen::Vector<SubrosaDG::Real, 5>{1.4, 0.8, 0.0, 1.0, 1.0};
+  });
   system.addBoundaryCondition<SubrosaDG::BoundaryCondition::NormalFarfield>("bc-1", {1.4, 0.8, 0.0, 1.0, 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryCondition::NoSlipWall>("bc-2");
   system.setTimeIntegration(false, 1, 1.0, 1e-10);

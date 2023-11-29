@@ -55,7 +55,7 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::NormalFarfiel
 };
 
 template <typename SimulationControl>
-struct BoundaryConditionData<SimulationControl, BoundaryCondition::RiemannFarfield>
+struct BoundaryConditionData<SimulationControl, BoundaryCondition::CharacteristicFarfield>
     : BoundaryConditionBase<SimulationControl> {
   inline void calculateBoundaryConvectiveFlux(
       [[maybe_unused]] const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,

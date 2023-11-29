@@ -75,7 +75,7 @@ struct Variable<SimulationControl, 2> {
     const Real density = this->conserved_(0);
     const Real velocity_x = this->conserved_(1) / density;
     const Real velocity_y = this->conserved_(2) / density;
-    const Real internal_energy = this->conserved_(3) / density;
+    const Real internal_energy = this->conserved_(3) / density - 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y);
     const Real pressure = thermal_model.calculatePressureFormDensityInternalEnergy(density, internal_energy);
     const Real temperature = thermal_model.calculateTemperatureFromInternalEnergy(internal_energy);
     this->human_readable_primitive_ << density, velocity_x, velocity_y, pressure, temperature;

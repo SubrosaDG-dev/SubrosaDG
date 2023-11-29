@@ -41,6 +41,7 @@ enum class MeshHighOrderModel {
 enum class BoundaryCondition {
   NormalFarfield = 1,
   RiemannFarfield,
+  CharacteristicFarfield,
   NoSlipWall,
   FreeSlipWall,
   Periodic,
@@ -83,7 +84,8 @@ enum class TransportModel {
 
 enum class TimeIntegration {
   ForwardEuler = 1,
-  RK3SSP,
+  HeunRK2,
+  SSPRK3,
   BackwardEuler,
 };
 

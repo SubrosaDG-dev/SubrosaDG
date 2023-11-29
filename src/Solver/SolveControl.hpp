@@ -29,6 +29,8 @@ namespace SubrosaDG {
 
 template <typename SimulationControl>
 struct BoundaryConditionBase;
+template <typename SimulationControl, int Dimension>
+struct InitialCondition;
 template <TimeIntegration TimeIntegrationType>
 struct TimeIntegrationData;
 template <typename SimulationControl, int Dimension>
@@ -71,7 +73,8 @@ struct ElementSolver {
 
   inline void initializeElementSolver(
       const ElementMesh<ElementTrait>& element_mesh,
-      const std::unordered_map<std::string, Variable<SimulationControl, SimulationControl::kDimension>>&
+      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+      const std::unordered_map<std::string, InitialCondition<SimulationControl, SimulationControl::kDimension>>&
           initial_condition);
 
   inline void copyElementBasisFunctionCoefficient();
@@ -146,7 +149,8 @@ struct Solver<SimulationControl, 2> {
       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
       std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-      std::unordered_map<std::string, Variable<SimulationControl, SimulationControl::kDimension>>& initial_condition);
+      const std::unordered_map<std::string, InitialCondition<SimulationControl, SimulationControl::kDimension>>&
+          initial_condition);
 
   inline void copyBasisFunctionCoefficient();
 

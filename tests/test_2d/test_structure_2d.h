@@ -61,7 +61,9 @@ struct Test2d : testing::Test {
 
   static void SetUpTestCase() {
     system = new SubrosaDG::System<SimulationControl>(generateMesh, kProjectDirectory / "test_2d.msh");
-    system->addInitialCondition("vc-1", {1.4, 0.1, 0.0, 1.0, 1.0});
+    system->addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
+      return Eigen::Vector<SubrosaDG::Real, 5>{1.4, 0.1, 0.0, 1.0, 1.0};
+    });
     system->addBoundaryCondition<SubrosaDG::BoundaryCondition::NormalFarfield>("bc-1", {1.4, 0.1, 0.0, 1.0, 1.0});
     system->addBoundaryCondition<SubrosaDG::BoundaryCondition::NormalFarfield>("bc-2", {1.4, 0.1, 0.0, 1.0, 1.0});
     // system->addBoundaryCondition<SubrosaDG::BoundaryCondition::NoSlipWall>("bc-2");

@@ -50,7 +50,13 @@ struct TimeIntegrationData<TimeIntegration::ForwardEuler> : TimeIntegrationBase 
 };
 
 template <>
-struct TimeIntegrationData<TimeIntegration::RK3SSP> : TimeIntegrationBase {
+struct TimeIntegrationData<TimeIntegration::HeunRK2> : TimeIntegrationBase {
+  inline static constexpr int kStep = 2;
+  inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{{{1.0, 0.0, 1.0}, {0.5, 0.0, 0.5}}};
+};
+
+template <>
+struct TimeIntegrationData<TimeIntegration::SSPRK3> : TimeIntegrationBase {
   inline static constexpr int kStep = 3;
   inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{
       {{1.0, 0.0, 1.0}, {3.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0}, {1.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0}}};
@@ -79,29 +85,24 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
     const ElementMesh<ElementTrait>& element_mesh,
     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
-  Variable<SimulationControl, SimulationControl::kDimension> variable;
-  Real velocity_x;
-  Real velocity_y;
-  Real sound_speed;
-  Real lambda_x;
-  Real lambda_y;
-  Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
 #ifdef SUBROSA_DG_WITH_OPENMP
-#pragma omp parallel for default(none)                                                                    \
-    schedule(auto) private(variable, velocity_x, velocity_y, sound_speed, lambda_x, lambda_y, delta_time) \
-    shared(element_mesh, thermal_model, time_integration)
+#pragma omp parallel for default(none) schedule(auto) shared(element_mesh, thermal_model, time_integration)
 #endif
   for (Isize i = 0; i < element_mesh.number_; i++) {
+    Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
+      Variable<SimulationControl, SimulationControl::kDimension> variable;
       variable.template getFromSelf<ElementTrait>(i, j, element_mesh, thermal_model, *this);
-      velocity_x = variable.primitive_(1);
-      velocity_y = variable.primitive_(2);
-      sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
+      const Real velocity_x = variable.primitive_(1);
+      const Real velocity_y = variable.primitive_(2);
+      const Real sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
           variable.primitive_(3) - 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y));
-      lambda_x = std::fabs(velocity_x) * (1 + sound_speed / (velocity_x * velocity_x + velocity_y * velocity_y)) *
-                 element_mesh.element_(i).projection_measure_.x();
-      lambda_y = std::fabs(velocity_y) * (1 + sound_speed / (velocity_x * velocity_x + velocity_y * velocity_y)) *
-                 element_mesh.element_(i).projection_measure_.y();
+      const Real lambda_x = std::fabs(velocity_x) *
+                            (1 + sound_speed / (velocity_x * velocity_x + velocity_y * velocity_y)) *
+                            element_mesh.element_(i).projection_measure_.x();
+      const Real lambda_y = std::fabs(velocity_y) *
+                            (1 + sound_speed / (velocity_x * velocity_x + velocity_y * velocity_y)) *
+                            element_mesh.element_(i).projection_measure_.y();
       delta_time(j) = time_integration.courant_friedrichs_lewy_number_ *
                       element_mesh.element_(i).jacobian_determinant_(j) *
                       getElementMeasure<ElementTrait::kElementType>() / (lambda_x + lambda_y);

@@ -150,8 +150,7 @@ inline void calculateConvectiveRoeFlux(
     Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> roe_temporary_flux_5;
     roe_temporary_flux_1 << 1.0, roe_velocity_x - roe_sound_speed * normal_vector.x(),
         roe_velocity_y - roe_sound_speed * normal_vector.y(), roe_enthalpy - roe_sound_speed * roe_velocity_normal;
-    roe_temporary_flux_1 *= std::fabs(roe_velocity_normal - roe_sound_speed) *
-                            (delta_pressure - roe_density * roe_sound_speed * delta_velocity_normal) /
+    roe_temporary_flux_1 *= (delta_pressure - roe_density * roe_sound_speed * delta_velocity_normal) /
                             (2.0 * roe_sound_speed * roe_sound_speed);
     roe_temporary_flux_2 << 1.0, roe_velocity_x, roe_velocity_y, 0.5 * roe_velocity_square_summation;
     roe_temporary_flux_2 *= (delta_density - delta_pressure / (roe_sound_speed * roe_sound_speed));
@@ -162,8 +161,7 @@ inline void calculateConvectiveRoeFlux(
     roe_temporary_flux_34 *= roe_density;
     roe_temporary_flux_5 << 1.0, roe_velocity_x + roe_sound_speed * normal_vector.x(),
         roe_velocity_y + roe_sound_speed * normal_vector.y(), roe_enthalpy + roe_sound_speed * roe_velocity_normal;
-    roe_temporary_flux_5 *= std::fabs(roe_velocity_normal + roe_sound_speed) *
-                            (delta_pressure + roe_density * roe_sound_speed * delta_velocity_normal) /
+    roe_temporary_flux_5 *= (delta_pressure + roe_density * roe_sound_speed * delta_velocity_normal) /
                             (2.0 * roe_sound_speed * roe_sound_speed);
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
         left_quadrature_node_convective_variable;
@@ -173,8 +171,9 @@ inline void calculateConvectiveRoeFlux(
     calculateConvectiveVariable(right_quadrature_node_variable, right_quadrature_node_convective_variable);
     convective_flux.noalias() =
         0.5 * (left_quadrature_node_convective_variable + right_quadrature_node_convective_variable) * normal_vector -
-        0.5 * (roe_temporary_flux_1 + std::fabs(roe_velocity_normal) * (roe_temporary_flux_2 + roe_temporary_flux_34) +
-               roe_temporary_flux_5);
+        0.5 * (std::fabs(roe_velocity_normal - roe_sound_speed) * roe_temporary_flux_1 +
+               std::fabs(roe_velocity_normal) * (roe_temporary_flux_2 + roe_temporary_flux_34) +
+               std::fabs(roe_velocity_normal + roe_sound_speed) * roe_temporary_flux_5);
   }
 }
 

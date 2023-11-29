@@ -26,7 +26,7 @@ using SimulationControl =
     SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P3, SubrosaDG::MeshModel::TriangleQuadrangle,
                                       SubrosaDG::MeshHighOrderModel::Straight, SubrosaDG::ThermodynamicModel::ConstantE,
                                       SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::Roe,
-                                      SubrosaDG::TimeIntegration::RK3SSP, SubrosaDG::ViewModel::Dat>;
+                                      SubrosaDG::TimeIntegration::SSPRK3, SubrosaDG::ViewModel::Dat>;
 
 void generateMesh() {
   gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
@@ -79,8 +79,10 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system(generateMesh, kProjectDirectory / "cylinder_2d.msh");
-  system.addInitialCondition("vc-1", {1.4, 0.38, 0.0, 1.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::RiemannFarfield>("bc-1", {1.4, 0.38, 0.0, 1.0, 1.0});
+  system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
+    return Eigen::Vector<SubrosaDG::Real, 5>{1.4, 0.38, 0.0, 1.0, 1.0};
+  });
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::CharacteristicFarfield>("bc-1", {1.4, 0.38, 0.0, 1.0, 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryCondition::NoSlipWall>("bc-2");
   system.setTimeIntegration(false, 1, 1.0, 1e-10);
   system.setViewConfig(-1, kProjectDirectory, "cylinder_2d");

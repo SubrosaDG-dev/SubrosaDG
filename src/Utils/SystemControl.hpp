@@ -33,6 +33,7 @@
 #include "Cmake.hpp"
 #include "Mesh/ReadControl.hpp"
 #include "Solver/BoundaryCondition.hpp"
+#include "Solver/InitialCondition.hpp"
 #include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
 #include "Solver/TimeIntegration.hpp"
@@ -47,7 +48,8 @@ struct System {
   Mesh<SimulationControl, SimulationControl::kDimension> mesh_;
   ThermalModel<SimulationControl, SimulationControl::kEquationModel> thermal_model_;
   std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>> boundary_condition_;
-  std::unordered_map<std::string, Variable<SimulationControl, SimulationControl::kDimension>> initial_condition_;
+  std::unordered_map<std::string, InitialCondition<SimulationControl, SimulationControl::kDimension>>
+      initial_condition_;
   TimeIntegrationData<SimulationControl::kTimeIntegration> time_integration_;
   Solver<SimulationControl, SimulationControl::kDimension> solver_;
   View<SimulationControl, SimulationControl::kViewModel> view_;
@@ -76,19 +78,20 @@ struct System {
   }
 
   template <>
-  inline void addBoundaryCondition<BoundaryCondition::RiemannFarfield>(
+  inline void addBoundaryCondition<BoundaryCondition::CharacteristicFarfield>(
       const std::string& boundary_condition_name,
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
     this->boundary_condition_[boundary_condition_name] =
-        std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::RiemannFarfield>>();
+        std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::CharacteristicFarfield>>();
     this->boundary_condition_[boundary_condition_name]->variable_.human_readable_primitive_ =
         boundary_condition_variable;
   }
 
-  inline void addInitialCondition(
-      const std::string& initial_condition_name,
-      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& initial_condition_variable) {
-    this->initial_condition_[initial_condition_name].human_readable_primitive_ = initial_condition_variable;
+  inline void addInitialCondition(const std::string& initial_condition_name,
+                                  std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
+                                      const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>
+                                      initial_condition_function) {
+    this->initial_condition_[initial_condition_name].function_ = initial_condition_function;
   }
 
   template <ThermodynamicModel ThermodynamicModelType>
