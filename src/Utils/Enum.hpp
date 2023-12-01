@@ -93,6 +93,32 @@ enum class TurbulenceModel {
   SA = 1,
 };
 
+enum class ConservedVariable {
+  Density = 1,
+  MomentumX,
+  MomentumY,
+  MomentumZ,
+  DensityTotalEnergy,
+};
+
+enum class ComputationalVariable {
+  Density = 1,
+  VelocityX,
+  VelocityY,
+  VelocityZ,
+  InternalEnergy,
+  Pressure,
+};
+
+enum class PrimitiveVariable {
+  Density = 1,
+  VelocityX,
+  VelocityY,
+  VelocityZ,
+  Temperature,
+  Pressure,
+};
+
 enum class ViscousFlux {
   BR1 = 1,
   BR2,

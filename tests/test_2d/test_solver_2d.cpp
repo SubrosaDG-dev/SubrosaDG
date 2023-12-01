@@ -12,6 +12,8 @@
 
 #include <gtest/gtest.h>
 
+#include <Eigen/Cholesky>
+
 #include "Utils/SystemControl.hpp"
 #include "test_structure_2d.h"
 

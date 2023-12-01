@@ -26,6 +26,7 @@
 #include "Solver/SimulationControl.hpp"
 #include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
+#include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
 #include "Utils/Constant.hpp"
@@ -91,12 +92,12 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
   for (Isize i = 0; i < element_mesh.number_; i++) {
     Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      Variable<SimulationControl, SimulationControl::kDimension> variable;
+      Variable<SimulationControl> variable;
       variable.template getFromSelf<ElementTrait>(i, j, element_mesh, thermal_model, *this);
-      const Real velocity_x = variable.primitive_(1);
-      const Real velocity_y = variable.primitive_(2);
+      const Real velocity_x = variable.template get<ComputationalVariable::VelocityX>();
+      const Real velocity_y = variable.template get<ComputationalVariable::VelocityY>();
       const Real sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
-          variable.primitive_(3) - 0.5 * (velocity_x * velocity_x + velocity_y * velocity_y));
+          variable.template get<ComputationalVariable::InternalEnergy>());
       const Real lambda_x = std::fabs(velocity_x) *
                             (1 + sound_speed / (velocity_x * velocity_x + velocity_y * velocity_y)) *
                             element_mesh.element_(i).projection_measure_.x();

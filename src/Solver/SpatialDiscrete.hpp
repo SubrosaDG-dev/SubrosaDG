@@ -24,6 +24,7 @@
 #include "Solver/SimulationControl.hpp"
 #include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
+#include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
 #include "Utils/Enum.hpp"
@@ -36,11 +37,11 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model) {
 #ifdef SUBROSA_DG_WITH_OPENMP
 #pragma omp parallel for default(none) schedule(auto) \
-    shared(Eigen::all, Eigen::fix <SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, thermal_model)
+    shared(Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, thermal_model)
 #endif
   for (Isize i = 0; i < element_mesh.number_; i++) {
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      Variable<SimulationControl, SimulationControl::kDimension> gaussian_quadrature_node_variable;
+      Variable<SimulationControl> gaussian_quadrature_node_variable;
       Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kDimension>
           gaussian_quadrature_node_jacobian_transpose_inverse;
       Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
@@ -125,9 +126,9 @@ inline void AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolyno
         adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_;
     Eigen::Vector<Isize, 2> parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_;
     for (Isize j = 0; j < AdjacencyLineTrait<SimulationControl::kPolynomialOrder>::kQuadratureNumber; j++) {
-      Variable<SimulationControl, SimulationControl::kDimension> left_gaussian_quadrature_node_variable;
-      Variable<SimulationControl, SimulationControl::kDimension> right_gaussian_quadrature_node_variable;
-      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> convective_flux;
+      Variable<SimulationControl> left_gaussian_quadrature_node_variable;
+      Variable<SimulationControl> right_gaussian_quadrature_node_variable;
+      Flux<SimulationControl, SimulationControl::kEquationModel> flux;
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
           adjacency_element_gaussian_quadrature_node_temporary_variable;
       Eigen::Vector<Isize, 2> adjacency_gaussian_quadrature_node_sequence_in_parent;
@@ -145,9 +146,9 @@ inline void AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolyno
                                                             mesh, thermal_model, solver);
       calculateConvectiveFlux<SimulationControl>(thermal_model, adjacency_element_mesh.element_(i).normal_vector_,
                                                  left_gaussian_quadrature_node_variable,
-                                                 right_gaussian_quadrature_node_variable, convective_flux);
+                                                 right_gaussian_quadrature_node_variable, flux);
       adjacency_element_gaussian_quadrature_node_temporary_variable =
-          convective_flux * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
+          flux.convective_n_ * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
           adjacency_element_mesh.gaussian_quadrature_.weight_(j);
       this->storeAdjacencyElementNodeGaussianQuadrature(parent_gmsh_type_number(0), parent_index_each_type(0),
                                                         adjacency_gaussian_quadrature_node_sequence_in_parent(0),
@@ -181,8 +182,8 @@ inline void AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolyno
         adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_;
     Eigen::Vector<Isize, 2> parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_;
     for (Isize j = 0; j < AdjacencyLineTrait<SimulationControl::kPolynomialOrder>::kQuadratureNumber; j++) {
-      Variable<SimulationControl, SimulationControl::kDimension> left_gaussian_quadrature_node_variable;
-      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> convective_flux;
+      Variable<SimulationControl> left_gaussian_quadrature_node_variable;
+      Flux<SimulationControl, SimulationControl::kEquationModel> flux;
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
           adjacency_element_gaussian_quadrature_node_temporary_variable;
       Eigen::Vector<Isize, 2> adjacency_gaussian_quadrature_node_sequence_in_parent;
@@ -194,9 +195,9 @@ inline void AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolyno
                                                            mesh, thermal_model, solver);
       boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_name_)
           ->calculateBoundaryConvectiveFlux(thermal_model, adjacency_element_mesh.element_(i).normal_vector_,
-                                            left_gaussian_quadrature_node_variable, convective_flux);
+                                            left_gaussian_quadrature_node_variable, flux);
       adjacency_element_gaussian_quadrature_node_temporary_variable =
-          convective_flux * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
+          flux.convective_n_ * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
           adjacency_element_mesh.gaussian_quadrature_.weight_(j);
       this->storeAdjacencyElementNodeGaussianQuadrature(parent_gmsh_type_number(0), parent_index_each_type(0),
                                                         adjacency_gaussian_quadrature_node_sequence_in_parent(0),

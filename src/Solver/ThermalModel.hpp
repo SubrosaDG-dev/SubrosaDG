@@ -61,6 +61,10 @@ struct EquationOfStateData<EquationOfState::IdealGas> {
     return (specific_heat_ratio_ - 1.0) * density * internal_energy;
   }
 
+  [[nodiscard]] inline Real calculateInternalEnergyFromDensityPressure(const Real density, const Real pressure) const {
+    return pressure / ((specific_heat_ratio_ - 1.0) * density);
+  }
+
   [[nodiscard]] inline Real calculateInternalEnergyFromEnthalpy(const Real enthalpy) const {
     return enthalpy / specific_heat_ratio_;
   }
@@ -113,6 +117,12 @@ struct ThermalModel<SimulationControl, EquationModel::Euler> {
                                                                        const Real internal_energy) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfState::IdealGas) {
       return equation_of_state_.calculatePressureFormDensityInternalEnergy(density, internal_energy);
+    }
+  }
+
+  [[nodiscard]] inline Real calculateInternalEnergyFromDensityPressure(const Real density, const Real pressure) const {
+    if constexpr (SimulationControl::kEquationOfState == EquationOfState::IdealGas) {
+      return equation_of_state_.calculateInternalEnergyFromDensityPressure(density, pressure);
     }
   }
 

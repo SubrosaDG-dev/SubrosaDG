@@ -22,8 +22,8 @@
 
 #include "Mesh/ReadControl.hpp"
 #include "Solver/SimulationControl.hpp"
-#include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
+#include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Enum.hpp"
 #include "View/IOControl.hpp"
@@ -41,10 +41,10 @@ template <typename SimulationControl>
 inline void writeTecplotAsciiVariableList(std::ofstream& view_fout) {
   std::string variable_list;
   if constexpr (SimulationControl::kDimension == 2) {
-    variable_list = R"(VARIABLES = "X", "Y", "Density", "VelocityX", "VelocityY", "Pressure", "Temperature")";
+    variable_list = R"(VARIABLES = "X", "Y", "Density", "VelocityX", "VelocityY", "Temperature", "Pressure")";
   } else if constexpr (SimulationControl::kDimension == 3) {
     variable_list =
-        R"(VARIABLES = "X", "Y", "Z", "Density", "VelocityX", "VelocityY", "VelocityZ", "Pressure", "Temperature")";
+        R"(VARIABLES = "X", "Y", "Z", "Density", "VelocityX", "VelocityY", "VelocityZ", "Temperature", "Pressure")";
   }
   view_fout << variable_list << '\n';
 }
@@ -89,7 +89,7 @@ inline void writeTecplotFELinesegAdjacencyElement(
   Isize adjacency_parent_element_view_basis_function_sequence_in_parent;
   Isize parent_gmsh_type_number;
   for (Isize i = 0, column = 0; i < element_number; i++) {
-    Variable<SimulationControl, SimulationControl::kDimension> node_variable;
+    Variable<SimulationControl> node_variable;
     const auto [gmsh_type, gmsh_tag] =
         mesh.physical_name_to_gmsh_type_and_tag_.at(physical_name)[static_cast<Usize>(i)];
     const Isize element_index = mesh.gmsh_tag_to_index_.at(gmsh_tag);
@@ -107,8 +107,8 @@ inline void writeTecplotFELinesegAdjacencyElement(
             view_data.triangle_.conserved_variable_basis_function_coefficient_(parent_index_each_type) *
             view_data.triangle_.basis_function_value_.col(
                 adjacency_parent_element_view_basis_function_sequence_in_parent);
-        node_variable.calculateHumanReadablePrimitiveFromConserved(thermal_model);
-        node_primitive_variable(Eigen::all, column + j) = node_variable.human_readable_primitive_;
+        node_variable.calculatePrimitiveFromConserved(thermal_model);
+        node_primitive_variable(Eigen::all, column + j) = node_variable.primitive_;
       }
       element_node_index(Eigen::all, Eigen::seqN(i * element_sub_number, element_sub_number)) =
           mesh.line_.sub_element_connectivity_.array() + column + 1;
@@ -122,8 +122,8 @@ inline void writeTecplotFELinesegAdjacencyElement(
             view_data.quadrangle_.conserved_variable_basis_function_coefficient_(parent_index_each_type) *
             view_data.quadrangle_.basis_function_value_.col(
                 adjacency_parent_element_view_basis_function_sequence_in_parent);
-        node_variable.calculateHumanReadablePrimitiveFromConserved(thermal_model);
-        node_primitive_variable(Eigen::all, column + j) = node_variable.human_readable_primitive_;
+        node_variable.calculatePrimitiveFromConserved(thermal_model);
+        node_primitive_variable(Eigen::all, column + j) = node_variable.primitive_;
       }
       element_node_index(Eigen::all, Eigen::seqN(i * element_sub_number, element_sub_number)) =
           mesh.line_.sub_element_connectivity_.array() + column + 1;
@@ -159,7 +159,7 @@ inline void writeTecplotFEQuadrilateralElement(
   node_all_variable.resize(Eigen::NoChange, node_number);
   element_node_index.resize(Eigen::NoChange, element_number * element_sub_number);
   for (Isize i = 0, column = 0; i < element_number; i++) {
-    Variable<SimulationControl, SimulationControl::kDimension> node_variable;
+    Variable<SimulationControl> node_variable;
     const auto [gmsh_type, gmsh_tag] =
         mesh.physical_name_to_gmsh_type_and_tag_.at(physical_name)[static_cast<Usize>(i)];
     const Isize element_index = mesh.gmsh_tag_to_index_.at(gmsh_tag);
@@ -170,8 +170,8 @@ inline void writeTecplotFEQuadrilateralElement(
         node_variable.conserved_.noalias() =
             view_data.triangle_.conserved_variable_basis_function_coefficient_(element_index) *
             view_data.triangle_.basis_function_value_.col(j);
-        node_variable.calculateHumanReadablePrimitiveFromConserved(thermal_model);
-        node_primitive_variable(Eigen::all, column + j) = node_variable.human_readable_primitive_;
+        node_variable.calculatePrimitiveFromConserved(thermal_model);
+        node_primitive_variable(Eigen::all, column + j) = node_variable.primitive_;
       }
       element_node_index(Eigen::seqN(Eigen::fix<0>, Eigen::fix<3>),
                          Eigen::seqN(i * element_sub_number, element_sub_number)) =
@@ -186,8 +186,8 @@ inline void writeTecplotFEQuadrilateralElement(
         node_variable.conserved_.noalias() =
             view_data.quadrangle_.conserved_variable_basis_function_coefficient_(element_index) *
             view_data.quadrangle_.basis_function_value_.col(j);
-        node_variable.calculateHumanReadablePrimitiveFromConserved(thermal_model);
-        node_primitive_variable(Eigen::all, column + j) = node_variable.human_readable_primitive_;
+        node_variable.calculatePrimitiveFromConserved(thermal_model);
+        node_primitive_variable(Eigen::all, column + j) = node_variable.primitive_;
       }
       element_node_index(Eigen::all, Eigen::seqN(i * element_sub_number, element_sub_number)) =
           mesh.quadrangle_.sub_element_connectivity_.array() + column + 1;

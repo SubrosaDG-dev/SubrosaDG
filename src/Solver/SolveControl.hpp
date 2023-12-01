@@ -34,8 +34,6 @@ struct InitialCondition;
 template <TimeIntegration TimeIntegrationType>
 struct TimeIntegrationData;
 template <typename SimulationControl, int Dimension>
-struct Variable;
-template <typename SimulationControl, int Dimension>
 struct Solver;
 
 template <typename ElementTrait, typename SimulationControl>

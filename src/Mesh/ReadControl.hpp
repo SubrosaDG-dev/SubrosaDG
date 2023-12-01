@@ -154,7 +154,8 @@ struct MeshBase {
 
   inline void getPhysicalInformation();
 
-  inline MeshBase(const std::function<void()>& generate_mesh_function, const std::filesystem::path& mesh_file_path);
+  explicit inline MeshBase(const std::function<void()>& generate_mesh_function,
+                           const std::filesystem::path& mesh_file_path);
 };
 
 template <typename SimulationControl, int Dimension>
@@ -166,7 +167,8 @@ struct Mesh<SimulationControl, 2> : MeshBase<SimulationControl> {
   ElementMesh<TriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
   ElementMesh<QuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
 
-  inline Mesh(const std::function<void()>& generate_mesh_function, const std::filesystem::path& mesh_file_path);
+  explicit inline Mesh(const std::function<void()>& generate_mesh_function,
+                       const std::filesystem::path& mesh_file_path);
 };
 
 template <typename ElementTrait>
@@ -218,8 +220,8 @@ inline void MeshBase<SimulationControl>::getPhysicalInformation() {
 }
 
 template <typename SimulationControl>
-MeshBase<SimulationControl>::MeshBase(const std::function<void()>& generate_mesh_function,
-                                      const std::filesystem::path& mesh_file_path) {
+inline MeshBase<SimulationControl>::MeshBase(const std::function<void()>& generate_mesh_function,
+                                             const std::filesystem::path& mesh_file_path) {
   gmsh::initialize();
   std::cout << "Gmsh Info:" << '\n';
   std::string info;

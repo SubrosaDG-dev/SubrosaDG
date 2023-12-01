@@ -12,10 +12,12 @@
 
 #include <gmsh.h>
 
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <array>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
 #include <vector>
 
 #include "SubrosaDG"

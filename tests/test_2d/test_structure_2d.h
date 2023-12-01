@@ -68,7 +68,7 @@ struct Test2d : testing::Test {
     system->addBoundaryCondition<SubrosaDG::BoundaryCondition::NormalFarfield>("bc-2", {1.4, 0.1, 0.0, 1.0, 1.0});
     // system->addBoundaryCondition<SubrosaDG::BoundaryCondition::NoSlipWall>("bc-2");
     system->setTimeIntegration(true, 1, 0.5, 1e-10);
-    system->setViewConfig(1, kProjectDirectory, "test_2d");
+    system->setViewConfig(-1, kProjectDirectory, "test_2d");
   }
 
   static void TearDownTestCase() {

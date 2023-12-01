@@ -12,9 +12,11 @@
 
 #include <gmsh.h>
 
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
 #include <vector>
 
 #include "SubrosaDG"
@@ -23,15 +25,15 @@ inline const std::filesystem::path kProjectDirectory{SubrosaDG::kProjectSourceDi
                                                      "build/out/cylinder_2d_euler"};
 
 using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P3, SubrosaDG::MeshModel::TriangleQuadrangle,
+    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P2, SubrosaDG::MeshModel::TriangleQuadrangle,
                                       SubrosaDG::MeshHighOrderModel::Straight, SubrosaDG::ThermodynamicModel::ConstantE,
-                                      SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::Roe,
+                                      SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::LaxFriedrichs,
                                       SubrosaDG::TimeIntegration::SSPRK3, SubrosaDG::ViewModel::Dat>;
 
 void generateMesh() {
   gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_point;
-  farfield_point << -5, -5, 0, 5, -5, 0, 5, 5, 0, -5, 5, 0;
+  farfield_point << -2, -2, 0, 2, -2, 0, 2, 2, 0, -2, 2, 0;
   Eigen::Matrix<double, 5, 3, Eigen::RowMajor> cylinder_point;
   cylinder_point << 0, 0, 0, -1, 0, 0, 0, -1, 0, 1, 0, 0, 0, 1, 0;
   std::vector<int> farfield_point_tag;
@@ -40,7 +42,7 @@ void generateMesh() {
   std::vector<int> cylinder_line_tag;
   gmsh::model::add("cylinder_2d");
   for (const auto& row : farfield_point.rowwise()) {
-    farfield_point_tag.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 0.5));
+    farfield_point_tag.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 0.25));
   }
   for (const auto& row : cylinder_point.rowwise()) {
     cylinder_point_tag.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 0.05));

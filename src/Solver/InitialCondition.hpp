@@ -13,6 +13,8 @@
 #ifndef SUBROSA_DG_INITIAL_CONDITION_HPP_
 #define SUBROSA_DG_INITIAL_CONDITION_HPP_
 
+#include <Eigen/Core>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -21,6 +23,7 @@
 #include "Solver/BoundaryCondition.hpp"
 #include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
+#include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
 #include "Utils/Enum.hpp"
@@ -44,23 +47,22 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::i
   this->element_.resize(this->number_);
   this->delta_time_.resize(this->number_);
 #ifdef SUBROSA_DG_WITH_OPENMP
-// #pragma omp parallel for default(none) shared(element_mesh, thermal_model, initial_condition)
+#pragma omp parallel for default(none) shared(Eigen::Dynamic, element_mesh, thermal_model, initial_condition)
 #endif
   for (Isize i = 0; i < this->number_; i++) {
-    Variable<SimulationControl, SimulationControl::kDimension> variable;
+    Variable<SimulationControl> variable;
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>
         quadrature_node_conserved_variable;
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      variable.human_readable_primitive_ =
-          initial_condition.at(element_mesh.element_(i).gmsh_physical_name_)
-              .function_(element_mesh.element_(i).gaussian_quadrature_node_coordinate_.col(j));
-      variable.calculateConservedFromHumanReadablePrimitive(thermal_model);
+      variable.primitive_ = initial_condition.at(element_mesh.element_(i).gmsh_physical_name_)
+                                .function_(element_mesh.element_(i).gaussian_quadrature_node_coordinate_.col(j));
+      variable.calculateConservedFromPrimitive(thermal_model);
       quadrature_node_conserved_variable.col(j) = variable.conserved_;
     }
     this->element_(i).conserved_variable_basis_function_coefficient_(1).noalias() =
         (element_mesh.basis_function_.value_.transpose() * element_mesh.basis_function_.value_)
-            .ldlt()
-            .solve(element_mesh.basis_function_.value_.transpose() * quadrature_node_conserved_variable.transpose())
+            .llt()
+            .solve((quadrature_node_conserved_variable * element_mesh.basis_function_.value_).transpose())
             .transpose();
   }
 }
@@ -73,7 +75,7 @@ inline void Solver<SimulationControl, 2>::initializeSolver(
     const std::unordered_map<std::string, InitialCondition<SimulationControl, SimulationControl::kDimension>>&
         initial_condition) {
   for (auto& [boundary_condition_name, boundary_condition_variable] : boundary_condition) {
-    boundary_condition_variable->variable_.calculatePrimitiveFromHumanReadablePrimitive(thermal_model);
+    boundary_condition_variable->variable_.calculateComputationalFromPrimitive(thermal_model);
   }
   if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
     this->triangle_.initializeElementSolver(mesh.triangle_, thermal_model, initial_condition);

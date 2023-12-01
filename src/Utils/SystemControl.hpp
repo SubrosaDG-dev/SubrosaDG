@@ -33,7 +33,6 @@
 #include "Cmake.hpp"
 #include "Mesh/ReadControl.hpp"
 #include "Solver/BoundaryCondition.hpp"
-#include "Solver/InitialCondition.hpp"
 #include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
 #include "Solver/TimeIntegration.hpp"
@@ -73,8 +72,7 @@ struct System {
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
     this->boundary_condition_[boundary_condition_name] =
         std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::NormalFarfield>>();
-    this->boundary_condition_[boundary_condition_name]->variable_.human_readable_primitive_ =
-        boundary_condition_variable;
+    this->boundary_condition_[boundary_condition_name]->variable_.primitive_ = boundary_condition_variable;
   }
 
   template <>
@@ -83,8 +81,7 @@ struct System {
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
     this->boundary_condition_[boundary_condition_name] =
         std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::CharacteristicFarfield>>();
-    this->boundary_condition_[boundary_condition_name]->variable_.human_readable_primitive_ =
-        boundary_condition_variable;
+    this->boundary_condition_[boundary_condition_name]->variable_.primitive_ = boundary_condition_variable;
   }
 
   inline void addInitialCondition(const std::string& initial_condition_name,
@@ -125,7 +122,8 @@ struct System {
 
   inline void solve();
 
-  inline System(const std::function<void()>& generate_mesh_function, const std::filesystem::path& mesh_file_path);
+  explicit inline System(const std::function<void()>& generate_mesh_function,
+                         const std::filesystem::path& mesh_file_path);
 
   inline ~System();
 };

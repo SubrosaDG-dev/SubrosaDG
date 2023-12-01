@@ -261,6 +261,23 @@ inline static consteval int getConservedVariableNumber() {
 }
 
 template <int Dimension, EquationModel EquationModelType>
+inline static constexpr int getComputationalVariableNumber() {
+  if constexpr (EquationModelType == EquationModel::Euler) {
+    return Dimension + 3;
+  } else if constexpr (EquationModelType == EquationModel::NS) {
+    return Dimension + 3;
+  }
+}
+
+template <int Dimension, EquationModel EquationModelType, TurbulenceModel TurbulenceModelType>
+  requires(EquationModelType == EquationModel::RANS)
+inline static consteval int getComputationalVariableNumber() {
+  if constexpr (TurbulenceModelType == TurbulenceModel::SA) {
+    return Dimension + 4;
+  }
+}
+
+template <int Dimension, EquationModel EquationModelType>
 inline static constexpr int getPrimitiveVariableNumber() {
   if constexpr (EquationModelType == EquationModel::Euler) {
     return Dimension + 3;
@@ -336,6 +353,8 @@ template <int Dimension, ConvectiveFlux ConvectiveFluxType>
 struct EulerVariable : EquationVariable<EquationModel::Euler> {
   inline static constexpr ConvectiveFlux kConvectiveFlux{ConvectiveFluxType};
   inline static constexpr int kConservedVariableNumber{getConservedVariableNumber<Dimension, EquationModel::Euler>()};
+  inline static constexpr int kComputationalVariableNumber{
+      getComputationalVariableNumber<Dimension, EquationModel::Euler>()};
   inline static constexpr int kPrimitiveVariableNumber{getPrimitiveVariableNumber<Dimension, EquationModel::Euler>()};
 };
 
@@ -346,6 +365,8 @@ struct NSVariable : EquationVariable<EquationModel::NS> {
   inline static constexpr ConvectiveFlux kConvectiveFlux{ConvectiveFluxType};
   inline static constexpr ViscousFlux kViscousFlux{ViscousFluxType};
   inline static constexpr int kConservedVariableNumber{getConservedVariableNumber<Dimension, EquationModel::NS>()};
+  inline static constexpr int kComputationalVariableNumber{
+      getComputationalVariableNumber<Dimension, EquationModel::NS>()};
   inline static constexpr int kPrimitiveVariableNumber{getPrimitiveVariableNumber<Dimension, EquationModel::NS>()};
 };
 
@@ -358,6 +379,8 @@ struct RANSVariable : EquationVariable<EquationModel::RANS> {
   inline static constexpr TurbulenceModel kTurbulenceModel{TurbulenceModelType};
   inline static constexpr int kConservedVariableNumber{
       getConservedVariableNumber<Dimension, EquationModel::RANS, TurbulenceModelType>()};
+  inline static constexpr int kComputationalVariableNumber{
+      getComputationalVariableNumber<Dimension, EquationModel::RANS, TurbulenceModelType>()};
   inline static constexpr int kPrimitiveVariableNumber{
       getPrimitiveVariableNumber<Dimension, EquationModel::RANS, TurbulenceModelType>()};
 };
