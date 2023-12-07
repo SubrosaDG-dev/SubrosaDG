@@ -11,7 +11,8 @@ The project is still in early development stage.
 - [ ] 2D Euler equation(Lax-Friedrichs scheme and HLLC scheme)
 - [x] Local time stepping
 - [x] Ascii tecplot output(reconstruction for high-order solution)
-- [ ] Ascii tecplot output(for different physical group)
+- [x] Ascii tecplot output(for different physical group)
+- [ ] Exact Riemann solver for boundary condition
 - [ ] High-order gmsh .msh output
 - [ ] Ascii VTU output
 - [ ] Documentation for variable storage

@@ -28,11 +28,11 @@ struct ThermodynamicModelData<ThermodynamicModel::ConstantE> {
   Real specific_heat_constant_volume_ = 25.0 / 14.0;
 
   [[nodiscard]] inline Real calculateInternalEnergyFromTemperature(const Real temperature) const {
-    return specific_heat_constant_volume_ * temperature;
+    return this->specific_heat_constant_volume_ * temperature;
   }
 
   [[nodiscard]] inline Real calculateTemperatureFormInternalEnergy(const Real internal_energy) const {
-    return internal_energy / specific_heat_constant_volume_;
+    return internal_energy / this->specific_heat_constant_volume_;
   }
 };
 
@@ -41,11 +41,11 @@ struct ThermodynamicModelData<ThermodynamicModel::ConstantH> {
   Real specific_heat_constant_pressure_ = 5.0 / 2.0;
 
   [[nodiscard]] inline Real calculateEnthalpyFromTemperature(const Real temperature) const {
-    return specific_heat_constant_pressure_ * temperature;
+    return this->specific_heat_constant_pressure_ * temperature;
   }
 
   [[nodiscard]] inline Real calculateTemperatureFromEnthalpy(const Real enthalpy) const {
-    return enthalpy / specific_heat_constant_pressure_;
+    return enthalpy / this->specific_heat_constant_pressure_;
   }
 };
 
@@ -58,28 +58,51 @@ struct EquationOfStateData<EquationOfState::IdealGas> {
 
   [[nodiscard]] inline Real calculatePressureFormDensityInternalEnergy(const Real density,
                                                                        const Real internal_energy) const {
-    return (specific_heat_ratio_ - 1.0) * density * internal_energy;
+    return (this->specific_heat_ratio_ - 1.0) * density * internal_energy;
   }
 
   [[nodiscard]] inline Real calculateInternalEnergyFromDensityPressure(const Real density, const Real pressure) const {
-    return pressure / ((specific_heat_ratio_ - 1.0) * density);
+    return pressure / ((this->specific_heat_ratio_ - 1.0) * density);
   }
 
   [[nodiscard]] inline Real calculateInternalEnergyFromEnthalpy(const Real enthalpy) const {
-    return enthalpy / specific_heat_ratio_;
+    return enthalpy / this->specific_heat_ratio_;
   }
 
   [[nodiscard]] inline Real calculateEnthalpyFromInternalEnergy(const Real internal_energy) const {
-    return internal_energy * specific_heat_ratio_;
+    return internal_energy * this->specific_heat_ratio_;
   }
 
   [[nodiscard]] inline Real calculateSoundSpeedFromInternalEnergy(const Real internal_energy) const {
-    return std::sqrt(specific_heat_ratio_ * (specific_heat_ratio_ - 1.0) * internal_energy);
+    return std::sqrt(this->specific_heat_ratio_ * (this->specific_heat_ratio_ - 1.0) * internal_energy);
+  }
+
+  [[nodiscard]] inline Real calculateInternalEnergyFromSoundSpeed(const Real sound_speed) const {
+    return sound_speed * sound_speed / (this->specific_heat_ratio_ * (this->specific_heat_ratio_ - 1.0));
+  }
+
+  [[nodiscard]] inline Real calculateRiemannInvariantPart(const Real internal_energy) const {
+    return 2 * this->calculateSoundSpeedFromInternalEnergy(internal_energy) / (this->specific_heat_ratio_ - 1.0);
+  }
+
+  [[nodiscard]] inline Real calculateInternalEnergyFromRiemannInvariantPart(const Real riemann_invariant_part) const {
+    return this->calculateInternalEnergyFromSoundSpeed((this->specific_heat_ratio_ - 1.0) * riemann_invariant_part /
+                                                       2.0);
+  }
+
+  [[nodiscard]] inline Real calculateEntropy(const Real density, const Real pressure) const {
+    return pressure / std::pow(density, this->specific_heat_ratio_);
+  }
+
+  [[nodiscard]] inline Real calculateDensityFromEntropyInternalEnergy(const Real entropy,
+                                                                      const Real internal_energy) const {
+    return std::pow((this->specific_heat_ratio_ - 1.0) * internal_energy / entropy,
+                    1.0 / (this->specific_heat_ratio_ - 1.0));
   }
 
   [[nodiscard]] inline Real calculateSoundSpeedFromEnthalpySubtractVelocitySquareSummation(
       const Real enthalpy_subtract_velocity_square_summation) const {
-    return std::sqrt((specific_heat_ratio_ - 1.0) * enthalpy_subtract_velocity_square_summation);
+    return std::sqrt((this->specific_heat_ratio_ - 1.0) * enthalpy_subtract_velocity_square_summation);
   }
 };
 
@@ -141,6 +164,37 @@ struct ThermalModel<SimulationControl, EquationModel::Euler> {
   [[nodiscard]] inline Real calculateSoundSpeedFromInternalEnergy(const Real internal_energy) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfState::IdealGas) {
       return equation_of_state_.calculateSoundSpeedFromInternalEnergy(internal_energy);
+    }
+  }
+
+  [[nodiscard]] inline Real calculateInternalEnergyFromSoundSpeed(const Real sound_speed) const {
+    if constexpr (SimulationControl::kEquationOfState == EquationOfState::IdealGas) {
+      return equation_of_state_.calculateInternalEnergyFromSoundSpeed(sound_speed);
+    }
+  }
+
+  [[nodiscard]] inline Real calculateRiemannInvariantPart(const Real internal_energy) const {
+    if constexpr (SimulationControl::kEquationOfState == EquationOfState::IdealGas) {
+      return equation_of_state_.calculateRiemannInvariantPart(internal_energy);
+    }
+  }
+
+  [[nodiscard]] inline Real calculateInternalEnergyFromRiemannInvariantPart(const Real riemann_invariant_part) const {
+    if constexpr (SimulationControl::kEquationOfState == EquationOfState::IdealGas) {
+      return equation_of_state_.calculateInternalEnergyFromRiemannInvariantPart(riemann_invariant_part);
+    }
+  }
+
+  [[nodiscard]] inline Real calculateEntropy(const Real density, const Real pressure) const {
+    if constexpr (SimulationControl::kEquationOfState == EquationOfState::IdealGas) {
+      return equation_of_state_.calculateEntropy(density, pressure);
+    }
+  }
+
+  [[nodiscard]] inline Real calculateDensityFromEntropyInternalEnergy(const Real entropy,
+                                                                      const Real internal_energy) const {
+    if constexpr (SimulationControl::kEquationOfState == EquationOfState::IdealGas) {
+      return equation_of_state_.calculateDensityFromEntropyInternalEnergy(entropy, internal_energy);
     }
   }
 

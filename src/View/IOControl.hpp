@@ -77,6 +77,7 @@ struct ViewBase {
   std::string output_file_name_prefix_;
   std::fstream raw_binary_finout_;
   std::ofstream view_fout_;
+  std::vector<ViewElementVariable> view_element_variable_;
 
   inline void initializeViewRawBinary();
 
@@ -92,11 +93,8 @@ struct View<SimulationControl, ViewModel::Dat> : ViewBase<SimulationControl> {
 
   inline void updateViewFout(int step);
 
-  inline void writeStep(const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-                        const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model);
-
-  inline void write(int iteration_number, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-                    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model);
+  inline void stepView(int step, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+                       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model);
 };
 
 template <PolynomialOrder P>
@@ -162,6 +160,8 @@ inline void ViewBase<SimulationControl>::initializeViewRawBinary() {
   this->raw_binary_finout_.open((this->output_directory_ / "raw.binary").string(),
                                 std::ios::in | std::ios::out | std::ios::trunc | std::ios::binary);
 #endif
+  this->raw_binary_finout_.setf(std::ios::left, std::ios::adjustfield);
+  this->raw_binary_finout_.setf(std::ios::scientific, std::ios::floatfield);
 }
 
 template <typename SimulationControl>

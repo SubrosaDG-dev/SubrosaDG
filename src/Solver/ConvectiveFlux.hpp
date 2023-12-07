@@ -33,7 +33,7 @@ inline void calculateConvectiveVariable(const Variable<SimulationControl>& varia
   const Eigen::Vector<Real, SimulationControl::kDimension> velocity = variable.getVelocity();
   const Real pressure = variable.template get<ComputationalVariable::Pressure>();
   const Real total_energy =
-      variable.template get<ComputationalVariable::InternalEnergy>() + 0.5 * variable.getVelocitySquareSummation();
+      variable.template get<ComputationalVariable::InternalEnergy>() + variable.getVelocitySquareSummation() / 2.0;
   convective_variable.row(0) = density * velocity.transpose();
   convective_variable(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), Eigen::all) =
       density * velocity * velocity.transpose() +
@@ -43,7 +43,7 @@ inline void calculateConvectiveVariable(const Variable<SimulationControl>& varia
 }
 
 template <typename SimulationControl>
-inline void calculateConvectiveCentralFlux(
+inline static void calculateConvectiveCentralFlux(
     [[maybe_unused]] const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
     const Variable<SimulationControl>& left_quadrature_node_variable,
@@ -51,11 +51,11 @@ inline void calculateConvectiveCentralFlux(
     Flux<SimulationControl, SimulationControl::kEquationModel>& flux) {
   calculateConvectiveVariable(left_quadrature_node_variable, flux.left_convective_);
   calculateConvectiveVariable(right_quadrature_node_variable, flux.right_convective_);
-  flux.convective_n_.noalias() = 0.5 * (flux.left_convective_ + flux.right_convective_) * normal_vector;
+  flux.convective_n_.noalias() = (flux.left_convective_ + flux.right_convective_) / 2.0 * normal_vector;
 }
 
 template <typename SimulationControl>
-inline void calculateConvectiveLaxFriedrichsFlux(
+inline static void calculateConvectiveLaxFriedrichsFlux(
     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
     const Variable<SimulationControl>& left_quadrature_node_variable,
@@ -72,12 +72,21 @@ inline void calculateConvectiveLaxFriedrichsFlux(
   const Real spectral_radius = std::ranges::max(std::fabs(left_velocity_normal) + left_sound_speed,
                                                 std::fabs(right_velocity_normal) + right_sound_speed);
   flux.convective_n_.noalias() =
-      0.5 * (flux.left_convective_ + flux.right_convective_) * normal_vector -
-      0.5 * spectral_radius * (right_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_);
+      ((flux.left_convective_ + flux.right_convective_) * normal_vector -
+       spectral_radius * (right_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_)) /
+      2.0;
 }
 
 template <typename SimulationControl>
-inline void calculateConvectiveRoeFlux(
+inline static void calculateConvectiveHLLCFlux(
+    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+    const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+    const Variable<SimulationControl>& left_quadrature_node_variable,
+    const Variable<SimulationControl>& right_quadrature_node_variable,
+    Flux<SimulationControl, SimulationControl::kEquationModel>& flux) {}
+
+template <typename SimulationControl>
+inline static void calculateConvectiveRoeFlux(
     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
     const Variable<SimulationControl>& left_quadrature_node_variable,
@@ -108,7 +117,7 @@ inline void calculateConvectiveRoeFlux(
     const Real roe_velocity_square_summation = roe_velocity_x * roe_velocity_x + roe_velocity_y * roe_velocity_y;
     const Real roe_velocity_normal = roe_velocity_x * normal_vector.x() + roe_velocity_y * normal_vector.y();
     const Real roe_sound_speed = thermal_model.calculateSoundSpeedFromEnthalpySubtractVelocitySquareSummation(
-        roe_enthalpy - 0.5 * roe_velocity_square_summation);
+        roe_enthalpy - roe_velocity_square_summation / 2.0);
     const Real delta_density = right_quadrature_node_variable.template get<ComputationalVariable::Density>() -
                                left_quadrature_node_variable.template get<ComputationalVariable::Density>();
     const Real delta_velocity_x = right_quadrature_node_variable.template get<ComputationalVariable::VelocityX>() -
@@ -126,7 +135,7 @@ inline void calculateConvectiveRoeFlux(
         roe_velocity_y - roe_sound_speed * normal_vector.y(), roe_enthalpy - roe_sound_speed * roe_velocity_normal;
     roe_temporary_flux_1 *= (delta_pressure - roe_density * roe_sound_speed * delta_velocity_normal) /
                             (2.0 * roe_sound_speed * roe_sound_speed);
-    roe_temporary_flux_2 << 1.0, roe_velocity_x, roe_velocity_y, 0.5 * roe_velocity_square_summation;
+    roe_temporary_flux_2 << 1.0, roe_velocity_x, roe_velocity_y, roe_velocity_square_summation / 2.0;
     roe_temporary_flux_2 *= (delta_density - delta_pressure / (roe_sound_speed * roe_sound_speed));
     roe_temporary_flux_34 << 0.0, delta_velocity_x - delta_velocity_normal * normal_vector.x(),
         delta_velocity_y - delta_velocity_normal * normal_vector.y(),
@@ -139,11 +148,11 @@ inline void calculateConvectiveRoeFlux(
                             (2.0 * roe_sound_speed * roe_sound_speed);
     calculateConvectiveVariable(left_quadrature_node_variable, flux.left_convective_);
     calculateConvectiveVariable(right_quadrature_node_variable, flux.right_convective_);
-    flux.convective_n_.noalias() =
-        0.5 * (flux.left_convective_ + flux.right_convective_) * normal_vector -
-        0.5 * (std::fabs(roe_velocity_normal - roe_sound_speed) * roe_temporary_flux_1 +
-               std::fabs(roe_velocity_normal) * (roe_temporary_flux_2 + roe_temporary_flux_34) +
-               std::fabs(roe_velocity_normal + roe_sound_speed) * roe_temporary_flux_5);
+    flux.convective_n_.noalias() = ((flux.left_convective_ + flux.right_convective_) * normal_vector -
+                                    (std::fabs(roe_velocity_normal - roe_sound_speed) * roe_temporary_flux_1 +
+                                     std::fabs(roe_velocity_normal) * (roe_temporary_flux_2 + roe_temporary_flux_34) +
+                                     std::fabs(roe_velocity_normal + roe_sound_speed) * roe_temporary_flux_5)) /
+                                   2.0;
   }
 }
 

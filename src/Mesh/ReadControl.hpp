@@ -21,13 +21,11 @@
 #include <filesystem>
 #include <functional>
 #include <iostream>
-#include <regex>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "Cmake.hpp"
 #include "Mesh/BasisFunction.hpp"
 #include "Mesh/GaussianQuadrature.hpp"
 #include "Solver/SimulationControl.hpp"
@@ -72,9 +70,8 @@ struct ElementMesh {
 
   Isize number_{0};
   Eigen::Array<PerElementMesh<ElementTrait>, Eigen::Dynamic, 1> element_;
-  Eigen::Matrix<int, ElementTrait::kBasicNodeNumber, ElementTrait::kSubNumber, Eigen::RowMajor>
-      sub_element_connectivity_{
-          getSubElementConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>().data()};
+  Eigen::Matrix<int, ElementTrait::kBasicNodeNumber, ElementTrait::kSubNumber> sub_element_connectivity_{
+      getSubElementConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>().data()};
 
   inline void getElementMesh(const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
                              const std::unordered_map<Isize, std::string>& gmsh_tag_to_physical_name,
@@ -105,7 +102,7 @@ struct AdjacencyElementMesh {
   Isize interior_number_{0};
   Isize boundary_number_{0};
   Eigen::Array<PerAdjacencyElementMesh<AdjacencyElementTrait>, Eigen::Dynamic, 1> element_;
-  Eigen::Matrix<int, AdjacencyElementTrait::kBasicNodeNumber, AdjacencyElementTrait::kSubNumber, Eigen::RowMajor>
+  Eigen::Matrix<int, AdjacencyElementTrait::kBasicNodeNumber, AdjacencyElementTrait::kSubNumber>
       sub_element_connectivity_{
           getSubElementConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()
               .data()};
@@ -222,23 +219,10 @@ inline void MeshBase<SimulationControl>::getPhysicalInformation() {
 template <typename SimulationControl>
 inline MeshBase<SimulationControl>::MeshBase(const std::function<void()>& generate_mesh_function,
                                              const std::filesystem::path& mesh_file_path) {
-  gmsh::initialize();
-  std::cout << "Gmsh Info:" << '\n';
-  std::string info;
-  gmsh::option::getString("General.BuildInfo", info);
-  std::regex re(";\\s*");
-  std::vector<std::string> lines{std::sregex_token_iterator(info.begin(), info.end(), re, -1),
-                                 std::sregex_token_iterator()};
-  for (const auto& line : lines) {
-    std::cout << line << '\n';
-  };
-  std::cout << '\n';
-#ifdef SUBROSA_DG_WITH_OPENMP
-  gmsh::option::setNumber("General.NumThreads", kNumberOfPhysicalCores);
-#endif  // SUBROSA_DG_WITH_OPENMP
   generate_mesh_function();
   gmsh::clear();
   gmsh::open(mesh_file_path);
+  std::cout << '\n';
   this->getNode();
   this->getPhysicalInformation();
 }

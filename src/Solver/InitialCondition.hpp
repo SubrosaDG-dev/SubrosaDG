@@ -75,6 +75,7 @@ inline void Solver<SimulationControl, 2>::initializeSolver(
     const std::unordered_map<std::string, InitialCondition<SimulationControl, SimulationControl::kDimension>>&
         initial_condition) {
   for (auto& [boundary_condition_name, boundary_condition_variable] : boundary_condition) {
+    boundary_condition_variable->variable_.calculateConservedFromPrimitive(thermal_model);
     boundary_condition_variable->variable_.calculateComputationalFromPrimitive(thermal_model);
   }
   if constexpr (HasTriangle<SimulationControl::kMeshModel>) {

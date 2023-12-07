@@ -15,82 +15,139 @@
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <array>
+#include <cmath>
 #include <cstdlib>
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <vector>
 
 #include "SubrosaDG"
 
-inline const std::filesystem::path kProjectDirectory{SubrosaDG::kProjectSourceDirectory /
+inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory /
                                                      "build/out/naca0012_2d_euler"};
 
 using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P3, SubrosaDG::MeshModel::TriangleQuadrangle,
+    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P3, SubrosaDG::MeshModel::Quadrangle,
                                       SubrosaDG::MeshHighOrderModel::Straight, SubrosaDG::ThermodynamicModel::ConstantE,
-                                      SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::Roe,
+                                      SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::LaxFriedrichs,
                                       SubrosaDG::TimeIntegration::SSPRK3, SubrosaDG::ViewModel::Dat>;
 
-inline std::array<double, 130> naca0012_point_flattened{
-    0.9987518, 0.0014399, 0.9976658, 0.0015870, 0.9947532, 0.0019938, 0.9906850, 0.0025595, 0.9854709, 0.0032804,
-    0.9791229, 0.0041519, 0.9716559, 0.0051685, 0.9630873, 0.0063238, 0.9534372, 0.0076108, 0.9427280, 0.0090217,
-    0.9309849, 0.0105485, 0.9182351, 0.0121823, 0.9045085, 0.0139143, 0.8898372, 0.0157351, 0.8742554, 0.0176353,
-    0.8577995, 0.0196051, 0.8405079, 0.0216347, 0.8224211, 0.0237142, 0.8035813, 0.0258337, 0.7840324, 0.0279828,
-    0.7638202, 0.0301515, 0.7429917, 0.0323294, 0.7215958, 0.0345058, 0.6996823, 0.0366700, 0.6773025, 0.0388109,
-    0.6545085, 0.0409174, 0.6313537, 0.0429778, 0.6078921, 0.0449802, 0.5841786, 0.0469124, 0.5602683, 0.0487619,
-    0.5362174, 0.0505161, 0.5120819, 0.0521620, 0.4879181, 0.0536866, 0.4637826, 0.0550769, 0.4397317, 0.0563200,
-    0.4158215, 0.0574033, 0.3921079, 0.0583145, 0.3686463, 0.0590419, 0.3454915, 0.0595747, 0.3226976, 0.0599028,
-    0.3003177, 0.0600172, 0.2784042, 0.0599102, 0.2570083, 0.0595755, 0.2361799, 0.0590081, 0.2159676, 0.0582048,
-    0.1964187, 0.0571640, 0.1775789, 0.0558856, 0.1594921, 0.0543715, 0.1422005, 0.0526251, 0.1257446, 0.0506513,
-    0.1101628, 0.0484567, 0.0954915, 0.0460489, 0.0817649, 0.0434371, 0.0690152, 0.0406310, 0.0572720, 0.0376414,
-    0.0465628, 0.0344792, 0.0369127, 0.0311559, 0.0283441, 0.0276827, 0.0208771, 0.0240706, 0.0145291, 0.0203300,
-    0.0093149, 0.0164706, 0.0052468, 0.0125011, 0.0023342, 0.0084289, 0.0005839, 0.0042603, 0.0000000, 0.0000000};
+inline std::array<double, 64> naca0012_point_x_array{
+    0.9994160, 0.9976658, 0.9947532, 0.9906850, 0.9854709, 0.9791229, 0.9716559, 0.9630873, 0.9534372, 0.9427280,
+    0.9309849, 0.9182351, 0.9045085, 0.8898372, 0.8742554, 0.8577995, 0.8405079, 0.8224211, 0.8035813, 0.7840324,
+    0.7638202, 0.7429917, 0.7215958, 0.6996823, 0.6773025, 0.6545085, 0.6313537, 0.6078921, 0.5841786, 0.5602683,
+    0.5362174, 0.5120819, 0.4879181, 0.4637826, 0.4397317, 0.4158215, 0.3921079, 0.3686463, 0.3454915, 0.3226976,
+    0.3003177, 0.2784042, 0.2570083, 0.2361799, 0.2159676, 0.1964187, 0.1775789, 0.1594921, 0.1422005, 0.1257446,
+    0.1101628, 0.0954915, 0.0817649, 0.0690152, 0.0572720, 0.0465628, 0.0369127, 0.0283441, 0.0208771, 0.0145291,
+    0.0093149, 0.0052468, 0.0023342, 0.0005839};
 
 void generateMesh() {
   gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
-  Eigen::Map<Eigen::Matrix<double, 2, 65>> naca0012_point{naca0012_point_flattened.data()};
-  Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_point;
-  farfield_point << -10, -10, 0, 10, -10, 0, 10, 10, 0, -10, 10, 0;
-  std::vector<int> farfield_point_tag;
-  std::vector<int> naca0012_point_tag;
-  std::vector<int> farfield_line_tag;
-  std::vector<int> naca0012_line_tag;
+  Eigen::Map<Eigen::RowVector<double, 64>> naca0012_point_x{naca0012_point_x_array.data()};
+  Eigen::Matrix<double, 2, 64, Eigen::RowMajor> naca0012_point;
+  naca0012_point.row(0) = naca0012_point_x;
+  // NOTE: Here we use the alternative form of NACA0012 airfoil which is closed at the trailing edge.
+  // y= +- 0.594689181*[0.298222773*sqrt(x) - 0.127125232*x - 0.357907906*x2 + 0.291984971*x3 - 0.105174606*x4]
+  // More details can be found at https://turbmodels.larc.nasa.gov/naca0012_val.html.
+  naca0012_point.row(1) =
+      0.594689181 * (0.298222773 * naca0012_point_x.array().sqrt() - 0.127125232 * naca0012_point_x.array() -
+                     0.357907906 * naca0012_point_x.array().pow(2) + 0.291984971 * naca0012_point_x.array().pow(3) -
+                     0.105174606 * naca0012_point_x.array().pow(4));
+  Eigen::Matrix<double, 6, 3, Eigen::RowMajor> farfield_point;
+  // clang-format off
+  farfield_point <<  1.0,  3.0, 0.0,
+                    -2.0,  0.0, 0.0,
+                     1.0, -3.0, 0.0,
+                     3.0, -3.0, 0.0,
+                     3.0,  0.0, 0.0,
+                     3.0,  3.0, 0.0;
+  // clang-format on
+  Eigen::Array<int, 6, 1> farfield_point_tag;
+  std::array<std::vector<int>, 2> naca0012_point_tag;
+  Eigen::Array<int, 6, 1> farfield_line_tag;
+  Eigen::Array<int, 2, 1> naca0012_line_tag;
+  Eigen::Array<int, 4, 1> connection_line_tag;
+  Eigen::Array<int, 4, 1> curve_loop_tag;
+  Eigen::Array<int, 4, 1> plane_surface_tag;
+  std::array<std::vector<int>, 3> physical_group_tag;
   gmsh::model::add("naca0012");
-  for (const auto& row : farfield_point.rowwise()) {
-    farfield_point_tag.emplace_back(gmsh::model::occ::addPoint(row.x(), row.y(), row.z(), 1.0));
+  const int naca0012_leading_edge_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
+  const int naca0012_trailing_edge_point_tag = gmsh::model::geo::addPoint(1.0, 0.0, 0.0);
+  for (std::ptrdiff_t i = 0; i < 6; i++) {
+    farfield_point_tag(i) =
+        gmsh::model::geo::addPoint(farfield_point(i, 0), farfield_point(i, 1), farfield_point(i, 2));
   }
-  for (const auto& col : naca0012_point.colwise()) {
-    naca0012_point_tag.emplace_back(gmsh::model::occ::addPoint(col.x(), col.y(), 0.0, 0.01));
+  for (std::size_t i = 0; i < 2; i++) {
+    naca0012_point_tag[i].emplace_back(naca0012_trailing_edge_point_tag);
   }
-  for (const auto& col : naca0012_point.rowwise().reverse()(Eigen::all, Eigen::seq(1, Eigen::last)).colwise()) {
-    naca0012_point_tag.emplace_back(gmsh::model::occ::addPoint(col.x(), -col.y(), 0.0, 0.01));
+  for (std::ptrdiff_t i = 0; i < 64; i++) {
+    naca0012_point_tag[0].emplace_back(gmsh::model::geo::addPoint(naca0012_point(0, i), naca0012_point(1, i), 0.0));
+    naca0012_point_tag[1].emplace_back(gmsh::model::geo::addPoint(naca0012_point(0, i), -naca0012_point(1, i), 0.0));
   }
-  for (std::size_t i = 0; i < farfield_point_tag.size(); i++) {
-    farfield_line_tag.emplace_back(
-        gmsh::model::occ::addLine(farfield_point_tag[i], farfield_point_tag[(i + 1) % farfield_point_tag.size()]));
+  for (std::size_t i = 0; i < 2; i++) {
+    naca0012_point_tag[i].emplace_back(naca0012_leading_edge_point_tag);
   }
-  naca0012_line_tag.emplace_back(gmsh::model::occ::addSpline(naca0012_point_tag));
-  const int center_tag = gmsh::model::occ::addPoint(0.9985510, 0.0000000, 0, 0.01);
-  naca0012_line_tag.emplace_back(
-      gmsh::model::occ::addCircleArc(naca0012_point_tag.back(), center_tag, naca0012_point_tag.front()));
-  const int farfield_line_loop = gmsh::model::occ::addCurveLoop(farfield_line_tag);
-  const int naca0012_line_loop = gmsh::model::occ::addCurveLoop(naca0012_line_tag);
-  const int naca0012_plane_surface = gmsh::model::occ::addPlaneSurface({farfield_line_loop, naca0012_line_loop});
-  gmsh::model::occ::synchronize();
-  std::vector<double> naca0012_line_tag_double_cast{naca0012_line_tag.begin(), naca0012_line_tag.end()};
-  const int naca0012_boundary_layer = gmsh::model::mesh::field::add("BoundaryLayer");
-  gmsh::model::mesh::field::setNumbers(naca0012_boundary_layer, "CurvesList", naca0012_line_tag_double_cast);
-  gmsh::model::mesh::field::setNumber(naca0012_boundary_layer, "Size", 0.001);
-  gmsh::model::mesh::field::setNumber(naca0012_boundary_layer, "Ratio", 1.2);
-  gmsh::model::mesh::field::setNumber(naca0012_boundary_layer, "Quads", 1);
-  gmsh::model::mesh::field::setNumber(naca0012_boundary_layer, "Thickness", 0.03);
-  gmsh::model::mesh::field::setAsBoundaryLayer(naca0012_boundary_layer);
-  gmsh::model::addPhysicalGroup(1, farfield_line_tag, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(1, naca0012_line_tag, -1, "bc-2");
-  gmsh::model::addPhysicalGroup(2, {naca0012_plane_surface}, -1, "vc-1");
+  for (std::ptrdiff_t i = 0; i < 6; i++) {
+    if (i < 2) {
+      farfield_line_tag(i) = gmsh::model::geo::addCircleArc(farfield_point_tag(i), naca0012_trailing_edge_point_tag,
+                                                            farfield_point_tag(i + 1));
+    } else {
+      farfield_line_tag(i) = gmsh::model::geo::addLine(farfield_point_tag(i), farfield_point_tag((i + 1) % 6));
+    }
+  }
+  connection_line_tag(0) = gmsh::model::geo::addLine(farfield_point_tag(0), naca0012_trailing_edge_point_tag);
+  connection_line_tag(1) = gmsh::model::geo::addLine(farfield_point_tag(1), naca0012_leading_edge_point_tag);
+  connection_line_tag(2) = gmsh::model::geo::addLine(farfield_point_tag(2), naca0012_trailing_edge_point_tag);
+  connection_line_tag(3) = gmsh::model::geo::addLine(farfield_point_tag(4), naca0012_trailing_edge_point_tag);
+  for (std::ptrdiff_t i = 0; i < 2; i++) {
+    naca0012_line_tag(i) = gmsh::model::geo::addSpline(naca0012_point_tag[static_cast<std::size_t>(i)]);
+  }
+  curve_loop_tag(0) = gmsh::model::geo::addCurveLoop(
+      {-connection_line_tag(0), farfield_line_tag(0), connection_line_tag(1), -naca0012_line_tag(0)});
+  curve_loop_tag(1) = gmsh::model::geo::addCurveLoop(
+      {-connection_line_tag(1), farfield_line_tag(1), connection_line_tag(2), naca0012_line_tag(1)});
+  curve_loop_tag(2) = gmsh::model::geo::addCurveLoop(
+      {-connection_line_tag(2), farfield_line_tag(2), farfield_line_tag(3), connection_line_tag(3)});
+  curve_loop_tag(3) = gmsh::model::geo::addCurveLoop(
+      {-connection_line_tag(3), farfield_line_tag(4), farfield_line_tag(5), connection_line_tag(0)});
+  for (std::ptrdiff_t i = 0; i < 4; i++) {
+    plane_surface_tag(i) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i)});
+  }
+  for (std::ptrdiff_t i = 0; i < 2; i++) {
+    gmsh::model::geo::mesh::setTransfiniteCurve(naca0012_line_tag(i), 40, "Progression", -1.08);
+  }
+  for (std::ptrdiff_t i = 0; i < 2; i++) {
+    gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(i), 40);
+  }
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 20, "Progression", 1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 20, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 20, "Progression", 1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 20, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 20, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 20, "Progression", -1.2);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 20, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 20, "Progression", -1.25);
+  for (std::ptrdiff_t i = 0; i < 4; i++) {
+    gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
+    gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i));
+  }
+  gmsh::model::geo::synchronize();
+  for (std::ptrdiff_t i = 0; i < 6; i++) {
+    physical_group_tag[0].emplace_back(farfield_line_tag(i));
+  }
+  for (std::ptrdiff_t i = 0; i < 2; i++) {
+    physical_group_tag[1].emplace_back(naca0012_line_tag(i));
+  }
+  for (std::ptrdiff_t i = 0; i < 4; i++) {
+    physical_group_tag[2].emplace_back(plane_surface_tag(i));
+  }
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[0], -1, "bc-1");
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[1], -1, "bc-2");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
-  gmsh::write(kProjectDirectory / "naca0012_2d.msh");
+  gmsh::write(kExampleDirectory / "naca0012_2d.msh");
 }
 
 void generateMeshShell(){};
@@ -98,14 +155,18 @@ void generateMeshShell(){};
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system(generateMesh, kProjectDirectory / "naca0012_2d.msh");
+  SubrosaDG::System<SimulationControl> system(generateMesh, kExampleDirectory / "naca0012_2d.msh");
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-    return Eigen::Vector<SubrosaDG::Real, 5>{1.4, 0.8, 0.0, 1.0, 1.0};
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+        1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0};
   });
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::NormalFarfield>("bc-1", {1.4, 0.8, 0.0, 1.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::NoSlipWall>("bc-2");
-  system.setTimeIntegration(false, 1, 1.0, 1e-10);
-  system.setViewConfig(-1, kProjectDirectory, "naca0012_2d");
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::RiemannFarfield>(
+      "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::AdiabaticFreeSlipWall>("bc-2");
+  system.setTimeIntegration(false, 100, 0.2, 1e-10);
+  system.setViewConfig(-1, kExampleDirectory, "naca0012_2d",
+                       {SubrosaDG::ViewElementVariable::Density, SubrosaDG::ViewElementVariable::Pressure,
+                        SubrosaDG::ViewElementVariable::MachNumber});
   system.solve();
   return EXIT_SUCCESS;
 }

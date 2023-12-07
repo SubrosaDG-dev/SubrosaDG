@@ -176,30 +176,36 @@ inline void Solver<SimulationControl, 2>::updateBasisFunctionCoefficient(
 }
 
 template <typename ElementTrait, typename SimulationControl, EquationModel EquationModelType>
-inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementAbsoluteError(
+inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementRelativeError(
     const ElementMesh<ElementTrait>& element_mesh,
-    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& absolute_error) {
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error) {
   for (Isize i = 0; i < this->number_; i++) {
-    absolute_error.array() +=
-        (this->element_(i).residual_ * element_mesh.basis_function_.value_.transpose()).array().abs().rowwise().mean();
+    relative_error.array() += ((this->element_(i).residual_ * element_mesh.basis_function_.value_.transpose()).array() /
+                               ((this->element_(i).conserved_variable_basis_function_coefficient_(1) *
+                                 element_mesh.basis_function_.value_.transpose())
+                                    .array() +
+                                1e-10))
+                                  .abs()
+                                  .rowwise()
+                                  .mean();
   }
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl, 2>::calculateAbsoluteError(
+inline void Solver<SimulationControl, 2>::calculateRelativeError(
     const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
-  this->absolute_error_.setZero();
+  this->relative_error_.setZero();
   if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-    this->triangle_.calculateElementAbsoluteError(mesh.triangle_, this->absolute_error_);
+    this->triangle_.calculateElementRelativeError(mesh.triangle_, this->relative_error_);
   }
   if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-    this->quadrangle_.calculateElementAbsoluteError(mesh.quadrangle_, this->absolute_error_);
+    this->quadrangle_.calculateElementRelativeError(mesh.quadrangle_, this->relative_error_);
   }
-  this->absolute_error_ /= static_cast<Real>(mesh.element_number_);
+  this->relative_error_ /= static_cast<Real>(mesh.element_number_);
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl, 2>::stepTime(
+inline void Solver<SimulationControl, 2>::stepSolver(
     const int step, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
     const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&

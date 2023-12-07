@@ -68,8 +68,11 @@ class ProgressBar {
  public:
   template <typename T>
     requires std::is_integral_v<T>
-  ProgressBar(T cycle_num) : cycle_num_(static_cast<index>(cycle_num)), num_order_(log10(cycle_num_)) {
-    (*os_) << std::endl << std::endl;
+  ProgressBar(T cycle_num, int delete_line)
+      : cycle_num_(static_cast<index>(cycle_num)), num_order_(log10(cycle_num_)), delete_line_(delete_line) {
+    for (int i = 0; i < delete_line_; i++) {
+      (*os_) << '\n';
+    }
   }
 
   ~ProgressBar() {}
@@ -110,7 +113,8 @@ class ProgressBar {
 
     std::stringstream bar;
 
-    bar << "\33[2A";
+    bar << "\e[2K"
+        << "\e[" << delete_line_ << 'A';
 
     bar << "Step: " << std::setw(num_order_) << progress_;
 
@@ -123,7 +127,7 @@ class ProgressBar {
     std::string sbar = bar.str();
     std::string suffix = suffix_.str();
 
-    (*os_) << sbar << std::endl << suffix << std::endl << std::flush;
+    (*os_) << sbar << '\n' << suffix << std::flush;
 
     os_->flags(flags);
   }
@@ -140,6 +144,7 @@ class ProgressBar {
   Chronometer refresh_{};
 
   index progress_{0};
+  int delete_line_;
   index cycle_num_;
   int num_order_;
 

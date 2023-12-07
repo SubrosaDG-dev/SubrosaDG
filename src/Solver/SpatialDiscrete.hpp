@@ -161,7 +161,6 @@ inline void AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolyno
     }
   }
 }
-
 template <typename SimulationControl>
 inline void AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl>::
     calculateBoundaryAdjacencyElementGaussianQuadrature(
@@ -177,32 +176,29 @@ inline void AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolyno
 #endif
   for (Isize i = adjacency_element_mesh.interior_number_;
        i < adjacency_element_mesh.boundary_number_ + adjacency_element_mesh.interior_number_; i++) {
-    Eigen::Vector<Isize, 2> parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_;
-    Eigen::Vector<Isize, 2> adjacency_sequence_in_parent =
-        adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_;
-    Eigen::Vector<Isize, 2> parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_;
+    const Isize parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_(0);
+    const Isize adjacency_sequence_in_parent = adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_(0);
+    const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
     for (Isize j = 0; j < AdjacencyLineTrait<SimulationControl::kPolynomialOrder>::kQuadratureNumber; j++) {
       Variable<SimulationControl> left_gaussian_quadrature_node_variable;
       Flux<SimulationControl, SimulationControl::kEquationModel> flux;
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
           adjacency_element_gaussian_quadrature_node_temporary_variable;
-      Eigen::Vector<Isize, 2> adjacency_gaussian_quadrature_node_sequence_in_parent;
-      adjacency_gaussian_quadrature_node_sequence_in_parent(0) =
-          this->getAdjacencyParentElementQuadratureNodeSequenceInParent(parent_gmsh_type_number(0), true,
-                                                                        adjacency_sequence_in_parent(0), j);
-      left_gaussian_quadrature_node_variable.getFromParent(parent_gmsh_type_number(0), parent_index_each_type(0),
-                                                           adjacency_gaussian_quadrature_node_sequence_in_parent(0),
-                                                           mesh, thermal_model, solver);
+      const Isize adjacency_gaussian_quadrature_node_sequence_in_parent =
+          this->getAdjacencyParentElementQuadratureNodeSequenceInParent(parent_gmsh_type_number, true,
+                                                                        adjacency_sequence_in_parent, j);
+      left_gaussian_quadrature_node_variable.getFromParent(parent_gmsh_type_number, parent_index_each_type,
+                                                           adjacency_gaussian_quadrature_node_sequence_in_parent, mesh,
+                                                           thermal_model, solver);
       boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_name_)
           ->calculateBoundaryConvectiveFlux(thermal_model, adjacency_element_mesh.element_(i).normal_vector_,
                                             left_gaussian_quadrature_node_variable, flux);
       adjacency_element_gaussian_quadrature_node_temporary_variable =
           flux.convective_n_ * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
           adjacency_element_mesh.gaussian_quadrature_.weight_(j);
-      this->storeAdjacencyElementNodeGaussianQuadrature(parent_gmsh_type_number(0), parent_index_each_type(0),
-                                                        adjacency_gaussian_quadrature_node_sequence_in_parent(0),
-                                                        adjacency_element_gaussian_quadrature_node_temporary_variable,
-                                                        solver);
+      this->storeAdjacencyElementNodeGaussianQuadrature(
+          parent_gmsh_type_number, parent_index_each_type, adjacency_gaussian_quadrature_node_sequence_in_parent,
+          adjacency_element_gaussian_quadrature_node_temporary_variable, solver);
     }
   }
 }

@@ -16,6 +16,7 @@
             "dependencies": [
                 "fmt",
                 "spdlog",
+                "magic-enum",
                 "eigen3",
                 "dbg-macro"
             ]

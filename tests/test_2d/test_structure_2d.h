@@ -18,12 +18,12 @@
 
 #include "SubrosaDG"
 
-inline const std::filesystem::path kProjectDirectory{SubrosaDG::kProjectSourceDirectory / "build/out/test_2d"};
+inline const std::filesystem::path kTestDirectory{SubrosaDG::kProjectSourceDirectory / "build/out/test_2d"};
 
 using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P2, SubrosaDG::MeshModel::TriangleQuadrangle,
+    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P1, SubrosaDG::MeshModel::TriangleQuadrangle,
                                       SubrosaDG::MeshHighOrderModel::Straight, SubrosaDG::ThermodynamicModel::ConstantE,
-                                      SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::Roe,
+                                      SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::LaxFriedrichs,
                                       SubrosaDG::TimeIntegration::ForwardEuler, SubrosaDG::ViewModel::Dat>;
 
 void generateMesh() {
@@ -53,22 +53,21 @@ void generateMesh() {
   gmsh::model::mesh::setRecombine(2, 2);
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
-  gmsh::write(kProjectDirectory / "test_2d.msh");
+  gmsh::write(kTestDirectory / "test_2d.msh");
 }
 
 struct Test2d : testing::Test {
   static SubrosaDG::System<SimulationControl>* system;
 
   static void SetUpTestCase() {
-    system = new SubrosaDG::System<SimulationControl>(generateMesh, kProjectDirectory / "test_2d.msh");
+    system = new SubrosaDG::System<SimulationControl>(generateMesh, kTestDirectory / "test_2d.msh");
     system->addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-      return Eigen::Vector<SubrosaDG::Real, 5>{1.4, 0.1, 0.0, 1.0, 1.0};
+      return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.1, 0.0, 1.0};
     });
-    system->addBoundaryCondition<SubrosaDG::BoundaryCondition::NormalFarfield>("bc-1", {1.4, 0.1, 0.0, 1.0, 1.0});
-    system->addBoundaryCondition<SubrosaDG::BoundaryCondition::NormalFarfield>("bc-2", {1.4, 0.1, 0.0, 1.0, 1.0});
-    // system->addBoundaryCondition<SubrosaDG::BoundaryCondition::NoSlipWall>("bc-2");
+    system->addBoundaryCondition<SubrosaDG::BoundaryCondition::RiemannFarfield>("bc-1", {1.4, 0.1, 0.0, 1.0});
+    system->addBoundaryCondition<SubrosaDG::BoundaryCondition::AdiabaticFreeSlipWall>("bc-2");
     system->setTimeIntegration(true, 1, 0.5, 1e-10);
-    system->setViewConfig(-1, kProjectDirectory, "test_2d");
+    system->setViewConfig(-1, kTestDirectory, "test_2d", {SubrosaDG::ViewElementVariable::Density});
   }
 
   static void TearDownTestCase() {

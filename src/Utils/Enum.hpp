@@ -42,8 +42,9 @@ enum class BoundaryCondition {
   NormalFarfield = 1,
   RiemannFarfield,
   CharacteristicFarfield,
-  NoSlipWall,
-  FreeSlipWall,
+  AdiabaticNoSlipWall,
+  AdiabaticFreeSlipWall,
+  AdiabaticUserDefinedSlipWall,
   Periodic,
 };
 
@@ -110,14 +111,7 @@ enum class ComputationalVariable {
   Pressure,
 };
 
-enum class PrimitiveVariable {
-  Density = 1,
-  VelocityX,
-  VelocityY,
-  VelocityZ,
-  Temperature,
-  Pressure,
-};
+enum class PrimitiveVariable { Density = 1, VelocityX, VelocityY, VelocityZ, Temperature };
 
 enum class ViscousFlux {
   BR1 = 1,
@@ -132,18 +126,28 @@ enum class ViewModel {
 };
 
 enum class ViewElementVariable {
-  SpeedSound = 1,
+  Density = 1,
+  Velocity,
+  VelocityX,
+  VelocityY,
+  VelocityZ,
+  Temperature,
+  Pressure,
+  SoundSpeed,
   MachNumber,
+  MachNumberX,
+  MachNumberY,
+  MachNumberZ,
   Vorticity,
   VorticityX,
   VorticityY,
   VorticityZ,
+  Entropy,
 };
 
 enum class ViewAdjacencyElementVariable {
   PressureCoefficient = 1,
   FrictionCoefficient,
-  EntropyIncrease,
 };
 
 }  // namespace SubrosaDG

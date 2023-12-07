@@ -27,7 +27,9 @@
             "description": "Build all in release without MPI in Linux",
             "inherits": "LinuxBase",
             "cacheVariables": {
-                "SUBROSA_DG_BUILD_ALL": true
+                "SUBROSA_DG_BUILD_ALL": true,
+                "SUBROSA_DG_DEVELOP": false,
+                "SUBROSA_DG_WITH_MPI": false
             }
         },
         {
@@ -37,6 +39,7 @@
             "inherits": "LinuxBase",
             "cacheVariables": {
                 "SUBROSA_DG_BUILD_ALL": true,
+                "SUBROSA_DG_DEVELOP": false,
                 "SUBROSA_DG_WITH_MPI": true
             }
         },
@@ -47,7 +50,8 @@
             "inherits": "LinuxBase",
             "cacheVariables": {
                 "SUBROSA_DG_BUILD_ALL": true,
-                "SUBROSA_DG_DEVELOP": true
+                "SUBROSA_DG_DEVELOP": true,
+                "SUBROSA_DG_WITH_MPI": false
             }
         },
         {
@@ -68,8 +72,7 @@
             "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
-                "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
-                "CMAKE_OSX_ARCHITECTURES": "arm64"
+                "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++"
             },
             "condition": {
                 "type": "equals",

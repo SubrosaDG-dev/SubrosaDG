@@ -81,10 +81,12 @@ if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set(COMPILER_PATH /usr/bin)
+    set(COMPILER_PATH "/usr/bin")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(COMPILER_PATH /opt/homebrew/opt/llvm/bin)
+    set(CMAKE_OSX_ARCHITECTURES "arm64")
+    set(COMPILER_PATH "/opt/homebrew/opt/llvm/bin")
 endif ()
+
 
 # add vcpkg cmake
 include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
@@ -122,7 +124,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # open color compiler information
 # NOTE: the output still not colorized due to ninja
 # https://github.com/ninja-build/ninja/wiki/FAQ#why-does-my-program-with-colored-output-not-have-color-under-ninja
-set(CMAKE_COLOR_DIAGNOSTICS ON)
+# set(CMAKE_COLOR_DIAGNOSTICS ON)
 
 # set cmake output verbose on
 if(SUBROSA_DG_DEVELOP)
@@ -277,8 +279,12 @@ string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion 
 # string(APPEND SUBROSA_DG_CXX_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
 string(APPEND SUBROSA_DG_CXX_FLAGS_DEBUG "${SUBROSA_DG_CXX_FLAGS} ${SUBROSA_DG_CXX_WARNING_FLAGS} \
     ${SUBROSA_DG_CXX_COVER_FLAGS} -O0 -g3")
-string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "${SUBROSA_DG_CXX_FLAGS} -O3 -DNDEBUG \
-    $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native>")
+string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "${SUBROSA_DG_CXX_FLAGS} ")
+if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+    string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "-march=native")
+elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm64")
+    string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "-mcpu=native")
+endif()
 
 # set different compile option
 set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
@@ -320,6 +326,10 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES fmt::fmt)
 # find spdlog
 find_package(spdlog CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES spdlog::spdlog)
+
+# find magic_enum
+find_package(magic_enum CONFIG REQUIRED)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES magic_enum::magic_enum)
 
 # find eigen3
 find_package(Eigen3 CONFIG REQUIRED)
@@ -377,9 +387,7 @@ target_compile_definitions(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_DEFINI
 string(REPLACE ";" " " SUBROSA_DG_COMPILE_DEFINITIONS "${SUBROSA_DG_COMPILE_DEFINITIONS}")
 
 # all_ci = all_examples + all_tests
-add_custom_target(all_ci
-    COMMENT "Build all examples and tests"
-)
+add_custom_target(all_ci COMMENT "Build all examples and tests")
 
 # build examples
 if(SUBROSA_DG_BUILD_EXAMPLES OR SUBROSA_DG_BUILD_ALL)

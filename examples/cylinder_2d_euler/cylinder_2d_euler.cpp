@@ -14,65 +14,101 @@
 
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
+#include <array>
+#include <cstddef>
 #include <cstdlib>
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <vector>
 
 #include "SubrosaDG"
 
-inline const std::filesystem::path kProjectDirectory{SubrosaDG::kProjectSourceDirectory /
+inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory /
                                                      "build/out/cylinder_2d_euler"};
 
 using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P2, SubrosaDG::MeshModel::TriangleQuadrangle,
+    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P1, SubrosaDG::MeshModel::TriangleQuadrangle,
                                       SubrosaDG::MeshHighOrderModel::Straight, SubrosaDG::ThermodynamicModel::ConstantE,
                                       SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::LaxFriedrichs,
-                                      SubrosaDG::TimeIntegration::SSPRK3, SubrosaDG::ViewModel::Dat>;
+                                      SubrosaDG::TimeIntegration::ForwardEuler, SubrosaDG::ViewModel::Dat>;
 
 void generateMesh() {
   gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
-  Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_point;
-  farfield_point << -2, -2, 0, 2, -2, 0, 2, 2, 0, -2, 2, 0;
-  Eigen::Matrix<double, 5, 3, Eigen::RowMajor> cylinder_point;
-  cylinder_point << 0, 0, 0, -1, 0, 0, 0, -1, 0, 1, 0, 0, 0, 1, 0;
-  std::vector<int> farfield_point_tag;
-  std::vector<int> cylinder_point_tag;
-  std::vector<int> farfield_line_tag;
-  std::vector<int> cylinder_line_tag;
+  Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_point_coordinate;
+  Eigen::Matrix<double, 4, 3, Eigen::RowMajor> separation_point_coordinate;
+  Eigen::Matrix<double, 4, 3, Eigen::RowMajor> cylinder_point_coordinate;
+  // clang-format off
+  farfield_point_coordinate << -5.0,  0.0, 0.0,
+                                0.0, -5.0, 0.0,
+                                5.0,  0.0, 0.0,
+                                0.0,  5.0, 0.0;
+  separation_point_coordinate << -2.0,  0.0, 0.0,
+                                  0.0, -2.0, 0.0,
+                                  2.0,  0.0, 0.0,
+                                  0.0,  2.0, 0.0;
+  cylinder_point_coordinate << -0.5,  0.0, 0.0,
+                                0.0, -0.5, 0.0,
+                                0.5,  0.0, 0.0,
+                                0.0,  0.5, 0.0;
+  // clang-format on
+  Eigen::Array<int, 4, 3, Eigen::RowMajor> point_tag;
+  Eigen::Array<int, 4, 5, Eigen::RowMajor> line_tag;
+  Eigen::Array<int, 4, 2, Eigen::RowMajor> curve_loop_tag;
+  Eigen::Array<int, 4, 2, Eigen::RowMajor> plane_surface_tag;
+  std::array<std::vector<int>, 3> physical_group_tag;
   gmsh::model::add("cylinder_2d");
-  for (const auto& row : farfield_point.rowwise()) {
-    farfield_point_tag.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 0.25));
+  const int center_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
+  for (std::ptrdiff_t i = 0; i < 4; i++) {
+    point_tag(i, 0) = gmsh::model::geo::addPoint(farfield_point_coordinate(i, 0), farfield_point_coordinate(i, 1),
+                                                 farfield_point_coordinate(i, 2));
+    point_tag(i, 1) = gmsh::model::geo::addPoint(separation_point_coordinate(i, 0), separation_point_coordinate(i, 1),
+                                                 separation_point_coordinate(i, 2));
+    point_tag(i, 2) = gmsh::model::geo::addPoint(cylinder_point_coordinate(i, 0), cylinder_point_coordinate(i, 1),
+                                                 cylinder_point_coordinate(i, 2));
   }
-  for (const auto& row : cylinder_point.rowwise()) {
-    cylinder_point_tag.emplace_back(gmsh::model::geo::addPoint(row.x(), row.y(), row.z(), 0.05));
+  for (std::ptrdiff_t i = 0; i < 4; i++) {
+    line_tag(i, 0) = gmsh::model::geo::addCircleArc(point_tag(i, 0), center_point_tag, point_tag((i + 1) % 4, 0));
+    line_tag(i, 1) = gmsh::model::geo::addCircleArc(point_tag(i, 1), center_point_tag, point_tag((i + 1) % 4, 1));
+    line_tag(i, 2) = gmsh::model::geo::addCircleArc(point_tag(i, 2), center_point_tag, point_tag((i + 1) % 4, 2));
+    line_tag(i, 3) = gmsh::model::geo::addLine(point_tag(i, 0), point_tag(i, 1));
+    line_tag(i, 4) = gmsh::model::geo::addLine(point_tag(i, 1), point_tag(i, 2));
   }
-  for (std::size_t i = 0; i < farfield_point_tag.size(); i++) {
-    farfield_line_tag.emplace_back(
-        gmsh::model::geo::addLine(farfield_point_tag[i], farfield_point_tag[(i + 1) % farfield_point_tag.size()]));
+  for (std::ptrdiff_t i = 0; i < 4; i++) {
+    curve_loop_tag(i, 0) =
+        gmsh::model::geo::addCurveLoop({-line_tag(i, 3), line_tag(i, 0), line_tag((i + 1) % 4, 3), -line_tag(i, 1)});
+    curve_loop_tag(i, 1) =
+        gmsh::model::geo::addCurveLoop({-line_tag(i, 4), line_tag(i, 1), line_tag((i + 1) % 4, 4), -line_tag(i, 2)});
   }
-  for (std::size_t i = 1; i < cylinder_point_tag.size(); i++) {
-    cylinder_line_tag.emplace_back(gmsh::model::geo::addCircleArc(
-        cylinder_point_tag[i], cylinder_point_tag[0], cylinder_point_tag[i % (cylinder_point_tag.size() - 1) + 1]));
+  for (std::ptrdiff_t i = 0; i < 4; i++) {
+    plane_surface_tag(i, 0) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i, 0)});
+    plane_surface_tag(i, 1) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i, 1)});
   }
-  const int farfield_line_loop = gmsh::model::geo::addCurveLoop(farfield_line_tag);
-  const int cylinder_line_loop = gmsh::model::geo::addCurveLoop(cylinder_line_tag);
-  const int cylinder_plane_surface = gmsh::model::geo::addPlaneSurface({farfield_line_loop, cylinder_line_loop});
+  for (std::ptrdiff_t i = 0; i < 4; i++) {
+    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 0), 10);
+    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 1), 10);
+    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 2), 10);
+    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 3), 6, "Progression", -1.1);
+    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 4), 8, "Progression", -1.2);
+  }
+  for (std::ptrdiff_t i = 0; i < 4; i++) {
+    gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i, 0));
+    gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i, 1));
+    gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i, 1));
+  }
   gmsh::model::geo::synchronize();
-  std::vector<double> cylinder_line_tag_double_cast{cylinder_line_tag.begin(), cylinder_line_tag.end()};
-  const int cylinder_boundary_layer = gmsh::model::mesh::field::add("BoundaryLayer");
-  gmsh::model::mesh::field::setNumbers(cylinder_boundary_layer, "CurvesList", cylinder_line_tag_double_cast);
-  gmsh::model::mesh::field::setNumber(cylinder_boundary_layer, "Size", 0.05);
-  gmsh::model::mesh::field::setNumber(cylinder_boundary_layer, "Ratio", 1.05);
-  gmsh::model::mesh::field::setNumber(cylinder_boundary_layer, "Quads", 1);
-  gmsh::model::mesh::field::setNumber(cylinder_boundary_layer, "Thickness", 0.4);
-  gmsh::model::mesh::field::setAsBoundaryLayer(cylinder_boundary_layer);
-  gmsh::model::addPhysicalGroup(1, farfield_line_tag, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(1, cylinder_line_tag, -1, "bc-2");
-  gmsh::model::addPhysicalGroup(2, {cylinder_plane_surface}, -1, "vc-1");
+  for (std::ptrdiff_t i = 0; i < 4; i++) {
+    physical_group_tag[0].emplace_back(line_tag(i, 0));
+    physical_group_tag[1].emplace_back(line_tag(i, 2));
+    physical_group_tag[2].emplace_back(plane_surface_tag(i, 0));
+    physical_group_tag[2].emplace_back(plane_surface_tag(i, 1));
+  }
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[0], -1, "bc-1");
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[1], -1, "bc-2");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
-  gmsh::write(kProjectDirectory / "cylinder_2d.msh");
+  gmsh::write(kExampleDirectory / "cylinder_2d.msh");
 }
 
 void generateMeshShell(){};
@@ -80,14 +116,16 @@ void generateMeshShell(){};
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system(generateMesh, kProjectDirectory / "cylinder_2d.msh");
+  SubrosaDG::System<SimulationControl> system(generateMesh, kExampleDirectory / "cylinder_2d.msh");
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-    return Eigen::Vector<SubrosaDG::Real, 5>{1.4, 0.38, 0.0, 1.0, 1.0};
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.38, 0.0, 1.0};
   });
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::CharacteristicFarfield>("bc-1", {1.4, 0.38, 0.0, 1.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::NoSlipWall>("bc-2");
-  system.setTimeIntegration(false, 1, 1.0, 1e-10);
-  system.setViewConfig(-1, kProjectDirectory, "cylinder_2d");
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::RiemannFarfield>("bc-1", {1.4, 0.38, 0.0, 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::AdiabaticFreeSlipWall>("bc-2");
+  system.setTimeIntegration(false, 1000, 1.0, 1e-10);
+  system.setViewConfig(-1, kExampleDirectory, "cylinder_2d",
+                       {SubrosaDG::ViewElementVariable::Density, SubrosaDG::ViewElementVariable::Pressure,
+                        SubrosaDG::ViewElementVariable::MachNumber});
   system.solve();
   return EXIT_SUCCESS;
 }

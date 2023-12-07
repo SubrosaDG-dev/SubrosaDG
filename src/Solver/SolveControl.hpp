@@ -92,9 +92,9 @@ struct ElementSolver {
       int step, const ElementMesh<ElementTrait>& element_mesh,
       const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
 
-  inline void calculateElementAbsoluteError(
+  inline void calculateElementRelativeError(
       const ElementMesh<ElementTrait>& element_mesh,
-      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& absolute_error);
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error);
 
   inline void writeElementRawBinary(std::fstream& fout) const;
 };
@@ -141,7 +141,7 @@ struct Solver<SimulationControl, 2> {
   ElementSolver<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
                 SimulationControl::kEquationModel>
       quadrangle_;
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> absolute_error_;
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
 
   inline void initializeSolver(
       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
@@ -175,13 +175,14 @@ struct Solver<SimulationControl, 2> {
       int step, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
       const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
 
-  inline void stepTime(int step, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-                       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-                       const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-                           boundary_condition,
-                       const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+  inline void stepSolver(
+      int step, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
+          boundary_condition,
+      const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
 
-  inline void calculateAbsoluteError(const Mesh<SimulationControl, SimulationControl::kDimension>& mesh);
+  inline void calculateRelativeError(const Mesh<SimulationControl, SimulationControl::kDimension>& mesh);
 
   inline void writeRawBinary(std::fstream& fout) const;
 };

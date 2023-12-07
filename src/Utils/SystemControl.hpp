@@ -12,25 +12,16 @@
 
 #ifndef SUBROSA_DG_SYSTEM_CONTROL_HPP_
 #define SUBROSA_DG_SYSTEM_CONTROL_HPP_
-
-#ifdef SUBROSA_DG_WITH_OPENMP
-#include <omp.h>
-#endif  // SUBROSA_DG_WITH_OPENMP
-
-#include <fmt/core.h>
-#include <gmsh.h>
-
 #include <Eigen/Core>
 #include <filesystem>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <tqdm.hpp>
 #include <unordered_map>
+#include <vector>
 
-#include "Cmake.hpp"
 #include "Mesh/ReadControl.hpp"
 #include "Solver/BoundaryCondition.hpp"
 #include "Solver/SolveControl.hpp"
@@ -38,12 +29,16 @@
 #include "Solver/TimeIntegration.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Enum.hpp"
+#include "Utils/Environment.hpp"
+#include "View/CommandLine.hpp"
 #include "View/IOControl.hpp"
 
 namespace SubrosaDG {
 
 template <typename SimulationControl>
 struct System {
+  Environment environment_;
+  CommandLine<SimulationControl> command_line_;
   Mesh<SimulationControl, SimulationControl::kDimension> mesh_;
   ThermalModel<SimulationControl, SimulationControl::kEquationModel> thermal_model_;
   std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>> boundary_condition_;
@@ -53,18 +48,14 @@ struct System {
   Solver<SimulationControl, SimulationControl::kDimension> solver_;
   View<SimulationControl, SimulationControl::kViewModel> view_;
 
+  inline void setCommandLineConfig(const std::filesystem::path& output_directory);
+
   template <BoundaryCondition BoundaryConditionType>
   inline void addBoundaryCondition(const std::string&);
 
   template <BoundaryCondition BoundaryConditionType>
   inline void addBoundaryCondition(const std::string&,
                                    const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>&);
-
-  template <>
-  inline void addBoundaryCondition<BoundaryCondition::NoSlipWall>(const std::string& boundary_condition_name) {
-    this->boundary_condition_[boundary_condition_name] =
-        std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::NoSlipWall>>();
-  }
 
   template <>
   inline void addBoundaryCondition<BoundaryCondition::NormalFarfield>(
@@ -76,12 +67,34 @@ struct System {
   }
 
   template <>
+  inline void addBoundaryCondition<BoundaryCondition::RiemannFarfield>(
+      const std::string& boundary_condition_name,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
+    this->boundary_condition_[boundary_condition_name] =
+        std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::RiemannFarfield>>();
+    this->boundary_condition_[boundary_condition_name]->variable_.primitive_ = boundary_condition_variable;
+  }
+
+  template <>
   inline void addBoundaryCondition<BoundaryCondition::CharacteristicFarfield>(
       const std::string& boundary_condition_name,
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
     this->boundary_condition_[boundary_condition_name] =
         std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::CharacteristicFarfield>>();
     this->boundary_condition_[boundary_condition_name]->variable_.primitive_ = boundary_condition_variable;
+  }
+
+  template <>
+  inline void addBoundaryCondition<BoundaryCondition::AdiabaticNoSlipWall>(const std::string& boundary_condition_name) {
+    this->boundary_condition_[boundary_condition_name] =
+        std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticNoSlipWall>>();
+  }
+
+  template <>
+  inline void addBoundaryCondition<BoundaryCondition::AdiabaticFreeSlipWall>(
+      const std::string& boundary_condition_name) {
+    this->boundary_condition_[boundary_condition_name] =
+        std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticFreeSlipWall>>();
   }
 
   inline void addInitialCondition(const std::string& initial_condition_name,
@@ -116,17 +129,20 @@ struct System {
                                  Real tolerance);
 
   inline void setViewConfig(int io_interval, const std::filesystem::path& output_directory,
-                            const std::string& output_file_name_prefix);
-
-  [[nodiscard]] inline std::string getProgressBarInfo() const;
+                            const std::string& output_file_name_prefix,
+                            const std::vector<ViewElementVariable>& view_element_variable);
 
   inline void solve();
 
   explicit inline System(const std::function<void()>& generate_mesh_function,
                          const std::filesystem::path& mesh_file_path);
-
-  inline ~System();
 };
+
+template <typename SimulationControl>
+inline void System<SimulationControl>::setCommandLineConfig(const std::filesystem::path& output_directory) {
+  this->command_line_.output_directory_ = output_directory;
+  this->command_line_.initializeCommandLine();
+}
 
 template <typename SimulationControl>
 inline void System<SimulationControl>::setTimeIntegration(const bool is_steady, const int iteration_number,
@@ -141,7 +157,9 @@ inline void System<SimulationControl>::setTimeIntegration(const bool is_steady, 
 template <typename SimulationControl>
 inline void System<SimulationControl>::setViewConfig(const int io_interval,
                                                      const std::filesystem::path& output_directory,
-                                                     const std::string& output_file_name_prefix) {
+                                                     const std::string& output_file_name_prefix,
+                                                     const std::vector<ViewElementVariable>& view_element_variable) {
+  this->setCommandLineConfig(output_directory);
   if (io_interval <= 0) {
     this->view_.io_interval_ = this->time_integration_.iteration_number_;
   } else {
@@ -149,64 +167,44 @@ inline void System<SimulationControl>::setViewConfig(const int io_interval,
   }
   this->view_.output_directory_ = output_directory;
   this->view_.output_file_name_prefix_ = output_file_name_prefix;
+  this->view_.view_element_variable_ = view_element_variable;
   this->view_.initializeViewRawBinary();
-}
-
-template <typename SimulationControl>
-[[nodiscard]] inline std::string System<SimulationControl>::getProgressBarInfo() const {
-  if constexpr (SimulationControl::kDimension == 2) {
-    return fmt::format("Residual: rho: {:.4e}, rhou: {:.4e}, rhov: {:.4e}, rhoE: {:.4e}",
-                       this->solver_.absolute_error_(0), this->solver_.absolute_error_(1),
-                       this->solver_.absolute_error_(2), this->solver_.absolute_error_(3));
-  }
 }
 
 template <typename SimulationControl>
 inline void System<SimulationControl>::solve() {
   this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
                                  this->initial_condition_);
-  Tqdm::ProgressBar progress_bar(this->time_integration_.iteration_number_);
+  Tqdm::ProgressBar solver_progress_bar(this->time_integration_.iteration_number_, 12);
   for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
     this->solver_.copyBasisFunctionCoefficient();
     this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
     for (int j = 0; j < this->time_integration_.kStep; j++) {
-      this->solver_.stepTime(j, this->mesh_, this->thermal_model_, this->boundary_condition_, this->time_integration_);
+      this->solver_.stepSolver(j, this->mesh_, this->thermal_model_, this->boundary_condition_,
+                               this->time_integration_);
     }
     if (i % this->view_.io_interval_ == 0) {
       this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
     }
-    this->solver_.calculateAbsoluteError(this->mesh_);
-    progress_bar << this->getProgressBarInfo();
-    progress_bar.update();
+    this->solver_.calculateRelativeError(this->mesh_);
+    solver_progress_bar << this->command_line_.updateError(i, this->solver_.relative_error_);
+    solver_progress_bar.update();
   }
-  this->view_.write(this->time_integration_.iteration_number_, this->mesh_, this->thermal_model_);
+  std::cout << '\n';
+  this->view_.initializeView();
+  Tqdm::ProgressBar view_progress_bar(this->time_integration_.iteration_number_ / this->view_.io_interval_, 1);
+  for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
+    if (i % this->view_.io_interval_ == 0) {
+      this->view_.stepView(i, this->mesh_, this->thermal_model_);
+      view_progress_bar.update();
+    }
+  }
 }
 
 template <typename SimulationControl>
 inline System<SimulationControl>::System(const std::function<void()>& generate_mesh_function,
                                          const std::filesystem::path& mesh_file_path)
-    : mesh_(generate_mesh_function, mesh_file_path) {
-  std::cout << '\n';
-  std::cout << "SubrosaDG Info:" << '\n';
-  std::cout << fmt::format("Version: {}", kSubrosaDGVersionString) << '\n';
-#ifdef SUBROSA_DG_DEVELOP
-  std::cout << "Build type: Debug" << '\n';
-#else
-  std::cout << "Build type: Release" << '\n';
-#endif  // SUBROSA_DG_DEVELOP
-#ifdef SUBROSA_DG_WITH_OPENMP
-  omp_set_num_threads(kNumberOfPhysicalCores);
-  std::cout << fmt::format("Number of physical cores: {}", kNumberOfPhysicalCores) << "\n\n";
-#else
-  std::cout << "Number of physical cores: 1"
-            << "\n\n";
-#endif  // SUBROSA_DG_WITH_OPENMP
-}
-
-template <typename SimulationControl>
-inline System<SimulationControl>::~System() {
-  gmsh::finalize();
-}
+    : mesh_(generate_mesh_function, mesh_file_path) {}
 
 }  // namespace SubrosaDG
 

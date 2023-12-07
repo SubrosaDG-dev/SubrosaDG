@@ -21,11 +21,12 @@
 namespace SubrosaDG {
 
 inline constexpr Real kPi = std::numbers::pi_v<Real>;
+inline consteval Real toRadian(Real degree) { return degree * kPi / 180.0; }
 inline constexpr Real kEuler = std::numbers::e_v<Real>;
 
 inline constexpr Real kRealMax = std::numeric_limits<Real>::max();
-inline constexpr Real kEpsilon = std::numeric_limits<Real>::epsilon();
-inline constexpr int kSignificantDigits = std::numeric_limits<Real>::digits10;
+inline constexpr Real kRealEpsilon = std::numeric_limits<Real>::epsilon();
+inline constexpr int kRealSignificantDigits = std::numeric_limits<Real>::digits10;
 
 }  // namespace SubrosaDG
 

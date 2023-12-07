@@ -146,45 +146,52 @@ getSubElementConnectivity() {
   // clang-format off
   if constexpr (ElementType == Element::Line) {
     if constexpr (P == PolynomialOrder::P1) {
-      return {0,
-              1};
+      return {0, 1};
     } else if constexpr (P == PolynomialOrder::P2) {
       return {0, 2,
               2, 1};
     } else if constexpr (P == PolynomialOrder::P3) {
-      return {0, 2, 3,
-              2, 3, 1};
+      return {0, 2,
+              2, 3,
+              3, 1};
     }
   } else if constexpr (ElementType == Element::Triangle) {
     if constexpr (P == PolynomialOrder::P1) {
-      return {0,
-              1,
-              2};
+      return {0, 1, 2};
     } else if constexpr (P == PolynomialOrder::P2) {
-      return {0, 3, 3, 5,
-              3, 4, 1, 4,
-              5, 5, 4, 2};
+      return {0, 3, 5,
+              3, 4, 5,
+              3, 1, 4,
+              5, 4, 2};
     } else if constexpr (P == PolynomialOrder::P3) {
-      return {0, 3, 3, 4, 4, 8, 9, 9, 7,
-              3, 9, 4, 5, 1, 9, 6, 5, 6,
-              8, 8, 9, 9, 5, 7, 7, 6, 2};
+      return {0, 3, 8,
+              3, 9, 8,
+              3, 4, 9,
+              4, 5, 9,
+              4, 1, 5,
+              8, 9, 7,
+              9, 6, 7,
+              9, 5, 6,
+              7, 6, 2};
     }
   } else if constexpr (ElementType == Element::Quadrangle) {
     if constexpr (P == PolynomialOrder::P1) {
-      return {0,
-              1,
-              2,
-              3};
+      return {0, 1, 2, 3};
     } else if constexpr (P == PolynomialOrder::P2) {
-      return {0, 4, 7, 8,
-              4, 1, 8, 5,
-              8, 5, 6, 2,
-              7, 8, 3, 6};
+      return {0, 4, 8, 7,
+              4, 1, 5, 8,
+              7, 8, 6, 3,
+              8, 5, 2, 6};
     } else if constexpr (P == PolynomialOrder::P3) {
-      return {0,  4,  5,  11, 12, 13, 10, 15, 14,
-              4,  5,  1,  12, 13,  6, 15, 14,  7,
-              12, 13, 6,  15, 14,  7,  9,  8,  2,
-              11, 12, 13, 10, 15, 14,  3,  9,  8};
+      return {0,  4,  12, 11,
+              4,  5,  13, 12,
+              5,  1,  6,  13,
+              11, 12, 15, 10,
+              12, 13, 14, 15,
+              13, 6,  7,  14,
+              10, 15, 9,  3,
+              15, 14, 8,  9,
+              14, 7,  2,  8};
     }
   }
   // clang-format on
@@ -280,9 +287,9 @@ inline static consteval int getComputationalVariableNumber() {
 template <int Dimension, EquationModel EquationModelType>
 inline static constexpr int getPrimitiveVariableNumber() {
   if constexpr (EquationModelType == EquationModel::Euler) {
-    return Dimension + 3;
+    return Dimension + 2;
   } else if constexpr (EquationModelType == EquationModel::NS) {
-    return Dimension + 3;
+    return Dimension + 2;
   }
 }
 
@@ -307,11 +314,11 @@ struct ElementTraitBase {
   inline static constexpr std::array<Real, kDimension * kAllNodeNumber> kAllNodeCoordinate{
       getElementNodeCoordinate<ElementType, P>()};
   inline static constexpr int kAdjacencyNumber{getElementAdjacencyNumber<ElementType>()};
+  inline static constexpr int kSubNumber{getElementSubNumber<ElementType, P>()};
 };
 
 template <Element ElementType, PolynomialOrder P>
 struct AdjacencyElementTrait : ElementTraitBase<ElementType, P> {
-  inline static constexpr int kSubNumber{getElementSubNumber<ElementType, P>()};
   inline static constexpr int kQuadratureOrder{getAdjacencyElementGaussianQuadratureOrder<P>()};
   inline static constexpr int kQuadratureNumber{getAdjacencyElementGaussianQuadratureNumber<ElementType, P>()};
 };
@@ -319,7 +326,6 @@ struct AdjacencyElementTrait : ElementTraitBase<ElementType, P> {
 template <Element ElementType, PolynomialOrder P>
 struct ElementTrait : ElementTraitBase<ElementType, P> {
   inline static constexpr int kAdjacencyNodeNumber{getElementAdjacencyNodeNumber<ElementType, P>()};
-  inline static constexpr int kSubNumber{getElementSubNumber<ElementType, P>()};
   inline static constexpr int kBasisFunctionNumber{getElementBasisFunctionNumber<ElementType, P>()};
   inline static constexpr int kQuadratureOrder{getElementGaussianQuadratureOrder<P>()};
   inline static constexpr int kQuadratureNumber{getElementGaussianQuadratureNumber<ElementType, P>()};
