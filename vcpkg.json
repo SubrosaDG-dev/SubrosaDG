@@ -18,6 +18,7 @@
                 "spdlog",
                 "magic-enum",
                 "eigen3",
+                "zlib",
                 "dbg-macro"
             ]
         },

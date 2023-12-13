@@ -98,15 +98,15 @@ inline CommandLine<SimulationControl>::CommandLine() {
   std::cout << fmt::format("Version: {}", kSubrosaDGVersionString) << '\n';
 #ifdef SUBROSA_DG_DEVELOP
   std::cout << "Build type: Debug" << '\n';
-#else
+#else   // SUBROSA_DG_DEVELOP
   std::cout << "Build type: Release" << '\n';
 #endif  // SUBROSA_DG_DEVELOP
-#ifdef SUBROSA_DG_WITH_OPENMP
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
   std::cout << fmt::format("Number of physical cores: {}", kNumberOfPhysicalCores) << "\n\n";
-#else
+#else   // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   std::cout << "Number of physical cores: 1"
             << "\n\n";
-#endif  // SUBROSA_DG_WITH_OPENMP
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   std::cout << "Gmsh Info:" << '\n';
   std::string info;
   gmsh::option::getString("General.BuildInfo", info);

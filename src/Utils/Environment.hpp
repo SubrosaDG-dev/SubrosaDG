@@ -13,13 +13,13 @@
 #ifndef SUBROSA_DG_ENVIRONMENT_HPP_
 #define SUBROSA_DG_ENVIRONMENT_HPP_
 
-#ifdef SUBROSA_DG_WITH_OPENMP
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #include <omp.h>
-#endif  // SUBROSA_DG_WITH_OPENMP
-
-#include <gmsh.h>
 
 #include "Cmake.hpp"
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+
+#include <gmsh.h>
 
 namespace SubrosaDG {
 
@@ -31,10 +31,10 @@ struct Environment {
 
 inline Environment::Environment() {
   gmsh::initialize();
-#ifdef SUBROSA_DG_WITH_OPENMP
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
   omp_set_num_threads(kNumberOfPhysicalCores);
   gmsh::option::setNumber("General.NumThreads", kNumberOfPhysicalCores);
-#endif  // SUBROSA_DG_WITH_OPENMP
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
 }
 
 inline Environment::~Environment() { gmsh::finalize(); }

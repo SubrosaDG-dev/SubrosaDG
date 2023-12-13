@@ -13,28 +13,21 @@
 #ifndef SUBROSA_DG_BASIC_DATA_TYPE_HPP_
 #define SUBROSA_DG_BASIC_DATA_TYPE_HPP_
 
+// IWYU pragma: begin_keep
+
+#include <dbg.h>
+
+#include <iostream>
+
+// IWYU pragma: end_keep
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <functional>
 #include <memory>
-
-namespace std {
-
-template <typename T, std::size_t N>
-struct hash<std::array<T, N>> {
-  std::size_t operator()(const std::array<T, N>& arr) const {
-    std::array<T, N> sorted_arr = arr;
-    std::sort(sorted_arr.begin(), sorted_arr.end());
-    std::size_t hash_value = 0;
-    for (const auto& element : sorted_arr) {
-      hash_value ^= std::hash<T>()(element) + 0x9e3779b9 + (hash_value << 6) + (hash_value >> 2);
-    }
-    return hash_value;
-  }
-};
-
-}  // namespace std
+#include <unordered_map>
+#include <vector>
 
 namespace SubrosaDG {
 
@@ -49,15 +42,52 @@ using Real = double;
 
 }  // namespace SubrosaDG
 
+// NOLINTBEGIN
+
 template <typename T, std::size_t N>
-struct UnorderedArray : std::array<T, N> {};
+struct unordered_array : std::array<T, N> {};
+
+template <typename T>
+class ordered_set {
+ private:
+  std::vector<T> vec_;
+  std::unordered_map<T, std::size_t> map_;
+
+ public:
+  typename std::vector<T>::iterator begin() { return vec_.begin(); }
+  typename std::vector<T>::iterator end() { return vec_.end(); }
+
+  typename std::vector<T>::const_iterator begin() const { return vec_.cbegin(); }
+  typename std::vector<T>::const_iterator end() const { return vec_.cend(); }
+
+  void emplace_back(const T& value) {
+    if (!map_.contains(value)) {
+      vec_.emplace_back(value);
+      map_[value] = vec_.size() - 1;
+    }
+  }
+
+  std::size_t size() const { return vec_.size(); }
+
+  std::size_t find_index(const T& value) const {
+    auto it = map_.find(value);
+    if (it != map_.end()) {
+      return it->second;
+    }
+    return static_cast<std::size_t>(-1);
+  }
+
+  T& operator[](std::size_t index) { return vec_[index]; }
+
+  const T& operator[](std::size_t index) const { return vec_[index]; }
+};
 
 namespace std {
 
 template <typename T, std::size_t N>
-struct hash<UnorderedArray<T, N>> {
-  std::size_t operator()(const UnorderedArray<T, N>& arr) const {
-    UnorderedArray<T, N> sorted_arr = arr;
+struct hash<unordered_array<T, N>> {
+  std::size_t operator()(const unordered_array<T, N>& arr) const {
+    unordered_array<T, N> sorted_arr = arr;
     std::sort(sorted_arr.begin(), sorted_arr.end());
     std::size_t hash_value = 0;
     for (const auto& element : sorted_arr) {
@@ -68,10 +98,10 @@ struct hash<UnorderedArray<T, N>> {
 };
 
 template <typename T, std::size_t N>
-struct equal_to<UnorderedArray<T, N>> {
-  bool operator()(const UnorderedArray<T, N>& arr1, const UnorderedArray<T, N>& arr2) const {
-    UnorderedArray<T, N> sorted_arr1 = arr1;
-    UnorderedArray<T, N> sorted_arr2 = arr2;
+struct equal_to<unordered_array<T, N>> {
+  bool operator()(const unordered_array<T, N>& arr1, const unordered_array<T, N>& arr2) const {
+    unordered_array<T, N> sorted_arr1 = arr1;
+    unordered_array<T, N> sorted_arr2 = arr2;
     std::sort(sorted_arr1.begin(), sorted_arr1.end());
     std::sort(sorted_arr2.begin(), sorted_arr2.end());
     return sorted_arr1 == sorted_arr2;
@@ -79,5 +109,7 @@ struct equal_to<UnorderedArray<T, N>> {
 };
 
 }  // namespace std
+
+// NOLINTEND
 
 #endif  // SUBROSA_DG_BASIC_DATA_TYPE_HPP_

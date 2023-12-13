@@ -42,7 +42,6 @@
 #include "Utils/Constant.hpp"
 #include "Utils/Enum.hpp"
 #include "Utils/Environment.hpp"
-#include "Utils/Macro.hpp"
 #include "Utils/SystemControl.hpp"
 #include "Utils/Version.hpp"
 #include "View/CommandLine.hpp"

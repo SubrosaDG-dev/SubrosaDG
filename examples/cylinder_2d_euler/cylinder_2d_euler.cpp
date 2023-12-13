@@ -17,7 +17,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdlib>
-#include <deque>
 #include <filesystem>
 #include <functional>
 #include <vector>
@@ -29,9 +28,9 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
 
 using SimulationControl =
     SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P1, SubrosaDG::MeshModel::TriangleQuadrangle,
-                                      SubrosaDG::MeshHighOrderModel::Straight, SubrosaDG::ThermodynamicModel::ConstantE,
-                                      SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::LaxFriedrichs,
-                                      SubrosaDG::TimeIntegration::ForwardEuler, SubrosaDG::ViewModel::Dat>;
+                                      SubrosaDG::ThermodynamicModel::ConstantE, SubrosaDG::EquationOfState::IdealGas,
+                                      SubrosaDG::ConvectiveFlux::LaxFriedrichs, SubrosaDG::TimeIntegration::SSPRK3,
+                                      SubrosaDG::ViewModel::Vtu>;
 
 void generateMesh() {
   gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
@@ -43,10 +42,10 @@ void generateMesh() {
                                 0.0, -5.0, 0.0,
                                 5.0,  0.0, 0.0,
                                 0.0,  5.0, 0.0;
-  separation_point_coordinate << -2.0,  0.0, 0.0,
-                                  0.0, -2.0, 0.0,
-                                  2.0,  0.0, 0.0,
-                                  0.0,  2.0, 0.0;
+  separation_point_coordinate << -1.5,  0.0, 0.0,
+                                  0.0, -1.5, 0.0,
+                                  1.5,  0.0, 0.0,
+                                  0.0,  1.5, 0.0;
   cylinder_point_coordinate << -0.5,  0.0, 0.0,
                                 0.0, -0.5, 0.0,
                                 0.5,  0.0, 0.0,
@@ -85,11 +84,11 @@ void generateMesh() {
     plane_surface_tag(i, 1) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i, 1)});
   }
   for (std::ptrdiff_t i = 0; i < 4; i++) {
-    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 0), 10);
-    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 1), 10);
-    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 2), 10);
-    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 3), 6, "Progression", -1.1);
-    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 4), 8, "Progression", -1.2);
+    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 0), 16);
+    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 1), 16);
+    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 2), 16);
+    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 3), 8, "Progression", -1.2);
+    gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(i, 4), 12, "Progression", -1.2);
   }
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i, 0));
@@ -118,14 +117,17 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system(generateMesh, kExampleDirectory / "cylinder_2d.msh");
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.38, 0.0, 1.0};
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.1, 0.0, 1.0};
   });
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::RiemannFarfield>("bc-1", {1.4, 0.38, 0.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::AdiabaticFreeSlipWall>("bc-2");
-  system.setTimeIntegration(false, 1000, 1.0, 1e-10);
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::RiemannFarfield>("bc-1", {1.4, 0.1, 0.0, 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::AdiabaticWall>("bc-2");
+  system.setTimeIntegration(false, 1, 3.0, 1e-10);
   system.setViewConfig(-1, kExampleDirectory, "cylinder_2d",
-                       {SubrosaDG::ViewElementVariable::Density, SubrosaDG::ViewElementVariable::Pressure,
-                        SubrosaDG::ViewElementVariable::MachNumber});
+                       {SubrosaDG::ViewConfig::HighOrderReconstruction, SubrosaDG::ViewConfig::SolverSmoothness});
+  system.addViewVariable({SubrosaDG::ViewVariable::Density, SubrosaDG::ViewVariable::Velocity,
+                          SubrosaDG::ViewVariable::Pressure, SubrosaDG::ViewVariable::Temperature,
+                          SubrosaDG::ViewVariable::MachNumber});
   system.solve();
+  system.view();
   return EXIT_SUCCESS;
 }

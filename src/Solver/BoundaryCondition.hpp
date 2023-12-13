@@ -106,8 +106,9 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::RiemannFarfie
         const Real farfield_internal_energy = thermal_model.calculateInternalEnergyFromRiemannInvariantPart(
             (right_riemann_invariant - left_riemann_invariant) / 2.0);
         const Real farfield_density = thermal_model.calculateDensityFromEntropyInternalEnergy(
-            thermal_model.calculateEntropy(this->variable_.template get<ComputationalVariable::Density>(),
-                                           this->variable_.template get<ComputationalVariable::Pressure>()),
+            thermal_model.calculateEntropyFromDensityPressure(
+                this->variable_.template get<ComputationalVariable::Density>(),
+                this->variable_.template get<ComputationalVariable::Pressure>()),
             farfield_internal_energy);
         const Real farfield_pressure =
             thermal_model.calculatePressureFormDensityInternalEnergy(farfield_density, farfield_internal_energy);
@@ -135,7 +136,7 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::RiemannFarfie
         const Real farfield_internal_energy = thermal_model.calculateInternalEnergyFromRiemannInvariantPart(
             (right_riemann_invariant - left_riemann_invariant) / 2.0);
         const Real farfield_density = thermal_model.calculateDensityFromEntropyInternalEnergy(
-            thermal_model.calculateEntropy(
+            thermal_model.calculateEntropyFromDensityPressure(
                 left_quadrature_node_variable.template get<ComputationalVariable::Density>(),
                 left_quadrature_node_variable.template get<ComputationalVariable::Pressure>()),
             farfield_internal_energy);
@@ -256,32 +257,9 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::Characteristi
 };
 
 template <typename SimulationControl>
-struct BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticNoSlipWall>
+struct BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticWall>
     : BoundaryConditionCRTP<SimulationControl,
-                            BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticNoSlipWall>> {
-  inline void calculateBoundaryConvectiveFluxImpl(
-      [[maybe_unused]] const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl>& left_quadrature_node_variable,
-      Flux<SimulationControl, SimulationControl::kEquationModel>& flux) const {
-    Variable<SimulationControl> wall_variable;
-    wall_variable.template set<ComputationalVariable::Density>(left_quadrature_node_variable);
-    wall_variable.template set<ComputationalVariable::VelocityX>(0.0);
-    wall_variable.template set<ComputationalVariable::VelocityY>(0.0);
-    if constexpr (SimulationControl::kDimension == 3) {
-      wall_variable.template set<ComputationalVariable::VelocityZ>(0.0);
-    }
-    wall_variable.template set<ComputationalVariable::InternalEnergy>(left_quadrature_node_variable);
-    wall_variable.template set<ComputationalVariable::Pressure>(left_quadrature_node_variable);
-    calculateConvectiveVariable(wall_variable, flux.left_convective_);
-    flux.convective_n_.noalias() = flux.left_convective_ * normal_vector;
-  }
-};
-
-template <typename SimulationControl>
-struct BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticFreeSlipWall>
-    : BoundaryConditionCRTP<SimulationControl,
-                            BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticFreeSlipWall>> {
+                            BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticWall>> {
   inline void calculateBoundaryConvectiveFluxImpl(
       [[maybe_unused]] const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
@@ -299,8 +277,23 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticFree
     }
     wall_variable.template set<ComputationalVariable::InternalEnergy>(left_quadrature_node_variable);
     wall_variable.template set<ComputationalVariable::Pressure>(left_quadrature_node_variable);
+    wall_variable.calculateConservedFromComputational();
     calculateConvectiveVariable(wall_variable, flux.left_convective_);
     flux.convective_n_.noalias() = flux.left_convective_ * normal_vector;
+    // Variable<SimulationControl> wall_variable;
+    // const Eigen::Vector<Real, SimulationControl::kDimension> wall_velocity =
+    //     left_quadrature_node_variable.getVelocity() -
+    //     (2.0 * left_quadrature_node_variable.getVelocity().transpose() * normal_vector) * normal_vector;
+    // wall_variable.template set<ComputationalVariable::Density>(left_quadrature_node_variable);
+    // wall_variable.template set<ComputationalVariable::VelocityX>(wall_velocity.x());
+    // wall_variable.template set<ComputationalVariable::VelocityY>(wall_velocity.y());
+    // if constexpr (SimulationControl::kDimension == 3) {
+    //   wall_variable.template set<ComputationalVariable::VelocityZ>(wall_velocity.z());
+    // }
+    // wall_variable.template set<ComputationalVariable::InternalEnergy>(left_quadrature_node_variable);
+    // wall_variable.template set<ComputationalVariable::Pressure>(left_quadrature_node_variable);
+    // wall_variable.calculateConservedFromComputational();
+    // calculateConvectiveFlux(thermal_model, normal_vector, left_quadrature_node_variable, wall_variable, flux);
   }
 };
 

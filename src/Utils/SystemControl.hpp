@@ -85,16 +85,9 @@ struct System {
   }
 
   template <>
-  inline void addBoundaryCondition<BoundaryCondition::AdiabaticNoSlipWall>(const std::string& boundary_condition_name) {
+  inline void addBoundaryCondition<BoundaryCondition::AdiabaticWall>(const std::string& boundary_condition_name) {
     this->boundary_condition_[boundary_condition_name] =
-        std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticNoSlipWall>>();
-  }
-
-  template <>
-  inline void addBoundaryCondition<BoundaryCondition::AdiabaticFreeSlipWall>(
-      const std::string& boundary_condition_name) {
-    this->boundary_condition_[boundary_condition_name] =
-        std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticFreeSlipWall>>();
+        std::make_unique<BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticWall>>();
   }
 
   inline void addInitialCondition(const std::string& initial_condition_name,
@@ -129,10 +122,13 @@ struct System {
                                  Real tolerance);
 
   inline void setViewConfig(int io_interval, const std::filesystem::path& output_directory,
-                            const std::string& output_file_name_prefix,
-                            const std::vector<ViewElementVariable>& view_element_variable);
+                            const std::string& output_file_name_prefix, const std::vector<ViewConfig>& view_config);
+
+  inline void addViewVariable(const std::vector<ViewVariable>& view_variable);
 
   inline void solve();
+
+  inline void view();
 
   explicit inline System(const std::function<void()>& generate_mesh_function,
                          const std::filesystem::path& mesh_file_path);
@@ -158,7 +154,7 @@ template <typename SimulationControl>
 inline void System<SimulationControl>::setViewConfig(const int io_interval,
                                                      const std::filesystem::path& output_directory,
                                                      const std::string& output_file_name_prefix,
-                                                     const std::vector<ViewElementVariable>& view_element_variable) {
+                                                     const std::vector<ViewConfig>& view_config) {
   this->setCommandLineConfig(output_directory);
   if (io_interval <= 0) {
     this->view_.io_interval_ = this->time_integration_.iteration_number_;
@@ -167,8 +163,38 @@ inline void System<SimulationControl>::setViewConfig(const int io_interval,
   }
   this->view_.output_directory_ = output_directory;
   this->view_.output_file_name_prefix_ = output_file_name_prefix;
-  this->view_.view_element_variable_ = view_element_variable;
+  for (const auto& config : view_config) {
+    this->view_.view_config_[config] = true;
+  }
   this->view_.initializeViewRawBinary();
+}
+
+template <typename SimulationControl>
+inline void System<SimulationControl>::addViewVariable(const std::vector<ViewVariable>& view_variable) {
+  for (const auto variable : view_variable) {
+    if (variable == ViewVariable::Velocity) {
+      this->view_.all_view_variable_.emplace_back(ViewVariable::VelocityX);
+      this->view_.all_view_variable_.emplace_back(ViewVariable::VelocityY);
+      if constexpr (SimulationControl::kDimension == 3) {
+        this->view_.all_view_variable_.emplace_back(ViewVariable::VelocityZ);
+      }
+    } else if (variable == ViewVariable::MachNumber) {
+      this->view_.all_view_variable_.emplace_back(ViewVariable::MachNumberX);
+      this->view_.all_view_variable_.emplace_back(ViewVariable::MachNumberY);
+      if constexpr (SimulationControl::kDimension == 3) {
+        this->view_.all_view_variable_.emplace_back(ViewVariable::MachNumberZ);
+      }
+    } else if (variable == ViewVariable::Vorticity) {
+      this->view_.all_view_variable_.emplace_back(ViewVariable::VorticityX);
+      this->view_.all_view_variable_.emplace_back(ViewVariable::VorticityY);
+      if constexpr (SimulationControl::kDimension == 3) {
+        this->view_.all_view_variable_.emplace_back(ViewVariable::VorticityZ);
+      }
+    } else {
+      this->view_.all_view_variable_.emplace_back(variable);
+    }
+    this->view_.primary_view_variable_.emplace_back(variable);
+  }
 }
 
 template <typename SimulationControl>
@@ -191,7 +217,11 @@ inline void System<SimulationControl>::solve() {
     solver_progress_bar.update();
   }
   std::cout << '\n';
-  this->view_.initializeView();
+}
+
+template <typename SimulationControl>
+inline void System<SimulationControl>::view() {
+  this->view_.initializeView(this->mesh_);
   Tqdm::ProgressBar view_progress_bar(this->time_integration_.iteration_number_ / this->view_.io_interval_, 1);
   for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
     if (i % this->view_.io_interval_ == 0) {

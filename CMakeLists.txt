@@ -67,7 +67,7 @@ if(SUBROSA_DG_WITH_MPI)
 endif()
 
 # set project
-project(subrosa_dg LANGUAGES CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
+project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
 
 # message error if build in source dir
 if(${PROJECT_SOURCE_DIR} STREQUAL ${PROJECT_BINARY_DIR})
@@ -104,6 +104,7 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # query the system cores number
 cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
+math(EXPR NUMBER_OF_PHYSICAL_CORES "${NUMBER_OF_PHYSICAL_CORES} / 2")
 message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 
 # check cxx20 support
@@ -313,10 +314,15 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_path(TQDM_DIR NAMES tqdm.hpp PATHS ${PROJECT_SOURCE_DIR}/libs/tqdm-cpp)
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${TQDM_DIR})
 
+#find vtu11
+find_path(VTU11_DIR NAMES vtu11-cpp17.hpp PATHS ${PROJECT_SOURCE_DIR}/libs/vtu11)
+list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${VTU11_DIR})
+
 # find dbg-macro
-if(SUBROSA_DG_DEVELOP)
-    find_path(DBG_MACRO_DIR NAMES dbg.h)
-    list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${DBG_MACRO_DIR})
+find_path(DBG_MACRO_DIR NAMES dbg.h)
+list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${DBG_MACRO_DIR})
+if(NOT SUBROSA_DG_DEVELOP)
+list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS DBG_MACRO_DISABLE)
 endif()
 
 # find fmt
@@ -330,6 +336,11 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES spdlog::spdlog)
 # find magic_enum
 find_package(magic_enum CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES magic_enum::magic_enum)
+
+# find zlib
+find_package(ZLIB REQUIRED)
+list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS VTU11_ENABLE_ZLIB)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES ZLIB::ZLIB)
 
 # find eigen3
 find_package(Eigen3 CONFIG REQUIRED)

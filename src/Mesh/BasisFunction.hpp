@@ -63,7 +63,7 @@ inline void ElementBasisFunction<ElementTrait>::getElementAdjacencyBasisFunction
   Eigen::Matrix<Real, 3, ElementTrait::kAdjacencyQuadratureNumber> adjacency_local_coord;
   adjacency_local_coord.setZero();
   Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kBasicNodeNumber> basic_node_coord{
-      ElementTrait::kBasicNodeCoordinate.data()};
+      getElementNodeCoordinate<ElementTrait::kElementType, PolynomialOrder::P1>().data()};
   for (Isize i = 0; i < ElementTrait::kAdjacencyNumber; i++) {
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
       adjacency_local_coord(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>),

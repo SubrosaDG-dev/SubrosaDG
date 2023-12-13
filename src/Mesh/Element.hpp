@@ -29,8 +29,9 @@ namespace SubrosaDG {
 template <typename ElementTrait>
 inline void ElementMesh<ElementTrait>::getElementMesh(
     const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
-    const std::unordered_map<Isize, std::string>& gmsh_tag_to_physical_name,
-    std::unordered_map<Isize, Isize>& gmsh_tag_to_index) {
+    std::unordered_map<std::string, PhysicalGroupInformation>& physical_group_information,
+    std::unordered_map<Isize, PerElementInformation>& gmsh_tag_to_element_information,
+    Eigen::Vector<Isize, Eigen::Dynamic>& node_element_number) {
   std::vector<std::size_t> element_tags;
   std::vector<std::size_t> node_tags;
   gmsh::model::mesh::getElementsByType(ElementTrait::kGmshTypeNumber, element_tags, node_tags);
@@ -38,12 +39,28 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
   this->element_.resize(this->number_);
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).gmsh_tag_ = static_cast<Isize>(element_tags[static_cast<Usize>(i)]);
-    gmsh_tag_to_index[static_cast<Isize>(element_tags[static_cast<Usize>(i)])] = i;
-    this->element_(i).gmsh_physical_name_ = gmsh_tag_to_physical_name.at(this->element_(i).gmsh_tag_);
+    this->element_(i).gmsh_physical_name_ =
+        gmsh_tag_to_element_information[this->element_(i).gmsh_tag_].gmsh_physical_name_;
+    this->element_(i).element_index_ = i;
+    physical_group_information[this->element_(i).gmsh_physical_name_].element_number_++;
+    physical_group_information[this->element_(i).gmsh_physical_name_].element_gmsh_type_.emplace_back(
+        ElementTrait::kGmshTypeNumber);
+    physical_group_information[this->element_(i).gmsh_physical_name_].element_gmsh_tag_.emplace_back(
+        this->element_(i).gmsh_tag_);
+    physical_group_information[this->element_(i).gmsh_physical_name_].basic_node_number_ +=
+        ElementTrait::kBasicNodeNumber;
+    physical_group_information[this->element_(i).gmsh_physical_name_].all_node_number_ += ElementTrait::kAllNodeNumber;
+    gmsh_tag_to_element_information[this->element_(i).gmsh_tag_].element_index_ = i;
+    for (Isize j = 0; j < ElementTrait::kBasicNodeNumber; j++) {
+      const auto node_tag = static_cast<Isize>(node_tags[static_cast<Usize>(i * ElementTrait::kAllNodeNumber + j)]);
+      physical_group_information[this->element_(i).gmsh_physical_name_].basic_node_gmsh_tag_.emplace_back(node_tag);
+    }
     for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
       const auto node_tag = static_cast<Isize>(node_tags[static_cast<Usize>(i * ElementTrait::kAllNodeNumber + j)]);
       this->element_(i).node_coordinate_.col(j) = node_coordinate.col(node_tag - 1);
       this->element_(i).node_tag_(j) = node_tag;
+      physical_group_information[this->element_(i).gmsh_physical_name_].all_node_gmsh_tag_.emplace_back(node_tag);
+      node_element_number(node_tag - 1)++;
     }
   }
   this->getElementJacobian();

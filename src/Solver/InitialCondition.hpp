@@ -46,9 +46,9 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::i
   this->number_ = element_mesh.number_;
   this->element_.resize(this->number_);
   this->delta_time_.resize(this->number_);
-#ifdef SUBROSA_DG_WITH_OPENMP
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #pragma omp parallel for default(none) shared(Eigen::Dynamic, element_mesh, thermal_model, initial_condition)
-#endif
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     Variable<SimulationControl> variable;
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>

@@ -42,9 +42,7 @@ enum class BoundaryCondition {
   NormalFarfield = 1,
   RiemannFarfield,
   CharacteristicFarfield,
-  AdiabaticNoSlipWall,
-  AdiabaticFreeSlipWall,
-  AdiabaticUserDefinedSlipWall,
+  AdiabaticWall,
   Periodic,
 };
 
@@ -125,29 +123,26 @@ enum class ViewModel {
   Vtu,
 };
 
-enum class ViewElementVariable {
+enum class ViewConfig { HighOrderReconstruction = 1, SolverSmoothness };
+
+enum class ViewVariable {
   Density = 1,
   Velocity,
-  VelocityX,
-  VelocityY,
-  VelocityZ,
   Temperature,
   Pressure,
   SoundSpeed,
   MachNumber,
+  Vorticity,
+  Entropy,
+  VelocityX,
+  VelocityY,
+  VelocityZ,
   MachNumberX,
   MachNumberY,
   MachNumberZ,
-  Vorticity,
   VorticityX,
   VorticityY,
   VorticityZ,
-  Entropy,
-};
-
-enum class ViewAdjacencyElementVariable {
-  PressureCoefficient = 1,
-  FrictionCoefficient,
 };
 
 }  // namespace SubrosaDG

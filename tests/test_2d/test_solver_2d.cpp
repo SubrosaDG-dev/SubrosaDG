@@ -13,9 +13,11 @@
 #include <gtest/gtest.h>
 
 #include <Eigen/Cholesky>
-#include <deque>
 
 #include "Utils/SystemControl.hpp"
 #include "test_structure_2d.h"
 
-TEST_F(Test2d, Develop) { system->solve(); }
+TEST_F(Test2d, Develop) {
+  system->solve();
+  system->view();
+}

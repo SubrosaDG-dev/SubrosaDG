@@ -16,8 +16,8 @@
 #include <Eigen/Core>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
-#include <deque>
 #include <filesystem>
 #include <functional>
 #include <vector>
@@ -28,10 +28,10 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
                                                      "build/out/naca0012_2d_euler"};
 
 using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P3, SubrosaDG::MeshModel::Quadrangle,
-                                      SubrosaDG::MeshHighOrderModel::Straight, SubrosaDG::ThermodynamicModel::ConstantE,
-                                      SubrosaDG::EquationOfState::IdealGas, SubrosaDG::ConvectiveFlux::LaxFriedrichs,
-                                      SubrosaDG::TimeIntegration::SSPRK3, SubrosaDG::ViewModel::Dat>;
+    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P1, SubrosaDG::MeshModel::Quadrangle,
+                                      SubrosaDG::ThermodynamicModel::ConstantE, SubrosaDG::EquationOfState::IdealGas,
+                                      SubrosaDG::ConvectiveFlux::LaxFriedrichs, SubrosaDG::TimeIntegration::SSPRK3,
+                                      SubrosaDG::ViewModel::Vtu>;
 
 inline std::array<double, 64> naca0012_point_x_array{
     0.9994160, 0.9976658, 0.9947532, 0.9906850, 0.9854709, 0.9791229, 0.9716559, 0.9630873, 0.9534372, 0.9427280,
@@ -162,11 +162,14 @@ int main(int argc, char* argv[]) {
   });
   system.addBoundaryCondition<SubrosaDG::BoundaryCondition::RiemannFarfield>(
       "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::AdiabaticFreeSlipWall>("bc-2");
-  system.setTimeIntegration(false, 100, 0.2, 1e-10);
+  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::AdiabaticWall>("bc-2");
+  system.setTimeIntegration(false, 30000, 1.5, 1e-10);
   system.setViewConfig(-1, kExampleDirectory, "naca0012_2d",
-                       {SubrosaDG::ViewElementVariable::Density, SubrosaDG::ViewElementVariable::Pressure,
-                        SubrosaDG::ViewElementVariable::MachNumber});
+                       {SubrosaDG::ViewConfig::HighOrderReconstruction, SubrosaDG::ViewConfig::SolverSmoothness});
+  system.addViewVariable({SubrosaDG::ViewVariable::Density, SubrosaDG::ViewVariable::Velocity,
+                          SubrosaDG::ViewVariable::Pressure, SubrosaDG::ViewVariable::Temperature,
+                          SubrosaDG::ViewVariable::MachNumber});
   system.solve();
+  system.view();
   return EXIT_SUCCESS;
 }

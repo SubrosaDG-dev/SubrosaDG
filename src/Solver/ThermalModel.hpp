@@ -90,7 +90,7 @@ struct EquationOfStateData<EquationOfState::IdealGas> {
                                                        2.0);
   }
 
-  [[nodiscard]] inline Real calculateEntropy(const Real density, const Real pressure) const {
+  [[nodiscard]] inline Real calculateEntropyFromDensityPressure(const Real density, const Real pressure) const {
     return pressure / std::pow(density, this->specific_heat_ratio_);
   }
 
@@ -185,9 +185,9 @@ struct ThermalModel<SimulationControl, EquationModel::Euler> {
     }
   }
 
-  [[nodiscard]] inline Real calculateEntropy(const Real density, const Real pressure) const {
+  [[nodiscard]] inline Real calculateEntropyFromDensityPressure(const Real density, const Real pressure) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfState::IdealGas) {
-      return equation_of_state_.calculateEntropy(density, pressure);
+      return equation_of_state_.calculateEntropyFromDensityPressure(density, pressure);
     }
   }
 

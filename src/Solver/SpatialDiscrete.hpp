@@ -35,10 +35,10 @@ template <typename ElementTrait, typename SimulationControl, EquationModel Equat
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementGaussianQuadrature(
     const ElementMesh<ElementTrait>& element_mesh,
     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model) {
-#ifdef SUBROSA_DG_WITH_OPENMP
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #pragma omp parallel for default(none) schedule(auto) \
     shared(Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, thermal_model)
-#endif
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
       Variable<SimulationControl> gaussian_quadrature_node_variable;
@@ -116,10 +116,10 @@ inline void AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolyno
         const AdjacencyElementMesh<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>& adjacency_element_mesh,
         const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
         Solver<SimulationControl, SimulationControl::kDimension>& solver) {
-#ifdef SUBROSA_DG_WITH_OPENMP
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #pragma omp parallel for default(none) schedule(auto) \
     shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, solver)
-#endif
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < adjacency_element_mesh.interior_number_; i++) {
     Eigen::Vector<Isize, 2> parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_;
     Eigen::Vector<Isize, 2> adjacency_sequence_in_parent =
@@ -170,10 +170,10 @@ inline void AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolyno
         const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
             boundary_condition,
         Solver<SimulationControl, SimulationControl::kDimension>& solver) {
-#ifdef SUBROSA_DG_WITH_OPENMP
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #pragma omp parallel for default(none) schedule(auto) \
     shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, boundary_condition, solver)
-#endif
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = adjacency_element_mesh.interior_number_;
        i < adjacency_element_mesh.boundary_number_ + adjacency_element_mesh.interior_number_; i++) {
     const Isize parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_(0);
@@ -217,9 +217,9 @@ inline void Solver<SimulationControl, 2>::calculateAdjacencyGaussianQuadrature(
 template <typename ElementTrait, typename SimulationControl, EquationModel EquationModelType>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementResidual(
     const ElementMesh<ElementTrait>& element_mesh) {
-#ifdef SUBROSA_DG_WITH_OPENMP
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #pragma omp parallel for default(none) schedule(auto) shared(Eigen::Dynamic, element_mesh)
-#endif
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).residual_.noalias() = this->element_(i).quadrature_without_gradient_basis_function_value_ *
                                                 element_mesh.basis_function_.gradient_value_ -

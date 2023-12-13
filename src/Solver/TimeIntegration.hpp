@@ -86,9 +86,9 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
     const ElementMesh<ElementTrait>& element_mesh,
     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
-#ifdef SUBROSA_DG_WITH_OPENMP
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #pragma omp parallel for default(none) schedule(auto) shared(element_mesh, thermal_model, time_integration)
-#endif
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
@@ -149,9 +149,9 @@ template <typename ElementTrait, typename SimulationControl, EquationModel Equat
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::updateElementBasisFunctionCoefficient(
     const int step, const ElementMesh<ElementTrait>& element_mesh,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
-#ifdef SUBROSA_DG_WITH_OPENMP
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #pragma omp parallel for default(none) schedule(auto) shared(Eigen::Dynamic, step, element_mesh, time_integration)
-#endif
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).conserved_variable_basis_function_coefficient_(1) =
         time_integration.kStepCoefficients[static_cast<Usize>(step)][0] *
@@ -185,7 +185,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
                                  element_mesh.basis_function_.value_.transpose())
                                     .array() +
                                 1e-10))
-                                  .abs()
+                                  .square()
                                   .rowwise()
                                   .mean();
   }
@@ -201,7 +201,7 @@ inline void Solver<SimulationControl, 2>::calculateRelativeError(
   if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
     this->quadrangle_.calculateElementRelativeError(mesh.quadrangle_, this->relative_error_);
   }
-  this->relative_error_ /= static_cast<Real>(mesh.element_number_);
+  this->relative_error_ = (this->relative_error_ / static_cast<Real>(mesh.element_number_)).array().sqrt();
 }
 
 template <typename SimulationControl>

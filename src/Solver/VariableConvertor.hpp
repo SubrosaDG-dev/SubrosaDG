@@ -119,46 +119,50 @@ struct Variable {
   [[nodiscard]] inline Real getVelocitySquareSummation() const { return this->getVelocity().array().square().sum(); }
 
   [[nodiscard]] inline Real get(const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-                                const ViewElementVariable& view_element_variable) const {
-    if (view_element_variable == ViewElementVariable::Density) {
+                                const ViewVariable& view_variable) const {
+    if (view_variable == ViewVariable::Density) {
       return this->get<ComputationalVariable::Density>();
     }
-    if (view_element_variable == ViewElementVariable::Velocity) {
+    if (view_variable == ViewVariable::Velocity) {
       return std::sqrt(this->getVelocitySquareSummation());
     }
-    if (view_element_variable == ViewElementVariable::VelocityX) {
+    if (view_variable == ViewVariable::VelocityX) {
       return this->get<ComputationalVariable::VelocityX>();
     }
-    if (view_element_variable == ViewElementVariable::VelocityY) {
+    if (view_variable == ViewVariable::VelocityY) {
       return this->get<ComputationalVariable::VelocityY>();
     }
-    if (view_element_variable == ViewElementVariable::VelocityZ) {
+    if (view_variable == ViewVariable::VelocityZ) {
       return this->get<ComputationalVariable::VelocityZ>();
     }
-    if (view_element_variable == ViewElementVariable::Temperature) {
+    if (view_variable == ViewVariable::Temperature) {
       return thermal_model.calculateTemperatureFromInternalEnergy(this->get<ComputationalVariable::InternalEnergy>());
     }
-    if (view_element_variable == ViewElementVariable::Pressure) {
+    if (view_variable == ViewVariable::Pressure) {
       return this->get<ComputationalVariable::Pressure>();
     }
-    if (view_element_variable == ViewElementVariable::SoundSpeed) {
+    if (view_variable == ViewVariable::SoundSpeed) {
       return thermal_model.calculateSoundSpeedFromInternalEnergy(this->get<ComputationalVariable::InternalEnergy>());
     }
-    if (view_element_variable == ViewElementVariable::MachNumber) {
+    if (view_variable == ViewVariable::MachNumber) {
       return std::sqrt(this->getVelocitySquareSummation()) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(this->get<ComputationalVariable::InternalEnergy>());
     }
-    if (view_element_variable == ViewElementVariable::MachNumberX) {
+    if (view_variable == ViewVariable::MachNumberX) {
       return this->get<ComputationalVariable::VelocityX>() /
              thermal_model.calculateSoundSpeedFromInternalEnergy(this->get<ComputationalVariable::InternalEnergy>());
     }
-    if (view_element_variable == ViewElementVariable::MachNumberY) {
+    if (view_variable == ViewVariable::MachNumberY) {
       return this->get<ComputationalVariable::VelocityY>() /
              thermal_model.calculateSoundSpeedFromInternalEnergy(this->get<ComputationalVariable::InternalEnergy>());
     }
-    if (view_element_variable == ViewElementVariable::MachNumberZ) {
+    if (view_variable == ViewVariable::MachNumberZ) {
       return this->get<ComputationalVariable::VelocityZ>() /
              thermal_model.calculateSoundSpeedFromInternalEnergy(this->get<ComputationalVariable::InternalEnergy>());
+    }
+    if (view_variable == ViewVariable::Entropy) {
+      return thermal_model.calculateEntropyFromDensityPressure(this->get<ComputationalVariable::Density>(),
+                                                               this->get<ComputationalVariable::Pressure>());
     }
     return 0.0;
   }

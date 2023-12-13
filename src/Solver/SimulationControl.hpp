@@ -14,17 +14,12 @@
 #define SUBROSA_DG_SIMULATION_CONTROL_HPP_
 
 #include <array>
-#include <unordered_map>
 
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
 #include "Utils/Enum.hpp"
 
 namespace SubrosaDG {
-
-inline const std::unordered_map<Isize, Isize> kGmshTypeNumberToNodeNumber{
-    {1, 2},   {8, 3},   {26, 4}, {27, 5}, {28, 6},  {2, 3},   {9, 6},  {21, 10},
-    {23, 15}, {25, 21}, {3, 4},  {10, 9}, {36, 16}, {37, 25}, {38, 36}};
 
 inline constexpr std::array<int, 5> kLineGmshTypeNumber{1, 8, 26, 27, 28};
 inline constexpr std::array<int, 5> kTriangleGmshTypeNumber{2, 9, 21, 23, 25};
@@ -52,6 +47,17 @@ inline consteval int getElementGmshTypeNumber() {
   }
 }
 
+template <Element ElementType>
+inline consteval int getElementVtkTypeNumber() {
+  if constexpr (ElementType == Element::Line) {
+    return 68;
+  } else if constexpr (ElementType == Element::Triangle) {
+    return 69;
+  } else if constexpr (ElementType == Element::Quadrangle) {
+    return 70;
+  }
+}
+
 template <Element ElementType, PolynomialOrder P>
 inline consteval int getElementNodeNumber() {
   if constexpr (ElementType == Element::Line) {
@@ -60,6 +66,17 @@ inline consteval int getElementNodeNumber() {
     return (static_cast<int>(P) + 1) * (static_cast<int>(P) + 2) / 2;
   } else if constexpr (ElementType == Element::Quadrangle) {
     return (static_cast<int>(P) + 1) * (static_cast<int>(P) + 1);
+  }
+}
+
+template <int Dimension>
+inline consteval int getElementTecplotBasicNodeNumber() {
+  if constexpr (Dimension == 1) {
+    return 2;
+  } else if constexpr (Dimension == 2) {
+    return 4;
+  } else if constexpr (Dimension == 3) {
+    return 8;
   }
 }
 
@@ -90,6 +107,17 @@ inline consteval int getElementSubNumber() {
   } else if constexpr (Is2dElement<ElementType>) {
     return (static_cast<int>(P) * static_cast<int>(P));
   } else if constexpr (Is3dElement<ElementType>) {
+    return (static_cast<int>(P) * static_cast<int>(P) * static_cast<int>(P));
+  }
+}
+
+template <int Dimension, PolynomialOrder P>
+inline consteval int getElementSubNumber() {
+  if constexpr (Dimension == 1) {
+    return (static_cast<int>(P));
+  } else if constexpr (Dimension == 2) {
+    return (static_cast<int>(P) * static_cast<int>(P));
+  } else if constexpr (Dimension == 3) {
     return (static_cast<int>(P) * static_cast<int>(P) * static_cast<int>(P));
   }
 }
@@ -198,6 +226,35 @@ getSubElementConnectivity() {
 }
 
 template <Element ElementType, PolynomialOrder P>
+inline consteval std::array<int, getElementNodeNumber<ElementType, P>()> getElementVTKConnectivity() {
+  if constexpr (ElementType == Element::Line) {
+    if constexpr (P == PolynomialOrder::P1) {
+      return {0, 1};
+    } else if constexpr (P == PolynomialOrder::P2) {
+      return {0, 1, 2};
+    } else if constexpr (P == PolynomialOrder::P3) {
+      return {0, 1, 2, 3};
+    }
+  } else if constexpr (ElementType == Element::Triangle) {
+    if constexpr (P == PolynomialOrder::P1) {
+      return {0, 1, 2};
+    } else if constexpr (P == PolynomialOrder::P2) {
+      return {0, 1, 2, 3, 4, 5};
+    } else if constexpr (P == PolynomialOrder::P3) {
+      return {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    }
+  } else if constexpr (ElementType == Element::Quadrangle) {
+    if constexpr (P == PolynomialOrder::P1) {
+      return {0, 1, 2, 3};
+    } else if constexpr (P == PolynomialOrder::P2) {
+      return {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    } else if constexpr (P == PolynomialOrder::P3) {
+      return {0, 1, 2, 3, 4, 5, 6, 7, 9, 8, 11, 10, 12, 13, 15, 14};
+    }
+  }
+}
+
+template <Element ElementType, PolynomialOrder P>
 inline consteval int getElementBasisFunctionNumber() {
   if constexpr (ElementType == Element::Line) {
     return static_cast<int>(P) + 1;
@@ -297,7 +354,7 @@ template <int Dimension, EquationModel EquationModelType, TurbulenceModel Turbul
   requires(EquationModelType == EquationModel::RANS)
 inline static consteval int getPrimitiveVariableNumber() {
   if constexpr (TurbulenceModelType == TurbulenceModel::SA) {
-    return Dimension + 4;
+    return Dimension + 3;
   }
 }
 
@@ -307,12 +364,10 @@ struct ElementTraitBase {
   inline static constexpr Element kElementType{ElementType};
   inline static constexpr PolynomialOrder kPolynomialOrder{P};
   inline static constexpr int kGmshTypeNumber{getElementGmshTypeNumber<ElementType, P>()};
+  inline static constexpr int kVtkTypeNumber{getElementVtkTypeNumber<ElementType>()};
   inline static constexpr int kBasicNodeNumber{getElementNodeNumber<ElementType, PolynomialOrder::P1>()};
   inline static constexpr int kAllNodeNumber{getElementNodeNumber<ElementType, P>()};
-  inline static constexpr std::array<Real, kDimension * kBasicNodeNumber> kBasicNodeCoordinate{
-      getElementNodeCoordinate<ElementType, PolynomialOrder::P1>()};
-  inline static constexpr std::array<Real, kDimension * kAllNodeNumber> kAllNodeCoordinate{
-      getElementNodeCoordinate<ElementType, P>()};
+  inline static constexpr int kTecplotBasicNodeNumber{getElementTecplotBasicNodeNumber<kDimension>()};
   inline static constexpr int kAdjacencyNumber{getElementAdjacencyNumber<ElementType>()};
   inline static constexpr int kSubNumber{getElementSubNumber<ElementType, P>()};
 };
@@ -331,6 +386,9 @@ struct ElementTrait : ElementTraitBase<ElementType, P> {
   inline static constexpr int kQuadratureNumber{getElementGaussianQuadratureNumber<ElementType, P>()};
   inline static constexpr int kAdjacencyQuadratureNumber{getElementAdjacencyQuadratureNumber<ElementType, P>()};
 };
+
+template <PolynomialOrder P>
+using LineTrait = ElementTrait<Element::Line, P>;
 
 template <PolynomialOrder P>
 using AdjacencyLineTrait = AdjacencyElementTrait<Element::Line, P>;
@@ -391,40 +449,37 @@ struct RANSVariable : EquationVariable<EquationModel::RANS> {
       getPrimitiveVariableNumber<Dimension, EquationModel::RANS, TurbulenceModelType>()};
 };
 
-template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, MeshHighOrderModel MeshHighOrderModelType,
-          EquationModel EquationModelType, ThermodynamicModel ThermodynamicModelType,
-          EquationOfState EquationOfStateType, TimeIntegration TimeIntegrationType, ViewModel ViewModelType>
+template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, EquationModel EquationModelType,
+          ThermodynamicModel ThermodynamicModelType, EquationOfState EquationOfStateType,
+          TimeIntegration TimeIntegrationType, ViewModel ViewModelType>
 struct SimulationControl
     : SolveControl<Dimension, P, EquationModelType, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType> {
   inline static constexpr MeshModel kMeshModel{MeshModelType};
-  inline static constexpr MeshHighOrderModel kMeshHighOrderModel{MeshHighOrderModelType};
   inline static constexpr ViewModel kViewModel{ViewModelType};
 };
 
-template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, MeshHighOrderModel MeshHighOrderModelType,
-          ThermodynamicModel ThermodynamicModelType, EquationOfState EquationOfStateType,
-          ConvectiveFlux ConvectiveFluxType, TimeIntegration TimeIntegrationType, ViewModel ViewModelType>
+template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, ThermodynamicModel ThermodynamicModelType,
+          EquationOfState EquationOfStateType, ConvectiveFlux ConvectiveFluxType, TimeIntegration TimeIntegrationType,
+          ViewModel ViewModelType>
 struct SimulationControlEuler
-    : SimulationControl<Dimension, P, MeshModelType, MeshHighOrderModelType, EquationModel::Euler,
-                        ThermodynamicModelType, EquationOfStateType, TimeIntegrationType, ViewModelType>,
+    : SimulationControl<Dimension, P, MeshModelType, EquationModel::Euler, ThermodynamicModelType, EquationOfStateType,
+                        TimeIntegrationType, ViewModelType>,
       EulerVariable<Dimension, ConvectiveFluxType> {};
 
-template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, MeshHighOrderModel MeshHighOrderModelType,
-          ThermodynamicModel ThermodynamicModelType, EquationOfState EquationOfStateType,
-          TransportModel TransportModelType, ConvectiveFlux ConvectiveFluxType, ViscousFlux ViscousFluxType,
-          TimeIntegration TimeIntegrationType, ViewModel ViewModelType>
-struct SimulationControlNS
-    : SimulationControl<Dimension, P, MeshModelType, MeshHighOrderModelType, EquationModel::NS, ThermodynamicModelType,
-                        EquationOfStateType, TimeIntegrationType, ViewModelType>,
-      NSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType> {};
+template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, ThermodynamicModel ThermodynamicModelType,
+          EquationOfState EquationOfStateType, TransportModel TransportModelType, ConvectiveFlux ConvectiveFluxType,
+          ViscousFlux ViscousFluxType, TimeIntegration TimeIntegrationType, ViewModel ViewModelType>
+struct SimulationControlNS : SimulationControl<Dimension, P, MeshModelType, EquationModel::NS, ThermodynamicModelType,
+                                               EquationOfStateType, TimeIntegrationType, ViewModelType>,
+                             NSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType> {};
 
-template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, MeshHighOrderModel MeshHighOrderModelType,
-          ThermodynamicModel ThermodynamicModelType, EquationOfState EquationOfStateType,
-          TransportModel TransportModelType, ConvectiveFlux ConvectiveFluxType, ViscousFlux ViscousFluxType,
-          TurbulenceModel TurbulenceModelType, TimeIntegration TimeIntegrationType, ViewModel ViewModelType>
+template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, ThermodynamicModel ThermodynamicModelType,
+          EquationOfState EquationOfStateType, TransportModel TransportModelType, ConvectiveFlux ConvectiveFluxType,
+          ViscousFlux ViscousFluxType, TurbulenceModel TurbulenceModelType, TimeIntegration TimeIntegrationType,
+          ViewModel ViewModelType>
 struct SimulationControlRANS
-    : SimulationControl<Dimension, P, MeshModelType, MeshHighOrderModelType, EquationModel::NS, ThermodynamicModelType,
-                        EquationOfStateType, TimeIntegrationType, ViewModelType>,
+    : SimulationControl<Dimension, P, MeshModelType, EquationModel::NS, ThermodynamicModelType, EquationOfStateType,
+                        TimeIntegrationType, ViewModelType>,
       RANSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType, TurbulenceModelType> {};
 
 }  // namespace SubrosaDG
