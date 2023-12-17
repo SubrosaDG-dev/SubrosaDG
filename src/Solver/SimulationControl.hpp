@@ -27,7 +27,9 @@ inline constexpr std::array<int, 5> kQuadrangleGmshTypeNumber{3, 10, 36, 37, 38}
 
 template <Element ElementType>
 inline consteval int getElementDimension() {
-  if constexpr (Is1dElement<ElementType>) {
+  if constexpr (Is0dElement<ElementType>) {
+    return 0;
+  } else if constexpr (Is1dElement<ElementType>) {
     return 1;
   } else if constexpr (Is2dElement<ElementType>) {
     return 2;
@@ -38,7 +40,9 @@ inline consteval int getElementDimension() {
 
 template <Element ElementType, PolynomialOrder P>
 inline consteval int getElementGmshTypeNumber() {
-  if constexpr (ElementType == Element::Line) {
+  if constexpr (ElementType == Element::Point) {
+    return 15;
+  } else if constexpr (ElementType == Element::Line) {
     return kLineGmshTypeNumber[static_cast<Usize>(P) - 1];
   } else if constexpr (ElementType == Element::Triangle) {
     return kTriangleGmshTypeNumber[static_cast<Usize>(P) - 1];
@@ -49,7 +53,9 @@ inline consteval int getElementGmshTypeNumber() {
 
 template <Element ElementType>
 inline consteval int getElementVtkTypeNumber() {
-  if constexpr (ElementType == Element::Line) {
+  if constexpr (ElementType == Element::Point) {
+    return -1;
+  } else if constexpr (ElementType == Element::Line) {
     return 68;
   } else if constexpr (ElementType == Element::Triangle) {
     return 69;
@@ -60,7 +66,9 @@ inline consteval int getElementVtkTypeNumber() {
 
 template <Element ElementType, PolynomialOrder P>
 inline consteval int getElementNodeNumber() {
-  if constexpr (ElementType == Element::Line) {
+  if constexpr (ElementType == Element::Point) {
+    return 1;
+  } else if constexpr (ElementType == Element::Line) {
     return static_cast<int>(P) + 1;
   } else if constexpr (ElementType == Element::Triangle) {
     return (static_cast<int>(P) + 1) * (static_cast<int>(P) + 2) / 2;
@@ -71,7 +79,9 @@ inline consteval int getElementNodeNumber() {
 
 template <int Dimension>
 inline consteval int getElementTecplotBasicNodeNumber() {
-  if constexpr (Dimension == 1) {
+  if constexpr (Dimension == 0) {
+    return 1;
+  } else if constexpr (Dimension == 1) {
     return 2;
   } else if constexpr (Dimension == 2) {
     return 4;
@@ -82,7 +92,9 @@ inline consteval int getElementTecplotBasicNodeNumber() {
 
 template <Element ElementType>
 inline consteval int getElementAdjacencyNumber() {
-  if constexpr (ElementType == Element::Line) {
+  if constexpr (ElementType == Element::Point) {
+    return 0;
+  } else if constexpr (ElementType == Element::Line) {
     return 2;
   } else if constexpr (ElementType == Element::Triangle) {
     return 3;
@@ -93,7 +105,9 @@ inline consteval int getElementAdjacencyNumber() {
 
 template <Element ElementType, PolynomialOrder P>
 inline consteval int getElementAdjacencyNodeNumber() {
-  if constexpr (ElementType == Element::Triangle) {
+  if constexpr (ElementType == Element::Line) {
+    return 2;
+  } else if constexpr (ElementType == Element::Triangle) {
     return 3 * getElementNodeNumber<Element::Line, P>();
   } else if constexpr (ElementType == Element::Quadrangle) {
     return 4 * getElementNodeNumber<Element::Line, P>();
@@ -102,7 +116,9 @@ inline consteval int getElementAdjacencyNodeNumber() {
 
 template <Element ElementType, PolynomialOrder P>
 inline consteval int getElementSubNumber() {
-  if constexpr (Is1dElement<ElementType>) {
+  if constexpr (Is0dElement<ElementType>) {
+    return 1;
+  } else if constexpr (Is1dElement<ElementType>) {
     return (static_cast<int>(P));
   } else if constexpr (Is2dElement<ElementType>) {
     return (static_cast<int>(P) * static_cast<int>(P));
@@ -291,17 +307,19 @@ inline consteval int getElementGaussianQuadratureNumber() {
 }
 
 template <Element ElementType, PolynomialOrder P>
-  requires Is1dElement<ElementType> || Is2dElement<ElementType>
 inline consteval int getAdjacencyElementGaussianQuadratureNumber() {
-  if constexpr (Is1dElement<ElementType>) {
+  if constexpr (Is0dElement<ElementType>) {
+    return 1;
+  } else if constexpr (Is1dElement<ElementType>) {
     return kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementGaussianQuadratureOrder<P>())];
   }
 }
 
 template <Element ElementType, PolynomialOrder P>
-  requires Is2dElement<ElementType> || Is3dElement<ElementType>
 inline consteval int getElementAdjacencyQuadratureNumber() {
-  if constexpr (Is2dElement<ElementType>) {
+  if constexpr (Is1dElement<ElementType>) {
+    return 2;
+  } else if constexpr (Is2dElement<ElementType>) {
     return kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementGaussianQuadratureOrder<P>())] *
            getElementAdjacencyNumber<ElementType>();
   }
@@ -388,6 +406,9 @@ struct ElementTrait : ElementTraitBase<ElementType, P> {
 };
 
 template <PolynomialOrder P>
+using AdjacencyPointTrait = AdjacencyElementTrait<Element::Point, P>;
+
+template <PolynomialOrder P>
 using LineTrait = ElementTrait<Element::Line, P>;
 
 template <PolynomialOrder P>
@@ -469,6 +490,7 @@ struct SimulationControlEuler
 template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, ThermodynamicModel ThermodynamicModelType,
           EquationOfState EquationOfStateType, TransportModel TransportModelType, ConvectiveFlux ConvectiveFluxType,
           ViscousFlux ViscousFluxType, TimeIntegration TimeIntegrationType, ViewModel ViewModelType>
+  requires(Dimension == 2) || (Dimension == 3)
 struct SimulationControlNS : SimulationControl<Dimension, P, MeshModelType, EquationModel::NS, ThermodynamicModelType,
                                                EquationOfStateType, TimeIntegrationType, ViewModelType>,
                              NSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType> {};
@@ -477,6 +499,7 @@ template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, Thermodynam
           EquationOfState EquationOfStateType, TransportModel TransportModelType, ConvectiveFlux ConvectiveFluxType,
           ViscousFlux ViscousFluxType, TurbulenceModel TurbulenceModelType, TimeIntegration TimeIntegrationType,
           ViewModel ViewModelType>
+  requires(Dimension == 2) || (Dimension == 3)
 struct SimulationControlRANS
     : SimulationControl<Dimension, P, MeshModelType, EquationModel::NS, ThermodynamicModelType, EquationOfStateType,
                         TimeIntegrationType, ViewModelType>,

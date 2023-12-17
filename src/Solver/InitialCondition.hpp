@@ -31,6 +31,13 @@
 namespace SubrosaDG {
 
 template <typename SimulationControl>
+struct InitialCondition<SimulationControl, 1> {
+  std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
+      const Eigen::Vector<Real, 1>& coordinate)>
+      function_;
+};
+
+template <typename SimulationControl>
 struct InitialCondition<SimulationControl, 2> {
   std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
       const Eigen::Vector<Real, 2>& coordinate)>
@@ -65,6 +72,20 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::i
             .solve((quadrature_node_conserved_variable * element_mesh.basis_function_.value_).transpose())
             .transpose();
   }
+}
+
+template <typename SimulationControl>
+inline void Solver<SimulationControl, 1>::initializeSolver(
+    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+    std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
+    const std::unordered_map<std::string, InitialCondition<SimulationControl, SimulationControl::kDimension>>&
+        initial_condition) {
+  for (auto& [boundary_condition_name, boundary_condition_variable] : boundary_condition) {
+    boundary_condition_variable->variable_.calculateConservedFromPrimitive(thermal_model);
+    boundary_condition_variable->variable_.calculateComputationalFromPrimitive(thermal_model);
+  }
+  this->line_.initializeElementSolver(mesh.line_, thermal_model, initial_condition);
 }
 
 template <typename SimulationControl>

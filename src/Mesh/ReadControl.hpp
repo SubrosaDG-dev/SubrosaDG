@@ -38,12 +38,25 @@ namespace SubrosaDG {
 struct PhysicalGroupInformation {
   std::string name_;
   Isize element_number_{0};
-  std::vector<Isize> element_gmsh_type_;
+  std::vector<int> element_gmsh_type_;
   std::vector<Isize> element_gmsh_tag_;
   Isize basic_node_number_{0};
   Isize all_node_number_{0};
   ordered_set<Isize> basic_node_gmsh_tag_;
   ordered_set<Isize> all_node_gmsh_tag_;
+};
+
+struct PerElementPhysicalGroupInformation {
+  std::string gmsh_physical_name_;
+  Isize element_index_;
+};
+
+struct PerAdjacencyElementInformation {
+  Isize element_index_;
+  int gmsh_type_;
+
+  inline PerAdjacencyElementInformation(Isize element_index, int gmsh_type)
+      : element_index_(element_index), gmsh_type_(gmsh_type){};
 };
 
 struct PerElementInformation {
@@ -58,18 +71,6 @@ struct PerElementMeshBase : PerElementInformation {
   Eigen::Vector<Real, ElementTraitBase::kQuadratureNumber> jacobian_determinant_;
 };
 
-template <typename ElementTrait>
-struct PerElementMesh : PerElementMeshBase<ElementTrait> {
-  Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kAllNodeNumber> node_coordinate_;
-  Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kQuadratureNumber> gaussian_quadrature_node_coordinate_;
-  Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>
-      local_mass_matrix_inverse_;
-  Eigen::Matrix<Real, ElementTrait::kDimension * ElementTrait::kDimension, ElementTrait::kQuadratureNumber>
-      jacobian_transpose_inverse_;
-  // Real mesh_size_; NOTE: New feature.
-  Eigen::Vector<Real, ElementTrait::kDimension> projection_measure_;
-};
-
 template <typename AdjacencyElementTrait>
 struct PerAdjacencyElementMesh : PerElementMeshBase<AdjacencyElementTrait> {
   Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber> node_coordinate_;
@@ -80,29 +81,14 @@ struct PerAdjacencyElementMesh : PerElementMeshBase<AdjacencyElementTrait> {
 };
 
 template <typename ElementTrait>
-struct ElementMesh {
-  ElementGaussianQuadrature<ElementTrait> gaussian_quadrature_;
-  ElementBasisFunction<ElementTrait> basis_function_;
-
-  Isize number_{0};
-  Eigen::Array<PerElementMesh<ElementTrait>, Eigen::Dynamic, 1> element_;
-  Eigen::Vector<int, ElementTrait::kBasicNodeNumber> element_connectivity_{
-      getSubElementConnectivity<ElementTrait::kElementType, PolynomialOrder::P1>().data()};
-  Eigen::Matrix<int, ElementTrait::kBasicNodeNumber, ElementTrait::kSubNumber> sub_element_connectivity_{
-      getSubElementConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>().data()};
-
-  inline void getElementMesh(const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
-                             std::unordered_map<std::string, PhysicalGroupInformation>& physical_group_information,
-                             std::unordered_map<Isize, PerElementInformation>& gmsh_tag_to_element_information,
-                             Eigen::Vector<Isize, Eigen::Dynamic>& node_element_number);
-
-  inline void getElementJacobian();
-
-  inline void calculateElementProjectionMeasure();
-
-  inline void calculateElementLocalMassMatrixInverse();
-
-  inline ElementMesh();
+struct PerElementMesh : PerElementMeshBase<ElementTrait> {
+  Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kAllNodeNumber> node_coordinate_;
+  Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kQuadratureNumber> gaussian_quadrature_node_coordinate_;
+  Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>
+      local_mass_matrix_inverse_;
+  Eigen::Matrix<Real, ElementTrait::kDimension * ElementTrait::kDimension, ElementTrait::kQuadratureNumber>
+      jacobian_transpose_inverse_;
+  Real size_;
 };
 
 template <typename AdjacencyElementTrait>
@@ -121,24 +107,20 @@ struct AdjacencyElementMesh {
   Isize interior_number_{0};
   Isize boundary_number_{0};
   Eigen::Array<PerAdjacencyElementMesh<AdjacencyElementTrait>, Eigen::Dynamic, 1> element_;
-  Eigen::Vector<int, AdjacencyElementTrait::kBasicNodeNumber> element_connectivity_{
-      getSubElementConnectivity<AdjacencyElementTrait::kElementType, PolynomialOrder::P1>().data()};
-  Eigen::Matrix<int, AdjacencyElementTrait::kBasicNodeNumber, AdjacencyElementTrait::kSubNumber>
-      sub_element_connectivity_{
-          getSubElementConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()
-              .data()};
 
   inline void getAdjacencyElementBoundaryMesh(
       const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
+      std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
       std::unordered_map<std::string, PhysicalGroupInformation>& physical_group_information,
-      std::unordered_map<Isize, PerElementInformation>& gmsh_tag_to_element_information,
+      std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information,
       const std::vector<Isize>& boundary_tag,
       const std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
           adjacency_element_mesh_supplemental_map);
 
   inline void getAdjacencyElementInteriorMesh(
       const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
-      const std::unordered_map<Isize, PerElementInformation>& gmsh_tag_to_element_information,
+      std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
+      std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information,
       const std::vector<Isize>& interior_tag,
       const std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
           adjacency_element_mesh_supplemental_map);
@@ -146,8 +128,9 @@ struct AdjacencyElementMesh {
   template <MeshModel MeshModelType>
   inline void getAdjacencyElementMesh(
       const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
+      std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
       std::unordered_map<std::string, PhysicalGroupInformation>& physical_group_information,
-      std::unordered_map<Isize, PerElementInformation>& gmsh_tag_to_element_information);
+      std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information);
 
   inline void getAdjacencyElementJacobian();
 
@@ -156,16 +139,46 @@ struct AdjacencyElementMesh {
   inline AdjacencyElementMesh();
 };
 
+template <typename ElementTrait>
+struct ElementMesh {
+  ElementGaussianQuadrature<ElementTrait> gaussian_quadrature_;
+  ElementBasisFunction<ElementTrait> basis_function_;
+
+  Isize number_{0};
+  Eigen::Array<PerElementMesh<ElementTrait>, Eigen::Dynamic, 1> element_;
+
+  inline void getElementMesh(
+      const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
+      std::unordered_map<std::string, PhysicalGroupInformation>& physical_group_information,
+      std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information,
+      Eigen::Vector<Isize, Eigen::Dynamic>& node_element_number);
+
+  inline void getElementJacobian();
+
+  inline void calculateElementLocalMassMatrixInverse();
+
+  inline void calculateElementMeshSize(
+      const std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
+      const AdjacencyElementMesh<AdjacencyPointTrait<ElementTrait::kPolynomialOrder>>& point);
+
+  inline void calculateElementMeshSize(
+      const std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
+      const AdjacencyElementMesh<AdjacencyLineTrait<ElementTrait::kPolynomialOrder>>& line);
+
+  inline ElementMesh();
+};
+
 template <typename SimulationControl>
 struct MeshBase {
   Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> node_coordinate_;
 
-  std::vector<std::pair<int, std::string>> physical_group_;
-
-  std::unordered_map<std::string, PhysicalGroupInformation> physical_group_information_;
-  std::unordered_map<Isize, PerElementInformation> gmsh_tag_to_element_information_;
-
   Eigen::Vector<Isize, Eigen::Dynamic> node_element_number_;
+
+  std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>> gmsh_tag_to_sub_index_and_type_;
+
+  std::vector<std::pair<int, std::string>> physical_group_;
+  std::unordered_map<std::string, PhysicalGroupInformation> physical_group_information_;
+  std::unordered_map<Isize, PerElementPhysicalGroupInformation> gmsh_tag_to_element_information_;
 
   Isize node_number_{0};
   Isize element_number_{0};
@@ -181,6 +194,15 @@ struct MeshBase {
 
 template <typename SimulationControl, int Dimension>
 struct Mesh;
+
+template <typename SimulationControl>
+struct Mesh<SimulationControl, 1> : MeshBase<SimulationControl> {
+  AdjacencyElementMesh<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>> point_;
+  ElementMesh<LineTrait<SimulationControl::kPolynomialOrder>> line_;
+
+  explicit inline Mesh(const std::function<void()>& generate_mesh_function,
+                       const std::filesystem::path& mesh_file_path);
+};
 
 template <typename SimulationControl>
 struct Mesh<SimulationControl, 2> : MeshBase<SimulationControl> {
@@ -252,6 +274,20 @@ inline MeshBase<SimulationControl>::MeshBase(const std::function<void()>& genera
 }
 
 template <typename SimulationControl>
+inline Mesh<SimulationControl, 1>::Mesh(const std::function<void()>& generate_mesh_function,
+                                        const std::filesystem::path& mesh_file_path)
+    : MeshBase<SimulationControl>(generate_mesh_function, mesh_file_path) {
+  this->line_.getElementMesh(this->node_coordinate_, this->physical_group_information_,
+                             this->gmsh_tag_to_element_information_, this->node_element_number_);
+  this->element_number_ += this->line_.number_;
+  this->point_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(
+      this->node_coordinate_, this->gmsh_tag_to_sub_index_and_type_, this->physical_group_information_,
+      this->gmsh_tag_to_element_information_);
+  this->adjacency_element_number_ += this->point_.interior_number_ + this->point_.boundary_number_;
+  this->line_.calculateElementMeshSize(this->gmsh_tag_to_sub_index_and_type_, this->point_);
+}
+
+template <typename SimulationControl>
 inline Mesh<SimulationControl, 2>::Mesh(const std::function<void()>& generate_mesh_function,
                                         const std::filesystem::path& mesh_file_path)
     : MeshBase<SimulationControl>(generate_mesh_function, mesh_file_path) {
@@ -265,8 +301,15 @@ inline Mesh<SimulationControl, 2>::Mesh(const std::function<void()>& generate_me
   }
   this->element_number_ += this->triangle_.number_ + this->quadrangle_.number_;
   this->line_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(
-      this->node_coordinate_, this->physical_group_information_, this->gmsh_tag_to_element_information_);
+      this->node_coordinate_, this->gmsh_tag_to_sub_index_and_type_, this->physical_group_information_,
+      this->gmsh_tag_to_element_information_);
   this->adjacency_element_number_ += this->line_.interior_number_ + this->line_.boundary_number_;
+  if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+    this->triangle_.calculateElementMeshSize(this->gmsh_tag_to_sub_index_and_type_, this->line_);
+  }
+  if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+    this->quadrangle_.calculateElementMeshSize(this->gmsh_tag_to_sub_index_and_type_, this->line_);
+  }
 }
 
 }  // namespace SubrosaDG

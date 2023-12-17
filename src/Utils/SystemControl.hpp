@@ -12,6 +12,8 @@
 
 #ifndef SUBROSA_DG_SYSTEM_CONTROL_HPP_
 #define SUBROSA_DG_SYSTEM_CONTROL_HPP_
+#include <fmt/core.h>
+
 #include <Eigen/Core>
 #include <filesystem>
 #include <functional>
@@ -174,20 +176,26 @@ inline void System<SimulationControl>::addViewVariable(const std::vector<ViewVar
   for (const auto variable : view_variable) {
     if (variable == ViewVariable::Velocity) {
       this->view_.all_view_variable_.emplace_back(ViewVariable::VelocityX);
-      this->view_.all_view_variable_.emplace_back(ViewVariable::VelocityY);
-      if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (SimulationControl::kDimension >= 2) {
+        this->view_.all_view_variable_.emplace_back(ViewVariable::VelocityY);
+      }
+      if constexpr (SimulationControl::kDimension >= 3) {
         this->view_.all_view_variable_.emplace_back(ViewVariable::VelocityZ);
       }
     } else if (variable == ViewVariable::MachNumber) {
       this->view_.all_view_variable_.emplace_back(ViewVariable::MachNumberX);
-      this->view_.all_view_variable_.emplace_back(ViewVariable::MachNumberY);
-      if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (SimulationControl::kDimension >= 2) {
+        this->view_.all_view_variable_.emplace_back(ViewVariable::MachNumberY);
+      }
+      if constexpr (SimulationControl::kDimension >= 3) {
         this->view_.all_view_variable_.emplace_back(ViewVariable::MachNumberZ);
       }
     } else if (variable == ViewVariable::Vorticity) {
       this->view_.all_view_variable_.emplace_back(ViewVariable::VorticityX);
-      this->view_.all_view_variable_.emplace_back(ViewVariable::VorticityY);
-      if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (SimulationControl::kDimension >= 2) {
+        this->view_.all_view_variable_.emplace_back(ViewVariable::VorticityY);
+      }
+      if constexpr (SimulationControl::kDimension >= 3) {
         this->view_.all_view_variable_.emplace_back(ViewVariable::VorticityZ);
       }
     } else {
@@ -201,10 +209,11 @@ template <typename SimulationControl>
 inline void System<SimulationControl>::solve() {
   this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
                                  this->initial_condition_);
-  Tqdm::ProgressBar solver_progress_bar(this->time_integration_.iteration_number_, 12);
+  Tqdm::ProgressBar solver_progress_bar(this->time_integration_.iteration_number_, 13);
+  Real time{0};
   for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
     this->solver_.copyBasisFunctionCoefficient();
-    this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
+    time += this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
     for (int j = 0; j < this->time_integration_.kStep; j++) {
       this->solver_.stepSolver(j, this->mesh_, this->thermal_model_, this->boundary_condition_,
                                this->time_integration_);
@@ -213,6 +222,7 @@ inline void System<SimulationControl>::solve() {
       this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
     }
     this->solver_.calculateRelativeError(this->mesh_);
+    solver_progress_bar << fmt::format("Time: {:>8.5f}s\n", time);
     solver_progress_bar << this->command_line_.updateError(i, this->solver_.relative_error_);
     solver_progress_bar.update();
   }

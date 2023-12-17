@@ -100,10 +100,10 @@ struct ElementSolver {
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
-struct AdjacencyElementSolver;
+struct AdjacencyElementSolverBase;
 
 template <typename SimulationControl>
-struct AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> {
+struct AdjacencyElementSolverBase<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl> {
   [[nodiscard]] inline Isize getAdjacencyParentElementQuadratureNodeSequenceInParent(
       [[maybe_unused]] Isize parent_gmsh_type_number, bool is_left, Isize adjacency_sequence_in_parent,
       Isize qudrature_sequence_in_adjacency) const;
@@ -113,24 +113,88 @@ struct AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolynomialO
       const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
           adjacency_element_gaussian_quadrature_node_temporary_variable,
       Solver<SimulationControl, SimulationControl::kDimension>& solver);
+};
 
+template <typename SimulationControl>
+struct AdjacencyElementSolverBase<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> {
+  [[nodiscard]] inline Isize getAdjacencyParentElementQuadratureNodeSequenceInParent(
+      Isize parent_gmsh_type_number, bool is_left, Isize adjacency_sequence_in_parent,
+      Isize qudrature_sequence_in_adjacency) const;
+
+  inline void storeAdjacencyElementNodeGaussianQuadrature(
+      Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          adjacency_element_gaussian_quadrature_node_temporary_variable,
+      Solver<SimulationControl, SimulationControl::kDimension>& solver);
+};
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+struct AdjacencyElementSolver : AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl> {
   inline void calculateInteriorAdjacencyElementGaussianQuadrature(
       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-      const AdjacencyElementMesh<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>& adjacency_element_mesh,
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
       Solver<SimulationControl, SimulationControl::kDimension>& solver);
 
   inline void calculateBoundaryAdjacencyElementGaussianQuadrature(
       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-      const AdjacencyElementMesh<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>& adjacency_element_mesh,
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
       const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
           boundary_condition,
       Solver<SimulationControl, SimulationControl::kDimension>& solver);
 };
 
-template <typename SimulationControl, int Dimension>
-struct Solver;
+template <typename SimulationControl>
+struct Solver<SimulationControl, 1> {
+  AdjacencyElementSolver<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl> point_;
+  ElementSolver<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl, SimulationControl::kEquationModel>
+      line_;
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
+
+  inline void initializeSolver(
+      const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+      std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
+      const std::unordered_map<std::string, InitialCondition<SimulationControl, SimulationControl::kDimension>>&
+          initial_condition);
+
+  inline void copyBasisFunctionCoefficient();
+
+  inline Real setDeltaTime(const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+
+  inline Real calculateDeltaTime(
+      const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+      const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+
+  inline void calculateGaussianQuadrature(
+      const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model);
+
+  inline void calculateAdjacencyGaussianQuadrature(
+      const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
+          boundary_condition);
+
+  inline void calculateResidual(const Mesh<SimulationControl, SimulationControl::kDimension>& mesh);
+
+  inline void updateBasisFunctionCoefficient(
+      int step, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+      const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+
+  inline void stepSolver(
+      int step, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
+          boundary_condition,
+      const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+
+  inline void calculateRelativeError(const Mesh<SimulationControl, SimulationControl::kDimension>& mesh);
+
+  inline void writeRawBinary(std::fstream& fout) const;
+};
 
 template <typename SimulationControl>
 struct Solver<SimulationControl, 2> {
@@ -152,9 +216,9 @@ struct Solver<SimulationControl, 2> {
 
   inline void copyBasisFunctionCoefficient();
 
-  inline void setDeltaTime();
+  inline Real setDeltaTime(const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
 
-  inline void calculateDeltaTime(
+  inline Real calculateDeltaTime(
       const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
       const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);

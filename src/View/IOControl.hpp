@@ -35,6 +35,12 @@ template <typename AdjacencyElementTrait, PolynomialOrder P>
 struct AdjacencyElementViewBasisFunction;
 
 template <PolynomialOrder P>
+struct AdjacencyElementViewBasisFunction<AdjacencyPointTrait<P>, P> {
+  [[nodiscard]] inline Isize getAdjacencyParentElementViewBasisFunctionSequenceInParent(
+      Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent, Isize node_sequence_in_adjacency) const;
+};
+
+template <PolynomialOrder P>
 struct AdjacencyElementViewBasisFunction<AdjacencyLineTrait<P>, P> {
   [[nodiscard]] inline Isize getAdjacencyParentElementViewBasisFunctionSequenceInParent(
       Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent, Isize node_sequence_in_adjacency) const;
@@ -60,6 +66,23 @@ struct ElementViewData : ElementViewBasisFunction<ElementTrait> {
 
 template <typename SimulationControl, int Dimension>
 struct ViewData;
+
+template <typename SimulationControl>
+struct ViewData<SimulationControl, 1> {
+  AdjacencyElementViewBasisFunction<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>,
+                                    SimulationControl::kPolynomialOrder>
+      point_;
+  ElementViewData<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
+
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic> node_conserved_variable_;
+
+  inline void readRawBinary(const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+                            std::fstream& raw_binary_finout);
+
+  inline void calculateNodeConservedVariable(const Mesh<SimulationControl, SimulationControl::kDimension>& mesh);
+
+  inline void initializeViewData(const Mesh<SimulationControl, SimulationControl::kDimension>& mesh);
+};
 
 template <typename SimulationControl>
 struct ViewData<SimulationControl, 2> {
@@ -135,10 +158,6 @@ struct View<SimulationControl, ViewModel::Dat> : ViewBase<SimulationControl> {
       Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
       Eigen::Matrix<int, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic>& element_connectivity);
 
-  template <typename T>
-  inline int getElementNodeIndex(T& elements, const ordered_set<Isize>& node_gmsh_tag, Isize element_index_per_type,
-                                 Isize i, Isize j) const;
-
   template <typename ElementTrait>
   inline void writeContinuousElementConnectivity(
       const std::string& physical_name, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
@@ -204,10 +223,6 @@ struct View<SimulationControl, ViewModel::Vtu> : ViewBase<SimulationControl> {
       Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
       Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type);
 
-  template <typename T>
-  inline vtu11::VtkIndexType getElementNodeIndex(T& elements, const ordered_set<Isize>& node_gmsh_tag,
-                                                 Isize element_index_per_type, Isize i) const;
-
   template <typename ElementTrait>
   inline void writeContinuousElementConnectivity(
       const std::string& physical_name, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
@@ -237,6 +252,14 @@ struct View<SimulationControl, ViewModel::Vtu> : ViewBase<SimulationControl> {
   inline void stepView(int step, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
                        const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model);
 };
+
+template <PolynomialOrder P>
+[[nodiscard]] inline Isize AdjacencyElementViewBasisFunction<AdjacencyPointTrait<P>, P>::
+    getAdjacencyParentElementViewBasisFunctionSequenceInParent(
+        [[maybe_unused]] const Isize parent_gmsh_type_number, const Isize adjacency_sequence_in_parent,
+        [[maybe_unused]] const Isize node_sequence_in_adjacency) const {
+  return adjacency_sequence_in_parent;
+}
 
 template <PolynomialOrder P>
 [[nodiscard]] inline Isize

@@ -52,7 +52,9 @@ struct CommandLine {
 
 template <typename SimulationControl>
 inline std::string CommandLine<SimulationControl>::getErrorVariableList() {
-  if constexpr (SimulationControl::kDimension == 2) {
+  if constexpr (SimulationControl::kDimension == 1) {
+    return fmt::format(R"(|{:^13}|{:^13}|{:^13}|)", "rho", "rho*u", "rho*E");
+  } else if constexpr (SimulationControl::kDimension == 2) {
     return fmt::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|)", "rho", "rho*u", "rho*v", "rho*E");
   }
 }
@@ -60,7 +62,9 @@ inline std::string CommandLine<SimulationControl>::getErrorVariableList() {
 template <typename SimulationControl>
 inline std::string CommandLine<SimulationControl>::getErrorInfo(
     const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& error) {
-  if constexpr (SimulationControl::kDimension == 2) {
+  if constexpr (SimulationControl::kDimension == 1) {
+    return fmt::format(R"(|{:^13.5e}|{:^13.5e}|{:^13.5e}|)", error(0), error(1), error(2));
+  } else if constexpr (SimulationControl::kDimension == 2) {
     return fmt::format(R"(|{:^13.5e}|{:^13.5e}|{:^13.5e}|{:^13.5e}|)", error(0), error(1), error(2), error(3));
   }
 }

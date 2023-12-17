@@ -204,8 +204,10 @@ struct Variable {
     const Real density = this->get<ComputationalVariable::Density>();
     this->set<ConservedVariable::Density>(density);
     this->set<ConservedVariable::MomentumX>(density * this->get<ComputationalVariable::VelocityX>());
-    this->set<ConservedVariable::MomentumY>(density * this->get<ComputationalVariable::VelocityY>());
-    if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (SimulationControl::kDimension >= 2) {
+      this->set<ConservedVariable::MomentumY>(density * this->get<ComputationalVariable::VelocityY>());
+    }
+    if constexpr (SimulationControl::kDimension >= 3) {
       this->set<ConservedVariable::MomentumZ>(density * this->get<ComputationalVariable::VelocityZ>());
     }
     const Real total_energy =
@@ -218,8 +220,10 @@ struct Variable {
     const Real density = this->get<ConservedVariable::Density>();
     this->set<ComputationalVariable::Density>(density);
     this->set<ComputationalVariable::VelocityX>(this->get<ConservedVariable::MomentumX>() / density);
-    this->set<ComputationalVariable::VelocityY>(this->get<ConservedVariable::MomentumY>() / density);
-    if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (SimulationControl::kDimension >= 2) {
+      this->set<ComputationalVariable::VelocityY>(this->get<ConservedVariable::MomentumY>() / density);
+    }
+    if constexpr (SimulationControl::kDimension >= 3) {
       this->set<ComputationalVariable::VelocityZ>(this->get<ConservedVariable::MomentumZ>() / density);
     }
     const Real internal_energy =
@@ -235,9 +239,11 @@ struct Variable {
     this->set<ConservedVariable::Density>(density);
     this->set<ConservedVariable::MomentumX>(density * this->get<PrimitiveVariable::VelocityX>());
     this->set<ComputationalVariable::VelocityX>(this->get<PrimitiveVariable::VelocityX>());
-    this->set<ConservedVariable::MomentumY>(density * this->get<PrimitiveVariable::VelocityY>());
-    this->set<ComputationalVariable::VelocityY>(this->get<PrimitiveVariable::VelocityY>());
-    if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (SimulationControl::kDimension >= 2) {
+      this->set<ConservedVariable::MomentumY>(density * this->get<PrimitiveVariable::VelocityY>());
+      this->set<ComputationalVariable::VelocityY>(this->get<PrimitiveVariable::VelocityY>());
+    }
+    if constexpr (SimulationControl::kDimension >= 3) {
       this->set<ConservedVariable::MomentumZ>(density * this->get<PrimitiveVariable::VelocityZ>());
       this->set<ComputationalVariable::VelocityZ>(this->get<PrimitiveVariable::VelocityZ>());
     }
@@ -251,8 +257,10 @@ struct Variable {
       const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model) {
     this->set<ComputationalVariable::Density>(this->get<PrimitiveVariable::Density>());
     this->set<ComputationalVariable::VelocityX>(this->get<PrimitiveVariable::VelocityX>());
-    this->set<ComputationalVariable::VelocityY>(this->get<PrimitiveVariable::VelocityY>());
-    if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (SimulationControl::kDimension >= 2) {
+      this->set<ComputationalVariable::VelocityY>(this->get<PrimitiveVariable::VelocityY>());
+    }
+    if constexpr (SimulationControl::kDimension >= 3) {
       this->set<ComputationalVariable::VelocityZ>(this->get<PrimitiveVariable::VelocityZ>());
     }
     this->set<ComputationalVariable::InternalEnergy>(
@@ -278,7 +286,12 @@ struct Variable {
                             const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
                             const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
                             const Solver<SimulationControl, SimulationControl::kDimension>& solver) {
-    if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (SimulationControl::kDimension == 1) {
+      this->conserved_.noalias() =
+          solver.line_.element_(parent_index).conserved_variable_basis_function_coefficient_(1) *
+          mesh.line_.basis_function_.adjacency_value_.row(adjacency_gaussian_quadrature_node_sequence_in_parent)
+              .transpose();
+    } else if constexpr (SimulationControl::kDimension == 2) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->conserved_.noalias() =
             solver.triangle_.element_(parent_index).conserved_variable_basis_function_coefficient_(1) *

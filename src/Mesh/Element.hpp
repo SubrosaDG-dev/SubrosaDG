@@ -30,7 +30,7 @@ template <typename ElementTrait>
 inline void ElementMesh<ElementTrait>::getElementMesh(
     const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
     std::unordered_map<std::string, PhysicalGroupInformation>& physical_group_information,
-    std::unordered_map<Isize, PerElementInformation>& gmsh_tag_to_element_information,
+    std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information,
     Eigen::Vector<Isize, Eigen::Dynamic>& node_element_number) {
   std::vector<std::size_t> element_tags;
   std::vector<std::size_t> node_tags;
@@ -40,7 +40,7 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).gmsh_tag_ = static_cast<Isize>(element_tags[static_cast<Usize>(i)]);
     this->element_(i).gmsh_physical_name_ =
-        gmsh_tag_to_element_information[this->element_(i).gmsh_tag_].gmsh_physical_name_;
+        gmsh_tag_to_element_information.at(this->element_(i).gmsh_tag_).gmsh_physical_name_;
     this->element_(i).element_index_ = i;
     physical_group_information[this->element_(i).gmsh_physical_name_].element_number_++;
     physical_group_information[this->element_(i).gmsh_physical_name_].element_gmsh_type_.emplace_back(
@@ -64,7 +64,6 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
     }
   }
   this->getElementJacobian();
-  this->calculateElementProjectionMeasure();
   this->calculateElementLocalMassMatrixInverse();
 }
 

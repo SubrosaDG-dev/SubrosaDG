@@ -110,7 +110,10 @@ inline ElementBasisFunction<ElementTrait>::ElementBasisFunction() {
       }
     }
   }
-  if constexpr (ElementTrait::kElementType == Element::Triangle || ElementTrait::kElementType == Element::Quadrangle) {
+  if constexpr (ElementTrait::kElementType == Element::Line) {
+    this->getElementAdjacencyBasisFunction<AdjacencyPointTrait<ElementTrait::kPolynomialOrder>>();
+  } else if constexpr (ElementTrait::kElementType == Element::Triangle ||
+                       ElementTrait::kElementType == Element::Quadrangle) {
     this->getElementAdjacencyBasisFunction<AdjacencyLineTrait<ElementTrait::kPolynomialOrder>>();
   }
 }

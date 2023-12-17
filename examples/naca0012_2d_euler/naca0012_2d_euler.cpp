@@ -150,8 +150,6 @@ void generateMesh() {
   gmsh::write(kExampleDirectory / "naca0012_2d.msh");
 }
 
-void generateMeshShell(){};
-
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
@@ -163,7 +161,7 @@ int main(int argc, char* argv[]) {
   system.addBoundaryCondition<SubrosaDG::BoundaryCondition::RiemannFarfield>(
       "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryCondition::AdiabaticWall>("bc-2");
-  system.setTimeIntegration(false, 30000, 1.5, 1e-10);
+  system.setTimeIntegration(false, 1, 1.5, 1e-10);
   system.setViewConfig(-1, kExampleDirectory, "naca0012_2d",
                        {SubrosaDG::ViewConfig::HighOrderReconstruction, SubrosaDG::ViewConfig::SolverSmoothness});
   system.addViewVariable({SubrosaDG::ViewVariable::Density, SubrosaDG::ViewVariable::Velocity,

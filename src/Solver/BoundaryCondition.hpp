@@ -114,8 +114,10 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::RiemannFarfie
             thermal_model.calculatePressureFormDensityInternalEnergy(farfield_density, farfield_internal_energy);
         farfield_variable.template set<ComputationalVariable::Density>(farfield_density);
         farfield_variable.template set<ComputationalVariable::VelocityX>(farfield_velocity.x());
-        farfield_variable.template set<ComputationalVariable::VelocityY>(farfield_velocity.y());
-        if constexpr (SimulationControl::kDimension == 3) {
+        if constexpr (SimulationControl::kDimension >= 2) {
+          farfield_variable.template set<ComputationalVariable::VelocityY>(farfield_velocity.y());
+        }
+        if constexpr (SimulationControl::kDimension >= 3) {
           farfield_variable.template set<ComputationalVariable::VelocityZ>(farfield_velocity.z());
         }
         farfield_variable.template set<ComputationalVariable::InternalEnergy>(farfield_internal_energy);
@@ -144,8 +146,10 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::RiemannFarfie
             thermal_model.calculatePressureFormDensityInternalEnergy(farfield_density, farfield_internal_energy);
         farfield_variable.template set<ComputationalVariable::Density>(farfield_density);
         farfield_variable.template set<ComputationalVariable::VelocityX>(farfield_velocity.x());
-        farfield_variable.template set<ComputationalVariable::VelocityY>(farfield_velocity.y());
-        if constexpr (SimulationControl::kDimension == 3) {
+        if constexpr (SimulationControl::kDimension >= 2) {
+          farfield_variable.template set<ComputationalVariable::VelocityY>(farfield_velocity.y());
+        }
+        if constexpr (SimulationControl::kDimension >= 3) {
           farfield_variable.template set<ComputationalVariable::VelocityZ>(farfield_velocity.z());
         }
         farfield_variable.template set<ComputationalVariable::InternalEnergy>(farfield_internal_energy);
@@ -183,7 +187,14 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::Characteristi
       if (is_negative) {  // Subsonic inflow
         const Real reference_rho = left_quadrature_node_variable.template get<ComputationalVariable::Density>();
         Real farfield_pressure;
-        if constexpr (SimulationControl::kDimension == 2) {
+        if constexpr (SimulationControl::kDimension == 1) {
+          farfield_pressure = (this->variable_.template get<ComputationalVariable::Pressure>() +
+                               left_quadrature_node_variable.template get<ComputationalVariable::Pressure>() -
+                               reference_rho * sound_speed *
+                                   (this->variable_.template get<ComputationalVariable::VelocityX>() -
+                                    left_quadrature_node_variable.template get<ComputationalVariable::VelocityX>())) /
+                              2.0;
+        } else if constexpr (SimulationControl::kDimension == 2) {
           farfield_pressure = (this->variable_.template get<ComputationalVariable::Pressure>() +
                                left_quadrature_node_variable.template get<ComputationalVariable::Pressure>() -
                                reference_rho * sound_speed *
@@ -216,10 +227,12 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::Characteristi
         farfield_variable.template set<ComputationalVariable::VelocityX>(
             this->variable_.template get<ComputationalVariable::VelocityX>() +
             delta_pressure / (reference_rho * sound_speed) * normal_vector.x());
-        farfield_variable.template set<ComputationalVariable::VelocityY>(
-            this->variable_.template get<ComputationalVariable::VelocityY>() +
-            delta_pressure / (reference_rho * sound_speed) * normal_vector.y());
-        if constexpr (SimulationControl::kDimension == 3) {
+        if constexpr (SimulationControl::kDimension >= 2) {
+          farfield_variable.template set<ComputationalVariable::VelocityY>(
+              this->variable_.template get<ComputationalVariable::VelocityY>() +
+              delta_pressure / (reference_rho * sound_speed) * normal_vector.y());
+        }
+        if constexpr (SimulationControl::kDimension >= 3) {
           farfield_variable.template set<ComputationalVariable::VelocityZ>(
               this->variable_.template get<ComputationalVariable::VelocityZ>() +
               delta_pressure / (reference_rho * sound_speed) * normal_vector.z());
@@ -238,10 +251,12 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::Characteristi
         farfield_variable.template set<ComputationalVariable::VelocityX>(
             left_quadrature_node_variable.template get<ComputationalVariable::VelocityX>() -
             delta_pressure / (reference_rho * sound_speed) * normal_vector.x());
-        farfield_variable.template set<ComputationalVariable::VelocityY>(
-            left_quadrature_node_variable.template get<ComputationalVariable::VelocityY>() -
-            delta_pressure / (reference_rho * sound_speed) * normal_vector.y());
-        if constexpr (SimulationControl::kDimension == 3) {
+        if constexpr (SimulationControl::kDimension >= 2) {
+          farfield_variable.template set<ComputationalVariable::VelocityY>(
+              left_quadrature_node_variable.template get<ComputationalVariable::VelocityY>() -
+              delta_pressure / (reference_rho * sound_speed) * normal_vector.y());
+        }
+        if constexpr (SimulationControl::kDimension >= 3) {
           farfield_variable.template set<ComputationalVariable::VelocityZ>(
               left_quadrature_node_variable.template get<ComputationalVariable::VelocityZ>() -
               delta_pressure / (reference_rho * sound_speed) * normal_vector.z());
@@ -257,6 +272,7 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::Characteristi
 };
 
 template <typename SimulationControl>
+  requires(SimulationControl::kDimension == 2 || SimulationControl::kDimension == 3)
 struct BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticWall>
     : BoundaryConditionCRTP<SimulationControl,
                             BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticWall>> {
@@ -272,7 +288,7 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticWall
     wall_variable.template set<ComputationalVariable::Density>(left_quadrature_node_variable);
     wall_variable.template set<ComputationalVariable::VelocityX>(wall_velocity.x());
     wall_variable.template set<ComputationalVariable::VelocityY>(wall_velocity.y());
-    if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (SimulationControl::kDimension >= 3) {
       wall_variable.template set<ComputationalVariable::VelocityZ>(wall_velocity.z());
     }
     wall_variable.template set<ComputationalVariable::InternalEnergy>(left_quadrature_node_variable);
@@ -287,7 +303,7 @@ struct BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticWall
     // wall_variable.template set<ComputationalVariable::Density>(left_quadrature_node_variable);
     // wall_variable.template set<ComputationalVariable::VelocityX>(wall_velocity.x());
     // wall_variable.template set<ComputationalVariable::VelocityY>(wall_velocity.y());
-    // if constexpr (SimulationControl::kDimension == 3) {
+    // if constexpr (SimulationControl::kDimension >= 3) {
     //   wall_variable.template set<ComputationalVariable::VelocityZ>(wall_velocity.z());
     // }
     // wall_variable.template set<ComputationalVariable::InternalEnergy>(left_quadrature_node_variable);

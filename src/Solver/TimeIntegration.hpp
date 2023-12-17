@@ -16,14 +16,12 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <memory>
 #include <string>
 #include <unordered_map>
 
 #include "Mesh/ReadControl.hpp"
 #include "Solver/BoundaryCondition.hpp"
-#include "Solver/SimulationControl.hpp"
 #include "Solver/SolveControl.hpp"
 #include "Solver/ThermalModel.hpp"
 #include "Solver/VariableConvertor.hpp"
@@ -43,6 +41,12 @@ struct TimeIntegrationBase {
 
 template <TimeIntegration TimeIntegrationType>
 struct TimeIntegrationData : TimeIntegrationBase {};
+
+template <>
+struct TimeIntegrationData<TimeIntegration::TestInitialization> : TimeIntegrationBase {
+  inline static constexpr int kStep = 0;
+  inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{};
+};
 
 template <>
 struct TimeIntegrationData<TimeIntegration::ForwardEuler> : TimeIntegrationBase {
@@ -72,6 +76,11 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
 }
 
 template <typename SimulationControl>
+inline void Solver<SimulationControl, 1>::copyBasisFunctionCoefficient() {
+  this->line_.copyElementBasisFunctionCoefficient();
+}
+
+template <typename SimulationControl>
 inline void Solver<SimulationControl, 2>::copyBasisFunctionCoefficient() {
   if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
     this->triangle_.copyElementBasisFunctionCoefficient();
@@ -94,26 +103,30 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
       Variable<SimulationControl> variable;
       variable.template getFromSelf<ElementTrait>(i, j, element_mesh, thermal_model, *this);
-      const Real velocity_x = variable.template get<ComputationalVariable::VelocityX>();
-      const Real velocity_y = variable.template get<ComputationalVariable::VelocityY>();
-      const Real sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
-          variable.template get<ComputationalVariable::InternalEnergy>());
-      const Real lambda_x = std::fabs(velocity_x) *
-                            (1 + sound_speed / (velocity_x * velocity_x + velocity_y * velocity_y)) *
-                            element_mesh.element_(i).projection_measure_.x();
-      const Real lambda_y = std::fabs(velocity_y) *
-                            (1 + sound_speed / (velocity_x * velocity_x + velocity_y * velocity_y)) *
-                            element_mesh.element_(i).projection_measure_.y();
-      delta_time(j) = time_integration.courant_friedrichs_lewy_number_ *
-                      element_mesh.element_(i).jacobian_determinant_(j) *
-                      getElementMeasure<ElementTrait::kElementType>() / (lambda_x + lambda_y);
+      const Real spectral_radius = std::sqrt(variable.getVelocitySquareSummation()) +
+                                   thermal_model.calculateSoundSpeedFromInternalEnergy(
+                                       variable.template get<ComputationalVariable::InternalEnergy>());
+      delta_time(j) =
+          time_integration.courant_friedrichs_lewy_number_ * element_mesh.element_(i).size_ / spectral_radius;
     }
     this->delta_time_(i) = delta_time.minCoeff();
   }
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl, 2>::setDeltaTime() {
+inline Real Solver<SimulationControl, 1>::setDeltaTime(
+    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+  Real delta_time = kRealMax;
+  delta_time = std::min(delta_time, this->line_.delta_time_.minCoeff());
+  if (!time_integration.is_steady_) {
+    this->line_.delta_time_.setConstant(delta_time);
+  }
+  return delta_time;
+}
+
+template <typename SimulationControl>
+inline Real Solver<SimulationControl, 2>::setDeltaTime(
+    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
   Real delta_time = kRealMax;
   if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
     delta_time = std::min(delta_time, this->triangle_.delta_time_.minCoeff());
@@ -121,16 +134,28 @@ inline void Solver<SimulationControl, 2>::setDeltaTime() {
   if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
     delta_time = std::min(delta_time, this->quadrangle_.delta_time_.minCoeff());
   }
-  if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-    this->triangle_.delta_time_.setConstant(delta_time);
+  if (!time_integration.is_steady_) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.delta_time_.setConstant(delta_time);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.delta_time_.setConstant(delta_time);
+    }
   }
-  if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-    this->quadrangle_.delta_time_.setConstant(delta_time);
-  }
+  return delta_time;
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl, 2>::calculateDeltaTime(
+inline Real Solver<SimulationControl, 1>::calculateDeltaTime(
+    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+  this->line_.calculateElementDeltaTime(mesh.line_, thermal_model, time_integration);
+  return this->setDeltaTime(time_integration);
+}
+
+template <typename SimulationControl>
+inline Real Solver<SimulationControl, 2>::calculateDeltaTime(
     const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
@@ -140,9 +165,7 @@ inline void Solver<SimulationControl, 2>::calculateDeltaTime(
   if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
     this->quadrangle_.calculateElementDeltaTime(mesh.quadrangle_, thermal_model, time_integration);
   }
-  if (!time_integration.is_steady_) {
-    this->setDeltaTime();
-  }
+  return this->setDeltaTime(time_integration);
 }
 
 template <typename ElementTrait, typename SimulationControl, EquationModel EquationModelType>
@@ -161,6 +184,13 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::u
         time_integration.kStepCoefficients[static_cast<Usize>(step)][2] * this->delta_time_(i) *
             this->element_(i).residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
   }
+}
+
+template <typename SimulationControl>
+inline void Solver<SimulationControl, 1>::updateBasisFunctionCoefficient(
+    int step, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+  this->line_.updateElementBasisFunctionCoefficient(step, mesh.line_, time_integration);
 }
 
 template <typename SimulationControl>
@@ -192,6 +222,14 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
 }
 
 template <typename SimulationControl>
+inline void Solver<SimulationControl, 1>::calculateRelativeError(
+    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
+  this->relative_error_.setZero();
+  this->line_.calculateElementRelativeError(mesh.line_, this->relative_error_);
+  this->relative_error_ = (this->relative_error_ / static_cast<Real>(mesh.element_number_)).array().sqrt();
+}
+
+template <typename SimulationControl>
 inline void Solver<SimulationControl, 2>::calculateRelativeError(
     const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
   this->relative_error_.setZero();
@@ -202,6 +240,19 @@ inline void Solver<SimulationControl, 2>::calculateRelativeError(
     this->quadrangle_.calculateElementRelativeError(mesh.quadrangle_, this->relative_error_);
   }
   this->relative_error_ = (this->relative_error_ / static_cast<Real>(mesh.element_number_)).array().sqrt();
+}
+
+template <typename SimulationControl>
+inline void Solver<SimulationControl, 1>::stepSolver(
+    const int step, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
+    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+    const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
+        boundary_condition,
+    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+  this->calculateGaussianQuadrature(mesh, thermal_model);
+  this->calculateAdjacencyGaussianQuadrature(mesh, thermal_model, boundary_condition);
+  this->calculateResidual(mesh);
+  this->updateBasisFunctionCoefficient(step, mesh, time_integration);
 }
 
 template <typename SimulationControl>

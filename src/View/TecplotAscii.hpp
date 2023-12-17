@@ -89,6 +89,10 @@ inline void View<SimulationControl, ViewModel::Dat>::writeDiscontinuousAdjacency
   const Isize node_number = this->view_config_.at(ViewConfig::HighOrderReconstruction)
                                 ? AdjacencyElementTrait::kAllNodeNumber
                                 : AdjacencyElementTrait::kBasicNodeNumber;
+  const Eigen::Vector<int, AdjacencyElementTrait::kBasicNodeNumber> connectivity{
+      getSubElementConnectivity<AdjacencyElementTrait::kElementType, PolynomialOrder::P1>().data()};
+  const Eigen::Matrix<int, AdjacencyElementTrait::kBasicNodeNumber, AdjacencyElementTrait::kSubNumber> sub_connectivity{
+      getSubElementConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>().data()};
   if constexpr (AdjacencyElementTrait::kElementType == Element::Line) {
     const Isize parent_index_each_type = mesh.line_.element_(element_index).parent_index_each_type_(0);
     const Isize adjacency_sequence_in_parent = mesh.line_.element_(element_index).adjacency_sequence_in_parent_(0);
@@ -124,9 +128,9 @@ inline void View<SimulationControl, ViewModel::Dat>::writeDiscontinuousAdjacency
     if (this->view_config_.at(ViewConfig::HighOrderReconstruction)) {
       element_connectivity(Eigen::all, Eigen::seqN(element_index * AdjacencyElementTrait::kSubNumber,
                                                    AdjacencyElementTrait::kSubNumber)) =
-          mesh.line_.sub_element_connectivity_.array() + column + 1;
+          sub_connectivity.array() + column + 1;
     } else {
-      element_connectivity(Eigen::all, element_index) = mesh.line_.element_connectivity_.array() + column + 1;
+      element_connectivity(Eigen::all, element_index) = connectivity.array() + column + 1;
     }
   }
   column += node_number;
@@ -147,7 +151,15 @@ inline void View<SimulationControl, ViewModel::Dat>::writeDiscontinuousElement(
   const Isize element_index_per_type = mesh.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   const Isize node_number = this->view_config_.at(ViewConfig::HighOrderReconstruction) ? ElementTrait::kAllNodeNumber
                                                                                        : ElementTrait::kBasicNodeNumber;
-  if constexpr (ElementTrait::kElementType == Element::Triangle) {
+  const Eigen::Vector<int, ElementTrait::kBasicNodeNumber> connectivity{
+      getSubElementConnectivity<ElementTrait::kElementType, PolynomialOrder::P1>().data()};
+  const Eigen::Matrix<int, ElementTrait::kBasicNodeNumber, ElementTrait::kSubNumber> sub_connectivity{
+      getSubElementConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>().data()};
+  if constexpr (ElementTrait::kElementType == Element::Line) {
+    node_coordinate(Eigen::all, Eigen::seqN(column, node_number)) =
+        mesh.line_.element_(element_index_per_type)
+            .node_coordinate_(Eigen::all, Eigen::seqN(Eigen::fix<0>, node_number));
+  } else if constexpr (ElementTrait::kElementType == Element::Triangle) {
     node_coordinate(Eigen::all, Eigen::seqN(column, node_number)) =
         mesh.triangle_.element_(element_index_per_type)
             .node_coordinate_(Eigen::all, Eigen::seqN(Eigen::fix<0>, node_number));
@@ -157,7 +169,9 @@ inline void View<SimulationControl, ViewModel::Dat>::writeDiscontinuousElement(
             .node_coordinate_(Eigen::all, Eigen::seqN(Eigen::fix<0>, node_number));
   }
   for (Isize i = 0; i < node_number; i++) {
-    if constexpr (ElementTrait::kElementType == Element::Triangle) {
+    if constexpr (ElementTrait::kElementType == Element::Line) {
+      variable.conserved_ = this->data_.line_.conserved_variable_(element_index_per_type).col(i);
+    } else if constexpr (ElementTrait::kElementType == Element::Triangle) {
       variable.conserved_ = this->data_.triangle_.conserved_variable_(element_index_per_type).col(i);
     } else if constexpr (ElementTrait::kElementType == Element::Quadrangle) {
       variable.conserved_ = this->data_.quadrangle_.conserved_variable_(element_index_per_type).col(i);
@@ -167,25 +181,31 @@ inline void View<SimulationControl, ViewModel::Dat>::writeDiscontinuousElement(
       node_variable(j, column + i) = variable.get(thermal_model, this->all_view_variable_[static_cast<Usize>(j)]);
     }
   }
-  if constexpr (ElementTrait::kElementType == Element::Triangle) {
+  if constexpr (ElementTrait::kElementType == Element::Line) {
+    if (this->view_config_.at(ViewConfig::HighOrderReconstruction)) {
+      element_connectivity(Eigen::all, Eigen::seqN(element_index * ElementTrait::kSubNumber,
+                                                   ElementTrait::kSubNumber)) = sub_connectivity.array() + column + 1;
+    } else {
+      element_connectivity(Eigen::all, element_index) = connectivity.array() + column + 1;
+    }
+  } else if constexpr (ElementTrait::kElementType == Element::Triangle) {
     if (this->view_config_.at(ViewConfig::HighOrderReconstruction)) {
       element_connectivity(Eigen::seqN(Eigen::fix<0>, Eigen::fix<3>),
                            Eigen::seqN(element_index * ElementTrait::kSubNumber, ElementTrait::kSubNumber)) =
-          mesh.triangle_.sub_element_connectivity_.array() + column + 1;
+          sub_connectivity.array() + column + 1;
       element_connectivity(3, Eigen::seqN(element_index * ElementTrait::kSubNumber, ElementTrait::kSubNumber)) =
           element_connectivity(2, Eigen::seqN(element_index * ElementTrait::kSubNumber, ElementTrait::kSubNumber));
     } else {
       element_connectivity(Eigen::seqN(Eigen::fix<0>, Eigen::fix<3>), element_index) =
-          mesh.triangle_.element_connectivity_.array() + column + 1;
+          connectivity.array() + column + 1;
       element_connectivity(3, element_index) = element_connectivity(2, element_index);
     }
   } else if constexpr (ElementTrait::kElementType == Element::Quadrangle) {
     if (this->view_config_.at(ViewConfig::HighOrderReconstruction)) {
-      element_connectivity(Eigen::all,
-                           Eigen::seqN(element_index * ElementTrait::kSubNumber, ElementTrait::kSubNumber)) =
-          mesh.quadrangle_.sub_element_connectivity_.array() + column + 1;
+      element_connectivity(Eigen::all, Eigen::seqN(element_index * ElementTrait::kSubNumber,
+                                                   ElementTrait::kSubNumber)) = sub_connectivity.array() + column + 1;
     } else {
-      element_connectivity(Eigen::all, element_index) = mesh.quadrangle_.element_connectivity_.array() + column + 1;
+      element_connectivity(Eigen::all, element_index) = connectivity.array() + column + 1;
     }
   }
   column += node_number;
@@ -204,8 +224,11 @@ inline void View<SimulationControl, ViewModel::Dat>::writeDiscontinuousField(
     const Isize element_gmsh_type =
         mesh.physical_group_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
     if constexpr (Dimension == 1) {
-      if (element_gmsh_type == AdjacencyLineTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      if constexpr (IsAdjacency) {
         this->writeDiscontinuousAdjacencyElement<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
+            physical_name, mesh, thermal_model, node_coordinate, node_variable, element_connectivity, i, column);
+      } else {
+        this->writeDiscontinuousElement<LineTrait<SimulationControl::kPolynomialOrder>>(
             physical_name, mesh, thermal_model, node_coordinate, node_variable, element_connectivity, i, column);
       }
     } else if constexpr (Dimension == 2) {
@@ -224,23 +247,6 @@ inline void View<SimulationControl, ViewModel::Dat>::writeDiscontinuousField(
 }
 
 template <typename SimulationControl>
-template <typename T>
-inline int View<SimulationControl, ViewModel::Dat>::getElementNodeIndex(T& elements,
-                                                                        const ordered_set<Isize>& node_gmsh_tag,
-                                                                        const Isize element_index_per_type,
-                                                                        const Isize i, const Isize j) const {
-  if (this->view_config_.at(ViewConfig::HighOrderReconstruction)) {
-    return static_cast<int>(
-        node_gmsh_tag.find_index(
-            elements.element_(element_index_per_type).node_tag_(elements.sub_element_connectivity_(j, i))) +
-        1);
-  }
-  return static_cast<int>(
-      node_gmsh_tag.find_index(elements.element_(element_index_per_type).node_tag_(elements.element_connectivity_(j))) +
-      1);
-}
-
-template <typename SimulationControl>
 template <typename ElementTrait>
 inline void View<SimulationControl, ViewModel::Dat>::writeContinuousElementConnectivity(
     const std::string& physical_name, const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
@@ -255,17 +261,41 @@ inline void View<SimulationControl, ViewModel::Dat>::writeContinuousElementConne
   const Isize element_gmsh_tag =
       mesh.physical_group_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type = mesh.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
+  const Eigen::Vector<int, ElementTrait::kBasicNodeNumber> connectivity{
+      getSubElementConnectivity<ElementTrait::kElementType, PolynomialOrder::P1>().data()};
+  const Eigen::Matrix<int, ElementTrait::kBasicNodeNumber, ElementTrait::kSubNumber> sub_connectivity{
+      getSubElementConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>().data()};
   for (Isize i = 0; i < element_sub_number; i++) {
     for (Isize j = 0; j < ElementTrait::kBasicNodeNumber; j++) {
       if constexpr (ElementTrait::kElementType == Element::Line) {
         element_connectivity(j, column + i) =
-            this->getElementNodeIndex(mesh.line_, node_gmsh_tag, element_index_per_type, i, j);
+            this->view_config_.at(ViewConfig::HighOrderReconstruction)
+                ? node_gmsh_tag.find_index(
+                      static_cast<int>(mesh.line_.element_(element_index_per_type).node_tag_(sub_connectivity(j, i))) +
+                      1)
+                : static_cast<int>(
+                      node_gmsh_tag.find_index(mesh.line_.element_(element_index_per_type).node_tag_(connectivity(j))) +
+                      1);
       } else if constexpr (ElementTrait::kElementType == Element::Triangle) {
         element_connectivity(j, column + i) =
-            this->getElementNodeIndex(mesh.triangle_, node_gmsh_tag, element_index_per_type, i, j);
+            this->view_config_.at(ViewConfig::HighOrderReconstruction)
+                ? node_gmsh_tag.find_index(
+                      static_cast<int>(
+                          mesh.triangle_.element_(element_index_per_type).node_tag_(sub_connectivity(j, i))) +
+                      1)
+                : static_cast<int>(node_gmsh_tag.find_index(
+                                       mesh.triangle_.element_(element_index_per_type).node_tag_(connectivity(j))) +
+                                   1);
       } else if constexpr (ElementTrait::kElementType == Element::Quadrangle) {
         element_connectivity(j, column + i) =
-            this->getElementNodeIndex(mesh.quadrangle_, node_gmsh_tag, element_index_per_type, i, j);
+            this->view_config_.at(ViewConfig::HighOrderReconstruction)
+                ? node_gmsh_tag.find_index(
+                      static_cast<int>(
+                          mesh.quadrangle_.element_(element_index_per_type).node_tag_(sub_connectivity(j, i))) +
+                      1)
+                : static_cast<int>(node_gmsh_tag.find_index(
+                                       mesh.quadrangle_.element_(element_index_per_type).node_tag_(connectivity(j))) +
+                                   1);
       }
     }
   }
@@ -373,7 +403,11 @@ inline void View<SimulationControl, ViewModel::Dat>::stepView(
   this->setViewFout(step, fout);
   this->writeAsciiVariableList(fout);
   for (const auto& [dim, physical_name] : mesh.physical_group_) {
-    if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (SimulationControl::kDimension == 1) {
+      if (dim == 1) {
+        this->writeView<1, false>(physical_name, mesh, thermal_model, fout);
+      }
+    } else if constexpr (SimulationControl::kDimension == 2) {
       if (dim == 1) {
         // NOTE: The ParaView can not read the Tecplot ASCII file with FELINESG.
         this->writeView<1, true>(physical_name, mesh, thermal_model, fout);

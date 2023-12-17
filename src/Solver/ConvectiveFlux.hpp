@@ -77,13 +77,13 @@ inline static void calculateConvectiveLaxFriedrichsFlux(
       2.0;
 }
 
-template <typename SimulationControl>
-inline static void calculateConvectiveHLLCFlux(
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-    const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-    const Variable<SimulationControl>& left_quadrature_node_variable,
-    const Variable<SimulationControl>& right_quadrature_node_variable,
-    Flux<SimulationControl, SimulationControl::kEquationModel>& flux) {}
+// template <typename SimulationControl>
+// inline static void calculateConvectiveHLLCFlux(
+//     const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+//     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+//     const Variable<SimulationControl>& left_quadrature_node_variable,
+//     const Variable<SimulationControl>& right_quadrature_node_variable,
+//     Flux<SimulationControl, SimulationControl::kEquationModel>& flux) {}
 
 template <typename SimulationControl>
 inline static void calculateConvectiveRoeFlux(

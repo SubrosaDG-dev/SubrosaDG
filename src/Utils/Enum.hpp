@@ -16,7 +16,8 @@
 namespace SubrosaDG {
 
 enum class Element {
-  Line = 1,
+  Point = 1,
+  Line,
   Triangle,
   Quadrangle,
   Tetrahedron,
@@ -25,17 +26,13 @@ enum class Element {
 };
 
 enum class MeshModel {
-  Triangle = 1,
+  Line = 1,
+  Triangle,
   Quadrangle,
   TriangleQuadrangle,
   Tetrahedron,
   Hexahedron,
   TetrahedronPyramidHexahedron,
-};
-
-enum class MeshHighOrderModel {
-  Straight = 1,
-  Curved,
 };
 
 enum class BoundaryCondition {
@@ -82,7 +79,8 @@ enum class TransportModel {
 };
 
 enum class TimeIntegration {
-  ForwardEuler = 1,
+  TestInitialization = 1,
+  ForwardEuler,
   HeunRK2,
   SSPRK3,
   BackwardEuler,

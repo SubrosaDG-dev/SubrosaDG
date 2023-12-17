@@ -30,6 +30,38 @@
 namespace SubrosaDG {
 
 template <typename AdjacencyElementTrait, typename ElementTrait>
+  requires Is1dElement<ElementTrait::kElementType>
+inline void getAdjacencyElementMeshSupplementalMap(
+    std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
+        adjacency_element_mesh_supplemental_map) {
+  std::vector<std::size_t> element_tags;
+  std::vector<std::size_t> element_node_tags;
+  gmsh::model::mesh::getElementsByType(ElementTrait::kGmshTypeNumber, element_tags, element_node_tags);
+  std::vector<std::size_t> adjacency_node_tags;
+  Usize element_number = element_tags.size();
+  Usize all_adjacency_number = element_tags.size() * 2;
+  adjacency_element_mesh_supplemental_map.reserve(all_adjacency_number);
+  for (Usize i = 0; i < element_number; i++) {
+    adjacency_node_tags.emplace_back(element_node_tags[i * ElementTrait::kAllNodeNumber]);
+    adjacency_node_tags.emplace_back(element_node_tags[i * ElementTrait::kAllNodeNumber + 1]);
+  }
+  for (Usize i = 0; i < all_adjacency_number; i++) {
+    const auto point_tag = static_cast<Isize>(adjacency_node_tags[i]);
+    if (!adjacency_element_mesh_supplemental_map.contains(point_tag)) {
+      adjacency_element_mesh_supplemental_map[point_tag].node_tag_[0] = point_tag;
+    } else {
+      adjacency_element_mesh_supplemental_map[point_tag].is_recorded_ = true;
+    }
+    adjacency_element_mesh_supplemental_map[point_tag].parent_gmsh_tag_.emplace_back(
+        element_tags[i / ElementTrait::kAdjacencyNumber]);
+    adjacency_element_mesh_supplemental_map[point_tag].adjacency_sequence_in_parent_.emplace_back(
+        i % ElementTrait::kAdjacencyNumber);
+    adjacency_element_mesh_supplemental_map[point_tag].parent_gmsh_type_number_.emplace_back(
+        ElementTrait::kGmshTypeNumber);
+  }
+}
+
+template <typename AdjacencyElementTrait, typename ElementTrait>
   requires Is2dElement<ElementTrait::kElementType>
 inline void getAdjacencyElementMeshSupplementalMap(
     std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
@@ -71,8 +103,9 @@ inline void getAdjacencyElementMeshSupplementalMap(
 template <typename AdjacencyElementTrait>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoundaryMesh(
     const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
+    std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
     std::unordered_map<std::string, PhysicalGroupInformation>& physical_group_information,
-    std::unordered_map<Isize, PerElementInformation>& gmsh_tag_to_element_information,
+    std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information,
     const std::vector<Isize>& boundary_tag,
     const std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
         adjacency_element_mesh_supplemental_map) {
@@ -102,7 +135,7 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
     }
     this->element_(i).gmsh_tag_ = node_tag_element_map.at(node_tag);
     this->element_(i).gmsh_physical_name_ =
-        gmsh_tag_to_element_information[this->element_(i).gmsh_tag_].gmsh_physical_name_;
+        gmsh_tag_to_element_information.at(this->element_(i).gmsh_tag_).gmsh_physical_name_;
     this->element_(i).element_index_ = i;
     physical_group_information[this->element_(i).gmsh_physical_name_].element_number_++;
     physical_group_information[this->element_(i).gmsh_physical_name_].element_gmsh_type_.emplace_back(
@@ -119,6 +152,8 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
     this->element_(i).adjacency_sequence_in_parent_(0) =
         adjacency_element_mesh_supplemental.adjacency_sequence_in_parent_[0];
     this->element_(i).parent_gmsh_type_number_(0) = adjacency_element_mesh_supplemental.parent_gmsh_type_number_[0];
+    gmsh_tag_to_sub_index_and_type[adjacency_element_mesh_supplemental.parent_gmsh_tag_[0]].emplace_back(
+        i, AdjacencyElementTrait::kGmshTypeNumber);
     for (Isize j = 0; j < AdjacencyElementTrait::kBasicNodeNumber; j++) {
       physical_group_information[this->element_(i).gmsh_physical_name_].basic_node_gmsh_tag_.emplace_back(
           adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)]);
@@ -133,7 +168,8 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
 template <typename AdjacencyElementTrait>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementInteriorMesh(
     const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
-    const std::unordered_map<Isize, PerElementInformation>& gmsh_tag_to_element_information,
+    std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
+    std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information,
     const std::vector<Isize>& interior_tag,
     const std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
         adjacency_element_mesh_supplemental_map) {
@@ -154,6 +190,7 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementInte
       this->element_(i).node_tag_(j) = adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)];
       interior_node_tag.emplace_back(adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)]);
     }
+    gmsh_tag_to_element_information[this->element_(i).gmsh_tag_].element_index_ = i;
     for (Isize j = 0; j < 2; j++) {
       this->element_(i).parent_index_each_type_(j) =
           gmsh_tag_to_element_information
@@ -163,6 +200,8 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementInte
           adjacency_element_mesh_supplemental.adjacency_sequence_in_parent_[static_cast<Usize>(j)];
       this->element_(i).parent_gmsh_type_number_(j) =
           adjacency_element_mesh_supplemental.parent_gmsh_type_number_[static_cast<Usize>(j)];
+      gmsh_tag_to_sub_index_and_type[adjacency_element_mesh_supplemental.parent_gmsh_tag_[static_cast<Usize>(j)]]
+          .emplace_back(i, AdjacencyElementTrait::kGmshTypeNumber);
     }
   }
   gmsh::model::mesh::addElementsByType(entity_tag, AdjacencyElementTrait::kGmshTypeNumber, interior_gmsh_tag,
@@ -173,22 +212,27 @@ template <typename AdjacencyElementTrait>
 template <MeshModel MeshModelType>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementMesh(
     const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
+    std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
     std::unordered_map<std::string, PhysicalGroupInformation>& physical_group_information,
-    std::unordered_map<Isize, PerElementInformation>& gmsh_tag_to_element_information) {
-  if constexpr (AdjacencyElementTrait::kDimension == 1) {
-    gmsh::model::mesh::createEdges();
-  }
+    std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information) {
   std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>
       adjacency_element_mesh_supplemental_map;
-  if constexpr (HasTriangle<MeshModelType>) {
-    getAdjacencyElementMeshSupplementalMap<AdjacencyElementTrait,
-                                           TriangleTrait<AdjacencyElementTrait::kPolynomialOrder>>(
+  if constexpr (AdjacencyElementTrait::kDimension == 0) {
+    getAdjacencyElementMeshSupplementalMap<AdjacencyElementTrait, LineTrait<AdjacencyElementTrait::kPolynomialOrder>>(
         adjacency_element_mesh_supplemental_map);
   }
-  if constexpr (HasQuadrangle<MeshModelType>) {
-    getAdjacencyElementMeshSupplementalMap<AdjacencyElementTrait,
-                                           QuadrangleTrait<AdjacencyElementTrait::kPolynomialOrder>>(
-        adjacency_element_mesh_supplemental_map);
+  if constexpr (AdjacencyElementTrait::kDimension == 1) {
+    gmsh::model::mesh::createEdges();
+    if constexpr (HasTriangle<MeshModelType>) {
+      getAdjacencyElementMeshSupplementalMap<AdjacencyElementTrait,
+                                             TriangleTrait<AdjacencyElementTrait::kPolynomialOrder>>(
+          adjacency_element_mesh_supplemental_map);
+    }
+    if constexpr (HasQuadrangle<MeshModelType>) {
+      getAdjacencyElementMeshSupplementalMap<AdjacencyElementTrait,
+                                             QuadrangleTrait<AdjacencyElementTrait::kPolynomialOrder>>(
+          adjacency_element_mesh_supplemental_map);
+    }
   }
   std::vector<Isize> interior_tag;
   std::vector<Isize> boundary_tag;
@@ -202,9 +246,11 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementMesh
   this->interior_number_ = static_cast<Isize>(interior_tag.size());
   this->boundary_number_ = static_cast<Isize>(boundary_tag.size());
   this->element_.resize(this->interior_number_ + this->boundary_number_);
-  this->getAdjacencyElementBoundaryMesh(node_coordinate, physical_group_information, gmsh_tag_to_element_information,
-                                        boundary_tag, adjacency_element_mesh_supplemental_map);
-  this->getAdjacencyElementInteriorMesh(node_coordinate, gmsh_tag_to_element_information, interior_tag,
+  this->getAdjacencyElementBoundaryMesh(node_coordinate, gmsh_tag_to_sub_index_and_type, physical_group_information,
+                                        gmsh_tag_to_element_information, boundary_tag,
+                                        adjacency_element_mesh_supplemental_map);
+  this->getAdjacencyElementInteriorMesh(node_coordinate, gmsh_tag_to_sub_index_and_type,
+                                        gmsh_tag_to_element_information, interior_tag,
                                         adjacency_element_mesh_supplemental_map);
   this->getAdjacencyElementJacobian();
   this->calculateAdjacencyElementNormalVector();

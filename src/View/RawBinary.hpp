@@ -42,6 +42,11 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::w
 }
 
 template <typename SimulationControl>
+inline void Solver<SimulationControl, 1>::writeRawBinary(std::fstream& fout) const {
+  this->line_.writeElementRawBinary(fout);
+}
+
+template <typename SimulationControl>
 inline void Solver<SimulationControl, 2>::writeRawBinary(std::fstream& fout) const {
   if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
     this->triangle_.writeElementRawBinary(fout);
@@ -73,6 +78,12 @@ inline void ElementViewData<ElementTrait, SimulationControl>::readElementRawBina
 }
 
 template <typename SimulationControl>
+inline void ViewData<SimulationControl, 1>::readRawBinary(
+    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh, std::fstream& raw_binary_finout) {
+  this->line_.readElementRawBinary(mesh.line_, raw_binary_finout);
+}
+
+template <typename SimulationControl>
 inline void ViewData<SimulationControl, 2>::readRawBinary(
     const Mesh<SimulationControl, SimulationControl::kDimension>& mesh, std::fstream& raw_binary_finout) {
   if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
@@ -81,6 +92,20 @@ inline void ViewData<SimulationControl, 2>::readRawBinary(
   if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
     this->quadrangle_.readElementRawBinary(mesh.quadrangle_, raw_binary_finout);
   }
+}
+
+template <typename SimulationControl>
+inline void ViewData<SimulationControl, 1>::calculateNodeConservedVariable(
+    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
+  this->node_conserved_variable_.setZero();
+  for (Isize i = 0; i < mesh.line_.number_; i++) {
+    for (Isize j = 0; j < LineTrait<SimulationControl::kPolynomialOrder>::kAllNodeNumber; j++) {
+      this->node_conserved_variable_.col(mesh.line_.element_(i).node_tag_(j) - 1) +=
+          this->line_.conserved_variable_(i).col(j);
+    }
+  }
+  this->node_conserved_variable_.array().rowwise() /=
+      mesh.node_element_number_.template cast<Real>().transpose().array();
 }
 
 template <typename SimulationControl>
@@ -105,6 +130,13 @@ inline void ViewData<SimulationControl, 2>::calculateNodeConservedVariable(
   }
   this->node_conserved_variable_.array().rowwise() /=
       mesh.node_element_number_.template cast<Real>().transpose().array();
+}
+
+template <typename SimulationControl>
+inline void ViewData<SimulationControl, 1>::initializeViewData(
+    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
+  this->line_.conserved_variable_.resize(mesh.line_.number_);
+  this->node_conserved_variable_.resize(Eigen::NoChange, mesh.node_coordinate_.cols());
 }
 
 template <typename SimulationControl>

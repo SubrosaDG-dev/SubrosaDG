@@ -18,8 +18,9 @@
 namespace SubrosaDG {
 
 template <MeshModel MeshModelType>
-concept IsUniform = MeshModelType == MeshModel::Triangle || MeshModelType == MeshModel::Quadrangle ||
-                    MeshModelType == MeshModel::Tetrahedron || MeshModelType == MeshModel::Hexahedron;
+concept IsUniform = MeshModelType == MeshModel::Line || MeshModelType == MeshModel::Triangle ||
+                    MeshModelType == MeshModel::Quadrangle || MeshModelType == MeshModel::Tetrahedron ||
+                    MeshModelType == MeshModel::Hexahedron;
 
 template <MeshModel MeshModelType>
 concept IsMixed =
@@ -41,6 +42,9 @@ concept HasPyramid = MeshModelType == MeshModel::TetrahedronPyramidHexahedron;
 template <MeshModel MeshModelType>
 concept HasHexahedron =
     MeshModelType == MeshModel::Hexahedron || MeshModelType == MeshModel::TetrahedronPyramidHexahedron;
+
+template <Element ElementType>
+concept Is0dElement = ElementType == Element::Point;
 
 template <Element ElementType>
 concept Is1dElement = ElementType == Element::Line;

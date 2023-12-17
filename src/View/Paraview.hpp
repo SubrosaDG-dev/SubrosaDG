@@ -60,25 +60,31 @@ inline void View<SimulationControl, ViewModel::Vtu>::calculateViewVariable(
   for (Isize i = 0; i < static_cast<Isize>(this->primary_view_variable_.size()); i++) {
     if (this->primary_view_variable_[static_cast<Usize>(i)] == ViewVariable::Velocity) {
       node_variable(i)(column * SimulationControl::kDimension) = variable.get(thermal_model, ViewVariable::VelocityX);
-      node_variable(i)(column * SimulationControl::kDimension + 1) =
-          variable.get(thermal_model, ViewVariable::VelocityY);
-      if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (SimulationControl::kDimension >= 2) {
+        node_variable(i)(column * SimulationControl::kDimension + 1) =
+            variable.get(thermal_model, ViewVariable::VelocityY);
+      }
+      if constexpr (SimulationControl::kDimension >= 3) {
         node_variable(i)(column * SimulationControl::kDimension + 2) =
             variable.get(thermal_model, ViewVariable::VelocityZ);
       }
     } else if (this->primary_view_variable_[static_cast<Usize>(i)] == ViewVariable::MachNumber) {
       node_variable(i)(column * SimulationControl::kDimension) = variable.get(thermal_model, ViewVariable::MachNumberX);
-      node_variable(i)(column * SimulationControl::kDimension + 1) =
-          variable.get(thermal_model, ViewVariable::MachNumberY);
-      if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (SimulationControl::kDimension >= 2) {
+        node_variable(i)(column * SimulationControl::kDimension + 1) =
+            variable.get(thermal_model, ViewVariable::MachNumberY);
+      }
+      if constexpr (SimulationControl::kDimension >= 3) {
         node_variable(i)(column * SimulationControl::kDimension + 2) =
             variable.get(thermal_model, ViewVariable::MachNumberZ);
       }
     } else if (this->primary_view_variable_[static_cast<Usize>(i)] == ViewVariable::Vorticity) {
       node_variable(i)(column * SimulationControl::kDimension) = variable.get(thermal_model, ViewVariable::VorticityX);
-      node_variable(i)(column * SimulationControl::kDimension + 1) =
-          variable.get(thermal_model, ViewVariable::VorticityY);
-      if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (SimulationControl::kDimension >= 2) {
+        node_variable(i)(column * SimulationControl::kDimension + 1) =
+            variable.get(thermal_model, ViewVariable::VorticityY);
+      }
+      if constexpr (SimulationControl::kDimension >= 3) {
         node_variable(i)(column * SimulationControl::kDimension + 2) =
             variable.get(thermal_model, ViewVariable::VorticityZ);
       }
@@ -157,13 +163,17 @@ inline void View<SimulationControl, ViewModel::Vtu>::writeDiscontinuousElement(
                                                                                        : ElementTrait::kBasicNodeNumber;
   for (Isize i = 0; i < node_number; i++) {
     for (Isize j = 0; j < SimulationControl::kDimension; j++) {
-      if constexpr (ElementTrait::kElementType == Element::Triangle) {
-        node_coordinate(j, i) = mesh.triangle_.element_(element_index_per_type).node_coordinate_(j, i);
+      if constexpr (ElementTrait::kElementType == Element::Line) {
+        node_coordinate(j, column + i) = mesh.line_.element_(element_index_per_type).node_coordinate_(j, i);
+      } else if constexpr (ElementTrait::kElementType == Element::Triangle) {
+        node_coordinate(j, column + i) = mesh.triangle_.element_(element_index_per_type).node_coordinate_(j, i);
       } else if constexpr (ElementTrait::kElementType == Element::Quadrangle) {
-        node_coordinate(j, i) = mesh.quadrangle_.element_(element_index_per_type).node_coordinate_(j, i);
+        node_coordinate(j, column + i) = mesh.quadrangle_.element_(element_index_per_type).node_coordinate_(j, i);
       }
     }
-    if constexpr (ElementTrait::kElementType == Element::Triangle) {
+    if constexpr (ElementTrait::kElementType == Element::Line) {
+      variable.conserved_ = this->data_.line_.conserved_variable_(element_index_per_type).col(i);
+    } else if constexpr (ElementTrait::kElementType == Element::Triangle) {
       variable.conserved_ = this->data_.triangle_.conserved_variable_(element_index_per_type).col(i);
     } else if constexpr (ElementTrait::kElementType == Element::Quadrangle) {
       variable.conserved_ = this->data_.quadrangle_.conserved_variable_(element_index_per_type).col(i);
@@ -191,8 +201,12 @@ inline void View<SimulationControl, ViewModel::Vtu>::writeDiscontinuousField(
     const Isize element_gmsh_type =
         mesh.physical_group_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
     if constexpr (Dimension == 1) {
-      if (element_gmsh_type == AdjacencyLineTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      if constexpr (IsAdjacency) {
         this->writeDiscontinuousAdjacencyElement<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
+            physical_name, mesh, thermal_model, node_coordinate, node_variable, element_connectivity, element_offset,
+            element_type, i, column);
+      } else {
+        this->writeDiscontinuousElement<LineTrait<SimulationControl::kPolynomialOrder>>(
             physical_name, mesh, thermal_model, node_coordinate, node_variable, element_connectivity, element_offset,
             element_type, i, column);
       }
@@ -211,14 +225,6 @@ inline void View<SimulationControl, ViewModel::Vtu>::writeDiscontinuousField(
       }
     }
   }
-}
-
-template <typename SimulationControl>
-template <typename T>
-inline vtu11::VtkIndexType View<SimulationControl, ViewModel::Vtu>::getElementNodeIndex(
-    T& elements, const ordered_set<Isize>& node_gmsh_tag, const Isize element_index_per_type, const Isize i) const {
-  return static_cast<vtu11::VtkIndexType>(
-      node_gmsh_tag.find_index(elements.element_(element_index_per_type).node_tag_(i)));
 }
 
 template <typename SimulationControl>
@@ -241,14 +247,14 @@ inline void View<SimulationControl, ViewModel::Vtu>::writeContinuousElementConne
                                                                                        : ElementTrait::kBasicNodeNumber;
   for (Isize i = 0; i < node_number; i++) {
     if constexpr (ElementTrait::kElementType == Element::Line) {
-      element_connectivity(column++) = this->getElementNodeIndex(mesh.line_, node_gmsh_tag, element_index_per_type,
-                                                                 vtk_connectivity[static_cast<Usize>(i)]);
+      element_connectivity(column++) = static_cast<vtu11::VtkIndexType>(node_gmsh_tag.find_index(
+          mesh.line_.element_(element_index_per_type).node_tag_(vtk_connectivity[static_cast<Usize>(i)])));
     } else if constexpr (ElementTrait::kElementType == Element::Triangle) {
-      element_connectivity(column++) = this->getElementNodeIndex(mesh.triangle_, node_gmsh_tag, element_index_per_type,
-                                                                 vtk_connectivity[static_cast<Usize>(i)]);
+      element_connectivity(column++) = static_cast<vtu11::VtkIndexType>(node_gmsh_tag.find_index(
+          mesh.triangle_.element_(element_index_per_type).node_tag_(vtk_connectivity[static_cast<Usize>(i)])));
     } else if constexpr (ElementTrait::kElementType == Element::Quadrangle) {
-      element_connectivity(column++) = this->getElementNodeIndex(
-          mesh.quadrangle_, node_gmsh_tag, element_index_per_type, vtk_connectivity[static_cast<Usize>(i)]);
+      element_connectivity(column++) = static_cast<vtu11::VtkIndexType>(node_gmsh_tag.find_index(
+          mesh.quadrangle_.element_(element_index_per_type).node_tag_(vtk_connectivity[static_cast<Usize>(i)])));
     }
   }
   element_offset(element_index) = column;
@@ -282,10 +288,8 @@ inline void View<SimulationControl, ViewModel::Vtu>::writeContinuousField(
     const Isize element_gmsh_type =
         mesh.physical_group_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
     if constexpr (Dimension == 1) {
-      if (element_gmsh_type == LineTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->writeContinuousElementConnectivity<LineTrait<SimulationControl::kPolynomialOrder>>(
-            physical_name, mesh, element_connectivity, element_offset, element_type, i, column);
-      }
+      this->writeContinuousElementConnectivity<LineTrait<SimulationControl::kPolynomialOrder>>(
+          physical_name, mesh, element_connectivity, element_offset, element_type, i, column);
     }
     if constexpr (Dimension == 2) {
       if (element_gmsh_type == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
@@ -405,12 +409,18 @@ inline void View<SimulationControl, ViewModel::Vtu>::stepView(
   this->getBaseName(step, base_name);
   this->getDataSetInfomatoin(data_set_information);
   for (const auto& [dim, physical_name] : mesh.physical_group_) {
-    physical_group_name.emplace_back(physical_name);
+    if (dim > 0) {
+      physical_group_name.emplace_back(physical_name);
+    }
   }
   vtu11::writePVtu((this->output_directory_ / "vtu").string(), base_name, physical_group_name, data_set_information,
                    physical_group_name.size());
   for (const auto& [dim, physical_name] : mesh.physical_group_) {
-    if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (SimulationControl::kDimension == 1) {
+      if (dim == 1) {
+        this->writeView<1, false>(physical_name, mesh, thermal_model, base_name, data_set_information);
+      }
+    } else if constexpr (SimulationControl::kDimension == 2) {
       if (dim == 1) {
         this->writeView<1, true>(physical_name, mesh, thermal_model, base_name, data_set_information);
       } else if (dim == 2) {
