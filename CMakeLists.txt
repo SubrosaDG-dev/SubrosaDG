@@ -168,8 +168,8 @@ endif()
 
 # create .gdbinit and .lldbinit file
 if(SUBROSA_DG_DEVELOP)
-    configure_file(${PROJECT_SOURCE_DIR}/cmake/debug/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-eigen-pretty-print/.gdbinit @ONLY)
-    configure_file(${PROJECT_SOURCE_DIR}/cmake/debug/.lldbinit.in ${PROJECT_SOURCE_DIR}/utils/lldb-eigen-pretty-print/.lldbinit @ONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/debuginit/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-eigen-pretty-print/.gdbinit @ONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/debuginit/.lldbinit.in ${PROJECT_SOURCE_DIR}/utils/lldb-eigen-pretty-print/.lldbinit @ONLY)
 endif()
 
 # create vscode launch.json and settings.json
