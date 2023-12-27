@@ -138,7 +138,7 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     execute_process(COMMAND sysctl -n hw.physicalcpu OUTPUT_VARIABLE NUMBER_OF_PHYSICAL_CORES)
 endif()
-math(EXPR NUMBER_OF_PHYSICAL_CORES "${NUMBER_OF_PHYSICAL_CORES} / 2")
+string(REGEX REPLACE "\n$" "" NUMBER_OF_PHYSICAL_CORES ${NUMBER_OF_PHYSICAL_CORES})
 message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 
 # check cxx23 support
@@ -168,8 +168,8 @@ endif()
 
 # create .gdbinit and .lldbinit file
 if(SUBROSA_DG_DEVELOP)
-    configure_file(${PROJECT_SOURCE_DIR}/cmake/debuginit/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-eigen-pretty-print/.gdbinit @ONLY)
-    configure_file(${PROJECT_SOURCE_DIR}/cmake/debuginit/.lldbinit.in ${PROJECT_SOURCE_DIR}/utils/lldb-eigen-pretty-print/.lldbinit @ONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/debuginit/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-pretty-print/.gdbinit @ONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/debuginit/.lldbinit.in ${PROJECT_SOURCE_DIR}/utils/lldb-pretty-print/.lldbinit @ONLY)
 endif()
 
 # create vscode launch.json and settings.json

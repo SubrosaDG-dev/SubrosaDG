@@ -16,6 +16,7 @@
     { "include": ["@<Eigen/src/plugins/.*>", "private", "<Eigen/Core>", "public"] },
     { "include": ["@<gtest/internal/.*>", private, "<gtest/gtest.h>", public] },
     { "include": ["@<gtest/gtest-.*>", private, "<gtest/gtest.h>", public] },
+    { "symbol": ["fmt::join", "private", "<fmt/format.h>", "public"] },
     { "symbol": ["malloc", "private", "<cstdlib>", "public"] },
     { "symbol": ["free", "private", "<cstdlib>", "public"] },
     { "symbol": ["EXIT_SUCCESS", "private", "<cstdlib>", "public"] },

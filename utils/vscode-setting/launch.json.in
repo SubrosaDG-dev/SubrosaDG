@@ -30,7 +30,7 @@
                 },
                 {
                     "description": "Enable gdbinit file",
-                    "text": "source ${workspaceFolder}/utils/gdb-eigen-pretty-print/.gdbinit",
+                    "text": "source ${workspaceFolder}/utils/gdb-pretty-print/.gdbinit",
                 }
             ],
             "externalConsole": false,
@@ -63,7 +63,7 @@
                 },
                 {
                     "description": "Enable lldbinit file",
-                    "text": "command source ${workspaceFolder}/utils/lldb-eigen-pretty-print/.lldbinit",
+                    "text": "command source ${workspaceFolder}/utils/lldb-pretty-print/.lldbinit",
                 }
             ],
             "externalConsole": false,

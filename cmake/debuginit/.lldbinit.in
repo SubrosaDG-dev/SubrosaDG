@@ -1,1 +1,1 @@
-command script import "@PROJECT_SOURCE_DIR@/utils/lldb-eigen-pretty-print/LLDB_Eigen_Pretty_Printer.py"
+command script import "@PROJECT_SOURCE_DIR@/utils/lldb-pretty-print/LLDB_Eigen_Pretty_Printer.py"
