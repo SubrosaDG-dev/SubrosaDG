@@ -10,7 +10,7 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-set(CLANG_TIDY_SOURCE_FILES ${SUBROSA_DG_SOURCES} ${SUBROSA_DG_EXAMPLES} ${SUBROSA_DG_TESTS})
+set(CLANG_TIDY_SOURCE_FILES ${SUBROSA_DG_DEVELOP_SOURCES})
 
 add_custom_target(clang-tidy
     COMMENT "Running clang-tidy to check code static analysis"

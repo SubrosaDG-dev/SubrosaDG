@@ -77,6 +77,8 @@
 \RequirePackage{nicematrix}
 \NiceMatrixOptions{cell-space-limits=2pt}
 
+\RequirePackage{mathtools}
+
 \RequirePackage{esint}
 
 % \RequirePackage{annotate-equations}

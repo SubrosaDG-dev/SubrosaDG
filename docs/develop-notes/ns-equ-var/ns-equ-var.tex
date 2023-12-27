@@ -20,50 +20,75 @@
 
 \section{Governing Equation}
 
-We consider the two-dimensional Navier-Stokes equations written in conservation form
+We consider the three-dimensional Navier-Stokes equations written in conservation form
 \begin{equation}
   \partial_{t}\mathbf{u}+\nabla\cdot\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\nabla\cdot\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})=0,
 \end{equation}
-equipped with suitable initial-boundary conditions. The conservative variables $\mathbf{u}$ and the cartesian components $\mathbf{f}_{\mathrm{e}}(\mathbf{u})$ and $\mathbf{g}_{\mathrm{e}}(\mathbf{u})$ of the inviscid (Euler) flux function $\mathbf{F}_{\mathrm{e}}(\mathbf{u})$ are given by
+equipped with suitable initial-boundary conditions. The conservative variables $\mathbf{u}$ and the cartesian components $\mathbf{f}_{\mathrm{e}}(\mathbf{u})$, $\mathbf{g}_{\mathrm{e}}(\mathbf{u})$ and $\mathbf{h}_{\mathrm{e}}(\mathbf{u})$ of the inviscid (Euler) flux function $\mathbf{F}_{\mathrm{e}}(\mathbf{u})$ are given by
 \begin{equation}
-  \mathbf{u}=\begin{BNiceMatrix}
+  \mathbf{u}=\begin{bNiceMatrix}
     \rho\\
     \rho u\\
     \rho v\\
+    \rho w\\
     \rho E
-  \end{BNiceMatrix},\quad\mathbf{f}_{\mathrm{e}}(\mathbf{u})=\begin{BNiceMatrix}
+  \end{bNiceMatrix},\quad\mathbf{f}_{\mathrm{e}}(\mathbf{u})=\begin{bNiceMatrix}
     \rho u\\
     \rho u u+p\\
     \rho u v\\
+    \rho u w\\
     u(\rho E+p)
-  \end{BNiceMatrix},\quad\mathbf{g}_{\mathrm{e}}(\mathbf{u})=\begin{BNiceMatrix}
+  \end{bNiceMatrix},\quad\mathbf{g}_{\mathrm{e}}(\mathbf{u})=\begin{bNiceMatrix}
     \rho v\\
     \rho u v\\
     \rho v v+p\\
+    \rho v w\\
     v(\rho E+p)
-  \end{BNiceMatrix},
+  \end{bNiceMatrix},\quad\mathbf{h}_{\mathrm{e}}(\mathbf{u})=\begin{bNiceMatrix}
+    \rho w\\
+    \rho u w\\
+    \rho v w\\
+    \rho w w+p\\
+    w(\rho E+p)
+  \end{bNiceMatrix},
 \end{equation}
 where $\rho$ is the fluid density, $u$ and $v$ are the velocity components, $p$ is the pressure, and $E$ is the total internal energy per unit mass. By assuming that the fluid obeys the perfect gas state equation, $p$ can be computed as $p=(\gamma-1)\rho(E-(u^{2}+v^{2})/2)$, where $\gamma$ indicates the ratio between the specific heats of the fluid.
 
-The cartesian components $\mathbf{f}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$ and $\mathbf{g}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$ of the viscous flux function $\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$ are given by
+The cartesian components $\mathbf{f}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$, $\mathbf{g}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$ and $\mathbf{h}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$ of the viscous flux function $\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$ are given by
 \begin{equation}
   \label{eq:3}
   \begin{aligned}
-    \mathbf{f}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})=\mu\begin{BNiceMatrix}
+    &\mathbf{f}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})=\begin{bNiceMatrix}
       0\\
-      2u_{x}+\lambda(u_{x}+v_{y})\\
-      u_{y}+v_{x}\\
-      u(2u_{x}+\lambda(u_{x}+v_{y}))+v(u_{y}+v_{x})+(\gamma/\mathrm{Pr})E_{x}
-    \end{BNiceMatrix},\\
-    \mathbf{g}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})=\mu\begin{BNiceMatrix}
+      \tau_{xx}\\
+      \tau_{xy}\\
+      \tau_{xz}\\
+      \theta_{x}
+    \end{bNiceMatrix},\mathbf{g}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})=\begin{bNiceMatrix}
       0\\
-      u_{y}+v_{x}\\
-      2v_{y}+\lambda(u_{x}+v_{y})\\
-      u(u_{y}+v_{x})+v(2v_{y}+\lambda(u_{x}+v_{y}))+(\gamma/\mathrm{Pr})E_{y}
-    \end{BNiceMatrix},
+      \tau_{yx}\\
+      \tau_{yy}\\
+      \tau_{yz}\\
+      \theta_{y}
+    \end{bNiceMatrix},\mathbf{h}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})=\begin{bNiceMatrix}
+      0\\
+      \tau_{zx}\\
+      \tau_{zy}\\
+      \tau_{zz}\\
+      \theta_{z}
+    \end{bNiceMatrix},\bm{\theta}=\begin{bNiceMatrix}
+      u\tau_{xx}+v\tau_{xy}+w\tau_{xz}+\kappa T_{x}\\
+      u\tau_{yx}+v\tau_{yy}+w\tau_{yz}+\kappa T_{y}\\
+      u\tau_{zx}+v\tau_{zy}+w\tau_{zz}+\kappa T_{z}
+    \end{bNiceMatrix},\\
+    &\bm{\tau}=\begin{bNiceMatrix}
+      2\mu u_{x}+\lambda(u_{x}+v_{y}+w_{z})&\mu(u_{y}+v_{x})&\mu(u_{z}+w_{x})\\
+      \mu(u_{y}+v_{x})&2\mu v_{y}+\lambda(u_{x}+v_{y}+w_{z})&\mu(v_{z}+w_{y})\\
+      \mu(u_{z}+w_{x})&\mu(v_{z}+w_{y})&2\mu w_{z}+\lambda(u_{x}+v_{y}+w_{z})
+    \end{bNiceMatrix}
   \end{aligned}
 \end{equation}
-where $\mu$ is the dynamic viscosity coefficient, $\mathrm{Pr}$ is the Prandtl number, and, using the Stokes hypothesis, $\lambda=-(2/3)\mu$. The derivatives of the primitive variables such as $u_{x}$, $u_{y}$, ... can be easily computed by expanding the derivatives of the conservative variables. For example, $(\rho u)_{x}=\rho_{x}u+\rho u_{x}$ , and, therefore, $u_{x}=(1/\rho)((\rho u)_{x}-\rho_{x}u)$.
+where $\mu$ is the dynamic viscosity coefficient, and using the Stokes hypothesis, $\lambda=-(2/3)\mu$. The derivatives of the primitive variables such as $u_{x}$, $u_{y}$, ... can be easily computed by expanding the derivatives of the conservative variables. For example, $(\rho u)_{x}=\rho_{x}u+\rho u_{x}$ , and, therefore, $u_{x}=(1/\rho)((\rho u)_{x}-\rho_{x}u)$.
 
 \section{Spatial Discretization}
 
@@ -106,7 +131,8 @@ Notice that, when evaluating the boundary integral of \autoref{eq:8} at an inter
 
 We first restrict our attention to the treatment of interface integrals. The inviscid interface integral terms are constructed with a technique traditionally used in upwind finite volume schemes. The flux function $\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n}$ appearing in the second term of \autoref{eq:7} is in fact replaced by a numerical flux function $\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$ depends on the internal interface state $\mathbf{u}^{-}$, on the neighboring element interface state $\mathbf{u}^{+}$, and on the direction of the normal unit vector $\mathbf{n}$. In order to guarantee the formal accuracy of the scheme, the numerical flux is required to satisfy the consistency relations
 \begin{equation}
-  \mathbf{h}_{\mathrm{e}}(\mathbf{u},\mathbf{u};\mathbf{n})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n},\quad\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=-\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{+},\mathbf{u}^{-};-\mathbf{n}),
+  \label{eq:9}
+  \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n},\quad\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=-\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};-\mathbf{n}),
 \end{equation}
 There are several numerical flux functions satisfying the above criteria such as the Godunov, Lax-Friedrichs, Roe, Engquist-Osher, or HLLE (Harten, Lax, Van Leer, Einfeldt).
 
@@ -119,7 +145,7 @@ The spatial discretization of the viscous term of the Navier-Stokes equations is
   \end{aligned}
 \end{equation}
 
-\autoref{eq:10} can be approximated by means of a discontinuous finite element formulation in a way similar to that employed for the inviscid part of the equations. The use of an explicit time-stepping scheme greatly simplifies the mixed finite element formulation, since it allows a decoupled solution of \autoref{eq:10}. At each time level $n$, in fact, we first compute a discontinuous approximation of $\mathbf{S}^{n}$ by solving the first equation of the system and then use $\mathbf{u}^{n}$ and $\mathbf{S}^{n}$ to evaluate the inviscid and viscous fluxes of the second equation which is then advanced in time.
+\autoref{eq:10} can be approximated using a discontinuous finite element formulation in a way similar to that employed for the inviscid part of the equations. The use of an explicit time-stepping scheme greatly simplifies the mixed finite element formulation, since it allows a decoupled solution of \autoref{eq:10}. At each time level $n$, in fact, we first compute a discontinuous approximation of $\mathbf{S}^{n}$ by solving the first equation of the system and then use $\mathbf{u}^{n}$ and $\mathbf{S}^{n}$ to evaluate the inviscid and viscous fluxes of the second equation which is then advanced in time.
 
 The weak formulation of the first equation of \autoref{eq:10} is
 \begin{equation}
@@ -255,19 +281,19 @@ Next, let's discuss how to compute the derivatives of the basis functions at eac
 \end{equation}
 which can be written in matrix form as
 \begin{equation}
-  \begin{BNiceMatrix}
+  \begin{bNiceMatrix}
     \dfrac{\partial\phi_{i}^{k}}{\partial x}\\
     \dfrac{\partial\phi_{i}^{k}}{\partial y}
-  \end{BNiceMatrix}=\begin{bNiceMatrix}
-    \dfrac{\partial\xi}{\partial x} & \dfrac{\partial\eta}{\partial x}\\
-    \dfrac{\partial\xi}{\partial y} & \dfrac{\partial\eta}{\partial y}
-  \end{bNiceMatrix}\begin{BNiceMatrix}
+  \end{bNiceMatrix}=\begin{bNiceMatrix}
+    \dfrac{\partial\xi}{\partial x}&\dfrac{\partial\eta}{\partial x}\\
+    \dfrac{\partial\xi}{\partial y}&\dfrac{\partial\eta}{\partial y}
+  \end{bNiceMatrix}\begin{bNiceMatrix}
     \dfrac{\partial\phi_{i}^{k}}{\partial\xi}\\
     \dfrac{\partial\phi_{i}^{k}}{\partial\eta}
-  \end{BNiceMatrix}=[\mathbf{J}]^{-\mathrm{T}}\begin{BNiceMatrix}
+  \end{bNiceMatrix}=[\mathbf{J}]^{-\mathrm{T}}\begin{bNiceMatrix}
     \dfrac{\partial\phi_{i}^{k}}{\partial\xi}\\
     \dfrac{\partial\phi_{i}^{k}}{\partial\eta}
-  \end{BNiceMatrix}.
+  \end{bNiceMatrix}.
 \end{equation}
 
 As the isoparametric element is used here, which means that the interpolation functions for the coordinates transformation of the element's geometry use the same interpolation basis functions and interpolation nodes as those used to describe the displacement modes of the element, we have
@@ -317,10 +343,169 @@ where $m$ denotes the number of integration points. Each point is characterized 
 
 The fact that some of the weights are negative means that the stability of the quadrature will tend to decrease when integrating oscillatory functions whose polynomial behavior exceeds the order of accuracy of the quadrature formulae. In this case, the schemes still can be used, but one has to combine them with spatial refinements of the reference element. If oscillations (or other excessive nonlinearities) in the integrated functions are expected, an application of adaptive formulae that compare results from several refinement levels may be a good idea.
 
-\section{Non-viscous Flux}
+\section{Convective Flux}
 
+We mentioned some methods for calculating convective numerical fluxes at \autoref{eq:9}, and here we will introduce these methods in some detail. Note that what our convective numerical flux needs to replace here is $\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n}$, which means that the flux we calculate is on the normal vector $\mathbf{n}$, which will cause a relatively large change compared to the one-dimensional form for some schemes. Here we focus on how to calculate these formats, and we will not introduce too much about the properties and derivation of these schemes.
 
-\section{Viscous Flux}
+Here we first define some symbols that we will use next. The first is the value on the left and right sides of the conserved variable $\mathbf{u}$. $\mathbf{u}^{-}$ represents the value on the left side of the interface, and $\mathbf{u}^{+}$ represents the value on the right side of the interface. $V=u n_{x}+v n_{y}+w n_{z}$ represents the velocity along the interface normal vector.
+\begin{equation}
+  \mathbf{F}_{\mathrm{e,n}}=\mathbf{F}_{\mathrm{e}}\cdot\mathbf{n}=\mathbf{f}_{\mathrm{e}}n_{x}+\mathbf{g}_{\mathrm{e}}n_{y}+\mathbf{h}_{\mathrm{e}}n_{z}=\begin{bNiceMatrix}
+    \rho(u n_{x}+v n_{y}+w n_{z})\\
+    \rho u(u n_{x}+v n_{y}+w n_{z})+p n_{x}\\
+    \rho v(u n_{x}+v n_{y}+w n_{z})+p n_{y}\\
+    \rho w(u n_{x}+v n_{y}+w n_{z})+p n_{z}\\
+    (u n_{x}+v n_{y}+w n_{z})(\rho E+p)
+  \end{bNiceMatrix}=\begin{bNiceMatrix}
+    \rho V\\
+    \rho u V+p n_{x}\\
+    \rho v V+p n_{y}\\
+    \rho w V+p n_{z}\\
+    V(\rho E+p)
+  \end{bNiceMatrix}
+\end{equation}
+
+\subsection*{Roe Scheme}
+
+Most of the derivation of the Roe scheme here comes from the books of Blazek\cite{blazekComputationalFluidDynamics2015} and Toro\cite{toroRiemannSolversNumerical2009a}, and some of them are derived by myself. The Roe scheme can be evaluated by the following formula
+\begin{equation}
+  \begin{aligned}
+    \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})&=\dfrac{1}{2}(\mathbf{F}_{\mathrm{e,n}}(\mathbf{u}^{-})+\mathbf{F}_{\mathrm{e,n}}(\mathbf{u}^{+}))-\dfrac{1}{2}\tilde{\mathbf{A}}_{\mathrm{e}}(\mathbf{u}^{+}-\mathbf{u}^{-})\\
+    &=\dfrac{1}{2}(\mathbf{F}_{\mathrm{e,n}}(\mathbf{u}^{-})+\mathbf{F}_{\mathrm{e,n}}(\mathbf{u}^{+}))-\dfrac{1}{2}\sum_{i=1}^{m}\tilde{\alpha}_{i}|\tilde{\lambda}_{i}|\tilde{\mathbf{K}}_{i}.
+  \end{aligned}
+\end{equation}
+
+The $\tilde{\mathbf{u}}$ is used to represent the Roe variable, and $\Delta{\mathbf{u}}$ is used to represent the difference on the element interface, that is $\mathbf{u}^{+}-\mathbf{u}^{-}$. Next we calculate the Jacobian matrix $\mathbf{A}_{e,n}(\mathbf{u})=\partial\mathbf{F}_{\mathrm{e,n}}/\partial\mathbf{u}$ of the convective flux along the normal vector direction. The form of $\mathbf{A}_{e,n}$ is complicated, so it is not given here. The eigenvalues are
+\begin{equation}
+  \lambda_{1}=V-c,\quad\lambda_{2}=V,\quad\lambda_{3}=V,\quad\lambda_{4}=V,\quad\lambda_{5}=V+c,
+\end{equation}
+where $c$ is the speed of sound. The corresponding right eigenvectors are
+\begin{equation}
+  \begin{aligned}
+    &\mathbf{K}_{1}=\begin{bNiceMatrix}
+      1\\
+      u-c n_{x}\\
+      v-c n_{y}\\
+      w-c n_{z}\\
+      H-c V
+    \end{bNiceMatrix},\quad\mathbf{K}_{2}=\begin{bNiceMatrix}
+      1\\
+      u\\
+      v\\
+      w\\
+      (u^{2}+v^{2}+w^{2})/2
+    \end{bNiceMatrix},\quad\mathbf{K}_{3}=\begin{bNiceMatrix}
+      0\\
+      -n_{y}/n_{x}\\
+      1\\
+      0\\
+      v-n_{y}u/n_{x}\\
+    \end{bNiceMatrix},\\
+    &\mathbf{K}_{4}=\begin{bNiceMatrix}
+      0\\
+      -n_{z}/n_{x}\\
+      0\\
+      1\\
+      w-n_{z}u/n_{x}\\
+    \end{bNiceMatrix},\quad\mathbf{K}_{5}=\begin{bNiceMatrix}
+      1\\
+      u+c n_{x}\\
+      v+c n_{y}\\
+      w+c n_{z}\\
+      H+c V
+    \end{bNiceMatrix}.
+  \end{aligned}
+\end{equation}
+
+Since the form of $\mathbf{A}_{e,n}$ here is complex, calculating the eigenvector will require a little skill. First, we use the chain rule to calculate the derivative of $\mathbf{A}_{e,n}$ for $\mathbf{u}$. The original variable can be expressed as
+\begin{equation}
+  \mathbf{q}=\begin{bNiceMatrix}
+    \rho\\
+    u\\
+    v\\
+    w\\
+    p\\
+  \end{bNiceMatrix}.
+\end{equation}
+We cannot directly differentiate the conserved variable $\mathbf{u}$, so the chain rule is used here
+\begin{equation}
+  \mathbf{A}_{e,n}=\dfrac{\partial\mathbf{F}_{e,n}}{\partial\mathbf{u}}=\dfrac{\partial\mathbf{F}_{e,n}}{\partial\mathbf{q}}\dfrac{\partial\mathbf{q}}{\partial\mathbf{u}}=\dfrac{\partial\mathbf{F}_{e,n}}{\partial\mathbf{q}}\left(\dfrac{\partial\mathbf{u}}{\partial\mathbf{q}}\right)^{-1}.
+\end{equation}
+Let's consider $\mathbf{M}=\partial\mathbf{u}/\partial\mathbf{q}$. We then proceed to apply a similarity transformation to $\mathbf{A}_{e,n}$, resulting in
+\begin{equation}
+  \mathbf{a}_{e,n}=\mathbf{M}^{-1}\mathbf{A}_{e,n}\mathbf{M}.
+\end{equation}
+The form of $\mathbf{a}_{e,n}$ relative to $\mathbf{A}_{e,n}$ will be much simpler. And since we are performing a similarity transformation, the eigenvalues of these two matrices are the same. Let $\mathbf{k}$ be the right eigenvector of $\mathbf{a}_{e,n}$, then we have:
+\begin{equation}
+  \mathbf{k}^{-1}\mathbf{a}_{e,n}\mathbf{k}=\mathbf{\Lambda}\Rightarrow(\mathbf{M}\mathbf{k})^{-1}\mathbf{A}_{e,n}\mathbf{M}\mathbf{k}=\mathbf{\Lambda}\Rightarrow\mathbf{K}=\mathbf{M k}.
+\end{equation}
+Note that the eigenvectors obtained in this way may differ from those provided earlier, as eigenvectors can be scaled by a non-zero factor without affecting the final result. While this scaling doesn't impact the outcome, the coefficients in subsequent steps may vary.
+
+Bring the Roe variable into the right eigenvector to get $\tilde{\mathbf{K}}_{i}$. The Roe variable is defined as
+\begin{equation}
+  \begin{aligned}
+    &\tilde{\rho}=\sqrt{\rho^{-}\rho^{+}},\quad\tilde{u}=\dfrac{\sqrt{\rho^{-}}u^{-}+\sqrt{\rho^{+}}u^{+}}{\sqrt{\rho^{-}}+\sqrt{\rho^{+}}},\quad\tilde{v}=\dfrac{\sqrt{\rho^{-}}v^{-}+\sqrt{\rho^{+}}v^{+}}{\sqrt{\rho^{-}}+\sqrt{\rho^{+}}},\quad\tilde{w}=\dfrac{\sqrt{\rho^{-}}w^{-}+\sqrt{\rho^{+}}w^{+}}{\sqrt{\rho^{-}}+\sqrt{\rho^{+}}},\\
+    &\tilde{H}=\tilde{E}+\dfrac{\tilde{p}}{\tilde{\rho}}=\dfrac{\sqrt{\rho^{-}}H^{-}+\sqrt{\rho^{+}}H^{+}}{\sqrt{\rho^{-}}+\sqrt{\rho^{+}}},\quad\tilde{V}=\tilde{u}n_{x}+\tilde{v}n_{y}+\tilde{w}n_{z}
+  \end{aligned}
+\end{equation}
+Then we give the wave strengths $\tilde{\alpha}_{i}$ of these right eigenvectors, which can be calculated through this system of equations
+\begin{equation}
+  \sum_{i=1}^{m}\tilde{\alpha}_{i}\tilde{\mathbf{K}}_{i}=\Delta\mathbf{u}.
+\end{equation}
+When written in full these equations read
+\begin{equation}
+  \begin{aligned}
+    &\tilde{\alpha}_{1}+\tilde{\alpha}_{2}+\tilde{\alpha}_{5}=\Delta\rho,\\
+    &\tilde{\alpha}_{1}(\tilde{u}-\tilde{c}n_{x})+\tilde{\alpha}_{2}\tilde{u}-\tilde{\alpha}_{3}n_{y}/n_{x}-\tilde{\alpha}_{4}n_{z}/n_{x}+\tilde{\alpha}_{5}(\tilde{u}+\tilde{c}n_{x})=\Delta(\rho u),\\
+    &\tilde{\alpha}_{1}(\tilde{v}-\tilde{c}n_{y})+\tilde{\alpha}_{2}\tilde{v}+\tilde{\alpha}_{3}+\tilde{\alpha}_{5}(\tilde{v}+\tilde{c}n_{y})=\Delta(\rho v),\\
+    &\tilde{\alpha}_{1}(\tilde{w}-\tilde{c}n_{z})+\tilde{\alpha}_{2}\tilde{w}+\tilde{\alpha}_{4}+\tilde{\alpha}_{5}(\tilde{w}+\tilde{c}n_{z})=\Delta(\rho w),\\
+    &\tilde{\alpha}_{1}(\tilde{H}-\tilde{c}\tilde{V})+\tilde{\alpha}_{2}(\tilde{u}^{2}+\tilde{v}^{2}+\tilde{w}^{2})/2+\tilde{\alpha}_{3}(\tilde{v}-\tilde{c}n_{y})+\tilde{\alpha}_{4}(\tilde{w}-\tilde{c}n_{z})+\tilde{\alpha}_{5}(\tilde{H}+\tilde{c}\tilde{V})=\Delta(\rho E).
+  \end{aligned}
+\end{equation}
+The wave strength $\tilde{\alpha}_{i}$ can be calculated by solving this system of equations. Here we neglecting the $\mathcal{O}(\Delta^{2})$, so $\Delta(\rho u)=u\Delta\rho+\rho\Delta u$. Then we can get the following results
+\begin{equation}
+  \begin{aligned}
+    &\tilde{\alpha}_{1}=(\Delta p-\tilde{\rho}\tilde{c}\Delta V)/(2\tilde{c}^{2}),\\
+    &\tilde{\alpha}_{2}=\Delta\rho-\Delta p/\tilde{c}^{2},\\
+    &\tilde{\alpha}_{3}=\tilde{\rho}(\Delta v-\Delta V n_{y}),\\
+    &\tilde{\alpha}_{4}=\tilde{\rho}(\Delta w-\Delta V n_{z}),\\
+    &\tilde{\alpha}_{5}=(\Delta p+\tilde{\rho}\tilde{c}\Delta V)/(2\tilde{c}^{2}).
+  \end{aligned}
+\end{equation}
+If you need, the formula $\tilde{\alpha}_{3}\tilde{\mathbf{K}}_{3}+\tilde{\alpha}_{4}\tilde{\mathbf{K}}_{4}$here can be partially simplified
+\begin{equation}
+  \begin{aligned}
+    \tilde{\alpha}_{3}\tilde{\mathbf{K}}_{3}+\tilde{\alpha}_{4}\tilde{\mathbf{K}}_{4}&=\tilde{\rho}(\Delta v-\Delta V n_{y})\begin{bNiceMatrix}
+      0\\
+      -n_{y}/n_{x}\\
+      1\\
+      0\\
+      v-n_{y}u/n_{x}\\
+    \end{bNiceMatrix}+\tilde{\rho}(\Delta w-\Delta V n_{z})\begin{bNiceMatrix}
+      0\\
+      -n_{z}/n_{x}\\
+      0\\
+      1\\
+      w-n_{z}u/n_{x}\\
+    \end{bNiceMatrix}\\
+    &=\tilde{\rho}\begin{bNiceMatrix}
+      0\\
+      \Delta u - \Delta V n_{x}\\
+      \Delta v - \Delta V n_{y}\\
+      \Delta w - \Delta V n_{z}\\
+      \tilde{u}\Delta u+\tilde{v}\Delta v+\tilde{w}\Delta w-\tilde{V}\Delta V\\
+    \end{bNiceMatrix}
+  \end{aligned}
+\end{equation}
+Before applying the scheme as described to practical problems, a modification using Harten's entropy correction to handle sonic flow correctly is required.
+\begin{equation}
+  |\tilde{\lambda}_{c}|=|\tilde{V}\pm\tilde{c}|=\begin{dcases*}
+    |\tilde{\lambda}_{c}|, & if $|\tilde{\lambda}_{c}|>\delta$\\
+    (\tilde{\lambda}_{c}^{2}+\delta^{2})/(2\delta), & if $|\tilde{\lambda}_{c}|\leqslant\delta$
+  \end{dcases*},
+\end{equation}
+Where $\delta$ is a small value, which can be conveniently set equal to some fraction (e.g., $1/10$ Or $1/20$) of the local speed of sound.
+
+\section{Diffusive Flux}
 
 
 \section{Time Integration}

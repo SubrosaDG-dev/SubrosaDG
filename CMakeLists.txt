@@ -10,7 +10,7 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.27)
 
 # add cmake module path
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/GlobFiles.cmake)
@@ -33,7 +33,7 @@ git_local_changes(GIT_CHANGE)
 # endif()
 
 # define color
-# TODO: vscode output do not support ansi color until now
+# NOTE: vscode output do not support ansi color until now
 define_colors()
 
 # extract version from version.h and set version string
@@ -54,16 +54,21 @@ option(SUBROSA_DG_SINGLE_PRECISION "Build SubrosaDG with float" OFF)
 
 # set option for different compilation
 option(SUBROSA_DG_WITH_OPENMP "Build SubrosaDG with OpenMP support" ON)
-option(SUBROSA_DG_WITH_MPI "Build SubrosaDG with MPI support" OFF)
 
 # set vcpkg feature tests
 if(SUBROSA_DG_BUILD_TESTS OR SUBROSA_DG_BUILD_ALL)
     list(APPEND VCPKG_MANIFEST_FEATURES "tests")
 endif()
 
-# set vcpkg feature mpi
-if(SUBROSA_DG_WITH_MPI)
-    list(APPEND VCPKG_MANIFEST_FEATURES "mpi")
+# set compiler
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    set(COMPILER_PATH "/usr/bin")
+    set(CMAKE_C_COMPILER "/usr/bin/clang")
+    set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    set(COMPILER_PATH "/opt/homebrew/opt/llvm/bin")
+    set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm/bin/clang")
+    set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm/bin/clang++")
 endif()
 
 # set project
@@ -80,13 +85,37 @@ if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     message(FATAL_ERROR "This project is build with clang.")
 endif()
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set(COMPILER_PATH "/usr/bin")
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(CMAKE_OSX_ARCHITECTURES "arm64")
-    set(COMPILER_PATH "/opt/homebrew/opt/llvm/bin")
-endif ()
+# use clang lld to link
+find_program(LLD NAMES ld.lld PATHS ${COMPILER_PATH})
+if(LLD)
+    set(CMAKE_LINKER "${LLD}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld -stdlib=libc++")
+else()
+    message(FATAL_ERROR "lld not found. Please install lld.")
+endif()
 
+# set vcpkg overlay triplets path
+set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_CURRENT_LIST_DIR}/cmake/vcpkg-triplet")
+
+# set vcpkg triplet
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        set(VCPKG_HOST_TRIPLET "x64-linux-dynamic-llvm")
+        set(VCPKG_TARGET_TRIPLET "x64-linux-dynamic-llvm")
+    elseif(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        set(VCPKG_HOST_TRIPLET "aarch64-linux-dynamic-llvm")
+        set(VCPKG_TARGET_TRIPLET "aarch64-linux-dynamic-llvm")
+    endif()
+    set(COMPILER_PATH "/usr/bin")
+    set(CMAKE_C_COMPILER "/usr/bin/clang")
+    set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    set(VCPKG_HOST_TRIPLET "arm64-osx-dynamic-llvm")
+    set(VCPKG_TARGET_TRIPLET "arm64-osx-dynamic-llvm")
+    set(COMPILER_PATH "/opt/homebrew/opt/llvm/bin")
+    set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm/bin/clang")
+    set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm/bin/clang++")
+endif()
 
 # add vcpkg cmake
 include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
@@ -103,22 +132,27 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # query the system cores number
-cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
+# cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    execute_process(COMMAND nproc OUTPUT_VARIABLE NUMBER_OF_PHYSICAL_CORES)
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    execute_process(COMMAND sysctl -n hw.physicalcpu OUTPUT_VARIABLE NUMBER_OF_PHYSICAL_CORES)
+endif()
 math(EXPR NUMBER_OF_PHYSICAL_CORES "${NUMBER_OF_PHYSICAL_CORES} / 2")
 message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 
-# check cxx20 support
+# check cxx23 support
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-std=c++20 cxx_std_20_support)
-if (NOT cxx_std_20_support)
-    message(FATAL_ERROR "SubrosaDG requires C++20 to compile.")
-endif ()
+check_cxx_compiler_flag(-std=c++23 cxx_std_23_support)
+if(NOT cxx_std_23_support)
+    message(FATAL_ERROR "SubrosaDG requires C++23 to compile.")
+endif()
 
 # set c and cxx standard for all target
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -132,25 +166,24 @@ if(SUBROSA_DG_DEVELOP)
     set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
 endif()
 
-# create .gdbinit file
-configure_file(${PROJECT_SOURCE_DIR}/cmake/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-eigen-pretty-print/.gdbinit @ONLY)
-
-# create .lldbinit file
-configure_file(${PROJECT_SOURCE_DIR}/cmake/.lldbinit.in ${PROJECT_SOURCE_DIR}/utils/lldb-eigen-pretty-print/.lldbinit @ONLY)
+# create .gdbinit and .lldbinit file
+if(SUBROSA_DG_DEVELOP)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/debug/.gdbinit.in ${PROJECT_SOURCE_DIR}/utils/gdb-eigen-pretty-print/.gdbinit @ONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/debug/.lldbinit.in ${PROJECT_SOURCE_DIR}/utils/lldb-eigen-pretty-print/.lldbinit @ONLY)
+endif()
 
 # create vscode launch.json and settings.json
 if(SUBROSA_DG_DEVELOP)
     file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/.vscode)
-    configure_file(${PROJECT_SOURCE_DIR}/cmake/launch.json.in ${PROJECT_SOURCE_DIR}/.vscode/launch.json @ONLY)
-    configure_file(${PROJECT_SOURCE_DIR}/cmake/settings.json.in ${PROJECT_SOURCE_DIR}/.vscode/settings.json @ONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/launch.json.in ${PROJECT_SOURCE_DIR}/.vscode/launch.json @ONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/settings.json.in ${PROJECT_SOURCE_DIR}/.vscode/settings.json @ONLY)
 endif()
 
-# use clang lld to link
-find_program(LLD NAMES ld.lld PATHS ${COMPILER_PATH})
-if(LLD)
-    set(CMAKE_LINKER "${LLD}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
-    message_tool_version(lld "${LLD}")
+# create devcontainer devcontainer.json and Dockerfile
+if(SUBROSA_DG_DEVELOP)
+    file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/.devcontainer)
+    configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/devcontainer.json.in ${PROJECT_SOURCE_DIR}/.devcontainer/devcontainer.json @ONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/Dockerfile ${PROJECT_SOURCE_DIR}/.devcontainer/Dockerfile @ONLY)
 endif()
 
 # use clang-tidy to check file
@@ -161,6 +194,8 @@ if(SUBROSA_DG_DEVELOP)
         # set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
         include(${PROJECT_SOURCE_DIR}/cmake/ClangTidy.cmake)
         message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
+    else()
+        message(WARNING "clang-tidy not found. Please install clang-tidy.")
     endif()
 endif()
 
@@ -170,6 +205,8 @@ if(SUBROSA_DG_DEVELOP)
     if(CLANG_FORMAT)
         include(${PROJECT_SOURCE_DIR}/cmake/ClangFormat.cmake)
         message_tool_version(clang-format "${CLANG_FORMAT}")
+    else()
+        message(WARNING "clang-format not found. Please install clang-format.")
     endif()
 endif()
 
@@ -178,6 +215,8 @@ find_program(CLANGD NAMES clangd PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
 if(CLANGD)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     message_tool_version(clangd "${CLANGD}")
+else()
+    message(WARNING "clangd not found. Please install clangd.")
 endif()
 
 # use iwyu to check header file
@@ -187,6 +226,8 @@ if(SUBROSA_DG_DEVELOP)
         # set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU}")
         # set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU}")
         message_tool_version(include-what-you-use "${IWYU}")
+    else()
+        message(WARNING "include-what-you-use not found. Please install include-what-you-use.")
     endif()
     find_program(IWYU_TOOL NAMES iwyu_tool.py HINTS ${PROJECT_SOURCE_DIR}/utils/include-what-you-use)
     find_program(IWYU_FIX_TOOL NAMES fix_includes.py HINTS ${PROJECT_SOURCE_DIR}/utils/include-what-you-use)
@@ -202,6 +243,8 @@ if(SUBROSA_DG_DEVELOP)
     if(GCOVR)
         include(${PROJECT_SOURCE_DIR}/cmake/Gcovr.cmake)
         message_tool_version(gcovr "${GCOVR}")
+    else()
+        message(WARNING "gcovr not found. Please install gcovr.")
     endif()
 endif()
 
@@ -211,6 +254,8 @@ if(CCACHE)
     set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE}")
     set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE}")
     message_tool_version(ccache "${CCACHE}")
+else()
+    message(WARNING "ccache not found. Please install ccache.")
 endif()
 
 # set output path
@@ -245,7 +290,7 @@ add_library(lib::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 # )
 
 # check for interprocedural optimization
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
+if(NOT SUBROSA_DG_DEVELOP)
     include(CheckIPOSupported)
     check_ipo_supported(RESULT IPO_SUPPORT)
     if(IPO_SUPPORT)
@@ -262,20 +307,11 @@ set(SUBROSA_DG_CXX_COVER_FLAGS)
 set(SUBROSA_DG_CXX_FLAGS_DEBUG)
 set(SUBROSA_DG_CXX_FLAGS_RELEASE)
 
-# link to libc++ if available
-# find_library(LIBCXX NAMES libc++${CMAKE_SHARED_LIBRARY_SUFFIX})
-# if(LIBCXX)
-#     string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ ")
-# #   the following two lines choose one of them
-#     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
-#     # set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-stdlib=libc++")
-# endif()
-
 # add coverage compilation option
 # set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
 
 # add cxx compilation option
-string(APPEND SUBROSA_DG_CXX_FLAGS "-Wno-narrowing")
+string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ -Wno-narrowing")
 string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation")
 # string(APPEND SUBROSA_DG_CXX_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
 string(APPEND SUBROSA_DG_CXX_FLAGS_DEBUG "${SUBROSA_DG_CXX_FLAGS} ${SUBROSA_DG_CXX_WARNING_FLAGS} \
@@ -293,22 +329,22 @@ set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
 string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
 
 # create and include the cmake header
-configure_file(${PROJECT_SOURCE_DIR}/cmake/Cmake.hpp.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/Cmake.hpp @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/cmake/source/Cmake.hpp.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/Cmake.hpp @ONLY)
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
 
 # create and include the SubrosaDG header
-configure_file(${PROJECT_SOURCE_DIR}/cmake/SubrosaDG.in ${SUBROSA_DG_SOURCES_DIR}/SubrosaDG @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/cmake/source/SubrosaDG.in ${SUBROSA_DG_SOURCES_DIR}/SubrosaDG @ONLY)
 
 # add include directory and compiler flags
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/src)
 list(APPEND SUBROSA_DG_COMPILE_OPTIONS ${SUBROSA_DG_FLAGS})
 
 # enable mutilthread support
-set(CMAKE_THREAD_LIBS_INIT "-lpthread")
-set(CMAKE_HAVE_THREADS_LIBRARY 1)
-set(CMAKE_USE_WIN32_THREADS_INIT 0)
-set(CMAKE_USE_PTHREADS_INIT 1)
-set(THREADS_PREFER_PTHREAD_FLAG ON)
+# set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+# set(CMAKE_HAVE_THREADS_LIBRARY 1)
+# set(CMAKE_USE_WIN32_THREADS_INIT 0)
+# set(CMAKE_USE_PTHREADS_INIT 1)
+# set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 # find tqdm-cpp
 find_path(TQDM_DIR NAMES tqdm.hpp PATHS ${PROJECT_SOURCE_DIR}/libs/tqdm-cpp)
@@ -327,11 +363,7 @@ endif()
 
 # find fmt
 find_package(fmt CONFIG REQUIRED)
-list(APPEND SUBROSA_DG_LINK_LIBRARIES fmt::fmt)
-
-# find spdlog
-find_package(spdlog CONFIG REQUIRED)
-list(APPEND SUBROSA_DG_LINK_LIBRARIES spdlog::spdlog)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES fmt::fmt-header-only)
 
 # find magic_enum
 find_package(magic_enum CONFIG REQUIRED)
@@ -347,10 +379,10 @@ find_package(Eigen3 CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES Eigen3::Eigen)
 
 # find gmsh
-find_program(GMSH NAMES gmsh PATHS $ENV{GMSH_ROOT}/bin)
-find_path(GMSH_DIR NAMES gmsh.h PATHS $ENV{GMSH_ROOT}/include)
-find_library(GMSH_LIBRARY NAMES libgmsh${CMAKE_SHARED_LIBRARY_SUFFIX} PATHS $ENV{GMSH_ROOT}/lib)
-if (GMSH AND GMSH_DIR AND GMSH_LIBRARY)
+find_program(GMSH NAMES gmsh PATHS $ENV{GMSH_ROOT} PATH_SUFFIXES bin NO_DEFAULT_PATH)
+find_path(GMSH_DIR NAMES gmsh.h PATHS $ENV{GMSH_ROOT} PATH_SUFFIXES include NO_DEFAULT_PATH)
+find_library(GMSH_LIBRARY NAMES libgmsh${CMAKE_SHARED_LIBRARY_SUFFIX} PATHS $ENV{GMSH_ROOT} PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
+if(GMSH AND GMSH_DIR AND GMSH_LIBRARY)
     message_tool_version(Gmsh "${GMSH}")
 else()
     message(FATAL_ERROR "Some component of Gmsh not found.")
@@ -364,18 +396,11 @@ if(SUBROSA_DG_WITH_OPENMP)
     list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
 endif()
 
-# set for mpi
-if(SUBROSA_DG_WITH_MPI)
-    find_package(MPI REQUIRED)
-    list(APPEND SUBROSA_DG_LINK_LIBRARIES MPI::MPI_CXX)
-endif()
-
 # set compilation definitions
 foreach(SUBROSA_DG_OPTION IN ITEMS
         SUBROSA_DG_DEVELOP
         SUBROSA_DG_SINGLE_PRECISION
-        SUBROSA_DG_WITH_OPENMP
-        SUBROSA_DG_WITH_MPI)
+        SUBROSA_DG_WITH_OPENMP)
     if(${SUBROSA_DG_OPTION})
         list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS ${SUBROSA_DG_OPTION})
         message(STATUS "Option: ${SUBROSA_DG_OPTION}: ON")
@@ -397,6 +422,12 @@ target_compile_definitions(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_DEFINI
 # modify the compile definitions to string for doxygen
 string(REPLACE ";" " " SUBROSA_DG_COMPILE_DEFINITIONS "${SUBROSA_DG_COMPILE_DEFINITIONS}")
 
+# add develop target
+if(SUBROSA_DG_DEVELOP)
+    add_executable(develop ${SUBROSA_DG_DEVELOP_SOURCES})
+    target_link_libraries(develop lib::subrosa_dg)
+endif()
+
 # all_ci = all_examples + all_tests
 add_custom_target(all_ci COMMENT "Build all examples and tests")
 
@@ -414,14 +445,14 @@ if(SUBROSA_DG_BUILD_TESTS OR SUBROSA_DG_BUILD_ALL)
 endif()
 
 # build documents
-if(SUBROSA_DG_BUILD_DOCS OR SUBROSA_DG_BUILD_ALL)
+if(SUBROSA_DG_BUILD_DOCS)
     find_package(Doxygen REQUIRED dot)
     if(DOXYGEN_FOUND)
         include(cmake/Doxygen.cmake)
         message(STATUS "Found Doxygen: ${DOXYGEN_VERSION}")
         message(STATUS "Generating documents")
     else()
-        message(FATAL_ERROR "Doxygen not found. Please install doxygen.")
+        message(WARNING "Doxygen not found. Please install doxygen.")
     endif()
     find_package(LATEX COMPONENTS PDFLATEX BIBTEX)
     if(LATEX_PDFLATEX_FOUND)
@@ -429,6 +460,6 @@ if(SUBROSA_DG_BUILD_DOCS OR SUBROSA_DG_BUILD_ALL)
         message_tool_version(PdfLaTeX "${PDFLATEX_COMPILER}")
         message_tool_version(BibTeX "${BIBTEX_COMPILER}")
     else()
-        message(FATAL_ERROR "PdfLaTeX or BibTexnot found. Please install texlive.")
+        message(WARNING "PdfLaTeX or BibTexnot found. Please install texlive.")
     endif()
 endif()

@@ -3,9 +3,10 @@
     "name": "subrosadg",
     "version": "0.1.0",
     "description": [
-        "A discontinuous galerkin method project",
-        "Optionally can build with mpi and tests"
+        "A pure template discontinuous Galerkin method project."
     ],
+    "homepage": "https://github.com/SubrosaDG-dev/SubrosaDG",
+    "license": "MIT",
     "$default-features-explanation": "The minimum dependencies required for the project to run",
     "default-features": [
         "main"
@@ -15,17 +16,10 @@
             "description": "Build main dependencies",
             "dependencies": [
                 "fmt",
-                "spdlog",
                 "magic-enum",
                 "eigen3",
                 "zlib",
                 "dbg-macro"
-            ]
-        },
-        "mpi": {
-            "description": "Build with MPI",
-            "dependencies": [
-                "openmpi"
             ]
         },
         "tests": {

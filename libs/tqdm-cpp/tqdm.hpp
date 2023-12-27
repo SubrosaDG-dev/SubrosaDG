@@ -66,10 +66,12 @@ class Chronometer {
 
 class ProgressBar {
  public:
-  template <typename T>
-    requires std::is_integral_v<T>
-  ProgressBar(T cycle_num, int delete_line)
-      : cycle_num_(static_cast<index>(cycle_num)), num_order_(log10(cycle_num_)), delete_line_(delete_line) {
+  void initialize(int cycle_num, int delete_line) {
+    progress_ = 0;
+    cycle_num_ = static_cast<index>(cycle_num);
+    num_order_ = log10(cycle_num_);
+    delete_line_ = delete_line;
+
     for (int i = 0; i < delete_line_; i++) {
       (*os_) << '\n';
     }
@@ -143,7 +145,7 @@ class ProgressBar {
   Chronometer chronometer_{};
   Chronometer refresh_{};
 
-  index progress_{0};
+  index progress_;
   int delete_line_;
   index cycle_num_;
   int num_order_;

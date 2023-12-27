@@ -1,1 +1,0 @@
-command script import "@PROJECT_SOURCE_DIR@/utils/lldb-eigen-pretty-print/LLDB_Eigen_Pretty_Printer.py"
