@@ -13,10 +13,10 @@
 #ifndef SUBROSA_DG_BASIS_FUNCTION_HPP_
 #define SUBROSA_DG_BASIS_FUNCTION_HPP_
 
-#include <fmt/core.h>
 #include <gmsh.h>
 
 #include <Eigen/Core>
+#include <format>
 #include <vector>
 
 #include "Mesh/GaussianQuadrature.hpp"
@@ -46,7 +46,7 @@ inline std::vector<double> getElementBasisFunction(const std::vector<double>& lo
   std::vector<double> basis_functions;
   int num_orientations;
   gmsh::model::mesh::getBasisFunctions(ElementTrait::kGmshTypeNumber, local_coord,
-                                       fmt::format("Lagrange{}", static_cast<int>(ElementTrait::kPolynomialOrder)),
+                                       std::format("Lagrange{}", static_cast<int>(ElementTrait::kPolynomialOrder)),
                                        num_components, basis_functions, num_orientations);
   return basis_functions;
 }
@@ -63,7 +63,7 @@ inline void ElementBasisFunction<ElementTrait>::getElementAdjacencyBasisFunction
   Eigen::Matrix<Real, 3, ElementTrait::kAdjacencyQuadratureNumber> adjacency_local_coord;
   adjacency_local_coord.setZero();
   Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kBasicNodeNumber> basic_node_coord{
-      getElementNodeCoordinate<ElementTrait::kElementType, PolynomialOrder::P1>().data()};
+      getElementNodeCoordinate<ElementTrait::kElementType, PolynomialOrderEnum::P1>().data()};
   for (Isize i = 0; i < ElementTrait::kAdjacencyNumber; i++) {
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
       adjacency_local_coord(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>),
@@ -100,7 +100,7 @@ inline ElementBasisFunction<ElementTrait>::ElementBasisFunction() {
   std::vector<double> gradient_basis_functions;
   int num_orientations;
   gmsh::model::mesh::getBasisFunctions(ElementTrait::kGmshTypeNumber, local_coord,
-                                       fmt::format("GradLagrange{}", static_cast<int>(ElementTrait::kPolynomialOrder)),
+                                       std::format("GradLagrange{}", static_cast<int>(ElementTrait::kPolynomialOrder)),
                                        num_components, gradient_basis_functions, num_orientations);
   for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
     for (Isize j = 0; j < ElementTrait::kBasisFunctionNumber; j++) {
@@ -110,10 +110,10 @@ inline ElementBasisFunction<ElementTrait>::ElementBasisFunction() {
       }
     }
   }
-  if constexpr (ElementTrait::kElementType == Element::Line) {
+  if constexpr (ElementTrait::kElementType == ElementEnum::Line) {
     this->getElementAdjacencyBasisFunction<AdjacencyPointTrait<ElementTrait::kPolynomialOrder>>();
-  } else if constexpr (ElementTrait::kElementType == Element::Triangle ||
-                       ElementTrait::kElementType == Element::Quadrangle) {
+  } else if constexpr (ElementTrait::kElementType == ElementEnum::Triangle ||
+                       ElementTrait::kElementType == ElementEnum::Quadrangle) {
     this->getElementAdjacencyBasisFunction<AdjacencyLineTrait<ElementTrait::kPolynomialOrder>>();
   }
 }

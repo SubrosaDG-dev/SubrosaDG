@@ -15,9 +15,9 @@
 
 #include <Eigen/Core>
 #include <fstream>
+#include <magic_enum.hpp>
 
 #include "Mesh/ReadControl.hpp"
-#include "Solver/SimulationControl.hpp"
 #include "Solver/SolveControl.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
@@ -26,7 +26,7 @@
 
 namespace SubrosaDG {
 
-template <typename ElementTrait, typename SimulationControl, EquationModel EquationModelType>
+template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::writeElementRawBinary(
     std::fstream& fout) const {
   for (Isize i = 0; i < this->number_; i++) {
@@ -42,22 +42,21 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::w
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl, 1>::writeRawBinary(std::fstream& fout) const {
-  this->line_.writeElementRawBinary(fout);
-}
-
-template <typename SimulationControl>
-inline void Solver<SimulationControl, 2>::writeRawBinary(std::fstream& fout) const {
-  if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-    this->triangle_.writeElementRawBinary(fout);
-  }
-  if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-    this->quadrangle_.writeElementRawBinary(fout);
+inline void Solver<SimulationControl>::writeRawBinary(std::fstream& fout) const {
+  if constexpr (SimulationControl::kDimension == 1) {
+    this->line_.writeElementRawBinary(fout);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.writeElementRawBinary(fout);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.writeElementRawBinary(fout);
+    }
   }
 }
 
 template <typename ElementTrait, typename SimulationControl>
-inline void ElementViewData<ElementTrait, SimulationControl>::readElementRawBinary(
+inline void ElementViewVariable<ElementTrait, SimulationControl>::readElementRawBinary(
     const ElementMesh<ElementTrait>& element_mesh, std::fstream& raw_binary_finout) {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
       conserved_variable_basis_function_coefficient;
@@ -77,31 +76,43 @@ inline void ElementViewData<ElementTrait, SimulationControl>::readElementRawBina
   }
 }
 
-template <typename SimulationControl>
-inline void ViewData<SimulationControl, 1>::readRawBinary(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh, std::fstream& raw_binary_finout) {
-  this->line_.readElementRawBinary(mesh.line_, raw_binary_finout);
-}
-
-template <typename SimulationControl>
-inline void ViewData<SimulationControl, 2>::readRawBinary(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh, std::fstream& raw_binary_finout) {
-  if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-    this->triangle_.readElementRawBinary(mesh.triangle_, raw_binary_finout);
-  }
-  if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-    this->quadrangle_.readElementRawBinary(mesh.quadrangle_, raw_binary_finout);
+template <typename ElementTrait, typename SimulationControl>
+inline void ElementViewVariable<ElementTrait, SimulationControl>::addNodeConservedVariable(
+    const ElementMesh<ElementTrait>& element_mesh,
+    Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic>& node_conserved_variable) {
+  for (Isize i = 0; i < element_mesh.number_; i++) {
+    for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
+      node_conserved_variable.col(element_mesh.element_(i).node_tag_(j) - 1) += this->conserved_variable_(i).col(j);
+    }
   }
 }
 
 template <typename SimulationControl>
-inline void ViewData<SimulationControl, 1>::calculateNodeConservedVariable(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
+inline void ViewVariable<SimulationControl>::readRawBinary(const Mesh<SimulationControl>& mesh,
+                                                           std::fstream& raw_binary_finout) {
+  if constexpr (SimulationControl::kDimension == 1) {
+    this->line_.readElementRawBinary(mesh.line_, raw_binary_finout);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.readElementRawBinary(mesh.triangle_, raw_binary_finout);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.readElementRawBinary(mesh.quadrangle_, raw_binary_finout);
+    }
+  }
+}
+
+template <typename SimulationControl>
+inline void ViewVariable<SimulationControl>::calculateNodeConservedVariable(const Mesh<SimulationControl>& mesh) {
   this->node_conserved_variable_.setZero();
-  for (Isize i = 0; i < mesh.line_.number_; i++) {
-    for (Isize j = 0; j < LineTrait<SimulationControl::kPolynomialOrder>::kAllNodeNumber; j++) {
-      this->node_conserved_variable_.col(mesh.line_.element_(i).node_tag_(j) - 1) +=
-          this->line_.conserved_variable_(i).col(j);
+  if constexpr (SimulationControl::kDimension == 1) {
+    this->line_.addNodeConservedVariable(mesh.line_, this->node_conserved_variable_);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.addNodeConservedVariable(mesh.triangle_, this->node_conserved_variable_);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.addNodeConservedVariable(mesh.quadrangle_, this->node_conserved_variable_);
     }
   }
   this->node_conserved_variable_.array().rowwise() /=
@@ -109,46 +120,24 @@ inline void ViewData<SimulationControl, 1>::calculateNodeConservedVariable(
 }
 
 template <typename SimulationControl>
-inline void ViewData<SimulationControl, 2>::calculateNodeConservedVariable(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
-  this->node_conserved_variable_.setZero();
-  if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-    for (Isize i = 0; i < mesh.triangle_.number_; i++) {
-      for (Isize j = 0; j < TriangleTrait<SimulationControl::kPolynomialOrder>::kAllNodeNumber; j++) {
-        this->node_conserved_variable_.col(mesh.triangle_.element_(i).node_tag_(j) - 1) +=
-            this->triangle_.conserved_variable_(i).col(j);
-      }
+inline void ViewVariable<SimulationControl>::initializeViewVariable(const Mesh<SimulationControl>& mesh,
+                                                                    const ViewConfigEnum config_enum,
+                                                                    std::fstream& raw_binary_finout) {
+  if constexpr (SimulationControl::kDimension == 1) {
+    this->line_.conserved_variable_.resize(mesh.line_.number_);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.conserved_variable_.resize(mesh.triangle_.number_);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.conserved_variable_.resize(mesh.quadrangle_.number_);
     }
   }
-  if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-    for (Isize i = 0; i < mesh.quadrangle_.number_; i++) {
-      for (Isize j = 0; j < QuadrangleTrait<SimulationControl::kPolynomialOrder>::kAllNodeNumber; j++) {
-        this->node_conserved_variable_.col(mesh.quadrangle_.element_(i).node_tag_(j) - 1) +=
-            this->quadrangle_.conserved_variable_(i).col(j);
-      }
-    }
-  }
-  this->node_conserved_variable_.array().rowwise() /=
-      mesh.node_element_number_.template cast<Real>().transpose().array();
-}
-
-template <typename SimulationControl>
-inline void ViewData<SimulationControl, 1>::initializeViewData(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
-  this->line_.conserved_variable_.resize(mesh.line_.number_);
   this->node_conserved_variable_.resize(Eigen::NoChange, mesh.node_coordinate_.cols());
-}
-
-template <typename SimulationControl>
-inline void ViewData<SimulationControl, 2>::initializeViewData(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
-  if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-    this->triangle_.conserved_variable_.resize(mesh.triangle_.number_);
+  this->readRawBinary(mesh, raw_binary_finout);
+  if ((config_enum & ViewConfigEnum::SolverSmoothness) == ViewConfigEnum::SolverSmoothness) {
+    this->calculateNodeConservedVariable(mesh);
   }
-  if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-    this->quadrangle_.conserved_variable_.resize(mesh.quadrangle_.number_);
-  }
-  this->node_conserved_variable_.resize(Eigen::NoChange, mesh.node_coordinate_.cols());
 }
 
 }  // namespace SubrosaDG

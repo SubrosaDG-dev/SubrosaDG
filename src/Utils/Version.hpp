@@ -1,6 +1,6 @@
 /**
  * @file Version.hpp
- * @brief The head file of SubroseDG version.
+ * @brief The head file of SubrosaDG version.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2022-11-03

@@ -1,6 +1,6 @@
 /**
  * @file Enum.hpp
- * @brief The header file of SubroseDG enum.
+ * @brief The header file of SubrosaDG enum.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-11-07
@@ -13,9 +13,13 @@
 #ifndef SUBROSA_DG_ENUM_HPP_
 #define SUBROSA_DG_ENUM_HPP_
 
+#include <magic_enum.hpp>
+
+using namespace magic_enum::bitwise_operators;
+
 namespace SubrosaDG {
 
-enum class Element {
+enum class ElementEnum {
   Point = 1,
   Line,
   Triangle,
@@ -25,7 +29,7 @@ enum class Element {
   Hexahedron,
 };
 
-enum class MeshModel {
+enum class MeshModelEnum {
   Line = 1,
   Triangle,
   Quadrangle,
@@ -35,22 +39,21 @@ enum class MeshModel {
   TetrahedronPyramidHexahedron,
 };
 
-enum class BoundaryCondition {
+enum class BoundaryConditionEnum {
   NormalFarfield = 1,
   RiemannFarfield,
-  CharacteristicFarfield,
   AdiabaticWall,
   Periodic,
 };
 
-enum class ConvectiveFlux {
+enum class ConvectiveFluxEnum {
   Central = 1,
   LaxFriedrichs,
   HLLC,
   Roe,
 };
 
-enum class PolynomialOrder {
+enum class PolynomialOrderEnum {
   P1 = 1,
   P2,
   P3,
@@ -58,27 +61,27 @@ enum class PolynomialOrder {
   P5,
 };
 
-enum class EquationModel {
+enum class EquationModelEnum {
   Euler = 1,
   NS,
   RANS,
 };
 
-enum class ThermodynamicModel {
+enum class ThermodynamicModelEnum {
   ConstantE = 1,
   ConstantH,
 };
 
-enum class EquationOfState {
+enum class EquationOfStateEnum {
   IdealGas = 1,
 };
 
-enum class TransportModel {
+enum class TransportModelEnum {
   Constant = 1,
   Sutherland,
 };
 
-enum class TimeIntegration {
+enum class TimeIntegrationEnum {
   TestInitialization = 1,
   ForwardEuler,
   HeunRK2,
@@ -86,44 +89,51 @@ enum class TimeIntegration {
   BackwardEuler,
 };
 
-enum class TurbulenceModel {
+enum class TurbulenceModelEnum {
   SA = 1,
 };
 
-enum class ConservedVariable {
+enum class ConservedVariableEnum {
   Density = 1,
+  Momentum,
   MomentumX,
   MomentumY,
   MomentumZ,
   DensityTotalEnergy,
 };
 
-enum class ComputationalVariable {
+enum class ComputationalVariableEnum {
   Density = 1,
+  Velocity,
   VelocityX,
   VelocityY,
   VelocityZ,
+  VelocitySquareSummation,
   InternalEnergy,
   Pressure,
 };
 
-enum class PrimitiveVariable { Density = 1, VelocityX, VelocityY, VelocityZ, Temperature };
+enum class PrimitiveVariableEnum { Density = 1, Velocity, VelocityX, VelocityY, VelocityZ, Temperature };
 
-enum class ViscousFlux {
+enum class ViscousFluxEnum {
   BR1 = 1,
   BR2,
 };
 
-enum class ViewModel {
+enum class ViewModelEnum {
   Msh = 1,
   Dat,
   Plt,
   Vtu,
 };
 
-enum class ViewConfig { HighOrderReconstruction = 1, SolverSmoothness };
+enum class ViewConfigEnum {
+  Default = 0,
+  DoNotTruncate = 1 << 0,
+  SolverSmoothness = 1 << 1,
+};
 
-enum class ViewVariable {
+enum class ViewVariableEnum {
   Density = 1,
   Velocity,
   Temperature,

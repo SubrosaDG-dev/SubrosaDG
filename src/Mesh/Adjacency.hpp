@@ -13,11 +13,14 @@
 #ifndef SUBROSA_DG_ADJACENCY_HPP_
 #define SUBROSA_DG_ADJACENCY_HPP_
 
+#include <fmt/format.h>
 #include <gmsh.h>
 
 #include <Eigen/Core>
 #include <cstddef>
-#include <string>
+#include <format>
+#include <iostream>
+#include <stdexcept>
 #include <unordered_map>
 #include <vector>
 
@@ -103,10 +106,7 @@ inline void getAdjacencyElementMeshSupplementalMap(
 template <typename AdjacencyElementTrait>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoundaryMesh(
     const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
-    std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
-    std::unordered_map<std::string, PhysicalGroupInformation>& physical_group_information,
-    std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information,
-    const std::vector<Isize>& boundary_tag,
+    MeshInformation& information, const std::vector<Isize>& boundary_tag,
     const std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
         adjacency_element_mesh_supplemental_map) {
   std::vector<std::size_t> element_tags;
@@ -133,33 +133,33 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
           node_coordinate.col(adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)] - 1);
       this->element_(i).node_tag_(j) = adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)];
     }
-    this->element_(i).gmsh_tag_ = node_tag_element_map.at(node_tag);
+    try {
+      this->element_(i).gmsh_tag_ = node_tag_element_map.at(node_tag);
+    } catch (const std::out_of_range& error) {
+      std::cout << fmt::format("Cannot find adjacency element with node tag: {}", fmt::join(node_tag, ", ")) << '\n';
+      std::cout << "Check your physical group definition." << '\n';
+    }
     this->element_(i).gmsh_physical_name_ =
-        gmsh_tag_to_element_information.at(this->element_(i).gmsh_tag_).gmsh_physical_name_;
+        information.gmsh_tag_to_element_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_name_;
     this->element_(i).element_index_ = i;
-    physical_group_information[this->element_(i).gmsh_physical_name_].element_number_++;
-    physical_group_information[this->element_(i).gmsh_physical_name_].element_gmsh_type_.emplace_back(
+    information.physical_group_information_[this->element_(i).gmsh_physical_name_].element_number_++;
+    information.physical_group_information_[this->element_(i).gmsh_physical_name_].element_gmsh_type_.emplace_back(
         AdjacencyElementTrait::kGmshTypeNumber);
-    physical_group_information[this->element_(i).gmsh_physical_name_].element_gmsh_tag_.emplace_back(
+    information.physical_group_information_[this->element_(i).gmsh_physical_name_].element_gmsh_tag_.emplace_back(
         this->element_(i).gmsh_tag_);
-    physical_group_information[this->element_(i).gmsh_physical_name_].basic_node_number_ +=
-        AdjacencyElementTrait::kBasicNodeNumber;
-    physical_group_information[this->element_(i).gmsh_physical_name_].all_node_number_ +=
+    information.physical_group_information_[this->element_(i).gmsh_physical_name_].node_number_ +=
         AdjacencyElementTrait::kAllNodeNumber;
-    gmsh_tag_to_element_information[this->element_(i).gmsh_tag_].element_index_ = i;
+    information.gmsh_tag_to_element_information_[this->element_(i).gmsh_tag_].element_index_ = i;
     this->element_(i).parent_index_each_type_(0) =
-        gmsh_tag_to_element_information.at(adjacency_element_mesh_supplemental.parent_gmsh_tag_[0]).element_index_;
+        information.gmsh_tag_to_element_information_.at(adjacency_element_mesh_supplemental.parent_gmsh_tag_[0])
+            .element_index_;
     this->element_(i).adjacency_sequence_in_parent_(0) =
         adjacency_element_mesh_supplemental.adjacency_sequence_in_parent_[0];
     this->element_(i).parent_gmsh_type_number_(0) = adjacency_element_mesh_supplemental.parent_gmsh_type_number_[0];
-    gmsh_tag_to_sub_index_and_type[adjacency_element_mesh_supplemental.parent_gmsh_tag_[0]].emplace_back(
+    information.gmsh_tag_to_sub_index_and_type_[adjacency_element_mesh_supplemental.parent_gmsh_tag_[0]].emplace_back(
         i, AdjacencyElementTrait::kGmshTypeNumber);
-    for (Isize j = 0; j < AdjacencyElementTrait::kBasicNodeNumber; j++) {
-      physical_group_information[this->element_(i).gmsh_physical_name_].basic_node_gmsh_tag_.emplace_back(
-          adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)]);
-    }
     for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
-      physical_group_information[this->element_(i).gmsh_physical_name_].all_node_gmsh_tag_.emplace_back(
+      information.physical_group_information_[this->element_(i).gmsh_physical_name_].node_gmsh_tag_.emplace_back(
           adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)]);
     }
   }
@@ -168,9 +168,7 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
 template <typename AdjacencyElementTrait>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementInteriorMesh(
     const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
-    std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
-    std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information,
-    const std::vector<Isize>& interior_tag,
+    MeshInformation& information, const std::vector<Isize>& interior_tag,
     const std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
         adjacency_element_mesh_supplemental_map) {
   std::size_t max_tag;
@@ -190,17 +188,18 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementInte
       this->element_(i).node_tag_(j) = adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)];
       interior_node_tag.emplace_back(adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)]);
     }
-    gmsh_tag_to_element_information[this->element_(i).gmsh_tag_].element_index_ = i;
+    information.gmsh_tag_to_element_information_[this->element_(i).gmsh_tag_].element_index_ = i;
     for (Isize j = 0; j < 2; j++) {
       this->element_(i).parent_index_each_type_(j) =
-          gmsh_tag_to_element_information
+          information.gmsh_tag_to_element_information_
               .at(adjacency_element_mesh_supplemental.parent_gmsh_tag_[static_cast<Usize>(j)])
               .element_index_;
       this->element_(i).adjacency_sequence_in_parent_(j) =
           adjacency_element_mesh_supplemental.adjacency_sequence_in_parent_[static_cast<Usize>(j)];
       this->element_(i).parent_gmsh_type_number_(j) =
           adjacency_element_mesh_supplemental.parent_gmsh_type_number_[static_cast<Usize>(j)];
-      gmsh_tag_to_sub_index_and_type[adjacency_element_mesh_supplemental.parent_gmsh_tag_[static_cast<Usize>(j)]]
+      information
+          .gmsh_tag_to_sub_index_and_type_[adjacency_element_mesh_supplemental.parent_gmsh_tag_[static_cast<Usize>(j)]]
           .emplace_back(i, AdjacencyElementTrait::kGmshTypeNumber);
     }
   }
@@ -209,12 +208,10 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementInte
 }
 
 template <typename AdjacencyElementTrait>
-template <MeshModel MeshModelType>
+template <MeshModelEnum MeshModelType>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementMesh(
     const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
-    std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>>& gmsh_tag_to_sub_index_and_type,
-    std::unordered_map<std::string, PhysicalGroupInformation>& physical_group_information,
-    std::unordered_map<Isize, PerElementPhysicalGroupInformation>& gmsh_tag_to_element_information) {
+    MeshInformation& information) {
   std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>
       adjacency_element_mesh_supplemental_map;
   if constexpr (AdjacencyElementTrait::kDimension == 0) {
@@ -246,14 +243,12 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementMesh
   this->interior_number_ = static_cast<Isize>(interior_tag.size());
   this->boundary_number_ = static_cast<Isize>(boundary_tag.size());
   this->element_.resize(this->interior_number_ + this->boundary_number_);
-  this->getAdjacencyElementBoundaryMesh(node_coordinate, gmsh_tag_to_sub_index_and_type, physical_group_information,
-                                        gmsh_tag_to_element_information, boundary_tag,
+  this->getAdjacencyElementBoundaryMesh(node_coordinate, information, boundary_tag,
                                         adjacency_element_mesh_supplemental_map);
-  this->getAdjacencyElementInteriorMesh(node_coordinate, gmsh_tag_to_sub_index_and_type,
-                                        gmsh_tag_to_element_information, interior_tag,
+  this->getAdjacencyElementInteriorMesh(node_coordinate, information, interior_tag,
                                         adjacency_element_mesh_supplemental_map);
   this->getAdjacencyElementJacobian();
-  this->calculateAdjacencyElementNormalVector();
+  this->calculateAdjacencyElementTransitionMatrix();
 }
 
 }  // namespace SubrosaDG

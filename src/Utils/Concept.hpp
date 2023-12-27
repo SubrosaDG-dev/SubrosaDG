@@ -17,44 +17,45 @@
 
 namespace SubrosaDG {
 
-template <MeshModel MeshModelType>
-concept IsUniform = MeshModelType == MeshModel::Line || MeshModelType == MeshModel::Triangle ||
-                    MeshModelType == MeshModel::Quadrangle || MeshModelType == MeshModel::Tetrahedron ||
-                    MeshModelType == MeshModel::Hexahedron;
+template <MeshModelEnum MeshModelType>
+concept IsUniform = MeshModelType == MeshModelEnum::Line || MeshModelType == MeshModelEnum::Triangle ||
+                    MeshModelType == MeshModelEnum::Quadrangle || MeshModelType == MeshModelEnum::Tetrahedron ||
+                    MeshModelType == MeshModelEnum::Hexahedron;
 
-template <MeshModel MeshModelType>
+template <MeshModelEnum MeshModelType>
 concept IsMixed =
-    MeshModelType == MeshModel::TriangleQuadrangle || MeshModelType == MeshModel::TetrahedronPyramidHexahedron;
+    MeshModelType == MeshModelEnum::TriangleQuadrangle || MeshModelType == MeshModelEnum::TetrahedronPyramidHexahedron;
 
-template <MeshModel MeshModelType>
-concept HasTriangle = MeshModelType == MeshModel::Triangle || MeshModelType == MeshModel::TriangleQuadrangle;
+template <MeshModelEnum MeshModelType>
+concept HasTriangle = MeshModelType == MeshModelEnum::Triangle || MeshModelType == MeshModelEnum::TriangleQuadrangle;
 
-template <MeshModel MeshModelType>
-concept HasQuadrangle = MeshModelType == MeshModel::Quadrangle || MeshModelType == MeshModel::TriangleQuadrangle;
+template <MeshModelEnum MeshModelType>
+concept HasQuadrangle =
+    MeshModelType == MeshModelEnum::Quadrangle || MeshModelType == MeshModelEnum::TriangleQuadrangle;
 
-template <MeshModel MeshModelType>
+template <MeshModelEnum MeshModelType>
 concept HasTetrahedron =
-    MeshModelType == MeshModel::Tetrahedron || MeshModelType == MeshModel::TetrahedronPyramidHexahedron;
+    MeshModelType == MeshModelEnum::Tetrahedron || MeshModelType == MeshModelEnum::TetrahedronPyramidHexahedron;
 
-template <MeshModel MeshModelType>
-concept HasPyramid = MeshModelType == MeshModel::TetrahedronPyramidHexahedron;
+template <MeshModelEnum MeshModelType>
+concept HasPyramid = MeshModelType == MeshModelEnum::TetrahedronPyramidHexahedron;
 
-template <MeshModel MeshModelType>
+template <MeshModelEnum MeshModelType>
 concept HasHexahedron =
-    MeshModelType == MeshModel::Hexahedron || MeshModelType == MeshModel::TetrahedronPyramidHexahedron;
+    MeshModelType == MeshModelEnum::Hexahedron || MeshModelType == MeshModelEnum::TetrahedronPyramidHexahedron;
 
-template <Element ElementType>
-concept Is0dElement = ElementType == Element::Point;
+template <ElementEnum ElementType>
+concept Is0dElement = ElementType == ElementEnum::Point;
 
-template <Element ElementType>
-concept Is1dElement = ElementType == Element::Line;
+template <ElementEnum ElementType>
+concept Is1dElement = ElementType == ElementEnum::Line;
 
-template <Element ElementType>
-concept Is2dElement = ElementType == Element::Triangle || ElementType == Element::Quadrangle;
+template <ElementEnum ElementType>
+concept Is2dElement = ElementType == ElementEnum::Triangle || ElementType == ElementEnum::Quadrangle;
 
-template <Element ElementType>
-concept Is3dElement =
-    ElementType == Element::Tetrahedron || ElementType == Element::Pyramid || ElementType == Element::Hexahedron;
+template <ElementEnum ElementType>
+concept Is3dElement = ElementType == ElementEnum::Tetrahedron || ElementType == ElementEnum::Pyramid ||
+                      ElementType == ElementEnum::Hexahedron;
 
 }  // namespace SubrosaDG
 

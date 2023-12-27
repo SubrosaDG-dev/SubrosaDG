@@ -31,12 +31,11 @@
 
 namespace SubrosaDG {
 
-template <typename ElementTrait, typename SimulationControl, EquationModel EquationModelType>
+template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementGaussianQuadrature(
-    const ElementMesh<ElementTrait>& element_mesh,
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model) {
+    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model) {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(auto) \
+#pragma omp parallel for collapse(2) default(none) schedule(auto) \
     shared(Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, thermal_model)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
@@ -49,7 +48,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
       Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
           element_gaussian_quadrature_node_temporary_variable;
       gaussian_quadrature_node_variable.template getFromSelf<ElementTrait>(i, j, element_mesh, thermal_model, *this);
-      calculateConvectiveVariable<SimulationControl>(gaussian_quadrature_node_variable, convective_variable);
+      calculateConvectiveVariable(gaussian_quadrature_node_variable, convective_variable);
       gaussian_quadrature_node_jacobian_transpose_inverse =
           element_mesh.element_(i).jacobian_transpose_inverse_.col(j).reshaped(ElementTrait::kDimension,
                                                                                ElementTrait::kDimension);
@@ -64,21 +63,17 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl, 1>::calculateGaussianQuadrature(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model) {
-  this->line_.calculateElementGaussianQuadrature(mesh.line_, thermal_model);
-}
-
-template <typename SimulationControl>
-inline void Solver<SimulationControl, 2>::calculateGaussianQuadrature(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model) {
-  if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-    this->triangle_.calculateElementGaussianQuadrature(mesh.triangle_, thermal_model);
-  }
-  if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-    this->quadrangle_.calculateElementGaussianQuadrature(mesh.quadrangle_, thermal_model);
+inline void Solver<SimulationControl>::calculateGaussianQuadrature(
+    const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model) {
+  if constexpr (SimulationControl::kDimension == 1) {
+    this->line_.calculateElementGaussianQuadrature(mesh.line_, thermal_model);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.calculateElementGaussianQuadrature(mesh.triangle_, thermal_model);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.calculateElementGaussianQuadrature(mesh.quadrangle_, thermal_model);
+    }
   }
 }
 
@@ -114,7 +109,7 @@ inline void AdjacencyElementSolverBase<AdjacencyPointTrait<SimulationControl::kP
                                                 const Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
                                                 const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
                                                     adjacency_element_gaussian_quadrature_node_temporary_variable,
-                                                Solver<SimulationControl, SimulationControl::kDimension>& solver) {
+                                                Solver<SimulationControl>& solver) {
   solver.line_.element_(parent_index)
       .adjacency_quadrature_without_basis_function_value_.col(adjacency_gaussian_quadrature_node_sequence_in_parent) =
       adjacency_element_gaussian_quadrature_node_temporary_variable;
@@ -126,7 +121,7 @@ inline void AdjacencyElementSolverBase<AdjacencyLineTrait<SimulationControl::kPo
                                                 const Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
                                                 const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
                                                     adjacency_element_gaussian_quadrature_node_temporary_variable,
-                                                Solver<SimulationControl, SimulationControl::kDimension>& solver) {
+                                                Solver<SimulationControl>& solver) {
   if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
     solver.triangle_.element_(parent_index)
         .adjacency_quadrature_without_basis_function_value_.col(adjacency_gaussian_quadrature_node_sequence_in_parent) =
@@ -141,23 +136,22 @@ inline void AdjacencyElementSolverBase<AdjacencyLineTrait<SimulationControl::kPo
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void
 AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateInteriorAdjacencyElementGaussianQuadrature(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-    Solver<SimulationControl, SimulationControl::kDimension>& solver) {
+    const Mesh<SimulationControl>& mesh, const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+    const ThermalModel<SimulationControl>& thermal_model, Solver<SimulationControl>& solver) {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(auto) \
+#pragma omp parallel for collapse(2) default(none) schedule(auto) \
     shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, solver)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < adjacency_element_mesh.interior_number_; i++) {
-    Eigen::Vector<Isize, 2> parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_;
-    Eigen::Vector<Isize, 2> adjacency_sequence_in_parent =
-        adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_;
-    Eigen::Vector<Isize, 2> parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_;
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
       Variable<SimulationControl> left_gaussian_quadrature_node_variable;
       Variable<SimulationControl> right_gaussian_quadrature_node_variable;
-      Flux<SimulationControl, SimulationControl::kEquationModel> flux;
+      Flux<SimulationControl> flux;
+      const Eigen::Vector<Isize, 2> parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_;
+      const Eigen::Vector<Isize, 2> adjacency_sequence_in_parent =
+          adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_;
+      const Eigen::Vector<Isize, 2> parent_gmsh_type_number =
+          adjacency_element_mesh.element_(i).parent_gmsh_type_number_;
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
           adjacency_element_gaussian_quadrature_node_temporary_variable;
       Eigen::Vector<Isize, 2> adjacency_gaussian_quadrature_node_sequence_in_parent;
@@ -173,7 +167,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateInter
       right_gaussian_quadrature_node_variable.getFromParent(parent_gmsh_type_number(1), parent_index_each_type(1),
                                                             adjacency_gaussian_quadrature_node_sequence_in_parent(1),
                                                             mesh, thermal_model, solver);
-      calculateConvectiveFlux<SimulationControl>(thermal_model, adjacency_element_mesh.element_(i).normal_vector_,
+      calculateConvectiveFlux<SimulationControl>(thermal_model, adjacency_element_mesh.element_(i).transition_matrix_,
                                                  left_gaussian_quadrature_node_variable,
                                                  right_gaussian_quadrature_node_variable, flux);
       adjacency_element_gaussian_quadrature_node_temporary_variable =
@@ -194,24 +188,23 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateInter
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void
 AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateBoundaryAdjacencyElementGaussianQuadrature(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+    const Mesh<SimulationControl>& mesh, const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+    const ThermalModel<SimulationControl>& thermal_model,
     const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
         boundary_condition,
-    Solver<SimulationControl, SimulationControl::kDimension>& solver) {
+    Solver<SimulationControl>& solver) {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(auto) \
+#pragma omp parallel for collapse(2) default(none) schedule(auto) \
     shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, boundary_condition, solver)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = adjacency_element_mesh.interior_number_;
        i < adjacency_element_mesh.boundary_number_ + adjacency_element_mesh.interior_number_; i++) {
-    const Isize parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_(0);
-    const Isize adjacency_sequence_in_parent = adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_(0);
-    const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
       Variable<SimulationControl> left_gaussian_quadrature_node_variable;
-      Flux<SimulationControl, SimulationControl::kEquationModel> flux;
+      Flux<SimulationControl> flux;
+      const Isize parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_(0);
+      const Isize adjacency_sequence_in_parent = adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_(0);
+      const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
           adjacency_element_gaussian_quadrature_node_temporary_variable;
       const Isize adjacency_gaussian_quadrature_node_sequence_in_parent =
@@ -221,7 +214,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateBound
                                                            adjacency_gaussian_quadrature_node_sequence_in_parent, mesh,
                                                            thermal_model, solver);
       boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_name_)
-          ->calculateBoundaryConvectiveFlux(thermal_model, adjacency_element_mesh.element_(i).normal_vector_,
+          ->calculateBoundaryConvectiveFlux(thermal_model, adjacency_element_mesh.element_(i).transition_matrix_,
                                             left_gaussian_quadrature_node_variable, flux);
       adjacency_element_gaussian_quadrature_node_temporary_variable =
           flux.convective_n_ * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
@@ -234,28 +227,22 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateBound
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl, 1>::calculateAdjacencyGaussianQuadrature(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+inline void Solver<SimulationControl>::calculateAdjacencyGaussianQuadrature(
+    const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
     const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
         boundary_condition) {
-  this->point_.calculateInteriorAdjacencyElementGaussianQuadrature(mesh, mesh.point_, thermal_model, *this);
-  this->point_.calculateBoundaryAdjacencyElementGaussianQuadrature(mesh, mesh.point_, thermal_model, boundary_condition,
-                                                                   *this);
+  if constexpr (SimulationControl::kDimension == 1) {
+    this->point_.calculateInteriorAdjacencyElementGaussianQuadrature(mesh, mesh.point_, thermal_model, *this);
+    this->point_.calculateBoundaryAdjacencyElementGaussianQuadrature(mesh, mesh.point_, thermal_model,
+                                                                     boundary_condition, *this);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    this->line_.calculateInteriorAdjacencyElementGaussianQuadrature(mesh, mesh.line_, thermal_model, *this);
+    this->line_.calculateBoundaryAdjacencyElementGaussianQuadrature(mesh, mesh.line_, thermal_model, boundary_condition,
+                                                                    *this);
+  }
 }
 
-template <typename SimulationControl>
-inline void Solver<SimulationControl, 2>::calculateAdjacencyGaussianQuadrature(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-    const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-        boundary_condition) {
-  this->line_.calculateInteriorAdjacencyElementGaussianQuadrature(mesh, mesh.line_, thermal_model, *this);
-  this->line_.calculateBoundaryAdjacencyElementGaussianQuadrature(mesh, mesh.line_, thermal_model, boundary_condition,
-                                                                  *this);
-}
-
-template <typename ElementTrait, typename SimulationControl, EquationModel EquationModelType>
+template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementResidual(
     const ElementMesh<ElementTrait>& element_mesh) {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
@@ -270,19 +257,16 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl, 1>::calculateResidual(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
-  this->line_.calculateElementResidual(mesh.line_);
-}
-
-template <typename SimulationControl>
-inline void Solver<SimulationControl, 2>::calculateResidual(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh) {
-  if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-    this->triangle_.calculateElementResidual(mesh.triangle_);
-  }
-  if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-    this->quadrangle_.calculateElementResidual(mesh.quadrangle_);
+inline void Solver<SimulationControl>::calculateResidual(const Mesh<SimulationControl>& mesh) {
+  if constexpr (SimulationControl::kDimension == 1) {
+    this->line_.calculateElementResidual(mesh.line_);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.calculateElementResidual(mesh.triangle_);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.calculateElementResidual(mesh.quadrangle_);
+    }
   }
 }
 

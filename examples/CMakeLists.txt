@@ -10,7 +10,7 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.27)
 
 project(subrosa_dg_examples)
 

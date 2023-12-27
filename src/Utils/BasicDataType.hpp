@@ -1,6 +1,6 @@
 /**
  * @file BasicDataType.hpp
- * @brief The head file of SubroseDG basic data type.
+ * @brief The head file of SubrosaDG basic data type.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2022-11-02

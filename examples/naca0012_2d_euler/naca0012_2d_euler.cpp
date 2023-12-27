@@ -28,10 +28,11 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
                                                      "build/out/naca0012_2d_euler"};
 
 using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrder::P1, SubrosaDG::MeshModel::Quadrangle,
-                                      SubrosaDG::ThermodynamicModel::ConstantE, SubrosaDG::EquationOfState::IdealGas,
-                                      SubrosaDG::ConvectiveFlux::LaxFriedrichs, SubrosaDG::TimeIntegration::SSPRK3,
-                                      SubrosaDG::ViewModel::Vtu>;
+    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
+                                      SubrosaDG::ThermodynamicModelEnum::ConstantE,
+                                      SubrosaDG::EquationOfStateEnum::IdealGas,
+                                      SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs,
+                                      SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
 
 inline std::array<double, 64> naca0012_point_x_array{
     0.9994160, 0.9976658, 0.9947532, 0.9906850, 0.9854709, 0.9791229, 0.9716559, 0.9630873, 0.9534372, 0.9427280,
@@ -42,7 +43,7 @@ inline std::array<double, 64> naca0012_point_x_array{
     0.1101628, 0.0954915, 0.0817649, 0.0690152, 0.0572720, 0.0465628, 0.0369127, 0.0283441, 0.0208771, 0.0145291,
     0.0093149, 0.0052468, 0.0023342, 0.0005839};
 
-void generateMesh() {
+void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
   Eigen::Map<Eigen::RowVector<double, 64>> naca0012_point_x{naca0012_point_x_array.data()};
   Eigen::Matrix<double, 2, 64, Eigen::RowMajor> naca0012_point;
@@ -147,26 +148,25 @@ void generateMesh() {
   gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
-  gmsh::write(kExampleDirectory / "naca0012_2d.msh");
+  gmsh::write(mesh_file_path);
 }
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system(generateMesh, kExampleDirectory / "naca0012_2d.msh");
+  SubrosaDG::System<SimulationControl> system(kExampleDirectory / "naca0012_2d.msh", generateMesh);
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
         1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0};
   });
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::RiemannFarfield>(
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryCondition::AdiabaticWall>("bc-2");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticWall>("bc-2");
   system.setTimeIntegration(false, 1, 1.5, 1e-10);
-  system.setViewConfig(-1, kExampleDirectory, "naca0012_2d",
-                       {SubrosaDG::ViewConfig::HighOrderReconstruction, SubrosaDG::ViewConfig::SolverSmoothness});
-  system.addViewVariable({SubrosaDG::ViewVariable::Density, SubrosaDG::ViewVariable::Velocity,
-                          SubrosaDG::ViewVariable::Pressure, SubrosaDG::ViewVariable::Temperature,
-                          SubrosaDG::ViewVariable::MachNumber});
+  system.setViewConfig(-1, kExampleDirectory, "naca0012_2d", SubrosaDG::ViewConfigEnum::SolverSmoothness);
+  system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
+                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
+                          SubrosaDG::ViewVariableEnum::MachNumber});
   system.solve();
   system.view();
   return EXIT_SUCCESS;

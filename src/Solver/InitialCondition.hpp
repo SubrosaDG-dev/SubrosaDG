@@ -1,6 +1,6 @@
 /**
  * @file InitialCondition.hpp
- * @brief The header file of SubroseDG initial condition.
+ * @brief The header file of SubrosaDG initial condition.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-11-09
@@ -30,26 +30,30 @@
 
 namespace SubrosaDG {
 
+template <typename SimulationControl, int Dimension>
+struct InitialConditionData;
+
 template <typename SimulationControl>
-struct InitialCondition<SimulationControl, 1> {
+struct InitialConditionData<SimulationControl, 1> {
   std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
       const Eigen::Vector<Real, 1>& coordinate)>
       function_;
 };
 
 template <typename SimulationControl>
-struct InitialCondition<SimulationControl, 2> {
+struct InitialConditionData<SimulationControl, 2> {
   std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
       const Eigen::Vector<Real, 2>& coordinate)>
       function_;
 };
 
-template <typename ElementTrait, typename SimulationControl, EquationModel EquationModelType>
+template <typename SimulationControl>
+struct InitialCondition : InitialConditionData<SimulationControl, SimulationControl::kDimension> {};
+
+template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::initializeElementSolver(
-    const ElementMesh<ElementTrait>& element_mesh,
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-    const std::unordered_map<std::string, InitialCondition<SimulationControl, SimulationControl::kDimension>>&
-        initial_condition) {
+    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
+    const std::unordered_map<std::string, InitialCondition<SimulationControl>>& initial_condition) {
   this->number_ = element_mesh.number_;
   this->element_.resize(this->number_);
   this->delta_time_.resize(this->number_);
@@ -75,35 +79,23 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::i
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl, 1>::initializeSolver(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
+inline void Solver<SimulationControl>::initializeSolver(
+    const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
     std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-    const std::unordered_map<std::string, InitialCondition<SimulationControl, SimulationControl::kDimension>>&
-        initial_condition) {
+    const std::unordered_map<std::string, InitialCondition<SimulationControl>>& initial_condition) {
   for (auto& [boundary_condition_name, boundary_condition_variable] : boundary_condition) {
     boundary_condition_variable->variable_.calculateConservedFromPrimitive(thermal_model);
     boundary_condition_variable->variable_.calculateComputationalFromPrimitive(thermal_model);
   }
-  this->line_.initializeElementSolver(mesh.line_, thermal_model, initial_condition);
-}
-
-template <typename SimulationControl>
-inline void Solver<SimulationControl, 2>::initializeSolver(
-    const Mesh<SimulationControl, SimulationControl::kDimension>& mesh,
-    const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-    std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-    const std::unordered_map<std::string, InitialCondition<SimulationControl, SimulationControl::kDimension>>&
-        initial_condition) {
-  for (auto& [boundary_condition_name, boundary_condition_variable] : boundary_condition) {
-    boundary_condition_variable->variable_.calculateConservedFromPrimitive(thermal_model);
-    boundary_condition_variable->variable_.calculateComputationalFromPrimitive(thermal_model);
-  }
-  if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-    this->triangle_.initializeElementSolver(mesh.triangle_, thermal_model, initial_condition);
-  }
-  if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-    this->quadrangle_.initializeElementSolver(mesh.quadrangle_, thermal_model, initial_condition);
+  if constexpr (SimulationControl::kDimension == 1) {
+    this->line_.initializeElementSolver(mesh.line_, thermal_model, initial_condition);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.initializeElementSolver(mesh.triangle_, thermal_model, initial_condition);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.initializeElementSolver(mesh.quadrangle_, thermal_model, initial_condition);
+    }
   }
 }
 

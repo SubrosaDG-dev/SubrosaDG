@@ -12,6 +12,6 @@
 
 cmake_minimum_required(VERSION 3.27)
 
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/test_2d)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/test_1d)
 
-add_gtest(test_2d "test_2d.cpp")
+add_gtest(test_1d "test_1d.cpp")

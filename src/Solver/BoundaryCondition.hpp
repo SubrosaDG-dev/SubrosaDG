@@ -30,10 +30,9 @@ struct BoundaryConditionBase {
   Variable<SimulationControl> variable_;
 
   virtual inline void calculateBoundaryConvectiveFlux(
-      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl>& left_quadrature_node_variable,
-      Flux<SimulationControl, SimulationControl::kEquationModel>& flux) const = 0;
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& transition_matrix,
+      const Variable<SimulationControl>& left_quadrature_node_variable, Flux<SimulationControl>& flux) const = 0;
 
   virtual ~BoundaryConditionBase() = default;
 };
@@ -41,275 +40,154 @@ struct BoundaryConditionBase {
 template <typename SimulationControl, typename Derived>
 struct BoundaryConditionCRTP : BoundaryConditionBase<SimulationControl> {
   inline void calculateBoundaryConvectiveFlux(
-      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl>& left_quadrature_node_variable,
-      Flux<SimulationControl, SimulationControl::kEquationModel>& flux) const override {
-    static_cast<Derived const*>(this)->calculateBoundaryConvectiveFluxImpl(thermal_model, normal_vector,
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& transition_matrix,
+      const Variable<SimulationControl>& left_quadrature_node_variable, Flux<SimulationControl>& flux) const override {
+    static_cast<Derived const*>(this)->calculateBoundaryConvectiveFluxImpl(thermal_model, transition_matrix,
                                                                            left_quadrature_node_variable, flux);
   }
 };
 
-template <typename SimulationControl, BoundaryCondition BoundaryConditionType>
-struct BoundaryConditionData
-    : BoundaryConditionCRTP<SimulationControl, BoundaryConditionData<SimulationControl, BoundaryConditionType>> {};
+template <typename SimulationControl, BoundaryConditionEnum BoundaryConditionType>
+struct BoundaryCondition
+    : BoundaryConditionCRTP<SimulationControl, BoundaryCondition<SimulationControl, BoundaryConditionType>> {};
 
 template <typename SimulationControl>
-struct BoundaryConditionData<SimulationControl, BoundaryCondition::NormalFarfield>
+struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::NormalFarfield>
     : BoundaryConditionCRTP<SimulationControl,
-                            BoundaryConditionData<SimulationControl, BoundaryCondition::NormalFarfield>> {
+                            BoundaryCondition<SimulationControl, BoundaryConditionEnum::NormalFarfield>> {
   inline void calculateBoundaryConvectiveFluxImpl(
-      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl>& left_quadrature_node_variable,
-      Flux<SimulationControl, SimulationControl::kEquationModel>& flux) const {
-    calculateConvectiveFlux<SimulationControl>(thermal_model, normal_vector, left_quadrature_node_variable,
-                                               this->variable_, flux);
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& transition_matrix,
+      const Variable<SimulationControl>& left_quadrature_node_variable, Flux<SimulationControl>& flux) const {
+    calculateConvectiveFlux(thermal_model, transition_matrix, left_quadrature_node_variable, this->variable_, flux);
   }
 };
 
 template <typename SimulationControl>
-struct BoundaryConditionData<SimulationControl, BoundaryCondition::RiemannFarfield>
+struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfield>
     : BoundaryConditionCRTP<SimulationControl,
-                            BoundaryConditionData<SimulationControl, BoundaryCondition::RiemannFarfield>> {
+                            BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfield>> {
   inline void calculateBoundaryConvectiveFluxImpl(
-      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl>& left_quadrature_node_variable,
-      Flux<SimulationControl, SimulationControl::kEquationModel>& flux) const {
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& transition_matrix,
+      const Variable<SimulationControl>& left_quadrature_node_variable, Flux<SimulationControl>& flux) const {
     Variable<SimulationControl> farfield_variable;
-    const Real velocity_normal = left_quadrature_node_variable.getVelocity().transpose() * normal_vector;
+    const Real velocity_normal =
+        left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
+        transition_matrix.col(0);
     const Real sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
-        left_quadrature_node_variable.template get<ComputationalVariable::InternalEnergy>());
+        left_quadrature_node_variable.template get<ComputationalVariableEnum::InternalEnergy>());
     const Real mach_number_normal = velocity_normal / sound_speed;
-    const bool is_supersonic = (std::fabs(mach_number_normal) <=> 1.0) == std::partial_ordering::greater;
+    const bool is_supersonic = (std::abs(mach_number_normal) <=> 1.0) == std::partial_ordering::greater;
     const bool is_negative = (mach_number_normal <=> 0.0) == std::partial_ordering::less;
     if (is_supersonic) {
       if (is_negative) {  // Supersonic inflow
-        calculateConvectiveVariable(this->variable_, flux.left_convective_);
+        calculateConvectiveNormalVariable(this->variable_, transition_matrix, flux.convective_n_);
       } else {  // Supersonic outflow
-        calculateConvectiveVariable(left_quadrature_node_variable, flux.left_convective_);
+        calculateConvectiveNormalVariable(left_quadrature_node_variable, transition_matrix, flux.convective_n_);
       }
     } else {
       if (is_negative) {  // Subsonic inflow
-        const Real left_riemann_invariant = this->variable_.getVelocity().transpose() * normal_vector -
-                                            thermal_model.calculateRiemannInvariantPart(
-                                                this->variable_.template get<ComputationalVariable::InternalEnergy>());
-        const Real right_riemann_invariant =
-            left_quadrature_node_variable.getVelocity().transpose() * normal_vector +
+        const Real left_riemann_invariant =
+            this->variable_.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
+                transition_matrix.col(0) -
             thermal_model.calculateRiemannInvariantPart(
-                left_quadrature_node_variable.template get<ComputationalVariable::InternalEnergy>());
+                this->variable_.template get<ComputationalVariableEnum::InternalEnergy>());
+        const Real right_riemann_invariant =
+            left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
+                transition_matrix.col(0) +
+            thermal_model.calculateRiemannInvariantPart(
+                left_quadrature_node_variable.template get<ComputationalVariableEnum::InternalEnergy>());
         const Real farfield_normal_velocity = (left_riemann_invariant + right_riemann_invariant) / 2.0;
         const Eigen::Vector<Real, SimulationControl::kDimension> farfield_velocity =
-            this->variable_.getVelocity() +
-            (farfield_normal_velocity - this->variable_.getVelocity().transpose() * normal_vector) * normal_vector;
+            this->variable_.template getVector<ComputationalVariableEnum::Velocity>() +
+            (farfield_normal_velocity -
+             this->variable_.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
+                 transition_matrix.col(0)) *
+                transition_matrix.col(0);
         const Real farfield_internal_energy = thermal_model.calculateInternalEnergyFromRiemannInvariantPart(
             (right_riemann_invariant - left_riemann_invariant) / 2.0);
         const Real farfield_density = thermal_model.calculateDensityFromEntropyInternalEnergy(
             thermal_model.calculateEntropyFromDensityPressure(
-                this->variable_.template get<ComputationalVariable::Density>(),
-                this->variable_.template get<ComputationalVariable::Pressure>()),
+                this->variable_.template get<ComputationalVariableEnum::Density>(),
+                this->variable_.template get<ComputationalVariableEnum::Pressure>()),
             farfield_internal_energy);
         const Real farfield_pressure =
             thermal_model.calculatePressureFormDensityInternalEnergy(farfield_density, farfield_internal_energy);
-        farfield_variable.template set<ComputationalVariable::Density>(farfield_density);
-        farfield_variable.template set<ComputationalVariable::VelocityX>(farfield_velocity.x());
-        if constexpr (SimulationControl::kDimension >= 2) {
-          farfield_variable.template set<ComputationalVariable::VelocityY>(farfield_velocity.y());
-        }
-        if constexpr (SimulationControl::kDimension >= 3) {
-          farfield_variable.template set<ComputationalVariable::VelocityZ>(farfield_velocity.z());
-        }
-        farfield_variable.template set<ComputationalVariable::InternalEnergy>(farfield_internal_energy);
-        farfield_variable.template set<ComputationalVariable::Pressure>(farfield_pressure);
+        farfield_variable.template set<ComputationalVariableEnum::Density>(farfield_density);
+        farfield_variable.template setVector<ComputationalVariableEnum::Velocity>(farfield_velocity);
+        farfield_variable.template set<ComputationalVariableEnum::InternalEnergy>(farfield_internal_energy);
+        farfield_variable.template set<ComputationalVariableEnum::Pressure>(farfield_pressure);
       } else {  // Subsonic outflow
-        const Real left_riemann_invariant = this->variable_.getVelocity().transpose() * normal_vector -
-                                            thermal_model.calculateRiemannInvariantPart(
-                                                this->variable_.template get<ComputationalVariable::InternalEnergy>());
-        const Real right_riemann_invariant =
-            left_quadrature_node_variable.getVelocity().transpose() * normal_vector +
+        const Real left_riemann_invariant =
+            this->variable_.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
+                transition_matrix.col(0) -
             thermal_model.calculateRiemannInvariantPart(
-                left_quadrature_node_variable.template get<ComputationalVariable::InternalEnergy>());
+                this->variable_.template get<ComputationalVariableEnum::InternalEnergy>());
+        const Real right_riemann_invariant =
+            left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
+                transition_matrix.col(0) +
+            thermal_model.calculateRiemannInvariantPart(
+                left_quadrature_node_variable.template get<ComputationalVariableEnum::InternalEnergy>());
         const Real farfield_normal_velocity = (left_riemann_invariant + right_riemann_invariant) / 2.0;
         const Eigen::Vector<Real, SimulationControl::kDimension> farfield_velocity =
-            left_quadrature_node_variable.getVelocity() +
-            (farfield_normal_velocity - left_quadrature_node_variable.getVelocity().transpose() * normal_vector) *
-                normal_vector;
+            left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>() +
+            (farfield_normal_velocity -
+             left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
+                 transition_matrix.col(0)) *
+                transition_matrix.col(0);
         const Real farfield_internal_energy = thermal_model.calculateInternalEnergyFromRiemannInvariantPart(
             (right_riemann_invariant - left_riemann_invariant) / 2.0);
         const Real farfield_density = thermal_model.calculateDensityFromEntropyInternalEnergy(
             thermal_model.calculateEntropyFromDensityPressure(
-                left_quadrature_node_variable.template get<ComputationalVariable::Density>(),
-                left_quadrature_node_variable.template get<ComputationalVariable::Pressure>()),
+                left_quadrature_node_variable.template get<ComputationalVariableEnum::Density>(),
+                left_quadrature_node_variable.template get<ComputationalVariableEnum::Pressure>()),
             farfield_internal_energy);
         const Real farfield_pressure =
             thermal_model.calculatePressureFormDensityInternalEnergy(farfield_density, farfield_internal_energy);
-        farfield_variable.template set<ComputationalVariable::Density>(farfield_density);
-        farfield_variable.template set<ComputationalVariable::VelocityX>(farfield_velocity.x());
-        if constexpr (SimulationControl::kDimension >= 2) {
-          farfield_variable.template set<ComputationalVariable::VelocityY>(farfield_velocity.y());
-        }
-        if constexpr (SimulationControl::kDimension >= 3) {
-          farfield_variable.template set<ComputationalVariable::VelocityZ>(farfield_velocity.z());
-        }
-        farfield_variable.template set<ComputationalVariable::InternalEnergy>(farfield_internal_energy);
-        farfield_variable.template set<ComputationalVariable::Pressure>(farfield_pressure);
+        farfield_variable.template set<ComputationalVariableEnum::Density>(farfield_density);
+        farfield_variable.template setVector<ComputationalVariableEnum::Velocity>(farfield_velocity);
+        farfield_variable.template set<ComputationalVariableEnum::InternalEnergy>(farfield_internal_energy);
+        farfield_variable.template set<ComputationalVariableEnum::Pressure>(farfield_pressure);
       }
-      calculateConvectiveVariable(farfield_variable, flux.left_convective_);
+      calculateConvectiveNormalVariable(farfield_variable, transition_matrix, flux.convective_n_);
     }
-    flux.convective_n_.noalias() = flux.left_convective_ * normal_vector;
-  }
-};
-
-template <typename SimulationControl>
-struct BoundaryConditionData<SimulationControl, BoundaryCondition::CharacteristicFarfield>
-    : BoundaryConditionCRTP<SimulationControl,
-                            BoundaryConditionData<SimulationControl, BoundaryCondition::CharacteristicFarfield>> {
-  inline void calculateBoundaryConvectiveFluxImpl(
-      const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl>& left_quadrature_node_variable,
-      Flux<SimulationControl, SimulationControl::kEquationModel>& flux) const {
-    Variable<SimulationControl> farfield_variable;
-    const Real velocity_normal = left_quadrature_node_variable.getVelocity().transpose() * normal_vector;
-    const Real sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
-        left_quadrature_node_variable.template get<ComputationalVariable::InternalEnergy>());
-    const Real mach_number_normal = velocity_normal / sound_speed;
-    const bool is_supersonic = (std::fabs(mach_number_normal) <=> 1.0) == std::partial_ordering::greater;
-    const bool is_negative = (mach_number_normal <=> 0.0) == std::partial_ordering::less;
-    if (is_supersonic) {
-      if (is_negative) {  // Supersonic inflow
-        calculateConvectiveVariable(this->variable_, flux.left_convective_);
-      } else {  // Supersonic outflow
-        calculateConvectiveVariable(left_quadrature_node_variable, flux.left_convective_);
-      }
-    } else {
-      if (is_negative) {  // Subsonic inflow
-        const Real reference_rho = left_quadrature_node_variable.template get<ComputationalVariable::Density>();
-        Real farfield_pressure;
-        if constexpr (SimulationControl::kDimension == 1) {
-          farfield_pressure = (this->variable_.template get<ComputationalVariable::Pressure>() +
-                               left_quadrature_node_variable.template get<ComputationalVariable::Pressure>() -
-                               reference_rho * sound_speed *
-                                   (this->variable_.template get<ComputationalVariable::VelocityX>() -
-                                    left_quadrature_node_variable.template get<ComputationalVariable::VelocityX>())) /
-                              2.0;
-        } else if constexpr (SimulationControl::kDimension == 2) {
-          farfield_pressure = (this->variable_.template get<ComputationalVariable::Pressure>() +
-                               left_quadrature_node_variable.template get<ComputationalVariable::Pressure>() -
-                               reference_rho * sound_speed *
-                                   ((this->variable_.template get<ComputationalVariable::VelocityX>() -
-                                     left_quadrature_node_variable.template get<ComputationalVariable::VelocityX>()) *
-                                        normal_vector.x() +
-                                    (this->variable_.template get<ComputationalVariable::VelocityY>() -
-                                     left_quadrature_node_variable.template get<ComputationalVariable::VelocityY>()) *
-                                        normal_vector.y())) /
-                              2.0;
-        } else if constexpr (SimulationControl::kDimension == 3) {
-          farfield_pressure = (this->variable_.template get<ComputationalVariable::Pressure>() +
-                               left_quadrature_node_variable.template get<ComputationalVariable::Pressure>() -
-                               reference_rho * sound_speed *
-                                   ((this->variable_.template get<ComputationalVariable::VelocityX>() -
-                                     left_quadrature_node_variable.template get<ComputationalVariable::VelocityX>()) *
-                                        normal_vector.x() +
-                                    (this->variable_.template get<ComputationalVariable::VelocityY>() -
-                                     left_quadrature_node_variable.template get<ComputationalVariable::VelocityY>()) *
-                                        normal_vector.y() +
-                                    (this->variable_.template get<ComputationalVariable::VelocityZ>() -
-                                     left_quadrature_node_variable.template get<ComputationalVariable::VelocityZ>()) *
-                                        normal_vector.z())) /
-                              2.0;
-        }
-        const Real delta_pressure = farfield_pressure - this->variable_.template get<ComputationalVariable::Pressure>();
-        const Real farfield_rho = this->variable_.template get<ComputationalVariable::Density>() +
-                                  delta_pressure / (sound_speed * sound_speed);
-        farfield_variable.template set<ComputationalVariable::Density>(farfield_rho);
-        farfield_variable.template set<ComputationalVariable::VelocityX>(
-            this->variable_.template get<ComputationalVariable::VelocityX>() +
-            delta_pressure / (reference_rho * sound_speed) * normal_vector.x());
-        if constexpr (SimulationControl::kDimension >= 2) {
-          farfield_variable.template set<ComputationalVariable::VelocityY>(
-              this->variable_.template get<ComputationalVariable::VelocityY>() +
-              delta_pressure / (reference_rho * sound_speed) * normal_vector.y());
-        }
-        if constexpr (SimulationControl::kDimension >= 3) {
-          farfield_variable.template set<ComputationalVariable::VelocityZ>(
-              this->variable_.template get<ComputationalVariable::VelocityZ>() +
-              delta_pressure / (reference_rho * sound_speed) * normal_vector.z());
-        }
-        farfield_variable.template set<ComputationalVariable::InternalEnergy>(
-            thermal_model.calculateInternalEnergyFromDensityPressure(farfield_rho, farfield_pressure));
-        farfield_variable.template set<ComputationalVariable::Pressure>(farfield_pressure);
-      } else {  // Subsonic outflow
-        const Real reference_rho = left_quadrature_node_variable.template get<ComputationalVariable::Density>();
-        const Real farfield_pressure = this->variable_.template get<ComputationalVariable::Pressure>();
-        const Real delta_pressure =
-            farfield_pressure - left_quadrature_node_variable.template get<ComputationalVariable::Pressure>();
-        const Real farfield_rho = left_quadrature_node_variable.template get<ComputationalVariable::Density>() +
-                                  delta_pressure / (sound_speed * sound_speed);
-        farfield_variable.template set<ComputationalVariable::Density>(farfield_rho);
-        farfield_variable.template set<ComputationalVariable::VelocityX>(
-            left_quadrature_node_variable.template get<ComputationalVariable::VelocityX>() -
-            delta_pressure / (reference_rho * sound_speed) * normal_vector.x());
-        if constexpr (SimulationControl::kDimension >= 2) {
-          farfield_variable.template set<ComputationalVariable::VelocityY>(
-              left_quadrature_node_variable.template get<ComputationalVariable::VelocityY>() -
-              delta_pressure / (reference_rho * sound_speed) * normal_vector.y());
-        }
-        if constexpr (SimulationControl::kDimension >= 3) {
-          farfield_variable.template set<ComputationalVariable::VelocityZ>(
-              left_quadrature_node_variable.template get<ComputationalVariable::VelocityZ>() -
-              delta_pressure / (reference_rho * sound_speed) * normal_vector.z());
-        }
-        farfield_variable.template set<ComputationalVariable::InternalEnergy>(
-            thermal_model.calculateInternalEnergyFromDensityPressure(farfield_rho, farfield_pressure));
-        farfield_variable.template set<ComputationalVariable::Pressure>(farfield_pressure);
-      }
-      calculateConvectiveVariable(farfield_variable, flux.left_convective_);
-    }
-    flux.convective_n_.noalias() = flux.left_convective_ * normal_vector;
   }
 };
 
 template <typename SimulationControl>
   requires(SimulationControl::kDimension == 2 || SimulationControl::kDimension == 3)
-struct BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticWall>
+struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticWall>
     : BoundaryConditionCRTP<SimulationControl,
-                            BoundaryConditionData<SimulationControl, BoundaryCondition::AdiabaticWall>> {
+                            BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticWall>> {
   inline void calculateBoundaryConvectiveFluxImpl(
-      [[maybe_unused]] const ThermalModel<SimulationControl, SimulationControl::kEquationModel>& thermal_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl>& left_quadrature_node_variable,
-      Flux<SimulationControl, SimulationControl::kEquationModel>& flux) const {
+      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& transition_matrix,
+      const Variable<SimulationControl>& left_quadrature_node_variable, Flux<SimulationControl>& flux) const {
     Variable<SimulationControl> wall_variable;
     const Eigen::Vector<Real, SimulationControl::kDimension> wall_velocity =
-        left_quadrature_node_variable.getVelocity() -
-        (left_quadrature_node_variable.getVelocity().transpose() * normal_vector) * normal_vector;
-    wall_variable.template set<ComputationalVariable::Density>(left_quadrature_node_variable);
-    wall_variable.template set<ComputationalVariable::VelocityX>(wall_velocity.x());
-    wall_variable.template set<ComputationalVariable::VelocityY>(wall_velocity.y());
-    if constexpr (SimulationControl::kDimension >= 3) {
-      wall_variable.template set<ComputationalVariable::VelocityZ>(wall_velocity.z());
-    }
-    wall_variable.template set<ComputationalVariable::InternalEnergy>(left_quadrature_node_variable);
-    wall_variable.template set<ComputationalVariable::Pressure>(left_quadrature_node_variable);
+        left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>() -
+        (left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
+         transition_matrix.col(0)) *
+            transition_matrix.col(0);
+    wall_variable.template set<ComputationalVariableEnum::Density>(left_quadrature_node_variable);
+    wall_variable.template setVector<ComputationalVariableEnum::Velocity>(wall_velocity);
+    wall_variable.template set<ComputationalVariableEnum::InternalEnergy>(left_quadrature_node_variable);
+    wall_variable.template set<ComputationalVariableEnum::Pressure>(left_quadrature_node_variable);
     wall_variable.calculateConservedFromComputational();
-    calculateConvectiveVariable(wall_variable, flux.left_convective_);
-    flux.convective_n_.noalias() = flux.left_convective_ * normal_vector;
+    calculateConvectiveNormalVariable(wall_variable, transition_matrix, flux.convective_n_);
     // Variable<SimulationControl> wall_variable;
     // const Eigen::Vector<Real, SimulationControl::kDimension> wall_velocity =
-    //     left_quadrature_node_variable.getVelocity() -
-    //     (2.0 * left_quadrature_node_variable.getVelocity().transpose() * normal_vector) * normal_vector;
-    // wall_variable.template set<ComputationalVariable::Density>(left_quadrature_node_variable);
-    // wall_variable.template set<ComputationalVariable::VelocityX>(wall_velocity.x());
-    // wall_variable.template set<ComputationalVariable::VelocityY>(wall_velocity.y());
-    // if constexpr (SimulationControl::kDimension >= 3) {
-    //   wall_variable.template set<ComputationalVariable::VelocityZ>(wall_velocity.z());
-    // }
-    // wall_variable.template set<ComputationalVariable::InternalEnergy>(left_quadrature_node_variable);
-    // wall_variable.template set<ComputationalVariable::Pressure>(left_quadrature_node_variable);
+    //     left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>() -
+    //     (2.0 * left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
+    //     transition_matrix.col(0)) * transition_matrix.col(0);
+    // wall_variable.template set<ComputationalVariableEnum::Density>(left_quadrature_node_variable);
+    // wall_variable.template setVector<ComputationalVariableEnum::Velocity>(wall_velocity);
+    // wall_variable.template set<ComputationalVariableEnum::InternalEnergy>(left_quadrature_node_variable);
+    // wall_variable.template set<ComputationalVariableEnum::Pressure>(left_quadrature_node_variable);
     // wall_variable.calculateConservedFromComputational();
-    // calculateConvectiveFlux(thermal_model, normal_vector, left_quadrature_node_variable, wall_variable, flux);
+    // calculateConvectiveFlux(thermal_model, transition_matrix, left_quadrature_node_variable, this->variable_, flux);
   }
 };
 

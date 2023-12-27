@@ -14,6 +14,7 @@
 #define SUBROSA_DG_SIMULATION_CONTROL_HPP_
 
 #include <array>
+#include <magic_enum.hpp>
 
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
@@ -25,55 +26,67 @@ inline constexpr std::array<int, 5> kLineGmshTypeNumber{1, 8, 26, 27, 28};
 inline constexpr std::array<int, 5> kTriangleGmshTypeNumber{2, 9, 21, 23, 25};
 inline constexpr std::array<int, 5> kQuadrangleGmshTypeNumber{3, 10, 36, 37, 38};
 
-template <Element ElementType>
+template <ElementEnum ElementType>
 inline consteval int getElementDimension() {
   if constexpr (Is0dElement<ElementType>) {
     return 0;
-  } else if constexpr (Is1dElement<ElementType>) {
+  }
+  if constexpr (Is1dElement<ElementType>) {
     return 1;
-  } else if constexpr (Is2dElement<ElementType>) {
+  }
+  if constexpr (Is2dElement<ElementType>) {
     return 2;
-  } else if constexpr (Is3dElement<ElementType>) {
+  }
+  if constexpr (Is3dElement<ElementType>) {
     return 3;
   }
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getElementGmshTypeNumber() {
-  if constexpr (ElementType == Element::Point) {
+  if constexpr (ElementType == ElementEnum::Point) {
     return 15;
-  } else if constexpr (ElementType == Element::Line) {
+  }
+  if constexpr (ElementType == ElementEnum::Line) {
     return kLineGmshTypeNumber[static_cast<Usize>(P) - 1];
-  } else if constexpr (ElementType == Element::Triangle) {
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
     return kTriangleGmshTypeNumber[static_cast<Usize>(P) - 1];
-  } else if constexpr (ElementType == Element::Quadrangle) {
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
     return kQuadrangleGmshTypeNumber[static_cast<Usize>(P) - 1];
   }
 }
 
-template <Element ElementType>
+template <ElementEnum ElementType>
 inline consteval int getElementVtkTypeNumber() {
-  if constexpr (ElementType == Element::Point) {
+  if constexpr (ElementType == ElementEnum::Point) {
     return -1;
-  } else if constexpr (ElementType == Element::Line) {
+  }
+  if constexpr (ElementType == ElementEnum::Line) {
     return 68;
-  } else if constexpr (ElementType == Element::Triangle) {
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
     return 69;
-  } else if constexpr (ElementType == Element::Quadrangle) {
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
     return 70;
   }
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getElementNodeNumber() {
-  if constexpr (ElementType == Element::Point) {
+  if constexpr (ElementType == ElementEnum::Point) {
     return 1;
-  } else if constexpr (ElementType == Element::Line) {
-    return static_cast<int>(P) + 1;
-  } else if constexpr (ElementType == Element::Triangle) {
-    return (static_cast<int>(P) + 1) * (static_cast<int>(P) + 2) / 2;
-  } else if constexpr (ElementType == Element::Quadrangle) {
-    return (static_cast<int>(P) + 1) * (static_cast<int>(P) + 1);
+  }
+  if constexpr (ElementType == ElementEnum::Line) {
+    return magic_enum::enum_integer(P) + 1;
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    return (magic_enum::enum_integer(P) + 1) * (magic_enum::enum_integer(P) + 2) / 2;
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    return (magic_enum::enum_integer(P) + 1) * (magic_enum::enum_integer(P) + 1);
   }
 }
 
@@ -81,100 +94,128 @@ template <int Dimension>
 inline consteval int getElementTecplotBasicNodeNumber() {
   if constexpr (Dimension == 0) {
     return 1;
-  } else if constexpr (Dimension == 1) {
+  }
+  if constexpr (Dimension == 1) {
     return 2;
-  } else if constexpr (Dimension == 2) {
+  }
+  if constexpr (Dimension == 2) {
     return 4;
-  } else if constexpr (Dimension == 3) {
+  }
+  if constexpr (Dimension == 3) {
     return 8;
   }
 }
 
-template <Element ElementType>
+template <ElementEnum ElementType>
+inline consteval int getElementTecplotBasicNodeNumber() {
+  return getElementTecplotBasicNodeNumber<getElementDimension<ElementType>()>();
+}
+
+template <ElementEnum ElementType>
 inline consteval int getElementAdjacencyNumber() {
-  if constexpr (ElementType == Element::Point) {
+  if constexpr (ElementType == ElementEnum::Point) {
     return 0;
-  } else if constexpr (ElementType == Element::Line) {
+  }
+  if constexpr (ElementType == ElementEnum::Line) {
     return 2;
-  } else if constexpr (ElementType == Element::Triangle) {
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
     return 3;
-  } else if constexpr (ElementType == Element::Quadrangle) {
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
     return 4;
   }
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getElementAdjacencyNodeNumber() {
-  if constexpr (ElementType == Element::Line) {
+  if constexpr (ElementType == ElementEnum::Line) {
     return 2;
-  } else if constexpr (ElementType == Element::Triangle) {
-    return 3 * getElementNodeNumber<Element::Line, P>();
-  } else if constexpr (ElementType == Element::Quadrangle) {
-    return 4 * getElementNodeNumber<Element::Line, P>();
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    return 3 * getElementNodeNumber<ElementEnum::Line, P>();
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    return 4 * getElementNodeNumber<ElementEnum::Line, P>();
   }
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getElementSubNumber() {
   if constexpr (Is0dElement<ElementType>) {
     return 1;
-  } else if constexpr (Is1dElement<ElementType>) {
-    return (static_cast<int>(P));
-  } else if constexpr (Is2dElement<ElementType>) {
-    return (static_cast<int>(P) * static_cast<int>(P));
-  } else if constexpr (Is3dElement<ElementType>) {
-    return (static_cast<int>(P) * static_cast<int>(P) * static_cast<int>(P));
+  }
+  if constexpr (Is1dElement<ElementType>) {
+    return (magic_enum::enum_integer(P));
+  }
+  if constexpr (Is2dElement<ElementType>) {
+    return (magic_enum::enum_integer(P) * magic_enum::enum_integer(P));
+  }
+  if constexpr (Is3dElement<ElementType>) {
+    return (magic_enum::enum_integer(P) * magic_enum::enum_integer(P) * magic_enum::enum_integer(P));
   }
 }
 
-template <int Dimension, PolynomialOrder P>
+template <int Dimension, PolynomialOrderEnum P>
 inline consteval int getElementSubNumber() {
   if constexpr (Dimension == 1) {
-    return (static_cast<int>(P));
-  } else if constexpr (Dimension == 2) {
-    return (static_cast<int>(P) * static_cast<int>(P));
-  } else if constexpr (Dimension == 3) {
-    return (static_cast<int>(P) * static_cast<int>(P) * static_cast<int>(P));
+    return (magic_enum::enum_integer(P));
+  }
+  if constexpr (Dimension == 2) {
+    return (magic_enum::enum_integer(P) * magic_enum::enum_integer(P));
+  }
+  if constexpr (Dimension == 3) {
+    return (magic_enum::enum_integer(P) * magic_enum::enum_integer(P) * magic_enum::enum_integer(P));
   }
 }
 
-template <Element ElementType>
+template <ElementEnum ElementType>
 inline consteval Real getElementMeasure() {
-  if constexpr (ElementType == Element::Line) {
+  if constexpr (ElementType == ElementEnum::Line) {
     return 2.0;
-  } else if constexpr (ElementType == Element::Triangle) {
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
     return 0.5;
-  } else if constexpr (ElementType == Element::Quadrangle) {
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
     return 4.0;
   }
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval std::array<Real, getElementNodeNumber<ElementType, P>() * getElementDimension<ElementType>()>
 getElementNodeCoordinate() {
-  if constexpr (ElementType == Element::Line) {
-    if constexpr (P == PolynomialOrder::P1) {
+  if constexpr (ElementType == ElementEnum::Line) {
+    if constexpr (P == PolynomialOrderEnum::P1) {
       return {-1.0, 1.0};
-    } else if constexpr (P == PolynomialOrder::P2) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P2) {
       return {-1.0, -1.0, 0.0};
-    } else if constexpr (P == PolynomialOrder::P3) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P3) {
       return {-1.0, 1.0, -1.0 / 3.0, 1.0 / 3.0};
     }
-  } else if constexpr (ElementType == Element::Triangle) {
-    if constexpr (P == PolynomialOrder::P1) {
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    if constexpr (P == PolynomialOrderEnum::P1) {
       return {0.0, 0.0, 1.0, 0.0, 0.0, 1.0};
-    } else if constexpr (P == PolynomialOrder::P2) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P2) {
       return {0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.5, 0.0, 0.5, 0.5, 0.0, 0.5};
-    } else if constexpr (P == PolynomialOrder::P3) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P3) {
       return {0.0,       0.0,       1.0,       0.0,       0.0, 1.0,       1.0 / 3.0, 0.0,       2.0 / 3.0, 0.0,
               2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 2.0 / 3.0, 0.0, 2.0 / 3.0, 0.0,       1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
     }
-  } else if constexpr (ElementType == Element::Quadrangle) {
-    if constexpr (P == PolynomialOrder::P1) {
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    if constexpr (P == PolynomialOrderEnum::P1) {
       return {-1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0};
-    } else if constexpr (P == PolynomialOrder::P2) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P2) {
       return {-1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 0.0};
-    } else if constexpr (P == PolynomialOrder::P3) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P3) {
       return {-1.0,       -1.0,       1.0,        -1.0,       1.0,       1.0,        -1.0,       1.0,
               -1.0 / 3.0, -1.0,       1.0 / 3.0,  -1.0,       1.0,       -1.0 / 3.0, 1.0,        1.0 / 3.0,
               1.0 / 3.0,  1.0,        -1.0 / 3.0, 1.0,        -1.0,      -1.0 / 3.0, -1.0,       -1.0 / 3.0,
@@ -183,50 +224,58 @@ getElementNodeCoordinate() {
   }
 }
 
-template <Element ElementType, PolynomialOrder P>
-inline consteval std::array<int, getElementNodeNumber<ElementType, PolynomialOrder::P1>() *
-                                     getElementSubNumber<ElementType, P>()>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
+inline consteval std::array<int,
+                            getElementTecplotBasicNodeNumber<ElementType>() * getElementSubNumber<ElementType, P>()>
 getSubElementConnectivity() {
   // clang-format off
-  if constexpr (ElementType == Element::Line) {
-    if constexpr (P == PolynomialOrder::P1) {
+  if constexpr (ElementType == ElementEnum::Line) {
+    if constexpr (P == PolynomialOrderEnum::P1) {
       return {0, 1};
-    } else if constexpr (P == PolynomialOrder::P2) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P2) {
       return {0, 2,
               2, 1};
-    } else if constexpr (P == PolynomialOrder::P3) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P3) {
       return {0, 2,
               2, 3,
               3, 1};
     }
-  } else if constexpr (ElementType == Element::Triangle) {
-    if constexpr (P == PolynomialOrder::P1) {
-      return {0, 1, 2};
-    } else if constexpr (P == PolynomialOrder::P2) {
-      return {0, 3, 5,
-              3, 4, 5,
-              3, 1, 4,
-              5, 4, 2};
-    } else if constexpr (P == PolynomialOrder::P3) {
-      return {0, 3, 8,
-              3, 9, 8,
-              3, 4, 9,
-              4, 5, 9,
-              4, 1, 5,
-              8, 9, 7,
-              9, 6, 7,
-              9, 5, 6,
-              7, 6, 2};
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    if constexpr (P == PolynomialOrderEnum::P1) {
+      return {0, 1, 2, 2};
     }
-  } else if constexpr (ElementType == Element::Quadrangle) {
-    if constexpr (P == PolynomialOrder::P1) {
+    if constexpr (P == PolynomialOrderEnum::P2) {
+      return {0, 3, 5, 5,
+              3, 4, 5, 5,
+              3, 1, 4, 4,
+              5, 4, 2, 2,};
+    }
+    if constexpr (P == PolynomialOrderEnum::P3) {
+      return {0, 3, 8, 8,
+              3, 9, 8, 8,
+              3, 4, 9, 9,
+              4, 5, 9, 9,
+              4, 1, 5, 5,
+              8, 9, 7, 7,
+              9, 6, 7, 7,
+              9, 5, 6, 6,
+              7, 6, 2, 2};
+    }
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    if constexpr (P == PolynomialOrderEnum::P1) {
       return {0, 1, 2, 3};
-    } else if constexpr (P == PolynomialOrder::P2) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P2) {
       return {0, 4, 8, 7,
               4, 1, 5, 8,
               7, 8, 6, 3,
               8, 5, 2, 6};
-    } else if constexpr (P == PolynomialOrder::P3) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P3) {
       return {0,  4,  12, 11,
               4,  5,  13, 12,
               5,  1,  6,  13,
@@ -241,43 +290,53 @@ getSubElementConnectivity() {
   // clang-format on
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval std::array<int, getElementNodeNumber<ElementType, P>()> getElementVTKConnectivity() {
-  if constexpr (ElementType == Element::Line) {
-    if constexpr (P == PolynomialOrder::P1) {
+  if constexpr (ElementType == ElementEnum::Line) {
+    if constexpr (P == PolynomialOrderEnum::P1) {
       return {0, 1};
-    } else if constexpr (P == PolynomialOrder::P2) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P2) {
       return {0, 1, 2};
-    } else if constexpr (P == PolynomialOrder::P3) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P3) {
       return {0, 1, 2, 3};
     }
-  } else if constexpr (ElementType == Element::Triangle) {
-    if constexpr (P == PolynomialOrder::P1) {
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    if constexpr (P == PolynomialOrderEnum::P1) {
       return {0, 1, 2};
-    } else if constexpr (P == PolynomialOrder::P2) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P2) {
       return {0, 1, 2, 3, 4, 5};
-    } else if constexpr (P == PolynomialOrder::P3) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P3) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8};
     }
-  } else if constexpr (ElementType == Element::Quadrangle) {
-    if constexpr (P == PolynomialOrder::P1) {
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    if constexpr (P == PolynomialOrderEnum::P1) {
       return {0, 1, 2, 3};
-    } else if constexpr (P == PolynomialOrder::P2) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P2) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8};
-    } else if constexpr (P == PolynomialOrder::P3) {
+    }
+    if constexpr (P == PolynomialOrderEnum::P3) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 9, 8, 11, 10, 12, 13, 15, 14};
     }
   }
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getElementBasisFunctionNumber() {
-  if constexpr (ElementType == Element::Line) {
-    return static_cast<int>(P) + 1;
-  } else if constexpr (ElementType == Element::Triangle) {
-    return (static_cast<int>(P) + 1) * (static_cast<int>(P) + 2) / 2;
-  } else if constexpr (ElementType == Element::Quadrangle) {
-    return (static_cast<int>(P) + 1) * (static_cast<int>(P) + 1);
+  if constexpr (ElementType == ElementEnum::Line) {
+    return magic_enum::enum_integer(P) + 1;
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    return (magic_enum::enum_integer(P) + 1) * (magic_enum::enum_integer(P) + 2) / 2;
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    return (magic_enum::enum_integer(P) + 1) * (magic_enum::enum_integer(P) + 1);
   }
 }
 
@@ -285,118 +344,125 @@ inline constexpr std::array<int, 12> kLineQuadratureNumber{1, 1, 2, 2, 3, 3, 4, 
 inline constexpr std::array<int, 12> kTriangleQuadratureNumber{1, 1, 3, 4, 6, 7, 12, 13, 16, 19, 25, 27};
 inline constexpr std::array<int, 12> kQuadrangleQuadratureNumber{1, 3, 7, 4, 9, 9, 16, 16, 25, 25, 36, 36};
 
-template <PolynomialOrder P>
+template <PolynomialOrderEnum P>
 inline consteval int getElementGaussianQuadratureOrder() {
-  return 2 * static_cast<int>(P);
+  return 2 * magic_enum::enum_integer(P);
 }
 
-template <PolynomialOrder P>
+template <PolynomialOrderEnum P>
 inline consteval int getAdjacencyElementGaussianQuadratureOrder() {
-  return 2 * static_cast<int>(P) + 1;
+  return 2 * magic_enum::enum_integer(P) + 1;
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getElementGaussianQuadratureNumber() {
-  if constexpr (ElementType == Element::Line) {
+  if constexpr (ElementType == ElementEnum::Line) {
     return kLineQuadratureNumber[static_cast<Usize>(getElementGaussianQuadratureOrder<P>())];
-  } else if constexpr (ElementType == Element::Triangle) {
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
     return kTriangleQuadratureNumber[static_cast<Usize>(getElementGaussianQuadratureOrder<P>())];
-  } else if constexpr (ElementType == Element::Quadrangle) {
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
     return kQuadrangleQuadratureNumber[static_cast<Usize>(getElementGaussianQuadratureOrder<P>())];
   }
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getAdjacencyElementGaussianQuadratureNumber() {
   if constexpr (Is0dElement<ElementType>) {
     return 1;
-  } else if constexpr (Is1dElement<ElementType>) {
+  }
+  if constexpr (Is1dElement<ElementType>) {
     return kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementGaussianQuadratureOrder<P>())];
   }
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getElementAdjacencyQuadratureNumber() {
   if constexpr (Is1dElement<ElementType>) {
     return 2;
-  } else if constexpr (Is2dElement<ElementType>) {
+  }
+  if constexpr (Is2dElement<ElementType>) {
     return kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementGaussianQuadratureOrder<P>())] *
            getElementAdjacencyNumber<ElementType>();
   }
 }
 
-template <int Dimension, EquationModel EquationModelType>
-inline static consteval int getConservedVariableNumber() {
-  if constexpr (EquationModelType == EquationModel::Euler) {
-    return Dimension + 2;
-  } else if constexpr (EquationModelType == EquationModel::NS) {
+template <int Dimension, EquationModelEnum EquationModelType>
+inline consteval int getConservedVariableNumber() {
+  if constexpr (EquationModelType == EquationModelEnum::Euler) {
     return Dimension + 2;
   }
+  if constexpr (EquationModelType == EquationModelEnum::NS) {
+    return Dimension + 2;
+  }
 }
 
-template <int Dimension, EquationModel EquationModelType, TurbulenceModel TurbulenceModelType>
-  requires(EquationModelType == EquationModel::RANS)
-inline static consteval int getConservedVariableNumber() {
-  if constexpr (TurbulenceModelType == TurbulenceModel::SA) {
+template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
+  requires(EquationModelType == EquationModelEnum::RANS)
+inline consteval int getConservedVariableNumber() {
+  if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
     return Dimension + 3;
   }
 }
 
-template <int Dimension, EquationModel EquationModelType>
-inline static constexpr int getComputationalVariableNumber() {
-  if constexpr (EquationModelType == EquationModel::Euler) {
+template <int Dimension, EquationModelEnum EquationModelType>
+inline constexpr int getComputationalVariableNumber() {
+  if constexpr (EquationModelType == EquationModelEnum::Euler) {
     return Dimension + 3;
-  } else if constexpr (EquationModelType == EquationModel::NS) {
+  }
+  if constexpr (EquationModelType == EquationModelEnum::NS) {
     return Dimension + 3;
   }
 }
 
-template <int Dimension, EquationModel EquationModelType, TurbulenceModel TurbulenceModelType>
-  requires(EquationModelType == EquationModel::RANS)
-inline static consteval int getComputationalVariableNumber() {
-  if constexpr (TurbulenceModelType == TurbulenceModel::SA) {
+template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
+  requires(EquationModelType == EquationModelEnum::RANS)
+inline consteval int getComputationalVariableNumber() {
+  if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
     return Dimension + 4;
   }
 }
 
-template <int Dimension, EquationModel EquationModelType>
-inline static constexpr int getPrimitiveVariableNumber() {
-  if constexpr (EquationModelType == EquationModel::Euler) {
+template <int Dimension, EquationModelEnum EquationModelType>
+inline constexpr int getPrimitiveVariableNumber() {
+  if constexpr (EquationModelType == EquationModelEnum::Euler) {
     return Dimension + 2;
-  } else if constexpr (EquationModelType == EquationModel::NS) {
+  }
+  if constexpr (EquationModelType == EquationModelEnum::NS) {
     return Dimension + 2;
   }
 }
 
-template <int Dimension, EquationModel EquationModelType, TurbulenceModel TurbulenceModelType>
-  requires(EquationModelType == EquationModel::RANS)
-inline static consteval int getPrimitiveVariableNumber() {
-  if constexpr (TurbulenceModelType == TurbulenceModel::SA) {
+template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
+  requires(EquationModelType == EquationModelEnum::RANS)
+inline consteval int getPrimitiveVariableNumber() {
+  if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
     return Dimension + 3;
   }
 }
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 struct ElementTraitBase {
   inline static constexpr int kDimension{getElementDimension<ElementType>()};
-  inline static constexpr Element kElementType{ElementType};
-  inline static constexpr PolynomialOrder kPolynomialOrder{P};
+  inline static constexpr ElementEnum kElementType{ElementType};
+  inline static constexpr PolynomialOrderEnum kPolynomialOrder{P};
   inline static constexpr int kGmshTypeNumber{getElementGmshTypeNumber<ElementType, P>()};
   inline static constexpr int kVtkTypeNumber{getElementVtkTypeNumber<ElementType>()};
-  inline static constexpr int kBasicNodeNumber{getElementNodeNumber<ElementType, PolynomialOrder::P1>()};
+  inline static constexpr int kBasicNodeNumber{getElementNodeNumber<ElementType, PolynomialOrderEnum::P1>()};
   inline static constexpr int kAllNodeNumber{getElementNodeNumber<ElementType, P>()};
-  inline static constexpr int kTecplotBasicNodeNumber{getElementTecplotBasicNodeNumber<kDimension>()};
+  inline static constexpr int kTecplotBasicNodeNumber{getElementTecplotBasicNodeNumber<ElementType>()};
   inline static constexpr int kAdjacencyNumber{getElementAdjacencyNumber<ElementType>()};
   inline static constexpr int kSubNumber{getElementSubNumber<ElementType, P>()};
 };
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 struct AdjacencyElementTrait : ElementTraitBase<ElementType, P> {
   inline static constexpr int kQuadratureOrder{getAdjacencyElementGaussianQuadratureOrder<P>()};
   inline static constexpr int kQuadratureNumber{getAdjacencyElementGaussianQuadratureNumber<ElementType, P>()};
 };
 
-template <Element ElementType, PolynomialOrder P>
+template <ElementEnum ElementType, PolynomialOrderEnum P>
 struct ElementTrait : ElementTraitBase<ElementType, P> {
   inline static constexpr int kAdjacencyNodeNumber{getElementAdjacencyNodeNumber<ElementType, P>()};
   inline static constexpr int kBasisFunctionNumber{getElementBasisFunctionNumber<ElementType, P>()};
@@ -405,103 +471,108 @@ struct ElementTrait : ElementTraitBase<ElementType, P> {
   inline static constexpr int kAdjacencyQuadratureNumber{getElementAdjacencyQuadratureNumber<ElementType, P>()};
 };
 
-template <PolynomialOrder P>
-using AdjacencyPointTrait = AdjacencyElementTrait<Element::Point, P>;
+template <PolynomialOrderEnum P>
+using AdjacencyPointTrait = AdjacencyElementTrait<ElementEnum::Point, P>;
 
-template <PolynomialOrder P>
-using LineTrait = ElementTrait<Element::Line, P>;
+template <PolynomialOrderEnum P>
+using LineTrait = ElementTrait<ElementEnum::Line, P>;
 
-template <PolynomialOrder P>
-using AdjacencyLineTrait = AdjacencyElementTrait<Element::Line, P>;
+template <PolynomialOrderEnum P>
+using AdjacencyLineTrait = AdjacencyElementTrait<ElementEnum::Line, P>;
 
-template <PolynomialOrder P>
-using TriangleTrait = ElementTrait<Element::Triangle, P>;
+template <PolynomialOrderEnum P>
+using TriangleTrait = ElementTrait<ElementEnum::Triangle, P>;
 
-template <PolynomialOrder P>
-using QuadrangleTrait = ElementTrait<Element::Quadrangle, P>;
+template <PolynomialOrderEnum P>
+using QuadrangleTrait = ElementTrait<ElementEnum::Quadrangle, P>;
 
-template <int Dimension, PolynomialOrder P, EquationModel EquationModelType, ThermodynamicModel ThermodynamicModelType,
-          EquationOfState EquationOfStateType, TimeIntegration TimeIntegrationType>
+template <int Dimension, PolynomialOrderEnum P, EquationModelEnum EquationModelType,
+          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TimeIntegrationEnum TimeIntegrationType>
 struct SolveControl {
   inline static constexpr int kDimension{Dimension};
-  inline static constexpr PolynomialOrder kPolynomialOrder{P};
-  inline static constexpr EquationModel kEquationModel{EquationModelType};
-  inline static constexpr ThermodynamicModel kThermodynamicModel{ThermodynamicModelType};
-  inline static constexpr EquationOfState kEquationOfState{EquationOfStateType};
-  inline static constexpr TimeIntegration kTimeIntegration{TimeIntegrationType};
+  inline static constexpr PolynomialOrderEnum kPolynomialOrder{P};
+  inline static constexpr EquationModelEnum kEquationModel{EquationModelType};
+  inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
+  inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
+  inline static constexpr TimeIntegrationEnum kTimeIntegration{TimeIntegrationType};
 };
 
-template <EquationModel EquationModelType>
+template <EquationModelEnum EquationModelType>
 struct EquationVariable {};
 
-template <int Dimension, ConvectiveFlux ConvectiveFluxType>
-struct EulerVariable : EquationVariable<EquationModel::Euler> {
-  inline static constexpr ConvectiveFlux kConvectiveFlux{ConvectiveFluxType};
-  inline static constexpr int kConservedVariableNumber{getConservedVariableNumber<Dimension, EquationModel::Euler>()};
-  inline static constexpr int kComputationalVariableNumber{
-      getComputationalVariableNumber<Dimension, EquationModel::Euler>()};
-  inline static constexpr int kPrimitiveVariableNumber{getPrimitiveVariableNumber<Dimension, EquationModel::Euler>()};
-};
-
-template <int Dimension, TransportModel TransportModelType, ConvectiveFlux ConvectiveFluxType,
-          ViscousFlux ViscousFluxType>
-struct NSVariable : EquationVariable<EquationModel::NS> {
-  inline static constexpr TransportModel kTransportModel{TransportModelType};
-  inline static constexpr ConvectiveFlux kConvectiveFlux{ConvectiveFluxType};
-  inline static constexpr ViscousFlux kViscousFlux{ViscousFluxType};
-  inline static constexpr int kConservedVariableNumber{getConservedVariableNumber<Dimension, EquationModel::NS>()};
-  inline static constexpr int kComputationalVariableNumber{
-      getComputationalVariableNumber<Dimension, EquationModel::NS>()};
-  inline static constexpr int kPrimitiveVariableNumber{getPrimitiveVariableNumber<Dimension, EquationModel::NS>()};
-};
-
-template <int Dimension, TransportModel TransportModelType, ConvectiveFlux ConvectiveFluxType,
-          ViscousFlux ViscousFluxType, TurbulenceModel TurbulenceModelType>
-struct RANSVariable : EquationVariable<EquationModel::RANS> {
-  inline static constexpr TransportModel kTransportModel{TransportModelType};
-  inline static constexpr ConvectiveFlux kConvectiveFlux{ConvectiveFluxType};
-  inline static constexpr ViscousFlux kViscousFlux{ViscousFluxType};
-  inline static constexpr TurbulenceModel kTurbulenceModel{TurbulenceModelType};
+template <int Dimension, ConvectiveFluxEnum ConvectiveFluxType>
+struct EulerVariable : EquationVariable<EquationModelEnum::Euler> {
+  inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
   inline static constexpr int kConservedVariableNumber{
-      getConservedVariableNumber<Dimension, EquationModel::RANS, TurbulenceModelType>()};
+      getConservedVariableNumber<Dimension, EquationModelEnum::Euler>()};
   inline static constexpr int kComputationalVariableNumber{
-      getComputationalVariableNumber<Dimension, EquationModel::RANS, TurbulenceModelType>()};
+      getComputationalVariableNumber<Dimension, EquationModelEnum::Euler>()};
   inline static constexpr int kPrimitiveVariableNumber{
-      getPrimitiveVariableNumber<Dimension, EquationModel::RANS, TurbulenceModelType>()};
+      getPrimitiveVariableNumber<Dimension, EquationModelEnum::Euler>()};
 };
 
-template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, EquationModel EquationModelType,
-          ThermodynamicModel ThermodynamicModelType, EquationOfState EquationOfStateType,
-          TimeIntegration TimeIntegrationType, ViewModel ViewModelType>
+template <int Dimension, TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType,
+          ViscousFluxEnum ViscousFluxType>
+struct NSVariable : EquationVariable<EquationModelEnum::NS> {
+  inline static constexpr TransportModelEnum kTransportModel{TransportModelType};
+  inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
+  inline static constexpr ViscousFluxEnum kViscousFlux{ViscousFluxType};
+  inline static constexpr int kConservedVariableNumber{getConservedVariableNumber<Dimension, EquationModelEnum::NS>()};
+  inline static constexpr int kComputationalVariableNumber{
+      getComputationalVariableNumber<Dimension, EquationModelEnum::NS>()};
+  inline static constexpr int kPrimitiveVariableNumber{getPrimitiveVariableNumber<Dimension, EquationModelEnum::NS>()};
+};
+
+template <int Dimension, TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType,
+          ViscousFluxEnum ViscousFluxType, TurbulenceModelEnum TurbulenceModelType>
+struct RANSVariable : EquationVariable<EquationModelEnum::RANS> {
+  inline static constexpr TransportModelEnum kTransportModel{TransportModelType};
+  inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
+  inline static constexpr ViscousFluxEnum kViscousFlux{ViscousFluxType};
+  inline static constexpr TurbulenceModelEnum kTurbulenceModel{TurbulenceModelType};
+  inline static constexpr int kConservedVariableNumber{
+      getConservedVariableNumber<Dimension, EquationModelEnum::RANS, TurbulenceModelType>()};
+  inline static constexpr int kComputationalVariableNumber{
+      getComputationalVariableNumber<Dimension, EquationModelEnum::RANS, TurbulenceModelType>()};
+  inline static constexpr int kPrimitiveVariableNumber{
+      getPrimitiveVariableNumber<Dimension, EquationModelEnum::RANS, TurbulenceModelType>()};
+};
+
+template <int Dimension, PolynomialOrderEnum P, MeshModelEnum MeshModelType, EquationModelEnum EquationModelType,
+          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
 struct SimulationControl
     : SolveControl<Dimension, P, EquationModelType, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType> {
-  inline static constexpr MeshModel kMeshModel{MeshModelType};
-  inline static constexpr ViewModel kViewModel{ViewModelType};
+  inline static constexpr MeshModelEnum kMeshModel{MeshModelType};
+  inline static constexpr ViewModelEnum kViewModel{ViewModelType};
 };
 
-template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, ThermodynamicModel ThermodynamicModelType,
-          EquationOfState EquationOfStateType, ConvectiveFlux ConvectiveFluxType, TimeIntegration TimeIntegrationType,
-          ViewModel ViewModelType>
+template <int Dimension, PolynomialOrderEnum P, MeshModelEnum MeshModelType,
+          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          ConvectiveFluxEnum ConvectiveFluxType, TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
 struct SimulationControlEuler
-    : SimulationControl<Dimension, P, MeshModelType, EquationModel::Euler, ThermodynamicModelType, EquationOfStateType,
-                        TimeIntegrationType, ViewModelType>,
+    : SimulationControl<Dimension, P, MeshModelType, EquationModelEnum::Euler, ThermodynamicModelType,
+                        EquationOfStateType, TimeIntegrationType, ViewModelType>,
       EulerVariable<Dimension, ConvectiveFluxType> {};
 
-template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, ThermodynamicModel ThermodynamicModelType,
-          EquationOfState EquationOfStateType, TransportModel TransportModelType, ConvectiveFlux ConvectiveFluxType,
-          ViscousFlux ViscousFluxType, TimeIntegration TimeIntegrationType, ViewModel ViewModelType>
+template <int Dimension, PolynomialOrderEnum P, MeshModelEnum MeshModelType,
+          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
+          TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
   requires(Dimension == 2) || (Dimension == 3)
-struct SimulationControlNS : SimulationControl<Dimension, P, MeshModelType, EquationModel::NS, ThermodynamicModelType,
-                                               EquationOfStateType, TimeIntegrationType, ViewModelType>,
-                             NSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType> {};
+struct SimulationControlNS
+    : SimulationControl<Dimension, P, MeshModelType, EquationModelEnum::NS, ThermodynamicModelType, EquationOfStateType,
+                        TimeIntegrationType, ViewModelType>,
+      NSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType> {};
 
-template <int Dimension, PolynomialOrder P, MeshModel MeshModelType, ThermodynamicModel ThermodynamicModelType,
-          EquationOfState EquationOfStateType, TransportModel TransportModelType, ConvectiveFlux ConvectiveFluxType,
-          ViscousFlux ViscousFluxType, TurbulenceModel TurbulenceModelType, TimeIntegration TimeIntegrationType,
-          ViewModel ViewModelType>
+template <int Dimension, PolynomialOrderEnum P, MeshModelEnum MeshModelType,
+          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
+          TurbulenceModelEnum TurbulenceModelType, TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
   requires(Dimension == 2) || (Dimension == 3)
 struct SimulationControlRANS
-    : SimulationControl<Dimension, P, MeshModelType, EquationModel::NS, ThermodynamicModelType, EquationOfStateType,
+    : SimulationControl<Dimension, P, MeshModelType, EquationModelEnum::NS, ThermodynamicModelType, EquationOfStateType,
                         TimeIntegrationType, ViewModelType>,
       RANSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType, TurbulenceModelType> {};
 

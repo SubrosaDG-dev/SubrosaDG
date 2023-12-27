@@ -1,6 +1,6 @@
 /**
  * @file test_main.cpp
- * @brief The main source file of SubroseDG tests.
+ * @brief The main source file of SubrosaDG tests.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2022-11-02

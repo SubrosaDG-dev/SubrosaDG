@@ -13,10 +13,10 @@
 #ifndef SUBROSA_DG_GAUSSIAN_QUADRATURE_HPP_
 #define SUBROSA_DG_GAUSSIAN_QUADRATURE_HPP_
 
-#include <fmt/core.h>
 #include <gmsh.h>
 
 #include <Eigen/Core>
+#include <format>
 #include <utility>
 #include <vector>
 
@@ -38,7 +38,7 @@ inline std::pair<std::vector<double>, std::vector<double>> getElementGaussianQua
   std::vector<double> local_coord;
   std::vector<double> weights;
   gmsh::model::mesh::getIntegrationPoints(ElementTrait::kGmshTypeNumber,
-                                          fmt::format("Gauss{}", ElementTrait::kQuadratureOrder), local_coord, weights);
+                                          std::format("Gauss{}", ElementTrait::kQuadratureOrder), local_coord, weights);
   return std::make_pair(local_coord, weights);
 }
 
