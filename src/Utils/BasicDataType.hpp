@@ -6,7 +6,7 @@
  * @date 2022-11-02
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2023 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2024 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
