@@ -35,7 +35,7 @@ namespace SubrosaDG {
 template <typename SimulationControl>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::setViewFout(const int step, std::ofstream& fout) {
   std::string view_file;
-  view_file = std::format("dat/{}_{}.dat", this->output_file_name_prefix_, step);
+  view_file = std::format("dat/{}_{:0{}d}.dat", this->output_file_name_prefix_, step, this->iteration_order_);
   fout.open((this->output_directory_ / view_file).string(), std::ios::out | std::ios::trunc);
   fout.setf(std::ios::left, std::ios::adjustfield);
   fout.setf(std::ios::scientific, std::ios::floatfield);
@@ -59,20 +59,23 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeAsciiVariableL
 
 template <typename SimulationControl>
 template <int Dimension>
-inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeAsciiHeader(const std::string_view physical_name,
+inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeAsciiHeader(const Real time_value,
+                                                                              const std::string_view physical_name,
                                                                               const Isize node_number,
                                                                               const Isize element_number,
                                                                               std::ofstream& fout) {
   std::string header;
   if constexpr (Dimension == 1) {
-    header = std::format(R"(Zone T="{}", ZONETYPE=FELINESEG, NODES={}, ELEMENTS={}, DATAPACKING=POINT)", physical_name,
-                         node_number, element_number);
+    header =
+        std::format(R"(Zone T="{}", ZONETYPE=FELINESEG, NODES={}, ELEMENTS={}, DATAPACKING=POINT, SOLUTIONTIME={})",
+                    physical_name, node_number, element_number, time_value);
   } else if constexpr (Dimension == 2) {
-    header = std::format(R"(Zone T="{}", ZONETYPE=FEQUADRILATERAL, NODES={}, ELEMENTS={}, DATAPACKING=POINT)",
-                         physical_name, node_number, element_number);
+    header = std::format(
+        R"(Zone T="{}", ZONETYPE=FEQUADRILATERAL, NODES={}, ELEMENTS={}, DATAPACKING=POINT, SOLUTIONTIME={})",
+        physical_name, node_number, element_number, time_value);
   } else if constexpr (Dimension == 3) {
-    header = std::format(R"(Zone T="{}", ZONETYPE=FEBRICK, NODES={}, ELEMENTS={}, DATAPACKING=POINT)", physical_name,
-                         node_number, element_number);
+    header = std::format(R"(Zone T="{}", ZONETYPE=FEBRICK, NODES={}, ELEMENTS={}, DATAPACKING=POINT, SOLUTIONTIME={})",
+                         physical_name, node_number, element_number, time_value);
   }
   fout << header << '\n';
 }
@@ -137,6 +140,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousE
     Eigen::Matrix<Isize, ElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
     const Isize element_index, Isize& column) {
   Variable<SimulationControl> variable;
+  const ElementViewVariable<ElementTrait, SimulationControl>& element_view_variable =
+      this->variable_.*(decltype(this->variable_)::template getElement<ElementTrait>());
   const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
                                      .element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
@@ -147,13 +152,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousE
       element_mesh.element_(element_index_per_type)
           .node_coordinate_(Eigen::all, Eigen::seqN(Eigen::fix<0>, ElementTrait::kAllNodeNumber));
   for (Isize i = 0; i < ElementTrait::kAllNodeNumber; i++) {
-    if constexpr (ElementTrait::kElementType == ElementEnum::Line) {
-      variable.conserved_ = this->variable_.line_.conserved_variable_(element_index_per_type).col(i);
-    } else if constexpr (ElementTrait::kElementType == ElementEnum::Triangle) {
-      variable.conserved_ = this->variable_.triangle_.conserved_variable_(element_index_per_type).col(i);
-    } else if constexpr (ElementTrait::kElementType == ElementEnum::Quadrangle) {
-      variable.conserved_ = this->variable_.quadrangle_.conserved_variable_(element_index_per_type).col(i);
-    }
+    variable.conserved_ = element_view_variable.conserved_variable_(element_index_per_type).col(i);
     variable.calculateComputationalFromConserved(thermal_model);
     for (Isize j = 0; j < static_cast<Isize>(this->variable_vector_.size()); j++) {
       node_variable(j, column + i) = variable.get(thermal_model, this->variable_vector_[static_cast<Usize>(j)]);
@@ -306,7 +305,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousFiel
 template <typename SimulationControl>
 template <int Dimension, bool IsAdjacency>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeView(
-    const std::string& physical_name, const Mesh<SimulationControl>& mesh,
+    const int step, const std::string& physical_name, const Mesh<SimulationControl>& mesh,
     const ThermalModel<SimulationControl>& thermal_model, std::ofstream& fout) {
   Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> node_coordinate;
   Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic> node_variable;
@@ -331,7 +330,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeView(
                                                           node_variable, element_connectivity);
   }
   node_all_variable << node_coordinate, node_variable;
-  this->writeAsciiHeader<Dimension>(physical_name, node_number, element_number * element_sub_number, fout);
+  this->writeAsciiHeader<Dimension>(this->variable_.time_value_(step - 1), physical_name, node_number,
+                                    element_number * element_sub_number, fout);
   fout << node_all_variable.transpose() << '\n';
   fout << element_connectivity.transpose() << '\n';
 }
@@ -340,19 +340,20 @@ template <typename SimulationControl>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::stepView(
     const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model) {
   std::ofstream fout;
+  this->variable_.readRawBinary(mesh, this->config_enum_, this->raw_binary_finout_);
   this->setViewFout(step, fout);
   this->writeAsciiVariableList(fout);
   for (const auto& [dim, physical_name] : mesh.information_.physical_group_) {
     if constexpr (SimulationControl::kDimension == 1) {
       if (dim == 1) {
-        this->writeView<1, false>(physical_name, mesh, thermal_model, fout);
+        this->writeView<1, false>(step, physical_name, mesh, thermal_model, fout);
       }
     } else if constexpr (SimulationControl::kDimension == 2) {
       if (dim == 1) {
         // NOTE: The ParaView can not read the Tecplot ASCII file with FELINESG.
-        this->writeView<1, true>(physical_name, mesh, thermal_model, fout);
+        this->writeView<1, true>(step, physical_name, mesh, thermal_model, fout);
       } else if (dim == 2) {
-        this->writeView<2, false>(physical_name, mesh, thermal_model, fout);
+        this->writeView<2, false>(step, physical_name, mesh, thermal_model, fout);
       }
     }
   }

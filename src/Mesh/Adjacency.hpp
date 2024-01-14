@@ -15,10 +15,8 @@
 
 #include <fmt/format.h>
 #include <gmsh.h>
-
 #include <Eigen/Core>
 #include <cstddef>
-#include <format>
 #include <iostream>
 #include <stdexcept>
 #include <unordered_map>

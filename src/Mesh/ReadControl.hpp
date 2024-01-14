@@ -193,6 +193,37 @@ struct MeshData<SimulationControl, 2> : MeshDataBase<SimulationControl> {
 
 template <typename SimulationControl>
 struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
+  template <typename ElementTrait>
+  inline static ElementMesh<ElementTrait> Mesh::*getElement() {
+    if constexpr (SimulationControl::kDimension == 1) {
+      if constexpr (ElementTrait::kElementType == ElementEnum::Line) {
+        return &Mesh::line_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 2) {
+      if constexpr (ElementTrait::kElementType == ElementEnum::Triangle) {
+        return &Mesh::triangle_;
+      }
+      if constexpr (ElementTrait::kElementType == ElementEnum::Quadrangle) {
+        return &Mesh::quadrangle_;
+      }
+    }
+    return nullptr;
+  }
+
+  template <typename AdjacencyElementTrait>
+  inline static AdjacencyElementMesh<AdjacencyElementTrait> Mesh::*getAdjacencyElement() {
+    if constexpr (SimulationControl::kDimension == 1) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+        return &Mesh::point_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 2) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+        return &Mesh::line_;
+      }
+    }
+    return nullptr;
+  }
+
   inline void getNode() {
     std::vector<std::size_t> node_tags;
     std::vector<double> coord;

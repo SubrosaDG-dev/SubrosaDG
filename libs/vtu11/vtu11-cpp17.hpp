@@ -22,21 +22,22 @@
 #define VTU11_ALIAS_HPP
 
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <utility>
 #include <vector>
+#include <fstream>
 
 namespace vtu11
 {
 
-using StringStringMap = std::map<std::string, std::string>;
+using StringStringMap = std::unordered_map<std::string, std::string>;
 
 enum class DataSetType : int
 {
-    PointData = 0, CellData = 1
+    PointData = 0, CellData = 1, FieldData = 2
 };
 
-using DataSetInfo = std::tuple<std::string, DataSetType, size_t>;
+using DataSetInfo = std::tuple<std::string, DataSetType, size_t, size_t>;
 using DataSetData = std::vector<double>;
 
 using VtkCellType = std::int8_t;
@@ -49,22 +50,6 @@ using Byte = unsigned char;
 
 #ifndef VTU11_ASCII_FLOATING_POINT_FORMAT
     #define VTU11_ASCII_FLOATING_POINT_FORMAT "%.6g"
-#endif
-
-// To dynamically select std::filesystem where available, you could use:
-#if defined(__cplusplus) && __cplusplus >= 201703L
-    #if __has_include(<filesystem>) // has_include is C++17
-        #include <filesystem>
-        namespace vtu11fs = std::filesystem;
-    #elif __has_include(<experimental/filesystem>)
-        #include <experimental/filesystem>
-        namespace vtu11fs = std::experimental::filesystem;
-    #else
-        #include "inc/filesystem.hpp"
-        namespace vtu11fs = ghc::filesystem;
-    #endif
-#else
-    namespace vtu11fs = ghc::filesystem;
 #endif
 
 #endif // VTU11_ALIAS_HPP
@@ -340,23 +325,6 @@ void writeVtu( const std::string& filename,
                const std::vector<DataSetData>& dataSetData,
                const std::string& writeMode = "ascii" );
 
-//! Creates path/baseName.pvtu and path/baseName directory
-void writePVtu( const std::string& path,
-                const std::string& baseName,
-                const std::vector<std::string>& filenames,
-                const std::vector<DataSetInfo>& dataSetInfo,
-                size_t numberOfFiles );
-
-//! Forwards path/baseName.vtu to the writeVtu function
-template<typename MeshGenerator>
-void writePartition( const std::string& path,
-                     const std::string& baseName,
-                     const std::string& filename,
-                     MeshGenerator& mesh,
-                     const std::vector<DataSetInfo>& dataSetInfo,
-                     const std::vector<DataSetData>& dataSetData,
-                     const std::string& writeMode = "ascii" );
-
 } // namespace vtu11
 
 
@@ -597,8 +565,9 @@ inline void AsciiWriter::writeAppended( std::ostream& )
 
 }
 
-inline void AsciiWriter::addHeaderAttributes( StringStringMap& )
+inline void AsciiWriter::addHeaderAttributes( StringStringMap& attributes )
 {
+  attributes["header_type"] = dataTypeString<HeaderType>( );
 }
 
 inline void AsciiWriter::addDataAttributes( StringStringMap& attributes )
@@ -925,7 +894,8 @@ namespace detail
 template<typename DataType, typename Writer> inline
 StringStringMap writeDataSetHeader( Writer&& writer,
                                     const std::string& name,
-                                    size_t ncomponents )
+                                    size_t ncomponents,
+                                    size_t ntuples)
 {
     StringStringMap attributes = { { "type", dataTypeString<DataType>( ) } };
 
@@ -939,6 +909,10 @@ StringStringMap writeDataSetHeader( Writer&& writer,
         attributes["NumberOfComponents"] = std::to_string( ncomponents );
     }
 
+    if( ntuples > 0 ) {
+        attributes["NumberOfTuples"] = std::to_string( ntuples );
+    }
+
     writer.addDataAttributes( attributes );
 
     return attributes;
@@ -949,9 +923,10 @@ void writeDataSet( Writer& writer,
                    std::ostream& output,
                    const std::string& name,
                    size_t ncomponents,
+                   size_t ntuples,
                    const std::vector<DataType>& data )
 {
-    auto attributes = writeDataSetHeader<DataType>( writer, name, ncomponents );
+    auto attributes = writeDataSetHeader<DataType>( writer, name, ncomponents, ntuples);
 
     if( attributes["format"] != "appended" )
     {
@@ -979,25 +954,8 @@ void writeDataSets( const std::vector<DataSetInfo>& dataSetInfo,
         if( std::get<1>( metadata ) == type )
         {
             detail::writeDataSet( writer, output, std::get<0>( metadata ),
-                std::get<2>( metadata ), dataSetData[iDataset] );
-        }
-    }
-}
-
-template<typename Writer> inline
-void writeDataSetPVtuHeaders( const std::vector<DataSetInfo>& dataSetInfo,
-                              std::ostream& output, Writer& writer, DataSetType type )
-{
-    for( size_t iDataset = 0; iDataset < dataSetInfo.size( ); ++iDataset )
-    {
-        const auto& metadata = dataSetInfo[iDataset];
-
-        if( std::get<1>( metadata ) == type )
-        {
-            auto attributes = detail::writeDataSetHeader<double>( writer,
-               std::get<0>( metadata ), std::get<2>( metadata ) );
-
-            writeEmptyTag( output, "PDataArray", attributes );
+                std::get<2>( metadata ), std::get<3>( metadata ),
+                dataSetData[iDataset] );
         }
     }
 }
@@ -1019,9 +977,9 @@ void writeVTUFile( const std::string& filename,
 
     output << "<?xml version=\"1.0\"?>\n";
 
-    StringStringMap headerAttributes { { "byte_order",  endianness( ) },
-                                       { "type"      ,  type          },
-                                       { "version"   ,  "0.1"         } };
+    StringStringMap headerAttributes { { "type"      ,  type          },
+                                       { "version"   ,  "0.1"         },
+                                       { "byte_order",  endianness( ) } };
 
     writer.addHeaderAttributes( headerAttributes );
 
@@ -1046,6 +1004,14 @@ void writeVtu( const std::string& filename,
     {
         {
             ScopedXmlTag unstructuredGridFileTag( output, "UnstructuredGrid", { } );
+
+            {
+                ScopedXmlTag fieldDataTag( output, "FieldData", { } );
+
+                detail::writeDataSets( dataSetInfo, dataSetData, output, writer, DataSetType::FieldData );
+
+            } // FieldData
+
             {
                 ScopedXmlTag pieceTag( output, "Piece",
                 {
@@ -1073,20 +1039,21 @@ void writeVtu( const std::string& filename,
                 {
                     ScopedXmlTag pointsTag( output, "Points", { } );
 
-                    detail::writeDataSet( writer, output, "", 3, mesh.points( ) );
+                    detail::writeDataSet( writer, output, "", 3, 0, mesh.points( ) );
 
                 } // Points
 
                 {
                     ScopedXmlTag pointsTag( output, "Cells", { } );
 
-                    detail::writeDataSet( writer, output, "connectivity", 1, mesh.connectivity( ) );
-                    detail::writeDataSet( writer, output, "offsets", 1, mesh.offsets( ) );
-                    detail::writeDataSet( writer, output, "types", 1, mesh.types( ) );
+                    detail::writeDataSet( writer, output, "connectivity", 1, 0, mesh.connectivity( ) );
+                    detail::writeDataSet( writer, output, "offsets", 1, 0, mesh.offsets( ) );
+                    detail::writeDataSet( writer, output, "types", 1, 0, mesh.types( ) );
 
                 } // Cells
 
             } // Piece
+
         } // UnstructuredGrid
 
         auto appendedAttributes = writer.appendedAttributes( );
@@ -1149,97 +1116,6 @@ void writeVtu( const std::string& filename,
     }
 
 } // writeVtu
-
-namespace detail
-{
-
-struct PVtuDummyWriter
-{
-    void addHeaderAttributes( StringStringMap& ) { }
-    void addDataAttributes( StringStringMap& ) { }
-};
-
-} // detail
-
-inline void writePVtu( const std::string& path,
-                       const std::string& baseName,
-                       const std::vector<std::string>& filenames,
-                       const std::vector<DataSetInfo>& dataSetInfo,
-                       const size_t numberOfFiles)
-{
-    auto directory = vtu11fs::path { path } / baseName;
-    auto pvtufile = vtu11fs::path { path } / ( baseName + ".pvtu" );
-
-    // create directory for vtu files if not existing
-    if( !vtu11fs::exists( directory ) )
-    {
-        vtu11fs::create_directories( directory );
-    }
-
-    detail::PVtuDummyWriter writer;
-
-    detail::writeVTUFile( pvtufile.string( ), "PUnstructuredGrid", writer,
-                          [&]( std::ostream& output )
-    {
-        std::string ghostLevel = "0"; // Hardcoded to be 0
-
-        ScopedXmlTag pUnstructuredGridFileTag( output,
-            "PUnstructuredGrid", { { "GhostLevel", ghostLevel } } );
-
-        {
-            ScopedXmlTag pPointDataTag( output, "PPointData", { } );
-
-            detail::writeDataSetPVtuHeaders( dataSetInfo, output, writer, DataSetType::PointData );
-
-        } // PPointData
-
-        {
-            ScopedXmlTag pCellDataTag( output, "PCellData", { } );
-
-            detail::writeDataSetPVtuHeaders( dataSetInfo, output, writer, DataSetType::CellData );
-
-        } // PCellData
-
-        {
-            ScopedXmlTag pPointsTag( output, "PPoints", { } );
-            StringStringMap attributes = { { "type", dataTypeString<double>( ) }, { "NumberOfComponents", "3" } };
-
-            writer.addDataAttributes( attributes );
-
-            writeEmptyTag( output, "PDataArray", attributes );
-
-        } // PPoints
-
-        for( size_t nFiles = 0; nFiles < numberOfFiles; ++nFiles )
-        {
-            std::string pieceName = baseName + "/" + filenames[nFiles] + ".vtu";
-
-            writeEmptyTag( output, "Piece", { { "Source", pieceName } } );
-
-        } // Pieces
-
-    } ); // writeVTUFile
-
-} // writePVtu
-
-template<typename MeshGenerator> inline
-void writePartition( const std::string& path,
-                     const std::string& baseName,
-                     const std::string& filename,
-                     MeshGenerator& mesh,
-                     const std::vector<DataSetInfo>& dataSetInfo,
-                     const std::vector<DataSetData>& dataSetData,
-                     const std::string& writeMode )
-{
-    auto vtuname = filename + ".vtu";
-
-    auto fullname = vtu11fs::path { path } /
-                    vtu11fs::path { baseName } /
-                    vtu11fs::path { vtuname };
-
-    writeVtu( fullname.string( ), mesh, dataSetInfo, dataSetData, writeMode );
-
-} // writePartition
 
 } // namespace vtu11
 

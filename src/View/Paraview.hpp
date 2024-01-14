@@ -33,20 +33,25 @@
 namespace SubrosaDG {
 
 template <typename SimulationControl>
-inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::getBaseName(const int step, std::string& base_name) {
-  base_name = std::format("{}_{}", this->output_file_name_prefix_, step);
+inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::getBaseName(const int step,
+                                                                         const std::string& physical_name,
+                                                                         std::string& base_name) {
+  base_name =
+      std::format("{}_{}_{:0{}d}.vtu", this->output_file_name_prefix_, physical_name, step, this->iteration_order_);
 }
 
 template <typename SimulationControl>
 inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::getDataSetInfomatoin(
     std::vector<vtu11::DataSetInfo>& data_set_information) {
+  data_set_information.emplace_back("TMSTEP", vtu11::DataSetType::FieldData, 1, 1);
+  data_set_information.emplace_back("TimeValue", vtu11::DataSetType::FieldData, 1, 1);
   for (const auto variable : this->variable_vector_) {
     if (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
         variable == ViewVariableEnum::Vorticity) {
       data_set_information.emplace_back(magic_enum::enum_name(variable), vtu11::DataSetType::PointData,
-                                        SimulationControl::kDimension);
+                                        SimulationControl::kDimension, 0);
     } else {
-      data_set_information.emplace_back(magic_enum::enum_name(variable), vtu11::DataSetType::PointData, 1);
+      data_set_information.emplace_back(magic_enum::enum_name(variable), vtu11::DataSetType::PointData, 1, 0);
     }
   }
 }
@@ -90,7 +95,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeDiscontinuousA
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
     Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, const Isize element_index, Isize& column) {
   Variable<SimulationControl> variable;
-  std::array<int, AdjacencyElementTrait::kAllNodeNumber> vtk_connectivity{
+  const std::array<int, AdjacencyElementTrait::kAllNodeNumber> vtk_connectivity{
       getElementVTKConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()};
   const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
                                      .element_gmsh_tag_[static_cast<Usize>(element_index)];
@@ -136,7 +141,9 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeDiscontinuousE
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
     Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, const Isize element_index, Isize& column) {
   Variable<SimulationControl> variable;
-  std::array<int, ElementTrait::kAllNodeNumber> vtk_connectivity{
+  const ElementViewVariable<ElementTrait, SimulationControl>& element_view_variable =
+      this->variable_.*(decltype(this->variable_)::template getElement<ElementTrait>());
+  const std::array<int, ElementTrait::kAllNodeNumber> vtk_connectivity{
       getElementVTKConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>()};
   const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
                                      .element_gmsh_tag_[static_cast<Usize>(element_index)];
@@ -146,13 +153,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeDiscontinuousE
     for (Isize j = 0; j < SimulationControl::kDimension; j++) {
       node_coordinate(j, column + i) = element_mesh.element_(element_index_per_type).node_coordinate_(j, i);
     }
-    if constexpr (ElementTrait::kElementType == ElementEnum::Line) {
-      variable.conserved_ = this->variable_.line_.conserved_variable_(element_index_per_type).col(i);
-    } else if constexpr (ElementTrait::kElementType == ElementEnum::Triangle) {
-      variable.conserved_ = this->variable_.triangle_.conserved_variable_(element_index_per_type).col(i);
-    } else if constexpr (ElementTrait::kElementType == ElementEnum::Quadrangle) {
-      variable.conserved_ = this->variable_.quadrangle_.conserved_variable_(element_index_per_type).col(i);
-    }
+    variable.conserved_ = element_view_variable.conserved_variable_(element_index_per_type).col(i);
     variable.calculateComputationalFromConserved(thermal_model);
     this->calculateViewVariable(thermal_model, variable, node_variable, column + i);
     element_connectivity(column + i) = vtk_connectivity[static_cast<Usize>(i)] + column;
@@ -210,7 +211,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeContinuousAdja
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
     Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, const Isize element_index, Isize& column) {
-  std::array<int, AdjacencyElementTrait::kAllNodeNumber> vtk_connectivity{
+  const std::array<int, AdjacencyElementTrait::kAllNodeNumber> vtk_connectivity{
       getElementVTKConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()};
   const ordered_set<Isize> node_gmsh_tag =
       mesh_information.physical_group_information_.at(physical_name).node_gmsh_tag_;
@@ -234,7 +235,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeContinuousElem
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
     Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, const Isize element_index, Isize& column) {
-  std::array<int, ElementTrait::kAllNodeNumber> vtk_connectivity{
+  const std::array<int, ElementTrait::kAllNodeNumber> vtk_connectivity{
       getElementVTKConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>()};
   const ordered_set<Isize> node_gmsh_tag =
       mesh_information.physical_group_information_.at(physical_name).node_gmsh_tag_;
@@ -305,14 +306,17 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeContinuousFiel
 template <typename SimulationControl>
 template <int Dimension, bool IsAdjacency>
 inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
-    const std::string& physical_name, const Mesh<SimulationControl>& mesh,
-    const ThermalModel<SimulationControl>& thermal_model, const std::string& base_name,
-    const std::vector<vtu11::DataSetInfo>& data_set_information) {
+    const int step, const std::string& physical_name, const Mesh<SimulationControl>& mesh,
+    const ThermalModel<SimulationControl>& thermal_model, const std::string& base_name) {
   Eigen::Matrix<Real, 3, Eigen::Dynamic> node_coordinate;
   Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1> node_variable;
   Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic> element_connectivity;
   Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic> element_offset;
   Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic> element_type;
+  std::vector<vtu11::DataSetInfo> data_set_information;
+  std::vector<vtu11::DataSetData> data_set_data;
+  this->getDataSetInfomatoin(data_set_information);
+  data_set_data.resize(this->variable_vector_.size() + 2);
   const Isize node_number =
       ((this->config_enum_ & ViewConfigEnum::SolverSmoothness) == ViewConfigEnum::SolverSmoothness)
           ? static_cast<Isize>(mesh.information_.physical_group_information_.at(physical_name).node_gmsh_tag_.size())
@@ -351,41 +355,32 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
 #else
   const std::string write_mode = "rawbinarycompressed";
 #endif
-  std::vector<std::vector<double>> vtu_node_data;
-  vtu_node_data.resize(this->variable_vector_.size());
+  data_set_data[0].emplace_back(step);
+  data_set_data[1].emplace_back(this->variable_.time_value_(step - 1));
   for (Isize i = 0; i < static_cast<Isize>(this->variable_vector_.size()); i++) {
-    vtu_node_data[static_cast<Usize>(i)].assign(node_variable(i).data(),
-                                                node_variable(i).data() + node_variable(i).size());
+    data_set_data[static_cast<Usize>(i) + 2].assign(node_variable(i).data(),
+                                                    node_variable(i).data() + node_variable(i).size());
   }
-  vtu11::writePartition((this->output_directory_ / "vtu").string(), base_name, physical_name, mesh_data,
-                        data_set_information, vtu_node_data, write_mode);
+  vtu11::writeVtu((this->output_directory_ / "vtu" / base_name).string(), mesh_data, data_set_information,
+                  data_set_data, write_mode);
 }
 
 template <typename SimulationControl>
 inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::stepView(
     const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model) {
   std::string base_name;
-  std::vector<std::string> physical_group_name;
-  std::vector<vtu11::DataSetInfo> data_set_information;
-  this->getBaseName(step, base_name);
-  this->getDataSetInfomatoin(data_set_information);
+  this->variable_.readRawBinary(mesh, this->config_enum_, this->raw_binary_finout_);
   for (const auto& [dim, physical_name] : mesh.information_.physical_group_) {
-    if (dim > 0) {
-      physical_group_name.emplace_back(physical_name);
-    }
-  }
-  vtu11::writePVtu((this->output_directory_ / "vtu").string(), base_name, physical_group_name, data_set_information,
-                   physical_group_name.size());
-  for (const auto& [dim, physical_name] : mesh.information_.physical_group_) {
+    this->getBaseName(step, physical_name, base_name);
     if constexpr (SimulationControl::kDimension == 1) {
       if (dim == 1) {
-        this->writeView<1, false>(physical_name, mesh, thermal_model, base_name, data_set_information);
+        this->writeView<1, false>(step, physical_name, mesh, thermal_model, base_name);
       }
     } else if constexpr (SimulationControl::kDimension == 2) {
       if (dim == 1) {
-        this->writeView<1, true>(physical_name, mesh, thermal_model, base_name, data_set_information);
+        this->writeView<1, true>(step, physical_name, mesh, thermal_model, base_name);
       } else if (dim == 2) {
-        this->writeView<2, false>(physical_name, mesh, thermal_model, base_name, data_set_information);
+        this->writeView<2, false>(step, physical_name, mesh, thermal_model, base_name);
       }
     }
   }

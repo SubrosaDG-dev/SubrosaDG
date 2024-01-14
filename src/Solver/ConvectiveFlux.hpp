@@ -30,14 +30,15 @@ inline void calculateConvectiveVariable(const Variable<SimulationControl>& varia
                                         Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
                                                       SimulationControl::kDimension>& convective_variable) {
   const Real density = variable.template get<ComputationalVariableEnum::Density>();
-  const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
+  const Eigen::Vector<Real, SimulationControl::kDimension>& velocity =
       variable.template getVector<ComputationalVariableEnum::Velocity>();
   const Real pressure = variable.template get<ComputationalVariableEnum::Pressure>();
   const Real total_energy = variable.template get<ComputationalVariableEnum::InternalEnergy>() +
                             variable.template get<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
   convective_variable.row(0) = density * velocity.transpose();
-  convective_variable(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), Eigen::all) =
-      density * velocity * velocity.transpose() +
+  convective_variable(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), Eigen::all).noalias() =
+      density * velocity * velocity.transpose();
+  convective_variable(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), Eigen::all).noalias() +=
       pressure * Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
   convective_variable.row(SimulationControl::kDimension + 1) =
       (density * total_energy + pressure) * velocity.transpose();

@@ -341,8 +341,7 @@ struct Variable {
           solver.line_.element_(parent_index).conserved_variable_basis_function_coefficient_(1) *
           mesh.line_.basis_function_.adjacency_value_.row(adjacency_gaussian_quadrature_node_sequence_in_parent)
               .transpose();
-    }
-    if constexpr (SimulationControl::kDimension == 2) {
+    } else if constexpr (SimulationControl::kDimension == 2) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->conserved_.noalias() =
             solver.triangle_.element_(parent_index).conserved_variable_basis_function_coefficient_(1) *

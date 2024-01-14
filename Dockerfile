@@ -1,7 +1,7 @@
 FROM fedora:rawhide
 
 RUN dnf update -y && \
-dnf install -y git cmake ccache ninja-build clang-devel llvm-devel gdb lldb lld clang-tools-extra libcxx-devel eigen3-devel cgnslib-devel python3-numpy zip patchelf && \
+dnf install -y git cmake ccache ninja-build clang-devel llvm-devel gdb lldb lld libcxx-devel clang-tools-extra gcovr gperftools flamegraph python3-numpy eigen3-devel cgnslib-devel zip && \
 dnf clean all
 
 ENV CC=/usr/bin/clang
@@ -13,13 +13,12 @@ git clone --depth 1 --branch "clang_17" https://github.com/include-what-you-use/
 cd include-what-you-use && \
 mkdir build && \
 cd build && \
-cmake -DCMAKE_INSTALL_PREFIX="/usr" .. && \
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="/usr" .. && \
 ninja install && \
 cd /root && \
 rm -rf include-what-you-use
 
 ENV VCPKG_FORCE_SYSTEM_BINARIES=1
-
 RUN cd /root && \
 git clone --depth 1 https://github.com/microsoft/vcpkg && \
 cd vcpkg && \
@@ -29,12 +28,11 @@ ENV VCPKG_ROOT=/root/vcpkg
 RUN cd /root && \
 git clone --depth 1 --branch "gmsh_4_12_0" https://gitlab.onelab.info/gmsh/gmsh.git && \
 cd gmsh && \
+sed -i 's|set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")|set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib64")|' CMakeLists.txt && \
 mkdir build && \
 cd build && \
-cmake -DCMAKE_CXX_FLAGS="-stdlib=libc++" -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -stdlib=libc++" -DCMAKE_BUILD_TYPE=Release -DDEFAULT=NO -DENABLE_SYSTEM_CONTRIB=YES -DENABLE_BUILD_SHARED=YES -DENABLE_BUILD_DYNAMIC=YES -DENABLE_OS_SPECIFIC_INSTALL=YES -DENABLE_PARSER=YES -DENABLE_BLOSSOM=YES -DENABLE_OPTHOM=YES -DENABLE_CGNS=YES -DENABLE_NETGEN=YES -DENABLE_EIGEN=YES -DENABLE_OPENMP=YES -DENABLE_MESH=YES .. && \
+cmake -DCMAKE_CXX_FLAGS="-stdlib=libc++" -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -stdlib=libc++" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="/usr" -DDEFAULT=NO -DENABLE_SYSTEM_CONTRIB=YES -DENABLE_BUILD_SHARED=YES -DENABLE_BUILD_DYNAMIC=YES -DENABLE_OS_SPECIFIC_INSTALL=YES -DENABLE_PARSER=YES -DENABLE_BLOSSOM=YES -DENABLE_OPTHOM=YES -DENABLE_CGNS=YES -DENABLE_NETGEN=YES -DENABLE_EIGEN=YES -DENABLE_OPENMP=YES -DENABLE_MESH=YES .. && \
 ninja install && \
 cd /root && \
-rm -rf gmsh && \
-patchelf --set-rpath /usr/local/lib64 /usr/local/bin/gmsh && \
-patchelf --set-rpath /usr/local/lib64 /usr/local/lib64/libgmsh.so
-ENV GMSH_ROOT=/usr/local
+rm -rf gmsh
+ENV GMSH_ROOT=/usr

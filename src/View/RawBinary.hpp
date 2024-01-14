@@ -16,6 +16,8 @@
 #include <Eigen/Core>
 #include <fstream>
 #include <magic_enum.hpp>
+#include <sstream>
+#include <string>
 
 #include "Mesh/ReadControl.hpp"
 #include "Solver/SolveControl.hpp"
@@ -72,7 +74,8 @@ inline void ElementViewVariable<ElementTrait, SimulationControl>::readElementRaw
                            SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
                                static_cast<std::streamsize>(sizeof(Real)));
 #endif
-    this->conserved_variable_(i) = conserved_variable_basis_function_coefficient * this->basis_function_value_;
+    this->conserved_variable_(i).noalias() =
+        conserved_variable_basis_function_coefficient * this->basis_function_value_;
   }
 }
 
@@ -89,6 +92,7 @@ inline void ElementViewVariable<ElementTrait, SimulationControl>::addNodeConserv
 
 template <typename SimulationControl>
 inline void ViewVariable<SimulationControl>::readRawBinary(const Mesh<SimulationControl>& mesh,
+                                                           const ViewConfigEnum config_enum,
                                                            std::fstream& raw_binary_finout) {
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.readElementRawBinary(mesh.line_, raw_binary_finout);
@@ -99,6 +103,20 @@ inline void ViewVariable<SimulationControl>::readRawBinary(const Mesh<Simulation
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.readElementRawBinary(mesh.quadrangle_, raw_binary_finout);
     }
+  }
+  if ((config_enum & ViewConfigEnum::SolverSmoothness) == ViewConfigEnum::SolverSmoothness) {
+    this->calculateNodeConservedVariable(mesh);
+  }
+}
+
+template <typename SimulationControl>
+inline void ViewVariable<SimulationControl>::readTimeValue(const int iteration_number, std::fstream& error_finout) {
+  std::string line;
+  std::getline(error_finout, line);
+  for (int i = 0; i < iteration_number; i++) {
+    std::getline(error_finout, line);
+    std::stringstream ss(line);
+    ss.ignore(2) >> this->time_value_(i);
   }
 }
 
@@ -120,9 +138,8 @@ inline void ViewVariable<SimulationControl>::calculateNodeConservedVariable(cons
 }
 
 template <typename SimulationControl>
-inline void ViewVariable<SimulationControl>::initializeViewVariable(const Mesh<SimulationControl>& mesh,
-                                                                    const ViewConfigEnum config_enum,
-                                                                    std::fstream& raw_binary_finout) {
+inline void ViewVariable<SimulationControl>::initializeViewVariable(const int iteration_number,
+                                                                    const Mesh<SimulationControl>& mesh) {
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.conserved_variable_.resize(mesh.line_.number_);
   } else if constexpr (SimulationControl::kDimension == 2) {
@@ -133,11 +150,8 @@ inline void ViewVariable<SimulationControl>::initializeViewVariable(const Mesh<S
       this->quadrangle_.conserved_variable_.resize(mesh.quadrangle_.number_);
     }
   }
+  this->time_value_.resize(iteration_number);
   this->node_conserved_variable_.resize(Eigen::NoChange, mesh.node_coordinate_.cols());
-  this->readRawBinary(mesh, raw_binary_finout);
-  if ((config_enum & ViewConfigEnum::SolverSmoothness) == ViewConfigEnum::SolverSmoothness) {
-    this->calculateNodeConservedVariable(mesh);
-  }
 }
 
 }  // namespace SubrosaDG

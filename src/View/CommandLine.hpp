@@ -17,7 +17,6 @@
 
 #include <Eigen/Core>
 #include <deque>
-#include <filesystem>
 #include <format>
 #include <fstream>
 #include <iostream>
@@ -35,50 +34,53 @@ namespace SubrosaDG {
 template <typename SimulationControl>
 struct CommandLine {
   bool is_open_{true};
-  Real time_step_{0.0};
-  const int error_line_number_{10};
+  Real time_value_{0.0};
+  std::deque<Real> time_value_deque_;
+  const int line_number_{10};
   Tqdm::ProgressBar solver_progress_bar_;
   Tqdm::ProgressBar view_progress_bar_;
-  std::filesystem::path output_directory_;
-  std::ofstream error_fout_;
   std::deque<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> error_deque_;
 
-  inline std::string getErrorVariableList() {
+  inline std::string getVariableList() {
     if constexpr (SimulationControl::kDimension == 1) {
-      return std::format(R"(|{:^13}|{:^13}|{:^13}|)", "rho", "rho*u", "rho*E");
+      return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*E");
     } else if constexpr (SimulationControl::kDimension == 2) {
-      return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|)", "rho", "rho*u", "rho*v", "rho*E");
+      return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*v", "rho*E");
     }
   }
 
-  inline std::string getErrorInfo(const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& error) {
+  inline std::string getLineInformation(const Real time_value,
+                                        const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& error) {
     if constexpr (SimulationControl::kDimension == 1) {
-      return std::format(R"(|{:^13.5e}|{:^13.5e}|{:^13.5e}|)", error(0), error(1), error(2));
+      return std::format(R"(|{:^13.5e}|{:^13.5e}|{:^13.5e}|{:^13.5e}|)", time_value, error(0), error(1), error(2));
     } else if constexpr (SimulationControl::kDimension == 2) {
-      return std::format(R"(|{:^13.5e}|{:^13.5e}|{:^13.5e}|{:^13.5e}|)", error(0), error(1), error(2), error(3));
+      return std::format(R"(|{:^13.5e}|{:^13.5e}|{:^13.5e}|{:^13.5e}|{:^13.5e}|)", time_value, error(0), error(1),
+                         error(2), error(3));
     }
   }
 
   inline void updateSolver(const int iteration_number, const int step, const Real delta_time,
-                           const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& new_error) {
-    this->error_fout_ << this->getErrorInfo(new_error) << '\n';
-    time_step_ += delta_time;
+                           const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& new_error,
+                           std::fstream& error_finout) {
+    this->time_value_ += delta_time;
+    error_finout << this->getLineInformation(this->time_value_, new_error) << '\n';
     std::string error_string;
-    error_string += this->getErrorVariableList() + '\n';
-    if (step % this->error_line_number_ == 0) {
+    error_string += this->getVariableList() + '\n';
+    if (step % this->line_number_ == 0) {
+      this->time_value_deque_.pop_front();
       this->error_deque_.pop_front();
+      this->time_value_deque_.emplace_back(this->time_value_);
       this->error_deque_.emplace_back(new_error);
     }
-    for (const auto& error : this->error_deque_) {
-      error_string += this->getErrorInfo(error) + '\n';
+    for (Usize i = 0; i < static_cast<Usize>(this->line_number_); i++) {
+      error_string += this->getLineInformation(this->time_value_deque_[i], this->error_deque_[i]) + '\n';
     }
     if (this->is_open_) {
       if (step == 1) {
         std::cout << '\n';
         this->view_progress_bar_.restart();
-        this->solver_progress_bar_.initialize(iteration_number, 13);
+        this->solver_progress_bar_.initialize(iteration_number, this->line_number_ + 2);
       }
-      this->solver_progress_bar_ << std::format("Time: {:>8.5f}s\n", time_step_);
       this->solver_progress_bar_ << error_string;
       this->solver_progress_bar_.update();
     }
@@ -95,12 +97,10 @@ struct CommandLine {
     }
   }
 
-  inline void initializeCommandLine() {
-    this->error_fout_.open((this->output_directory_ / "error.txt").string(), std::ios::out | std::ios::trunc);
-    this->error_fout_.setf(std::ios::left, std::ios::adjustfield);
-    this->error_fout_.setf(std::ios::scientific, std::ios::floatfield);
-    this->error_fout_ << this->getErrorVariableList() << '\n';
-    for (int i = 0; i < this->error_line_number_; i++) {
+  inline void initializeCommandLine(std::fstream& error_finout) {
+    error_finout << this->getVariableList() << '\n';
+    for (int i = 0; i < this->line_number_; i++) {
+      this->time_value_deque_.emplace_back(0.0);
       this->error_deque_.emplace_back(Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero());
     }
   }
@@ -116,11 +116,12 @@ struct CommandLine {
       std::cout << "Build type: Release" << '\n';
 #endif  // SUBROSA_DG_DEVELOP
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-      std::cout << std::format("Number of physical cores: {}", kNumberOfPhysicalCores) << "\n\n";
+      std::cout << std::format("Number of physical cores: {}", kNumberOfPhysicalCores) << '\n';
 #else   // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
       std::cout << "Number of physical cores: 1"
-                << "\n\n";
+                << '\n';
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+      std::cout << "Eigen SIMD Instructions: " << Eigen::SimdInstructionSetsInUse() << "\n\n";
       std::cout << "Gmsh Info:" << '\n';
       std::string info;
       gmsh::option::getString("General.BuildInfo", info);

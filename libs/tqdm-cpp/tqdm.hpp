@@ -69,7 +69,7 @@ class ProgressBar {
   void initialize(int cycle_num, int delete_line) {
     progress_ = 0;
     cycle_num_ = static_cast<index>(cycle_num);
-    num_order_ = log10(cycle_num_);
+    num_order_ = log10(cycle_num_) + 1;
     delete_line_ = delete_line;
 
     for (int i = 0; i < delete_line_; i++) {

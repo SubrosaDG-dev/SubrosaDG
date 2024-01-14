@@ -102,8 +102,9 @@ struct AdjacencyElementSolverBase;
 
 template <typename SimulationControl>
 struct AdjacencyElementSolverBase<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl> {
+  template <bool IsLeft>
   [[nodiscard]] inline Isize getAdjacencyParentElementQuadratureNodeSequenceInParent(
-      [[maybe_unused]] Isize parent_gmsh_type_number, bool is_left, Isize adjacency_sequence_in_parent,
+      [[maybe_unused]] Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent,
       Isize qudrature_sequence_in_adjacency) const;
 
   inline void storeAdjacencyElementNodeGaussianQuadrature(
@@ -115,9 +116,9 @@ struct AdjacencyElementSolverBase<AdjacencyPointTrait<SimulationControl::kPolyno
 
 template <typename SimulationControl>
 struct AdjacencyElementSolverBase<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> {
+  template <bool IsLeft>
   [[nodiscard]] inline Isize getAdjacencyParentElementQuadratureNodeSequenceInParent(
-      Isize parent_gmsh_type_number, bool is_left, Isize adjacency_sequence_in_parent,
-      Isize qudrature_sequence_in_adjacency) const;
+      Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent, Isize qudrature_sequence_in_adjacency) const;
 
   inline void storeAdjacencyElementNodeGaussianQuadrature(
       Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
@@ -128,15 +129,13 @@ struct AdjacencyElementSolverBase<AdjacencyLineTrait<SimulationControl::kPolynom
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 struct AdjacencyElementSolver : AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl> {
-  inline void calculateInteriorAdjacencyElementGaussianQuadrature(
-      const Mesh<SimulationControl>& mesh, const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const ThermalModel<SimulationControl>& thermal_model, Solver<SimulationControl>& solver);
+  inline void calculateInteriorAdjacencyElementGaussianQuadrature(const Mesh<SimulationControl>& mesh,
+                                                                  const ThermalModel<SimulationControl>& thermal_model,
+                                                                  Solver<SimulationControl>& solver);
 
   inline void calculateBoundaryAdjacencyElementGaussianQuadrature(
-      const Mesh<SimulationControl>& mesh, const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const ThermalModel<SimulationControl>& thermal_model,
-      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-          boundary_condition,
+      const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       Solver<SimulationControl>& solver);
 };
 
@@ -162,6 +161,38 @@ struct SolverData<SimulationControl, 2> {
 
 template <typename SimulationControl>
 struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
+  template <typename ElementTrait>
+  inline static ElementSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel> Solver::*
+  getElement() {
+    if constexpr (SimulationControl::kDimension == 1) {
+      if constexpr (ElementTrait::kElementType == ElementEnum::Line) {
+        return &Solver<SimulationControl>::line_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 2) {
+      if constexpr (ElementTrait::kElementType == ElementEnum::Triangle) {
+        return &Solver<SimulationControl>::triangle_;
+      }
+      if constexpr (ElementTrait::kElementType == ElementEnum::Quadrangle) {
+        return &Solver<SimulationControl>::quadrangle_;
+      }
+    }
+    return nullptr;
+  }
+
+  template <typename AdjacencyElementTrait>
+  inline static AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl> Solver::*getAdjacencyElement() {
+    if constexpr (SimulationControl::kDimension == 1) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+        return &Solver<SimulationControl>::point_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 2) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+        return &Solver<SimulationControl>::line_;
+      }
+    }
+    return nullptr;
+  }
+
   inline void initializeSolver(
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
       std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,

@@ -47,11 +47,6 @@ struct System {
   Solver<SimulationControl> solver_;
   View<SimulationControl> view_;
 
-  inline void setCommandLineConfig(const std::filesystem::path& output_directory) {
-    this->command_line_.output_directory_ = output_directory;
-    this->command_line_.initializeCommandLine();
-  }
-
   template <BoundaryConditionEnum BoundaryConditionType>
     requires(BoundaryConditionType == BoundaryConditionEnum::AdiabaticWall)
   inline void addBoundaryCondition(const std::string&);
@@ -125,16 +120,17 @@ struct System {
   inline void setViewConfig(int io_interval, const std::filesystem::path& output_directory,
                             const std::string& output_file_name_prefix,
                             const ViewConfigEnum view_config = ViewConfigEnum::Default) {
-    this->setCommandLineConfig(output_directory);
     if (io_interval <= 0) {
       this->view_.io_interval_ = this->time_integration_.iteration_number_;
     } else {
       this->view_.io_interval_ = io_interval;
     }
+    this->view_.iteration_order_ = static_cast<int>(log10(this->time_integration_.iteration_number_) + 1);
     this->view_.output_directory_ = output_directory;
     this->view_.output_file_name_prefix_ = output_file_name_prefix;
     this->view_.config_enum_ = view_config;
     this->view_.initializeViewRawBinary(this->view_.config_enum_);
+    this->command_line_.initializeCommandLine(this->view_.error_finout_);
   }
 
   inline void setViewVariable(const std::vector<ViewVariableEnum>& view_variable) {
@@ -182,12 +178,12 @@ struct System {
       }
       this->solver_.calculateRelativeError(this->mesh_);
       this->command_line_.updateSolver(this->time_integration_.iteration_number_, i, delta_time,
-                                       this->solver_.relative_error_);
+                                       this->solver_.relative_error_, this->view_.error_finout_);
     }
   }
 
   inline void view(const bool delete_dir = true) {
-    this->view_.initializeView(this->mesh_, delete_dir);
+    this->view_.initializeView(delete_dir, this->time_integration_.iteration_number_, this->mesh_);
     for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
       if (i % this->view_.io_interval_ == 0) {
         this->view_.stepView(i, this->mesh_, this->thermal_model_);
@@ -195,6 +191,7 @@ struct System {
                                        i / this->view_.io_interval_);
       }
     }
+    this->view_.finalizeView();
   }
 
   explicit inline System(

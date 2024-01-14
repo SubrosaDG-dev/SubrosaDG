@@ -125,6 +125,7 @@ struct ViewVariableData<SimulationControl, 1> {
   AdjacencyElementViewVariable<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>> point_;
   ElementViewVariable<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
 
+  Eigen::Vector<Real, Eigen::Dynamic> time_value_;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic> node_conserved_variable_;
 };
 
@@ -134,24 +135,60 @@ struct ViewVariableData<SimulationControl, 2> {
   ElementViewVariable<TriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> triangle_;
   ElementViewVariable<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> quadrangle_;
 
+  Eigen::Vector<Real, Eigen::Dynamic> time_value_;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic> node_conserved_variable_;
 };
 
 template <typename SimulationControl>
 struct ViewVariable : ViewVariableData<SimulationControl, SimulationControl::kDimension> {
-  inline void readRawBinary(const Mesh<SimulationControl>& mesh, std::fstream& raw_binary_finout);
+  template <typename ElementTrait>
+  inline static ElementViewVariable<ElementTrait, SimulationControl> ViewVariable::*getElement() {
+    if constexpr (SimulationControl::kDimension == 1) {
+      if constexpr (ElementTrait::kElementType == ElementEnum::Line) {
+        return &ViewVariable::line_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 2) {
+      if constexpr (ElementTrait::kElementType == ElementEnum::Triangle) {
+        return &ViewVariable::triangle_;
+      }
+      if constexpr (ElementTrait::kElementType == ElementEnum::Quadrangle) {
+        return &ViewVariable::quadrangle_;
+      }
+    }
+    return nullptr;
+  }
+
+  template <typename AdjacencyElementTrait>
+  inline static AdjacencyElementViewVariable<AdjacencyElementTrait> ViewVariable::*getAdjacencyElement() {
+    if constexpr (SimulationControl::kDimension == 1) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+        return &ViewVariable::point_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 2) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+        return &ViewVariable::line_;
+      }
+    }
+    return nullptr;
+  }
+
+  inline void readRawBinary(const Mesh<SimulationControl>& mesh, ViewConfigEnum config_enum,
+                            std::fstream& raw_binary_finout);
+
+  inline void readTimeValue(int iteration_number, std::fstream& error_finout);
 
   inline void calculateNodeConservedVariable(const Mesh<SimulationControl>& mesh);
 
-  inline void initializeViewVariable(const Mesh<SimulationControl>& mesh, ViewConfigEnum config_enum,
-                                     std::fstream& raw_binary_finout);
+  inline void initializeViewVariable(int iteration_number, const Mesh<SimulationControl>& mesh);
 };
 
 template <typename SimulationControl>
 struct ViewData {
   int io_interval_;
+  int iteration_order_;
   std::filesystem::path output_directory_;
   std::string output_file_name_prefix_;
+  std::fstream error_finout_;
   std::fstream raw_binary_finout_;
   ViewConfigEnum config_enum_;
   std::vector<ViewVariableEnum> variable_vector_;
@@ -168,7 +205,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
   inline void writeAsciiVariableList(std::ofstream& fout);
 
   template <int Dimension>
-  inline void writeAsciiHeader(std::string_view physical_name, Isize node_number, Isize element_number,
+  inline void writeAsciiHeader(Real time_value, std::string_view physical_name, Isize node_number, Isize element_number,
                                std::ofstream& fout);
 
   template <typename AdjacencyElementTrait>
@@ -221,7 +258,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
       Eigen::Matrix<Isize, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic>& element_connectivity);
 
   template <int Dimension, bool IsAdjacency>
-  inline void writeView(const std::string& physical_name, const Mesh<SimulationControl>& mesh,
+  inline void writeView(int step, const std::string& physical_name, const Mesh<SimulationControl>& mesh,
                         const ThermalModel<SimulationControl>& thermal_model, std::ofstream& fout);
 
   inline void stepView(int step, const Mesh<SimulationControl>& mesh,
@@ -230,7 +267,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
 
 template <typename SimulationControl>
 struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewData<SimulationControl> {
-  inline void getBaseName(int step, std::string& base_name);
+  inline void getBaseName(int step, const std::string& physical_name, std::string& base_name);
 
   inline void getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information);
 
@@ -294,9 +331,8 @@ struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewData<SimulationCont
                                    Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type);
 
   template <int Dimension, bool IsAdjacency>
-  inline void writeView(const std::string& physical_name, const Mesh<SimulationControl>& mesh,
-                        const ThermalModel<SimulationControl>& thermal_model, const std::string& base_name,
-                        const std::vector<vtu11::DataSetInfo>& data_set_information);
+  inline void writeView(int step, const std::string& physical_name, const Mesh<SimulationControl>& mesh,
+                        const ThermalModel<SimulationControl>& thermal_model, const std::string& base_name);
 
   inline void stepView(int step, const Mesh<SimulationControl>& mesh,
                        const ThermalModel<SimulationControl>& thermal_model);
@@ -315,9 +351,13 @@ struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
     this->raw_binary_finout_.open((this->output_directory_ / "raw.binary").string(), open_mode);
     this->raw_binary_finout_.setf(std::ios::left, std::ios::adjustfield);
     this->raw_binary_finout_.setf(std::ios::scientific, std::ios::floatfield);
+    this->error_finout_.open((this->output_directory_ / "error.txt").string(),
+                             std::ios::in | std::ios::out | std::ios::trunc);
+    this->error_finout_.setf(std::ios::left, std::ios::adjustfield);
+    this->error_finout_.setf(std::ios::scientific, std::ios::floatfield);
   }
 
-  inline void initializeView(const Mesh<SimulationControl>& mesh, const bool delete_dir) {
+  inline void initializeView(const bool delete_dir, const int iteration_number, const Mesh<SimulationControl>& mesh) {
     std::filesystem::path view_output_directory;
     if constexpr (SimulationControl::kViewModel == ViewModelEnum::Dat) {
       view_output_directory = this->output_directory_ / "dat";
@@ -328,15 +368,22 @@ struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
     } else if constexpr (SimulationControl::kViewModel == ViewModelEnum::Vtu) {
       view_output_directory = this->output_directory_ / "vtu";
     }
-    if (std::filesystem::exists(view_output_directory)) {
-      if (delete_dir) {
+    if (delete_dir) {
+      if (std::filesystem::exists(view_output_directory)) {
         std::filesystem::remove_all(view_output_directory);
       }
-    } else {
+      std::filesystem::create_directories(view_output_directory);
+    } else if (!std::filesystem::exists(view_output_directory)) {
       std::filesystem::create_directories(view_output_directory);
     }
     this->raw_binary_finout_.seekg(0, std::ios::beg);
-    this->variable_.initializeViewVariable(mesh, this->config_enum_, this->raw_binary_finout_);
+    this->error_finout_.seekg(0, std::ios::beg);
+    this->variable_.initializeViewVariable(iteration_number, mesh);
+    this->variable_.readTimeValue(iteration_number, this->error_finout_);
+  }
+
+  inline void finalizeView() {
+    this->error_finout_.close();
     this->raw_binary_finout_.close();
   }
 };
