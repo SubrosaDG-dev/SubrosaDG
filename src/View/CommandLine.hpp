@@ -105,7 +105,7 @@ struct CommandLine {
     }
   }
 
-  inline CommandLine(bool open_command_line) {
+  inline CommandLine(const bool open_command_line) {
     this->is_open_ = open_command_line;
     if (this->is_open_) {
       std::cout << "SubrosaDG Info:" << '\n';
@@ -118,8 +118,7 @@ struct CommandLine {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
       std::cout << std::format("Number of physical cores: {}", kNumberOfPhysicalCores) << '\n';
 #else   // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
-      std::cout << "Number of physical cores: 1"
-                << '\n';
+      std::cout << "Number of physical cores: 1" << '\n';
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
       std::cout << "Eigen SIMD Instructions: " << Eigen::SimdInstructionSetsInUse() << "\n\n";
       std::cout << "Gmsh Info:" << '\n';

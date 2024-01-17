@@ -18,7 +18,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <cmath>
-#include <compare>
 #include <cstddef>
 #include <vector>
 
@@ -86,7 +85,7 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
   for (Isize i = 0; i < this->number_; i++) {
     const std::vector<PerAdjacencyElementInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
-    Real adjacency_size = 0;
+    Real adjacency_size = 0.0;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
       adjacency_size += point.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
                         point.gaussian_quadrature_.weight_;
@@ -105,7 +104,7 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
   for (Isize i = 0; i < this->number_; i++) {
     const std::vector<PerAdjacencyElementInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
-    Real adjacency_size = 0;
+    Real adjacency_size = 0.0;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
       adjacency_size += line.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
                         line.gaussian_quadrature_.weight_;
@@ -119,60 +118,31 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
 
 template <typename AdjacencyElementTrait>
   requires(AdjacencyElementTrait::kElementType == ElementEnum::Point)
-inline void calculateNormVec(const Isize adjacency_sequence_in_parent, Eigen::Matrix<Real, 1, 1>& transition_matrix) {
+inline void calculateNormalVector(const Isize adjacency_sequence_in_parent, Eigen::Vector<Real, 1>& normal_vector) {
   if (adjacency_sequence_in_parent == 0) {
-    transition_matrix(0) = -1.0;
+    normal_vector(0) = -1.0;
   } else if (adjacency_sequence_in_parent == 1) {
-    transition_matrix(0) = 1.0;
+    normal_vector(0) = 1.0;
   }
 }
 
 template <typename AdjacencyElementTrait>
   requires(AdjacencyElementTrait::kElementType == ElementEnum::Line)
-inline void calculateNormVec(const Eigen::Matrix<Real, 2, AdjacencyElementTrait::kAllNodeNumber>& node_coordinate,
-                             Eigen::Matrix<Real, 2, 2>& transition_matrix) {
+inline void calculateNormalVector(const Eigen::Matrix<Real, 2, AdjacencyElementTrait::kAllNodeNumber>& node_coordinate,
+                                  Eigen::Vector<Real, 2>& normal_vector) {
   const Eigen::Rotation2D<Real> rotation{-kPi / 2.0};
-  const Eigen::Vector<Real, 2> normal_vector =
-      rotation * (node_coordinate.col(1) - node_coordinate.col(0)).normalized();
-  transition_matrix.col(0) = normal_vector;
-  transition_matrix.col(1) << -normal_vector.y(), normal_vector.x();
+  normal_vector = rotation * (node_coordinate.col(1) - node_coordinate.col(0)).normalized();
 }
 
 template <typename AdjacencyElementTrait>
-  requires(AdjacencyElementTrait::kElementType == ElementEnum::Triangle)
-inline void calculateNormVec(const Eigen::Matrix<Real, 3, AdjacencyElementTrait::kAllNodeNumber>& node_coordinate,
-                             Eigen::Matrix<Real, 3, 3>& transition_matrix) {
-  // NOTE: this normal vector is just for show, it is not used in the calculation
-  const Eigen::Vector<Real, 3> normal_vector = (node_coordinate.col(1) - node_coordinate.col(0)).normalized();
-  // transition from (1, 0, 0) to normal_vector, calculated by Mathematica
-  // assuming normal_vector = {nx, ny, nz} is normalized and ny^2 + nz^2 != 0
-  // \begin{BNiceMatrix}
-  //   nx&-ny                                    &-nz\\
-  //   ny&\dfrac{nx ny^{2}+nz^{2}}{ny^{2}+nz^{2}}&\dfrac{(nx-1) ny nz}{ny^{2}+nz^{2}}\\
-  //   nz&\dfrac{(nx-1) ny nz}{ny^{2}+nz^{2}}    &\dfrac{nx nz^{2}+ny^{2}}{ny^{2}+nz^{2}}\\
-  // \end{BNiceMatrix}
-  const Real ny2addnz2 = std::pow(normal_vector.y(), 2) + std::pow(normal_vector.z(), 2);
-  if ((ny2addnz2 <=> kRealMin) == std::partial_ordering::less) [[unlikely]] {
-    transition_matrix.setIdentity();
-  } else {
-    transition_matrix.col(0) = normal_vector;
-    transition_matrix.col(1) << -normal_vector.y(),
-        (normal_vector.x() * std::pow(normal_vector.y(), 2) + std::pow(normal_vector.z(), 2)) / ny2addnz2,
-        ((normal_vector.x() - 1) * normal_vector.y() * normal_vector.z()) / ny2addnz2;
-    transition_matrix.col(2) << -normal_vector.z(),
-        ((normal_vector.x() - 1) * normal_vector.y() * normal_vector.z()) / ny2addnz2,
-        (normal_vector.x() * std::pow(normal_vector.z(), 2) + std::pow(normal_vector.y(), 2)) / ny2addnz2;
-  }
-}
-
-template <typename AdjacencyElementTrait>
-inline void AdjacencyElementMesh<AdjacencyElementTrait>::calculateAdjacencyElementTransitionMatrix() {
+inline void AdjacencyElementMesh<AdjacencyElementTrait>::calculateAdjacencyElementNormalVector() {
   for (Isize i = 0; i < this->interior_number_ + this->boundary_number_; i++) {
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
-      calculateNormVec<AdjacencyElementTrait>(this->element_(i).adjacency_sequence_in_parent_(0),
-                                              this->element_(i).transition_matrix_);
+      calculateNormalVector<AdjacencyElementTrait>(this->element_(i).adjacency_sequence_in_parent_(0),
+                                                   this->element_(i).normal_vector_);
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-      calculateNormVec<AdjacencyElementTrait>(this->element_(i).node_coordinate_, this->element_(i).transition_matrix_);
+      calculateNormalVector<AdjacencyElementTrait>(this->element_(i).node_coordinate_,
+                                                   this->element_(i).normal_vector_);
     }
   }
 }

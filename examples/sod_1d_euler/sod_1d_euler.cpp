@@ -38,20 +38,16 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system(kExampleDirectory / "sod_1d.msh", generateMesh);
+  // NOTE: This example is a modified version of Sod’s problem in 1D from Toro’s book; the solution has a right shock
+  // wave, a right travelling contact wave and a left sonic rarefaction wave; this test is useful for assessing the
+  // entropy satisfaction property of numerical methods.
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        1.4, (coordinate.x() < 0.5) ? 0.63 : 0.0, 1.0};
+        (coordinate.x() < 0.5) ? 1.0 : 0.125, (coordinate.x() < 0.5) ? 0.75 : 0.0, (coordinate.x() < 0.5) ? 1.4 : 1.12};
   });
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.63, 1.0});
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-2", {1.4, 0.63, 1.0});
-  // system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate) {
-  //   return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-  //       (coordinate.x() < 0.5) ? 1.0 : 0.125, 0.0, (coordinate.x() < 0.5) ? 1.4 : 1.12};
-  // });
-  // system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.0, 0.0, 1.4});
-  // system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-2", {0.125,
-  // 0.0, 1.12});
-  system.setTimeIntegration(false, 1, 0.6, 1e-10);
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.0, 0.75, 1.4});
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-2", {0.125, 0.0, 1.12});
+  system.setTimeIntegration(false, 1, 0.5, 1e-10);
   system.setViewConfig(-1, kExampleDirectory, "sod_1d", SubrosaDG::ViewConfigEnum::SolverSmoothness);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});

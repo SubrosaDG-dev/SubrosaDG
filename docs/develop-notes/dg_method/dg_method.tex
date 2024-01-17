@@ -1,6 +1,6 @@
 %%
-% @file ns-equ-var.tex
-% @brief The NS Equation variables note.
+% @file dg_method.tex
+% @brief The note of Discontinuous Galerkin Method.
 %
 % @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
 % @date 2023-07-18
@@ -13,7 +13,7 @@
 \documentclass{develop-note}
 
 \stencilset{
-  name = {NS equation variables}
+  name = {Discontinuous Galerkin Method},
 }
 
 \begin{document}
@@ -110,7 +110,7 @@ A discrete analog of \autoref{eq:5} is obtained by considering, within each elem
 \begin{equation}
   \mathbf{u}_{h}(\mathbf{x},t)_{h|E}=\sum_{i=1}^{N_{k}}\mathbf{U}_{i}(t)\phi_{i}^{k}(\mathbf{x}),\quad\mathbf{v}_{h}(\mathbf{x})_{h|E}=\sum_{i=1}^{N_{k}}\mathbf{V}_{i}\phi_{i}^{k}(\mathbf{x}),\quad\forall\mathbf{x}\in E,
 \end{equation}
-where the expansion coefficients $\mathbf{U}_{i}(t)$ and $\mathbf{V}_{i}$ denote the degrees of freedom of the numerical solution and of the test function in element $E$, and the $N_{k}$ (shape) functions $\phi_{i}^{k}$ are a base for the polynomial functions $\mathbb{P}^{k}$. Note that there is no global continuity requirement for $\mathbf{u}_{h}$ and $\mathbf{v}_{h}$, which are therefore discontinuous functions across element interfaces. By admitting only the functions $\mathbf{u}_{h|E}$ and $\mathbf{v}_{h|E}$, the summation in \autoref{eq:5} can be reduced to
+where the expansion coefficients $\mathbf{U}_{i}(t)$ and $\mathbf{V}_{i}$ denote the degrees of freedom of the numerical solution and the test function in element $E$, and the $N_{k}$ (shape) functions $\phi_{i}^{k}$ are a base for the polynomial functions $\mathbb{P}^{k}$. Note that there is no global continuity requirement for $\mathbf{u}_{h}$ and $\mathbf{v}_{h}$, which are therefore discontinuous functions across element interfaces. By admitting only the functions $\mathbf{u}_{h|E}$ and $\mathbf{v}_{h|E}$, the summation in \autoref{eq:5} can be reduced to
 \begin{equation}
   \label{eq:7}
   \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E}\mathbf{v}_{h}\mathbf{u}_{h}\mathrm{d}\Omega+\oint_{\partial E}\mathbf{v}_{h}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\mathbf{v}_{h}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\mathrm{d}\Omega=0\quad\forall\mathbf{v}_{h|E}.
@@ -129,14 +129,14 @@ where the expansion coefficients $\mathbf{U}_{i}(t)$ and $\mathbf{V}_{i}$ denote
 
 Notice that, when evaluating the boundary integral of \autoref{eq:8} at an internal interface, the flux terms are not uniquely defined due to the discontinuous function approximation. It is, therefore, necessary to substitute the Navier-Stokes flux function $\mathbf{F}$ with an interface numerical flux function $\mathbf{H}$ which, in general, depends on both interface states and which introduces a coupling between the unknowns of neighboring elements which would be otherwise completely missing. It is possible to show that \autoref{eq:8} with $\mathbf{F}$ replaced by the numerical flux function $\mathbf{H}$ is nothing but the Galerkin method applied to just one element $E$ with weakly prescribed boundary conditions obtained from the neighboring elements of $E$ if $\partial E\cap\partial\Omega =0$ or from the boundary conditions of the Navier-Stokes problem if $\partial E\cap\partial\Omega\neq 0$.
 
-We first restrict our attention to the treatment of interface integrals. The inviscid interface integral terms are constructed with a technique traditionally used in upwind finite volume schemes. The flux function $\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n}$ appearing in the second term of \autoref{eq:7} is in fact replaced by a numerical flux function $\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$ depends on the internal interface state $\mathbf{u}^{-}$, on the neighboring element interface state $\mathbf{u}^{+}$, and on the direction of the normal unit vector $\mathbf{n}$. In order to guarantee the formal accuracy of the scheme, the numerical flux is required to satisfy the consistency relations
+We first restrict our attention to the treatment of interface integrals. The inviscid interface integral terms are constructed with a technique traditionally used in upwind finite volume schemes. The flux function $\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n}$ appearing in the second term of \autoref{eq:7} is in fact replaced by a numerical flux function $\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$ depends on the internal interface state $\mathbf{u}^{-}$, on the neighboring element interface state $\mathbf{u}^{+}$, and on the direction of the normal unit vector $\mathbf{n}$. To guarantee the formal accuracy of the scheme, the numerical flux is required to satisfy the consistency relations
 \begin{equation}
   \label{eq:9}
   \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n},\quad\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=-\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};-\mathbf{n}),
 \end{equation}
-There are several numerical flux functions satisfying the above criteria such as the Godunov, Lax-Friedrichs, Roe, Engquist-Osher, or HLLE (Harten, Lax, Van Leer, Einfeldt).
+Several numerical flux functions satisfy the above criteria such as the Godunov, Lax-Friedrichs, Roe, Engquist-Osher, or HLLE (Harten, Lax, Van Leer, Einfeldt).
 
-The spatial discretization of the viscous term of the Navier-Stokes equations is constructed by resorting to a mixed finite element formulation. The first-order derivatives of the conservative variables appearing in the \autoref{eq:3}, in fact, lead to second-order derivatives when we evaluate the divergence of the viscous fluxes. However, second-order derivatives cannot be accommodated directly in a weak variational formulation using a discontinuous function space. We therefore regard the gradient of the conservative variables $\mathbf{S}(\mathbf{u})=\nabla\mathbf{u}$ as auxiliary unknowns of the Navier-Stokes equations, which are therefore reformulated as the following coupled system for the unknowns $\mathbf{S}$ and $\mathbf{u}$,
+The spatial discretization of the viscous term of the Navier-Stokes equations is constructed by resorting to a mixed finite element formulation. The first-order derivatives of the conservative variables appearing in the \autoref{eq:3} lead to second-order derivatives when we evaluate the divergence of the viscous fluxes. However, second-order derivatives cannot be accommodated directly in a weak variational formulation using a discontinuous function space. We therefore regard the gradient of the conservative variables $\mathbf{S}(\mathbf{u})=\nabla\mathbf{u}$ as auxiliary unknowns of the Navier-Stokes equations, which are therefore reformulated as the following coupled system for the unknowns $\mathbf{S}$ and $\mathbf{u}$,
 \begin{equation}
   \label{eq:10}
   \begin{aligned}
@@ -171,7 +171,7 @@ in which, once again, the boundary integral contains flux terms that are not uni
   \mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{S}^{-},\mathbf{u}^{+},\mathbf{S}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{S}^{-})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{+},\mathbf{S}^{+}))\cdot\mathbf{n}
 \end{equation}
 
-For there, an important issue in mixed finite element formulations is the choice of the approximation space for the auxiliary variables $\mathbf{S}_{h}$ with respect to the original ones, i.e., the conservative variables $\mathbf{u}_{h}$. In fact, an inconsistent choice of the two approximation spaces may result in a solution that is polluted by spurious modes. We have not tried to address this issue from a theoretical point of view. In practice, we have used the same type of approximations for both $\mathbf{u}_{h}$ and $\mathbf{S}_{h}$. It is important to point out that, even if both $\mathbf{u}_{h}$ and $\mathbf{S}_{h}$ have been chosen in the same function space (say that of piecewise discontinuous polynomial $\mathbb{P}^{k}$ of order k inside each element), the auxiliary variable $\mathbf{S}_{h}$ can, however, be regarded as the sum of an ``interface contribution'' $\mathbf{S}_{h}^{\mathrm{int}}\in\mathbb{P}^{k}$ plus a ``volume contribution'' $\mathbf{S}_{h}^{\mathrm{vol}}\in\mathbb{P}^{k-1}$. Since $\mathbf{S}_{h}^{\mathrm{int}}$ vanishes when the jump of $\mathbf{u}_{h}$ at the element interfaces is zero, the auxiliary variable $\mathbf{S}_{h}\in\mathbb{P}^{k-1}$ when the solution $\mathbf{u}_{h}\in\mathbb{P}^{k}$ is continuous. In bassi's later papers, he will write $\mathbf{S}_{h}^{\mathrm{vol}}$ as $\nabla\mathbf{u}$ and $\mathbf{S}_{h}^{\mathrm{int}}$ as $\mathbf{R}$, that is to say, there are $\mathbf{S}=\nabla\mathbf{u}+\mathbf{R}$. Here we use the original notation. Next, let's introduce the BR1 format first.
+For there, an important issue in mixed finite element formulations is the choice of the approximation space for the auxiliary variables $\mathbf{S}_{h}$ concerning the original ones, i.e., the conservative variables $\mathbf{u}_{h}$. An inconsistent choice of the two approximation spaces may result in a solution that is polluted by spurious modes. We have not tried to address this issue from a theoretical point of view. In practice, we have used the same type of approximations for both $\mathbf{u}_{h}$ and $\mathbf{S}_{h}$. It is important to point out that, even if both $\mathbf{u}_{h}$ and $\mathbf{S}_{h}$ have been chosen in the same function space (say that of piecewise discontinuous polynomial $\mathbb{P}^{k}$ of order k inside each element), the auxiliary variable $\mathbf{S}_{h}$ can, however, be regarded as the sum of an ``interface contribution'' $\mathbf{S}_{h}^{\mathrm{int}}\in\mathbb{P}^{k}$ plus a ``volume contribution'' $\mathbf{S}_{h}^{\mathrm{vol}}\in\mathbb{P}^{k-1}$. Since $\mathbf{S}_{h}^{\mathrm{int}}$ vanishes when the jump of $\mathbf{u}_{h}$ at the element interfaces is zero, the auxiliary variable $\mathbf{S}_{h}\in\mathbb{P}^{k-1}$ when the solution $\mathbf{u}_{h}\in\mathbb{P}^{k}$ is continuous. In bassi's later papers, he will write $\mathbf{S}_{h}^{\mathrm{vol}}$ as $\nabla\mathbf{u}$ and $\mathbf{S}_{h}^{\mathrm{int}}$ as $\mathbf{R}$, that is to say, there are $\mathbf{S}=\nabla\mathbf{u}+\mathbf{R}$. Here we use the original notation. Next, let's introduce the BR1 format first.
 
 In order to define $\mathbf{S}_{h}^{\mathrm{int}}$ and $\mathbf{S}_{h}^{\mathrm{vol}}$, it is necessary to rewrite the numerical flux function in \autoref{eq:12} as $\mathbf{u}+(\mathbf{u}^{+}-\mathbf{u}^{-})/2$ (here $\mathbf{u}$ is the same as $\mathbf{u}^{-}$). By inserting this expression into the boundary integral of \autoref{eq:11}, we obtain
 \begin{equation}
@@ -189,7 +189,7 @@ $\mathbf{c}$ to be constant:
   \iiint_{V}\nabla f\mathrm{d}V=\oiint_{S}f\mathbf{n}\mathrm{d}S
 \end{equation}
 
-Therefore, the first and the last integrals appearing on the right-hand side of \autoref{eq:15} can be (back) integrated by parts so as to obtain a single volume integral, i.e.,
+Therefore, the first and the last integrals appearing on the right-hand side of \autoref{eq:15} can be (back) integrated by parts to obtain a single volume integral, i.e.,
 \begin{equation}
   \oint_{\partial E}\phi_{i}^{k}\mathbf{u}_{h}\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\phi_{i}^{k}\mathbf{u}_{h}\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\nabla\mathbf{u}_{h}\mathrm{d}\Omega.
 \end{equation}
@@ -213,7 +213,7 @@ So for the formulation of BR1, the \autoref{eq:13} can be rewritten as
     &-\int_{E}\nabla\phi_{i}^{k}\cdot(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{S}_{h}^{\mathrm{int}}+\mathbf{S}_{h}^{\mathrm{vol}}))\mathrm{d}\Omega=0\quad 1\leqslant i\leqslant N_{k}.
   \end{aligned}
 \end{equation}
-Unfortunately, this formulation can be shown to be singular in some model problems and, moreover, displays an unsatisfactory convergence rate for polynomial approximations of odd order.
+Unfortunately, this formulation can be shown to be singular in some model problems and displays an unsatisfactory convergence rate for polynomial approximations of odd order.
 
 A cure to this problem, which is BR2 format, has been found by replacing the $\mathbf{S}_{h}^{\mathrm{int}}$ in the contour integral of \autoref{eq:20} with ``face'' contributions redefined as
 \begin{equation}
@@ -275,7 +275,7 @@ From left to right, the reference element of order 1, order 2, and order 3 and t
 
 For the Lagrange basis functions, it is easy to construct their interpolation functions, and we can convert straight-line elements to curved elements by coordinate transformation. However, this type of element has certain disadvantages, mainly because of the internal nodes that increase with the increase of the interpolation function, thereby increasing the number of degrees of freedom of the element. The addition of these degrees of freedom usually does not improve the accuracy of the element, because the accuracy of the element is usually determined by the power of a complete polynomial.
 
-Next, let's discuss how to compute the derivatives of the basis functions at each element. This is necessary as they appear in the volume integration. Obtaining the derivatives of the basis functions with respect to the local coordinates is straightforward since they are polynomials. However, what we need are the derivatives of the basis functions with respect to the global coordinates, as we require them for computing the volume integration in the global coordinate system. To achieve this, we need to apply the chain rule, i.e.,
+Next, let's discuss how to compute the derivatives of the basis functions at each element. This is necessary as they appear in the volume integration. Obtaining the derivatives of the basis functions concerning the local coordinates is straightforward since they are polynomials. However, what we need are the derivatives of the basis functions concerning the global coordinates, as we require them for computing the volume integration in the global coordinate system. To achieve this, we need to apply the chain rule, i.e.,
 \begin{equation}
   \dfrac{\partial\phi_{i}^{k}}{\partial x_{j}}=\dfrac{\partial\phi_{i}^{k}}{\partial\bm{\xi}}\dfrac{\partial\bm{\xi}}{\partial x_{j}},
 \end{equation}
@@ -300,7 +300,7 @@ As the isoparametric element is used here, which means that the interpolation fu
 \begin{equation}
   \mathbf{x}=\sum_{i=1}^{N_{k}}\phi_{i}^{k}(\bm{\xi})\mathbf{x}_{i}.
 \end{equation}
-Therefore, we can use this formula to calculate the Jacobi matrix $[\mathbf{J}]$ and its transpose inverse matrix $[\mathbf{J}]^{-\mathrm{T}}$. In the program, we directly use gmsh's API to obtain the derivative values of the basis functions with respect to the reference element and the inverse matrix of the Jacobian for each element. Then, we calculate the derivative values of the basis functions with respect to the actual element. The \autoref{eq:8} in reference element $E'$ can be written as
+Therefore, we can use this formula to calculate the Jacobi matrix $[\mathbf{J}]$ and its transpose inverse matrix $[\mathbf{J}]^{-\mathrm{T}}$. In the program, we directly use gmsh's API to obtain the derivative values of the basis functions concerning the reference element and the inverse matrix of the Jacobian for each element. Then, we calculate the derivative values of the basis functions concerning the actual element. The \autoref{eq:8} in reference element $E'$ can be written as
 \begin{equation}
   \label{eq:30}
   \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E'}\phi_{i}^{k}\mathbf{u}_{h}|\mathbf{J}|\mathrm{d}\Omega'+\oint_{\partial E'}\phi_{i}^{k}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}|\mathbf{J}|\mathrm{d}\sigma'-\int_{E'}[\mathbf{J}]^{-\mathrm{T}}\cdot\nabla\phi_{i}^{k}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})|\mathbf{J}|\mathrm{d}\Omega'=0\quad 1\leqslant i\leqslant N_{k}.
@@ -339,7 +339,7 @@ However, for triangular elements, the situation is more complicated. The fundame
 \begin{equation}
   \int_{-1}^{1}\int_{-1}^{1-\xi_{1}}f(\xi_{1},\xi_{2})\mathrm{d}\xi_{2}\mathrm{d}\xi_{1}\approx\sum_{i=1}^{m}w_{k}f(\xi_{1,k},\xi_{2,k}),
 \end{equation}
-where $m$ denotes the number of integration points. Each point is characterized by three unknowns: $\omega_{k},\xi_{1,k}$ and $\xi_{2,k}$. If we want to solve for these three unknowns, we will need to solve a nonlinear system of algebraic equations. It is practically infeasible to make the calculation of the integration points and weights for higher values of $p$ by standard methods or mathematical software. Lyness\cite{lynessModerateDegreeSymmetric1975} proposed a sophisticated algorithm based on determining the points and weights within an equilateral triangle in polar coordinates, taking advantage of its multiple symmetries. The algorithm provides the minimum number of Gaussian points for any polynomial order $p$ and strongly reduces the size of the nonlinear system. Dunavant\cite{dunavantHighDegreeEfficient1985} extended the algorithm and calculated the points and weights up to the order $p=20$ (some weights being negative and some points lying outside the triangle). The position of integration points and values of the weights corresponding to other triangles can be obtained by a simple affine transformation.
+where $m$ denotes the number of integration points. Each point is characterized by three unknowns: $\omega_{k},\xi_{1,k}$ and $\xi_{2,k}$. If we want to solve for these three unknowns, we will need to solve a nonlinear system of algebraic equations. It is practically infeasible to calculate the integration points and weights for higher values of $p$ by standard methods or mathematical software. Lyness\cite{lynessModerateDegreeSymmetric1975} proposed a sophisticated algorithm based on determining the points and weights within an equilateral triangle in polar coordinates, taking advantage of its multiple symmetries. The algorithm provides the minimum number of Gaussian points for any polynomial order $p$ and strongly reduces the size of the nonlinear system. Dunavant\cite{dunavantHighDegreeEfficient1985} extended the algorithm and calculated the points and weights up to the order $p=20$ (some weights being negative and some points lying outside the triangle). The position of integration points and values of the weights corresponding to other triangles can be obtained by a simple affine transformation.
 
 The fact that some of the weights are negative means that the stability of the quadrature will tend to decrease when integrating oscillatory functions whose polynomial behavior exceeds the order of accuracy of the quadrature formulae. In this case, the schemes still can be used, but one has to combine them with spatial refinements of the reference element. If oscillations (or other excessive nonlinearities) in the integrated functions are expected, an application of adaptive formulae that compare results from several refinement levels may be a good idea.
 
@@ -349,7 +349,7 @@ We mentioned some methods for calculating convective numerical fluxes at \autore
 
 Here we first define some symbols that we will use next. The first is the value on the left and right sides of the conserved variable $\mathbf{u}$. $\mathbf{u}^{-}$ represents the value on the left side of the interface, and $\mathbf{u}^{+}$ represents the value on the right side of the interface. $V=u n_{x}+v n_{y}+w n_{z}$ represents the velocity along the interface normal vector.
 \begin{equation}
-  \mathbf{F}_{\mathrm{e,n}}=\mathbf{F}_{\mathrm{e}}\cdot\mathbf{n}=\mathbf{f}_{\mathrm{e}}n_{x}+\mathbf{g}_{\mathrm{e}}n_{y}+\mathbf{h}_{\mathrm{e}}n_{z}=\begin{bNiceMatrix}
+  \mathbf{F}_{\mathrm{e},n}=\mathbf{F}_{\mathrm{e}}\cdot\mathbf{n}=\mathbf{f}_{\mathrm{e}}n_{x}+\mathbf{g}_{\mathrm{e}}n_{y}+\mathbf{h}_{\mathrm{e}}n_{z}=\begin{bNiceMatrix}
     \rho(u n_{x}+v n_{y}+w n_{z})\\
     \rho u(u n_{x}+v n_{y}+w n_{z})+p n_{x}\\
     \rho v(u n_{x}+v n_{y}+w n_{z})+p n_{y}\\
@@ -364,17 +364,71 @@ Here we first define some symbols that we will use next. The first is the value 
   \end{bNiceMatrix}
 \end{equation}
 
+\subsection*{Lax-Friedrichs Scheme}
+
+The Lax-Friedrichs scheme is the simplest, and it is also the most stable scheme. The Lax-Friedrichs scheme can be evaluated by the following formula
+\begin{equation}
+  \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{F}_{\mathrm{e},n}(\mathbf{u}^{-})+\mathbf{F}_{\mathrm{e},n}(\mathbf{u}^{+}))-\dfrac{1}{2}\alpha(\mathbf{u}^{+}-\mathbf{u}^{-}),
+\end{equation}
+where $\alpha$ is the maximum eigenvalue of the Jacobian matrix $\mathbf{A}_{\mathrm{e},n}(\mathbf{u})=\partial\mathbf{F}_{\mathrm{e},n}/\partial\mathbf{u}$ of the convective flux along the normal vector direction. The eigenvalues are
+\begin{equation}
+  \lambda_{1}=V-c,\quad\lambda_{2}=V,\quad\lambda_{3}=V,\quad\lambda_{4}=V,\quad\lambda_{5}=V+c.
+\end{equation}
+
+\subsection*{HLLC Scheme}
+
+The derivation of the HLLC scheme is based on the book of Toro\cite{toroRiemannSolversNumerical2009a} and the paper of Batten et al.\cite{battenChoiceWavespeedsHLLC1997}. To determine completely the numerical fluxes in the HLLC scheme, we need to provide an algorithm for computing the wave speeds $S^{-}$, $S^{+}$ and $S^{*}$. The $S^{-}$ and $S^{+}$ are the speeds of the left and right waves, respectively, and $S^{*}$ is the speed of the contact wave. Here we use the pressure-based wave speed estimates proposed by Toro to calculate the wave speeds, whereby one first finds an estimate for the pressure $p^{*}$. For the estimate of the pressure, we use the ideal gases simplified PVRS approximate Riemann solver to calculate it.
+
+Step one is to calculate the pressure $p^{*}$, which is given by
+\begin{equation}
+  p^{*}=\max(0, p_{\mathrm{pvrs}}),\quad p_{\mathrm{pvrs}}=\dfrac{1}{2}(p^{-}+p^{+})-\dfrac{1}{2}(V^{+}-V^{-})\bar{\rho}\bar{c},\quad\bar{\rho}=\dfrac{1}{2}(\rho^{-}+\rho^{+}),\quad\bar{c}=\dfrac{1}{2}(c^{-}+c^{+}).
+\end{equation}
+
+Step two is to calculate the wave speeds $S^{-}$, $S^{+}$ and $S^{*}$. The $S^{-}$ and $S^{+}$ are the speeds of the left and right waves, respectively, which are given by
+\begin{equation}
+  S^{-}=V^{-}-c^{-}q^{-},\quad S^{+}=V^{+}+c^{+}q^{+},\quad q^{\pm}=
+  \begin{cases}
+    1&\text{if }p^{*}\leqslant p^{\pm},\\
+    \sqrt{1+\dfrac{\gamma+1}{2\gamma}\left(\dfrac{p^{*}}{p^{\pm}}-1\right)}&\text{if }p^{*}>p^{\pm}.
+  \end{cases}
+\end{equation}
+Then the $S^{*}$ is the speed of the contact wave, which is given by
+\begin{equation}
+  S^{*}=\dfrac{p^{+}-p^{-}+\rho^{-}V^{-}(S^{-}-V^{-})-\rho^{+}V^{+}(S^{+}-V^{+})}{\rho^{-}(S^{-}-V^{-})-\rho^{+}(S^{+}-V^{+})}.
+\end{equation}
+
+Step three is to calculate the HLLC numerical fluxes. The HLLC numerical fluxes are given by
+\begin{equation}
+  \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=
+  \begin{cases}
+    \mathbf{F}_{\mathrm{e},n}(\mathbf{u}^{-})&\text{if }0\leqslant S^{-},\\
+    \mathbf{F}_{\mathrm{e},n}(\mathbf{u}^{-})+S^{-}(\mathbf{u}^{*,-}-\mathbf{u}^{-})&\text{if }S^{-}\leqslant 0\leqslant S^{*},\\
+    \mathbf{F}_{\mathrm{e},n}(\mathbf{u}^{+})+S^{+}(\mathbf{u}^{*,+}-\mathbf{u}^{+})&\text{if }S^{*}\leqslant 0\leqslant S^{+},\\
+    \mathbf{F}_{\mathrm{e},n}(\mathbf{u}^{+})&\text{if }0\geqslant S^{+},
+  \end{cases}
+\end{equation}
+where $\mathbf{u}^{*,-}$ and $\mathbf{u}^{*,+}$ are the intermediate states on the left and right sides of the interface, respectively, which are given by
+\begin{equation}
+  \mathbf{u}^{*,\pm}=\begin{bNiceMatrix}
+    \rho^{\pm}\dfrac{S^{\pm}-V^{\pm}}{S^{\pm}-S^{*}}\\
+    \dfrac{\rho^{\pm}V^{\pm}(S^{\pm}-V^{\pm})+(p^{*}-p^{\pm})n_{x}}{S^{\pm}-S^{*}}\\
+    \dfrac{\rho^{\pm}V^{\pm}(S^{\pm}-V^{\pm})+(p^{*}-p^{\pm})n_{y}}{S^{\pm}-S^{*}}\\
+    \dfrac{\rho^{\pm}V^{\pm}(S^{\pm}-V^{\pm})+(p^{*}-p^{\pm})n_{z}}{S^{\pm}-S^{*}}\\
+    \dfrac{\rho^{\pm}E^{\pm}(S^{\pm}-V^{\pm})-p^{\pm}V^{\pm}+p^{*}S^{*}}{S^{\pm}-S^{*}}
+  \end{bNiceMatrix}.
+\end{equation}
+
 \subsection*{Roe Scheme}
 
 Most of the derivation of the Roe scheme here comes from the books of Blazek\cite{blazekComputationalFluidDynamics2015} and Toro\cite{toroRiemannSolversNumerical2009a}, and some of them are derived by myself. The Roe scheme can be evaluated by the following formula
 \begin{equation}
   \begin{aligned}
-    \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})&=\dfrac{1}{2}(\mathbf{F}_{\mathrm{e,n}}(\mathbf{u}^{-})+\mathbf{F}_{\mathrm{e,n}}(\mathbf{u}^{+}))-\dfrac{1}{2}\tilde{\mathbf{A}}_{\mathrm{e}}(\mathbf{u}^{+}-\mathbf{u}^{-})\\
-    &=\dfrac{1}{2}(\mathbf{F}_{\mathrm{e,n}}(\mathbf{u}^{-})+\mathbf{F}_{\mathrm{e,n}}(\mathbf{u}^{+}))-\dfrac{1}{2}\sum_{i=1}^{m}\tilde{\alpha}_{i}|\tilde{\lambda}_{i}|\tilde{\mathbf{K}}_{i}.
+    \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})&=\dfrac{1}{2}(\mathbf{F}_{\mathrm{e},n}(\mathbf{u}^{-})+\mathbf{F}_{\mathrm{e},n}(\mathbf{u}^{+}))-\dfrac{1}{2}\tilde{\mathbf{A}}_{\mathrm{e}}(\mathbf{u}^{+}-\mathbf{u}^{-})\\
+    &=\dfrac{1}{2}(\mathbf{F}_{\mathrm{e},n}(\mathbf{u}^{-})+\mathbf{F}_{\mathrm{e},n}(\mathbf{u}^{+}))-\dfrac{1}{2}\sum_{i=1}^{m}\tilde{\alpha}_{i}|\tilde{\lambda}_{i}|\tilde{\mathbf{K}}_{i}.
   \end{aligned}
 \end{equation}
 
-The $\tilde{\mathbf{u}}$ is used to represent the Roe variable, and $\Delta{\mathbf{u}}$ is used to represent the difference on the element interface, that is $\mathbf{u}^{+}-\mathbf{u}^{-}$. Next we calculate the Jacobian matrix $\mathbf{A}_{e,n}(\mathbf{u})=\partial\mathbf{F}_{\mathrm{e,n}}/\partial\mathbf{u}$ of the convective flux along the normal vector direction. The form of $\mathbf{A}_{e,n}$ is complicated, so it is not given here. The eigenvalues are
+The $\tilde{\mathbf{u}}$ is used to represent the Roe variable, and $\Delta{\mathbf{u}}$ is used to represent the difference on the element interface, that is $\mathbf{u}^{+}-\mathbf{u}^{-}$. Next we calculate the Jacobian matrix $\mathbf{A}_{\mathrm{e},n}(\mathbf{u})=\partial\mathbf{F}_{\mathrm{e},n}/\partial\mathbf{u}$ of the convective flux along the normal vector direction. The form of $\mathbf{A}_{\mathrm{e},n}$ is complicated, so it is not given here. The eigenvalues are
 \begin{equation}
   \lambda_{1}=V-c,\quad\lambda_{2}=V,\quad\lambda_{3}=V,\quad\lambda_{4}=V,\quad\lambda_{5}=V+c,
 \end{equation}
@@ -416,7 +470,7 @@ where $c$ is the speed of sound. The corresponding right eigenvectors are
   \end{aligned}
 \end{equation}
 
-Since the form of $\mathbf{A}_{e,n}$ here is complex, calculating the eigenvector will require a little skill. First, we use the chain rule to calculate the derivative of $\mathbf{A}_{e,n}$ for $\mathbf{u}$. The original variable can be expressed as
+Since the form of $\mathbf{A}_{\mathrm{e},n}$ here is complex, calculating the eigenvector will require a little skill. First, we use the chain rule to calculate the derivative of $\mathbf{A}_{\mathrm{e},n}$ for $\mathbf{u}$. The original variable can be expressed as
 \begin{equation}
   \mathbf{q}=\begin{bNiceMatrix}
     \rho\\
@@ -428,15 +482,15 @@ Since the form of $\mathbf{A}_{e,n}$ here is complex, calculating the eigenvecto
 \end{equation}
 We cannot directly differentiate the conserved variable $\mathbf{u}$, so the chain rule is used here
 \begin{equation}
-  \mathbf{A}_{e,n}=\dfrac{\partial\mathbf{F}_{e,n}}{\partial\mathbf{u}}=\dfrac{\partial\mathbf{F}_{e,n}}{\partial\mathbf{q}}\dfrac{\partial\mathbf{q}}{\partial\mathbf{u}}=\dfrac{\partial\mathbf{F}_{e,n}}{\partial\mathbf{q}}\left(\dfrac{\partial\mathbf{u}}{\partial\mathbf{q}}\right)^{-1}.
+  \mathbf{A}_{\mathrm{e},n}=\dfrac{\partial\mathbf{F}_{\mathrm{e},n}}{\partial\mathbf{u}}=\dfrac{\partial\mathbf{F}_{\mathrm{e},n}}{\partial\mathbf{q}}\dfrac{\partial\mathbf{q}}{\partial\mathbf{u}}=\dfrac{\partial\mathbf{F}_{\mathrm{e},n}}{\partial\mathbf{q}}\left(\dfrac{\partial\mathbf{u}}{\partial\mathbf{q}}\right)^{-1}.
 \end{equation}
-Let's consider $\mathbf{M}=\partial\mathbf{u}/\partial\mathbf{q}$. We then proceed to apply a similarity transformation to $\mathbf{A}_{e,n}$, resulting in
+Let's consider $\mathbf{M}=\partial\mathbf{u}/\partial\mathbf{q}$. We then proceed to apply a similarity transformation to $\mathbf{A}_{\mathrm{e},n}$, resulting in
 \begin{equation}
-  \mathbf{a}_{e,n}=\mathbf{M}^{-1}\mathbf{A}_{e,n}\mathbf{M}.
+  \mathbf{a}_{\mathrm{e},n}=\mathbf{M}^{-1}\mathbf{A}_{\mathrm{e},n}\mathbf{M}.
 \end{equation}
-The form of $\mathbf{a}_{e,n}$ relative to $\mathbf{A}_{e,n}$ will be much simpler. And since we are performing a similarity transformation, the eigenvalues of these two matrices are the same. Let $\mathbf{k}$ be the right eigenvector of $\mathbf{a}_{e,n}$, then we have:
+The form of $\mathbf{a}_{\mathrm{e},n}$ relative to $\mathbf{A}_{\mathrm{e},n}$ will be much simpler. And since we are performing a similarity transformation, the eigenvalues of these two matrices are the same. Let $\mathbf{k}$ be the right eigenvector of $\mathbf{a}_{\mathrm{e},n}$, then we have:
 \begin{equation}
-  \mathbf{k}^{-1}\mathbf{a}_{e,n}\mathbf{k}=\mathbf{\Lambda}\Rightarrow(\mathbf{M}\mathbf{k})^{-1}\mathbf{A}_{e,n}\mathbf{M}\mathbf{k}=\mathbf{\Lambda}\Rightarrow\mathbf{K}=\mathbf{M k}.
+  \mathbf{k}^{-1}\mathbf{a}_{\mathrm{e},n}\mathbf{k}=\mathbf{\Lambda}\Rightarrow(\mathbf{M}\mathbf{k})^{-1}\mathbf{A}_{\mathrm{e},n}\mathbf{M}\mathbf{k}=\mathbf{\Lambda}\Rightarrow\mathbf{K}=\mathbf{M k}.
 \end{equation}
 Note that the eigenvectors obtained in this way may differ from those provided earlier, as eigenvectors can be scaled by a non-zero factor without affecting the final result. While this scaling doesn't impact the outcome, the coefficients in subsequent steps may vary.
 
@@ -586,12 +640,6 @@ The basis function coefficients, which is the \texttt{basis\_fun\_coeff} variabl
     a_{\rho E}^{0}&a_{\rho E}^{1}&\Cdots&a_{\rho E}^{n}
   \end{bNiceMatrix}_{\texttt{ConservedVarNum}\times\texttt{BasisFunNum}.}
 \end{equation}
-
-
-
-
-
-
 
 \newpage
 

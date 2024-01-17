@@ -1,6 +1,6 @@
 '''
 ' @file draw_figures.py
-' @brief Draw figures for the notes of NS equation variation.
+' @brief Draw figures for the notes of DG method.
 '
 ' @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
 ' @date 2023-07-31
@@ -62,7 +62,7 @@ ax.set_ylabel(r'$\eta$')
 ax.spines.right.set_visible(False)
 ax.spines.top.set_visible(False)
 
-plt.savefig('build/docs/develop-notes/ns-equ-var/figures/tri-reference.pdf')
+plt.savefig('build/docs/develop-notes/dg_method/figures/tri-reference.pdf')
 
 plt.clf()
 
@@ -118,7 +118,7 @@ ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
 ax.spines.right.set_visible(False)
 ax.spines.top.set_visible(False)
 
-plt.savefig('build/docs/develop-notes/ns-equ-var/figures/quad-reference.pdf')
+plt.savefig('build/docs/develop-notes/dg_method/figures/quad-reference.pdf')
 
 plt.clf()
 
@@ -158,7 +158,7 @@ ax.set_xlabel(r'$\xi$')
 ax.set_ylabel(r'$\eta$')
 ax.set_title(r'$\phi_{4}^{2}(\xi,\eta)=4\xi-4\xi^{2}-4\xi\eta$')
 
-plt.savefig('build/docs/develop-notes/ns-equ-var/figures/tri-basis-fun.pdf')
+plt.savefig('build/docs/develop-notes/dg_method/figures/tri-basis-fun.pdf')
 
 plt.clf()
 
@@ -198,4 +198,4 @@ ax.xaxis.set_major_locator(ticker.MultipleLocator(0.5))
 ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
 ax.set_title(r'$\phi_{5}^{2}(\xi,\eta)=\dfrac{1}{2}(-\eta+\eta^{2}+\xi^{2}\eta-\xi^{2}\eta^{2})$')
 
-plt.savefig('build/docs/develop-notes/ns-equ-var/figures/quad-basis-fun.pdf')
+plt.savefig('build/docs/develop-notes/dg_method/figures/quad-basis-fun.pdf')

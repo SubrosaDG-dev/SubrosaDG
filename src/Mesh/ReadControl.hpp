@@ -81,7 +81,7 @@ struct PerAdjacencyElementMesh : PerElementMeshBase<AdjacencyElementTrait> {
   Eigen::Vector<Isize, 2> parent_index_each_type_;
   Eigen::Vector<Isize, 2> adjacency_sequence_in_parent_;
   Eigen::Vector<Isize, 2> parent_gmsh_type_number_;
-  Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kDimension + 1> transition_matrix_;
+  Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> normal_vector_;
 };
 
 template <typename ElementTrait>
@@ -131,7 +131,7 @@ struct AdjacencyElementMesh {
 
   inline void getAdjacencyElementJacobian();
 
-  inline void calculateAdjacencyElementTransitionMatrix();
+  inline void calculateAdjacencyElementNormalVector();
 
   inline AdjacencyElementMesh() : gaussian_quadrature_(){};
 };

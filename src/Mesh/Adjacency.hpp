@@ -15,6 +15,7 @@
 
 #include <fmt/format.h>
 #include <gmsh.h>
+
 #include <Eigen/Core>
 #include <cstddef>
 #include <iostream>
@@ -246,7 +247,7 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementMesh
   this->getAdjacencyElementInteriorMesh(node_coordinate, information, interior_tag,
                                         adjacency_element_mesh_supplemental_map);
   this->getAdjacencyElementJacobian();
-  this->calculateAdjacencyElementTransitionMatrix();
+  this->calculateAdjacencyElementNormalVector();
 }
 
 }  // namespace SubrosaDG

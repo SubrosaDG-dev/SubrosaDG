@@ -58,6 +58,7 @@ docs/latex/*
 docs/xml/*
 
 # Build results
+[Bb]uild/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -70,7 +71,6 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
-build/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -130,3 +130,4 @@ __pycache__/
 
 /.idea
 *.DS_Store
+[Dd]evelop/

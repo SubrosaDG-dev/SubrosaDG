@@ -9,10 +9,11 @@ The project is still in early development stage.
 - [x] 1D Euler equation
 - [x] 2D Euler equation(Roe scheme)
 - [x] Ascii Tecplot output(for 1 order solution)
-- [ ] 2D Euler equation(Lax-Friedrichs scheme and HLLC scheme)
+- [x] 2D Euler equation(Lax-Friedrichs scheme and HLLC scheme)
 - [x] Ascii Tecplot output(reconstruction for high-order solution)
 - [x] Ascii Tecplot output(for different physical groups)
-- [ ] Riemann invariant for boundary condition
+- [x] Riemann invariant for boundary condition
+- [ ] Periodic boundary condition
 - [ ] High-order Gmsh .msh output
 - [x] Ascii/Binary VTU output
 - [ ] Documentation for variable storage

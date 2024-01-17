@@ -135,7 +135,8 @@ struct AdjacencyElementSolver : AdjacencyElementSolverBase<AdjacencyElementTrait
 
   inline void calculateBoundaryAdjacencyElementGaussianQuadrature(
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
+      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
+          boundary_condition,
       Solver<SimulationControl>& solver);
 };
 

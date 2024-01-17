@@ -49,4 +49,4 @@ endfunction()
 
 add_dependencies(all_docs all_develop_notes)
 
-add_subdirectory(ns-equ-var)
+add_subdirectory(dg_method)
