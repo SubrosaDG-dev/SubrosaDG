@@ -1,6 +1,6 @@
 #[[
 # @file CMakeLists.txt
-# @brief The cmake file for SubrosaDG example naca0012.
+# @brief The cmake file for SubrosaDG example naca0012_2d_euler.
 #
 # @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
 # @date 2022-11-02

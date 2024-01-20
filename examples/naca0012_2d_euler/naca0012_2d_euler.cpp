@@ -30,8 +30,7 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
 using SimulationControl =
     SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
                                       SubrosaDG::ThermodynamicModelEnum::ConstantE,
-                                      SubrosaDG::EquationOfStateEnum::IdealGas,
-                                      SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs,
+                                      SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
                                       SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
 
 inline std::array<double, 64> naca0012_point_x_array{
@@ -44,7 +43,6 @@ inline std::array<double, 64> naca0012_point_x_array{
     0.0093149, 0.0052468, 0.0023342, 0.0005839};
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
-  gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
   Eigen::Map<Eigen::RowVector<double, 64>> naca0012_point_x{naca0012_point_x_array.data()};
   Eigen::Matrix<double, 2, 64, Eigen::RowMajor> naca0012_point;
   naca0012_point.row(0) = naca0012_point_x;
@@ -154,7 +152,8 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system(kExampleDirectory / "naca0012_2d.msh", generateMesh);
+  SubrosaDG::System<SimulationControl> system{};
+  system.setMesh(kExampleDirectory / "naca0012_2d.msh", generateMesh);
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
         1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0};
@@ -162,6 +161,7 @@ int main(int argc, char* argv[]) {
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticWall>("bc-2");
+  system.synchronize();
   system.setTimeIntegration(false, 1, 1.5, 1e-10);
   system.setViewConfig(-1, kExampleDirectory, "naca0012_2d", SubrosaDG::ViewConfigEnum::SolverSmoothness);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

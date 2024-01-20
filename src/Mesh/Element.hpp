@@ -20,6 +20,9 @@
 #include <format>
 #include <magic_enum.hpp>
 #include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "Mesh/ReadControl.hpp"
@@ -42,23 +45,22 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
   this->element_.resize(this->number_);
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).gmsh_tag_ = static_cast<Isize>(element_tags[static_cast<Usize>(i)]);
-    this->element_(i).gmsh_physical_name_ =
-        information.gmsh_tag_to_element_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_name_;
+    this->element_(i).gmsh_physical_index_ =
+        information.gmsh_tag_to_element_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_index_;
     this->element_(i).element_index_ = i;
-    information.physical_group_information_[this->element_(i).gmsh_physical_name_].element_number_++;
-    information.physical_group_information_[this->element_(i).gmsh_physical_name_].element_gmsh_type_.emplace_back(
+    const std::string gmsh_physical_name =
+        information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_)].second;
+    information.physical_information_[gmsh_physical_name].element_number_++;
+    information.physical_information_[gmsh_physical_name].element_gmsh_type_.emplace_back(
         ElementTrait::kGmshTypeNumber);
-    information.physical_group_information_[this->element_(i).gmsh_physical_name_].element_gmsh_tag_.emplace_back(
-        this->element_(i).gmsh_tag_);
-    information.physical_group_information_[this->element_(i).gmsh_physical_name_].node_number_ +=
-        ElementTrait::kAllNodeNumber;
+    information.physical_information_[gmsh_physical_name].element_gmsh_tag_.emplace_back(this->element_(i).gmsh_tag_);
+    information.physical_information_[gmsh_physical_name].node_number_ += ElementTrait::kAllNodeNumber;
     information.gmsh_tag_to_element_information_[this->element_(i).gmsh_tag_].element_index_ = i;
     for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
       const auto node_tag = static_cast<Isize>(node_tags[static_cast<Usize>(i * ElementTrait::kAllNodeNumber + j)]);
       this->element_(i).node_coordinate_.col(j) = node_coordinate.col(node_tag - 1);
       this->element_(i).node_tag_(j) = node_tag;
-      information.physical_group_information_[this->element_(i).gmsh_physical_name_].node_gmsh_tag_.emplace_back(
-          node_tag);
+      information.physical_information_[gmsh_physical_name].node_gmsh_tag_.emplace_back(node_tag);
       node_element_number(node_tag - 1)++;
     }
   }

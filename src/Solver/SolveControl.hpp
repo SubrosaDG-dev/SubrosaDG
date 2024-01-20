@@ -16,7 +16,6 @@
 #include <Eigen/Core>
 #include <fstream>
 #include <memory>
-#include <string>
 #include <unordered_map>
 
 #include "Mesh/ReadControl.hpp"
@@ -73,7 +72,7 @@ struct ElementSolver {
 
   inline void initializeElementSolver(
       const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
-      const std::unordered_map<std::string, InitialCondition<SimulationControl>>& initial_condition);
+      const std::unordered_map<Isize, InitialCondition<SimulationControl>>& initial_condition);
 
   inline void copyElementBasisFunctionCoefficient();
 
@@ -135,8 +134,7 @@ struct AdjacencyElementSolver : AdjacencyElementSolverBase<AdjacencyElementTrait
 
   inline void calculateBoundaryAdjacencyElementGaussianQuadrature(
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-          boundary_condition,
+      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       Solver<SimulationControl>& solver);
 };
 
@@ -196,8 +194,8 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void initializeSolver(
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-      std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-      const std::unordered_map<std::string, InitialCondition<SimulationControl>>& initial_condition);
+      std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
+      const std::unordered_map<Isize, InitialCondition<SimulationControl>>& initial_condition);
 
   inline void copyBasisFunctionCoefficient();
 
@@ -212,8 +210,7 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void calculateAdjacencyGaussianQuadrature(
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-          boundary_condition);
+      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
 
   inline void calculateResidual(const Mesh<SimulationControl>& mesh);
 
@@ -223,8 +220,7 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void stepSolver(
       int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-      const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-          boundary_condition,
+      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
 
   inline void calculateRelativeError(const Mesh<SimulationControl>& mesh);

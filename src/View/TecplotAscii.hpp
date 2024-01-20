@@ -91,8 +91,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousA
     Eigen::Matrix<Isize, AdjacencyElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
     const Isize element_index, Isize& column) {
   Variable<SimulationControl> variable;
-  const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
-                                     .element_gmsh_tag_[static_cast<Usize>(element_index)];
+  const Isize element_gmsh_tag =
+      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   const Eigen::Matrix<int, AdjacencyElementTrait::kTecplotBasicNodeNumber, AdjacencyElementTrait::kSubNumber>
@@ -142,8 +142,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousE
   Variable<SimulationControl> variable;
   const ElementViewVariable<ElementTrait, SimulationControl>& element_view_variable =
       this->variable_.*(decltype(this->variable_)::template getElement<ElementTrait>());
-  const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
-                                     .element_gmsh_tag_[static_cast<Usize>(element_index)];
+  const Isize element_gmsh_tag =
+      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   const Eigen::Matrix<int, ElementTrait::kTecplotBasicNodeNumber, ElementTrait::kSubNumber> sub_connectivity{
@@ -171,10 +171,10 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousF
     Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
     Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
     Eigen::Matrix<Isize, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic>& element_connectivity) {
-  const Isize element_number = mesh.information_.physical_group_information_.at(physical_name).element_number_;
+  const Isize element_number = mesh.information_.physical_information_.at(physical_name).element_number_;
   for (Isize i = 0, column = 0; i < element_number; i++) {
     const Isize element_gmsh_type =
-        mesh.information_.physical_group_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
+        mesh.information_.physical_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
     if constexpr (Dimension == 1) {
       if constexpr (IsAdjacency) {
         this->writeDiscontinuousAdjacencyElement<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
@@ -209,10 +209,9 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousAdja
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
     Eigen::Matrix<Isize, AdjacencyElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
     const Isize element_index, Isize& column) {
-  const ordered_set<Isize> node_gmsh_tag =
-      mesh_information.physical_group_information_.at(physical_name).node_gmsh_tag_;
-  const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
-                                     .element_gmsh_tag_[static_cast<Usize>(element_index)];
+  const ordered_set<Isize> node_gmsh_tag = mesh_information.physical_information_.at(physical_name).node_gmsh_tag_;
+  const Isize element_gmsh_tag =
+      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   const Eigen::Matrix<int, AdjacencyElementTrait::kTecplotBasicNodeNumber, AdjacencyElementTrait::kSubNumber>
@@ -237,10 +236,9 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousElem
     const ElementMesh<ElementTrait>& element_mesh,
     Eigen::Matrix<Isize, ElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
     const Isize element_index, Isize& column) {
-  const ordered_set<Isize> node_gmsh_tag =
-      mesh_information.physical_group_information_.at(physical_name).node_gmsh_tag_;
-  const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
-                                     .element_gmsh_tag_[static_cast<Usize>(element_index)];
+  const ordered_set<Isize> node_gmsh_tag = mesh_information.physical_information_.at(physical_name).node_gmsh_tag_;
+  const Isize element_gmsh_tag =
+      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   const Eigen::Matrix<int, ElementTrait::kTecplotBasicNodeNumber, ElementTrait::kSubNumber> sub_connectivity{
@@ -264,9 +262,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousFiel
     Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
     Eigen::Matrix<Isize, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic>& element_connectivity) {
   Variable<SimulationControl> variable;
-  const Isize element_number = mesh.information_.physical_group_information_.at(physical_name).element_number_;
-  const ordered_set<Isize> node_gmsh_tag =
-      mesh.information_.physical_group_information_.at(physical_name).node_gmsh_tag_;
+  const Isize element_number = mesh.information_.physical_information_.at(physical_name).element_number_;
+  const ordered_set<Isize> node_gmsh_tag = mesh.information_.physical_information_.at(physical_name).node_gmsh_tag_;
   for (Isize i = 0; const auto gmsh_tag : node_gmsh_tag) {
     variable.conserved_ = this->variable_.node_conserved_variable_.col(gmsh_tag - 1);
     variable.calculateComputationalFromConserved(thermal_model);
@@ -277,7 +274,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousFiel
   }
   for (Isize i = 0, column = 0; i < element_number; i++) {
     const Isize element_gmsh_type =
-        mesh.information_.physical_group_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
+        mesh.information_.physical_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
     if constexpr (Dimension == 1) {
       if constexpr (IsAdjacency) {
         this->writeContinuousAdjacencyElementConnectivity<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
@@ -313,9 +310,9 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeView(
   Eigen::Matrix<Isize, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic> element_connectivity;
   const Isize node_number =
       ((this->config_enum_ & ViewConfigEnum::SolverSmoothness) == ViewConfigEnum::SolverSmoothness)
-          ? static_cast<Isize>(mesh.information_.physical_group_information_.at(physical_name).node_gmsh_tag_.size())
-          : mesh.information_.physical_group_information_.at(physical_name).node_number_;
-  const Isize element_number = mesh.information_.physical_group_information_.at(physical_name).element_number_;
+          ? static_cast<Isize>(mesh.information_.physical_information_.at(physical_name).node_gmsh_tag_.size())
+          : mesh.information_.physical_information_.at(physical_name).node_number_;
+  const Isize element_number = mesh.information_.physical_information_.at(physical_name).element_number_;
   const Isize element_sub_number = getElementSubNumber<Dimension, SimulationControl::kPolynomialOrder>();
   node_coordinate.resize(Eigen::NoChange, node_number);
   node_variable.resize(static_cast<Isize>(this->variable_vector_.size()), node_number);
@@ -343,7 +340,10 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::stepView(
   this->variable_.readRawBinary(mesh, this->config_enum_, this->raw_binary_finout_);
   this->setViewFout(step, fout);
   this->writeAsciiVariableList(fout);
-  for (const auto& [dim, physical_name] : mesh.information_.physical_group_) {
+  for (const auto& [dim, physical_name] : mesh.information_.physical_) {
+    if (mesh.information_.periodic_physical_.contains(physical_name)) {
+      continue;
+    }
     if constexpr (SimulationControl::kDimension == 1) {
       if (dim == 1) {
         this->writeView<1, false>(step, physical_name, mesh, thermal_model, fout);

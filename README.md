@@ -13,7 +13,7 @@ The project is still in early development stage.
 - [x] Ascii Tecplot output(reconstruction for high-order solution)
 - [x] Ascii Tecplot output(for different physical groups)
 - [x] Riemann invariant for boundary condition
-- [ ] Periodic boundary condition
+- [x] Periodic boundary condition
 - [ ] High-order Gmsh .msh output
 - [x] Ascii/Binary VTU output
 - [ ] Documentation for variable storage

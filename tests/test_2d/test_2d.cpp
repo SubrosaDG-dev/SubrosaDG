@@ -107,15 +107,16 @@ void runTest() {
     }
   };
   const std::string output_prefix = std::format("test_2d_{}_{}", magic_enum::enum_name(P), kGenerateMeshPrefix());
-  SubrosaDG::System<SimulationControl> system = SubrosaDG::System<SimulationControl>(
-      kTestDirectory / (output_prefix + ".msh"), generateMesh<P, MeshModelType>, false);
+  SubrosaDG::System<SimulationControl> system{false};
+  system.setMesh(kTestDirectory / (output_prefix + ".msh"), generateMesh<P, MeshModelType>, {});
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.1, 0.0, 1.0};
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.1, 0.0, 1.0});
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticWall>("bc-2");
+  system.synchronize();
   system.setTimeIntegration(false, 1, 1.0, 1e-10);
-  system.setViewConfig(-1, kTestDirectory, output_prefix + "_D");
+  system.setViewConfig(-1, kTestDirectory, output_prefix + "_D", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Temperature, SubrosaDG::ViewVariableEnum::Pressure,
                           SubrosaDG::ViewVariableEnum::SoundSpeed, SubrosaDG::ViewVariableEnum::MachNumber,

@@ -909,7 +909,8 @@ StringStringMap writeDataSetHeader( Writer&& writer,
         attributes["NumberOfComponents"] = std::to_string( ncomponents );
     }
 
-    if( ntuples > 0 ) {
+    if( ntuples > 0 )
+    {
         attributes["NumberOfTuples"] = std::to_string( ntuples );
     }
 

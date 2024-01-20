@@ -15,7 +15,6 @@
 
 #include <Eigen/Core>
 #include <memory>
-#include <string>
 #include <type_traits>
 #include <unordered_map>
 
@@ -193,8 +192,7 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void
 AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateBoundaryAdjacencyElementGaussianQuadrature(
     const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-    const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-        boundary_condition,
+    const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
     Solver<SimulationControl>& solver) {
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(std::remove_reference<decltype(mesh)>::type::template getAdjacencyElement<AdjacencyElementTrait>());
@@ -216,7 +214,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateBound
       left_gaussian_quadrature_node_variable.getFromParent(parent_gmsh_type_number, parent_index_each_type,
                                                            adjacency_gaussian_quadrature_node_sequence_in_parent, mesh,
                                                            thermal_model, solver);
-      boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_name_)
+      boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_index_)
           ->calculateBoundaryConvectiveFlux(thermal_model, adjacency_element_mesh.element_(i).normal_vector_,
                                             left_gaussian_quadrature_node_variable, flux);
       const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
@@ -233,8 +231,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateBound
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::calculateAdjacencyGaussianQuadrature(
     const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-    const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-        boundary_condition) {
+    const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition) {
   if constexpr (SimulationControl::kDimension == 1) {
     this->point_.calculateInteriorAdjacencyElementGaussianQuadrature(mesh, thermal_model, *this);
     this->point_.calculateBoundaryAdjacencyElementGaussianQuadrature(mesh, thermal_model, boundary_condition, *this);

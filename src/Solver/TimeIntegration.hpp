@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <array>
 #include <memory>
-#include <string>
 #include <unordered_map>
 
 #include "Mesh/ReadControl.hpp"
@@ -229,8 +228,7 @@ inline void Solver<SimulationControl>::calculateRelativeError(const Mesh<Simulat
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::stepSolver(
     const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-    const std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>&
-        boundary_condition,
+    const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
   this->calculateGaussianQuadrature(mesh, thermal_model);
   this->calculateAdjacencyGaussianQuadrature(mesh, thermal_model, boundary_condition);

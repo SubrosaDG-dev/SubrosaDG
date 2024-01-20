@@ -29,11 +29,9 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
 using SimulationControl = SubrosaDG::SimulationControlEuler<
     2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
-    SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs, SubrosaDG::TimeIntegrationEnum::SSPRK3,
-    SubrosaDG::ViewModelEnum::Vtu>;
+    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
-  gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_point_coordinate;
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> separation_point_coordinate;
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> cylinder_point_coordinate;
@@ -113,12 +111,14 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system(kExampleDirectory / "cylinder_2d.msh", generateMesh);
+  SubrosaDG::System<SimulationControl> system{};
+  system.setMesh(kExampleDirectory / "cylinder_2d.msh", generateMesh);
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.1, 0.0, 1.0};
   });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.1, 0.0, 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticWall>("bc-2");
+  system.synchronize();
   system.setTimeIntegration(false, 1, 1.0, 1e-10);
   system.setViewConfig(-1, kExampleDirectory, "cylinder_2d", SubrosaDG::ViewConfigEnum::SolverSmoothness);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

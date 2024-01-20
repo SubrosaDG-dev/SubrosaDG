@@ -41,14 +41,20 @@ struct System {
   CommandLine<SimulationControl> command_line_;
   Mesh<SimulationControl> mesh_;
   ThermalModel<SimulationControl> thermal_model_;
-  std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>> boundary_condition_;
-  std::unordered_map<std::string, InitialCondition<SimulationControl>> initial_condition_;
+  std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>> boundary_condition_;
+  std::unordered_map<Isize, InitialCondition<SimulationControl>> initial_condition_;
   TimeIntegration<SimulationControl> time_integration_;
   Solver<SimulationControl> solver_;
   View<SimulationControl> view_;
 
+  inline void setMesh(const std::filesystem::path& mesh_file_path,
+                      const std::function<void(const std::filesystem::path& mesh_file_path)>& generate_mesh_function) {
+    this->mesh_.initializeMesh(mesh_file_path, generate_mesh_function);
+  }
+
   template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::AdiabaticWall)
+    requires(BoundaryConditionType == BoundaryConditionEnum::AdiabaticWall ||
+             BoundaryConditionType == BoundaryConditionEnum::Periodic)
   inline void addBoundaryCondition(const std::string&);
 
   template <BoundaryConditionEnum BoundaryConditionType>
@@ -61,31 +67,40 @@ struct System {
   inline void addBoundaryCondition<BoundaryConditionEnum::NormalFarfield>(
       const std::string& boundary_condition_name,
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
-    this->boundary_condition_[boundary_condition_name] =
+    const Isize boundary_condition_index = this->mesh_.getPhysicalNumber(boundary_condition_name);
+    this->boundary_condition_[boundary_condition_index] =
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionEnum::NormalFarfield>>();
-    this->boundary_condition_[boundary_condition_name]->variable_.primitive_ = boundary_condition_variable;
+    this->boundary_condition_[boundary_condition_index]->variable_.primitive_ = boundary_condition_variable;
   }
 
   template <>
   inline void addBoundaryCondition<BoundaryConditionEnum::RiemannFarfield>(
       const std::string& boundary_condition_name,
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
-    this->boundary_condition_[boundary_condition_name] =
+    const Isize boundary_condition_index = this->mesh_.getPhysicalNumber(boundary_condition_name);
+    this->boundary_condition_[boundary_condition_index] =
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfield>>();
-    this->boundary_condition_[boundary_condition_name]->variable_.primitive_ = boundary_condition_variable;
+    this->boundary_condition_[boundary_condition_index]->variable_.primitive_ = boundary_condition_variable;
   }
 
   template <>
   inline void addBoundaryCondition<BoundaryConditionEnum::AdiabaticWall>(const std::string& boundary_condition_name) {
-    this->boundary_condition_[boundary_condition_name] =
+    const Isize boundary_condition_index = this->mesh_.getPhysicalNumber(boundary_condition_name);
+    this->boundary_condition_[boundary_condition_index] =
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticWall>>();
   }
 
-  inline void addInitialCondition(const std::string& initial_condition_name,
-                                  std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
-                                      const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>
-                                      initial_condition_function) {
-    this->initial_condition_[initial_condition_name].function_ = initial_condition_function;
+  template <>
+  inline void addBoundaryCondition<BoundaryConditionEnum::Periodic>(const std::string& boundary_condition_name) {
+    this->mesh_.addPeriodicBoundary(boundary_condition_name);
+  }
+
+  inline void addInitialCondition(
+      const std::string& initial_condition_name,
+      const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
+          const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>& initial_condition_function) {
+    const Isize initial_condition_index = this->mesh_.getPhysicalNumber(initial_condition_name);
+    this->initial_condition_[initial_condition_index].function_ = initial_condition_function;
   }
 
   template <ThermodynamicModelEnum ThermodynamicModelType>
@@ -109,17 +124,16 @@ struct System {
     this->thermal_model_.specific_heat_ratio_ = specific_heat_ratio;
   }
 
-  inline void setTimeIntegration(bool is_steady, int iteration_number, Real courant_friedrichs_lewy_number,
-                                 Real tolerance) {
+  inline void setTimeIntegration(const bool is_steady, const int iteration_number,
+                                 const Real courant_friedrichs_lewy_number, Real tolerance) {
     this->time_integration_.is_steady_ = is_steady;
     this->time_integration_.iteration_number_ = iteration_number;
     this->time_integration_.courant_friedrichs_lewy_number_ = courant_friedrichs_lewy_number;
     this->time_integration_.tolerance_ = tolerance;
   }
 
-  inline void setViewConfig(int io_interval, const std::filesystem::path& output_directory,
-                            const std::string& output_file_name_prefix,
-                            const ViewConfigEnum view_config = ViewConfigEnum::Default) {
+  inline void setViewConfig(const int io_interval, const std::filesystem::path& output_directory,
+                            const std::string& output_file_name_prefix, const ViewConfigEnum view_config) {
     if (io_interval <= 0) {
       this->view_.io_interval_ = this->time_integration_.iteration_number_;
     } else {
@@ -162,6 +176,8 @@ struct System {
     }
   }
 
+  inline void synchronize() { this->mesh_.readMeshElement(); }
+
   inline void solve() {
     this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
                                    this->initial_condition_);
@@ -194,12 +210,9 @@ struct System {
     this->view_.finalizeView();
   }
 
-  explicit inline System(
-      const std::filesystem::path& mesh_file_path,
-      const std::function<void(const std::filesystem::path& mesh_file_path)>& generate_mesh_function =
-          [](const std::filesystem::path&) {},
-      bool open_command_line = true)
-      : command_line_(open_command_line), mesh_(mesh_file_path, generate_mesh_function) {}
+  explicit inline System() : command_line_(true) {}
+
+  explicit inline System(const bool open_command_line) : command_line_(open_command_line) {}
 };
 
 }  // namespace SubrosaDG

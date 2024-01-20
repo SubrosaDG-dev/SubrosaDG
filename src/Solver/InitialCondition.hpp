@@ -16,7 +16,6 @@
 #include <Eigen/Core>
 #include <functional>
 #include <memory>
-#include <string>
 #include <unordered_map>
 
 #include "Mesh/ReadControl.hpp"
@@ -30,30 +29,17 @@
 
 namespace SubrosaDG {
 
-template <typename SimulationControl, int Dimension>
-struct InitialConditionData;
-
 template <typename SimulationControl>
-struct InitialConditionData<SimulationControl, 1> {
+struct InitialCondition {
   std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
-      const Eigen::Vector<Real, 1>& coordinate)>
+      const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>
       function_;
 };
-
-template <typename SimulationControl>
-struct InitialConditionData<SimulationControl, 2> {
-  std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
-      const Eigen::Vector<Real, 2>& coordinate)>
-      function_;
-};
-
-template <typename SimulationControl>
-struct InitialCondition : InitialConditionData<SimulationControl, SimulationControl::kDimension> {};
 
 template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::initializeElementSolver(
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
-    const std::unordered_map<std::string, InitialCondition<SimulationControl>>& initial_condition) {
+    const std::unordered_map<Isize, InitialCondition<SimulationControl>>& initial_condition) {
   this->number_ = element_mesh.number_;
   this->element_.resize(this->number_);
   this->delta_time_.resize(this->number_);
@@ -65,7 +51,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::i
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>
         quadrature_node_conserved_variable;
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      variable.primitive_ = initial_condition.at(element_mesh.element_(i).gmsh_physical_name_)
+      variable.primitive_ = initial_condition.at(element_mesh.element_(i).gmsh_physical_index_)
                                 .function_(element_mesh.element_(i).gaussian_quadrature_node_coordinate_.col(j));
       variable.calculateConservedFromPrimitive(thermal_model);
       quadrature_node_conserved_variable.col(j) = variable.conserved_;
@@ -81,8 +67,8 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::i
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::initializeSolver(
     const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-    std::unordered_map<std::string, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-    const std::unordered_map<std::string, InitialCondition<SimulationControl>>& initial_condition) {
+    std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
+    const std::unordered_map<Isize, InitialCondition<SimulationControl>>& initial_condition) {
   for (auto& [boundary_condition_name, boundary_condition_variable] : boundary_condition) {
     boundary_condition_variable->variable_.calculateConservedFromPrimitive(thermal_model);
     boundary_condition_variable->variable_.calculateComputationalFromPrimitive(thermal_model);

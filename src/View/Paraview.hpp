@@ -97,8 +97,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeDiscontinuousA
   Variable<SimulationControl> variable;
   const std::array<int, AdjacencyElementTrait::kAllNodeNumber> vtk_connectivity{
       getElementVTKConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()};
-  const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
-                                     .element_gmsh_tag_[static_cast<Usize>(element_index)];
+  const Isize element_gmsh_tag =
+      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   const Isize parent_index_each_type = adjacency_element_mesh.element_(element_index).parent_index_each_type_(0);
@@ -145,8 +145,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeDiscontinuousE
       this->variable_.*(decltype(this->variable_)::template getElement<ElementTrait>());
   const std::array<int, ElementTrait::kAllNodeNumber> vtk_connectivity{
       getElementVTKConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>()};
-  const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
-                                     .element_gmsh_tag_[static_cast<Usize>(element_index)];
+  const Isize element_gmsh_tag =
+      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   for (Isize i = 0; i < ElementTrait::kAllNodeNumber; i++) {
@@ -172,10 +172,10 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeDiscontinuousF
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
     Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type) {
-  const Isize element_number = mesh.information_.physical_group_information_.at(physical_name).element_number_;
+  const Isize element_number = mesh.information_.physical_information_.at(physical_name).element_number_;
   for (Isize i = 0, column = 0; i < element_number; i++) {
     const Isize element_gmsh_type =
-        mesh.information_.physical_group_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
+        mesh.information_.physical_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
     if constexpr (Dimension == 1) {
       if constexpr (IsAdjacency) {
         this->writeDiscontinuousAdjacencyElement<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
@@ -213,10 +213,9 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeContinuousAdja
     Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, const Isize element_index, Isize& column) {
   const std::array<int, AdjacencyElementTrait::kAllNodeNumber> vtk_connectivity{
       getElementVTKConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()};
-  const ordered_set<Isize> node_gmsh_tag =
-      mesh_information.physical_group_information_.at(physical_name).node_gmsh_tag_;
-  const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
-                                     .element_gmsh_tag_[static_cast<Usize>(element_index)];
+  const ordered_set<Isize> node_gmsh_tag = mesh_information.physical_information_.at(physical_name).node_gmsh_tag_;
+  const Isize element_gmsh_tag =
+      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
@@ -237,10 +236,9 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeContinuousElem
     Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, const Isize element_index, Isize& column) {
   const std::array<int, ElementTrait::kAllNodeNumber> vtk_connectivity{
       getElementVTKConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>()};
-  const ordered_set<Isize> node_gmsh_tag =
-      mesh_information.physical_group_information_.at(physical_name).node_gmsh_tag_;
-  const Isize element_gmsh_tag = mesh_information.physical_group_information_.at(physical_name)
-                                     .element_gmsh_tag_[static_cast<Usize>(element_index)];
+  const ordered_set<Isize> node_gmsh_tag = mesh_information.physical_information_.at(physical_name).node_gmsh_tag_;
+  const Isize element_gmsh_tag =
+      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   for (Isize i = 0; i < ElementTrait::kAllNodeNumber; i++) {
@@ -261,9 +259,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeContinuousFiel
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
     Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type) {
   Variable<SimulationControl> variable;
-  const Isize element_number = mesh.information_.physical_group_information_.at(physical_name).element_number_;
-  const ordered_set<Isize> node_gmsh_tag =
-      mesh.information_.physical_group_information_.at(physical_name).node_gmsh_tag_;
+  const Isize element_number = mesh.information_.physical_information_.at(physical_name).element_number_;
+  const ordered_set<Isize> node_gmsh_tag = mesh.information_.physical_information_.at(physical_name).node_gmsh_tag_;
   for (Isize i = 0; i < static_cast<Isize>(node_gmsh_tag.size()); i++) {
     for (Isize j = 0; j < SimulationControl::kDimension; j++) {
       node_coordinate(j, i) = mesh.node_coordinate_(j, node_gmsh_tag[static_cast<Usize>(i)] - 1);
@@ -274,7 +271,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeContinuousFiel
   }
   for (Isize i = 0, column = 0; i < element_number; i++) {
     const Isize element_gmsh_type =
-        mesh.information_.physical_group_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
+        mesh.information_.physical_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
     if constexpr (Dimension == 1) {
       if constexpr (IsAdjacency) {
         this->writeContinuousAdjacencyElementConnectivity<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
@@ -319,8 +316,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
   data_set_data.resize(this->variable_vector_.size() + 2);
   const Isize node_number =
       ((this->config_enum_ & ViewConfigEnum::SolverSmoothness) == ViewConfigEnum::SolverSmoothness)
-          ? static_cast<Isize>(mesh.information_.physical_group_information_.at(physical_name).node_gmsh_tag_.size())
-          : mesh.information_.physical_group_information_.at(physical_name).node_number_;
+          ? static_cast<Isize>(mesh.information_.physical_information_.at(physical_name).node_gmsh_tag_.size())
+          : mesh.information_.physical_information_.at(physical_name).node_number_;
   node_coordinate.resize(Eigen::NoChange, node_number);
   node_coordinate.setZero();
   node_variable.resize(static_cast<Isize>(this->variable_vector_.size()));
@@ -332,8 +329,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
       node_variable(i++).resize(node_number);
     }
   }
-  const Isize element_number = mesh.information_.physical_group_information_.at(physical_name).element_number_;
-  element_connectivity.resize(mesh.information_.physical_group_information_.at(physical_name).node_number_);
+  const Isize element_number = mesh.information_.physical_information_.at(physical_name).element_number_;
+  element_connectivity.resize(mesh.information_.physical_information_.at(physical_name).node_number_);
   element_offset.resize(element_number);
   element_type.resize(element_number);
   if ((this->config_enum_ & ViewConfigEnum::SolverSmoothness) == ViewConfigEnum::SolverSmoothness) {
@@ -370,7 +367,10 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::stepView(
     const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model) {
   std::string base_name;
   this->variable_.readRawBinary(mesh, this->config_enum_, this->raw_binary_finout_);
-  for (const auto& [dim, physical_name] : mesh.information_.physical_group_) {
+  for (const auto& [dim, physical_name] : mesh.information_.physical_) {
+    if (mesh.information_.periodic_physical_.contains(physical_name)) {
+      continue;
+    }
     this->getBaseName(step, physical_name, base_name);
     if constexpr (SimulationControl::kDimension == 1) {
       if (dim == 1) {

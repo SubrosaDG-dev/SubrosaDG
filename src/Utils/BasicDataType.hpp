@@ -70,9 +70,9 @@ class ordered_set {
   std::size_t size() const { return vec_.size(); }
 
   std::size_t find_index(const T& value) const {
-    auto it = map_.find(value);
-    if (it != map_.end()) {
-      return it->second;
+    auto iter = map_.find(value);
+    if (iter != map_.end()) {
+      return iter->second;
     }
     return static_cast<std::size_t>(-1);
   }

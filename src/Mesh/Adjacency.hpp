@@ -17,10 +17,14 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <cstddef>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "Mesh/ReadControl.hpp"
@@ -63,6 +67,30 @@ inline void getAdjacencyElementMeshSupplementalMap(
   }
 }
 
+template <typename AdjacencyElementTrait>
+  requires Is0dElement<AdjacencyElementTrait::kElementType>
+inline void fixAdjacencyElementMeshSupplementalMap(
+    const MeshInformation& information,
+    std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
+        adjacency_element_mesh_supplemental_map) {
+  std::vector<int> entity_tags;
+  gmsh::model::getEntitiesForPhysicalGroup(
+      0, information.physical_information_.at(*information.periodic_physical_.begin()).gmsh_tag_, entity_tags);
+  std::vector<std::size_t> element_tags;
+  std::vector<std::size_t> element_node_tags;
+  gmsh::model::mesh::getElementsByType(AdjacencyElementTrait::kGmshTypeNumber, element_tags, element_node_tags);
+  const std::pair<Isize, Isize> node_tag =
+      std::make_pair(static_cast<Isize>(element_node_tags[0]), static_cast<Isize>(element_node_tags[1]));
+  adjacency_element_mesh_supplemental_map[node_tag.first].is_recorded_ = true;
+  adjacency_element_mesh_supplemental_map[node_tag.first].parent_gmsh_tag_.emplace_back(
+      adjacency_element_mesh_supplemental_map[node_tag.second].parent_gmsh_tag_[0]);
+  adjacency_element_mesh_supplemental_map[node_tag.first].adjacency_sequence_in_parent_.emplace_back(
+      adjacency_element_mesh_supplemental_map[node_tag.second].adjacency_sequence_in_parent_[0]);
+  adjacency_element_mesh_supplemental_map[node_tag.first].parent_gmsh_type_number_.emplace_back(
+      adjacency_element_mesh_supplemental_map[node_tag.second].parent_gmsh_type_number_[0]);
+  adjacency_element_mesh_supplemental_map.erase(node_tag.second);
+}
+
 template <typename AdjacencyElementTrait, typename ElementTrait>
   requires Is2dElement<ElementTrait::kElementType>
 inline void getAdjacencyElementMeshSupplementalMap(
@@ -103,6 +131,63 @@ inline void getAdjacencyElementMeshSupplementalMap(
 }
 
 template <typename AdjacencyElementTrait>
+  requires Is1dElement<AdjacencyElementTrait::kElementType>
+inline void fixAdjacencyElementMeshSupplementalMap(
+    const MeshInformation& information,
+    std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
+        adjacency_element_mesh_supplemental_map) {
+  for (const auto& periodic_physical : information.periodic_physical_) {
+    std::vector<int> entity_tags;
+    gmsh::model::getEntitiesForPhysicalGroup(1, information.physical_information_.at(periodic_physical).gmsh_tag_,
+                                             entity_tags);
+    std::vector<int> entity_tags_master;
+    gmsh::model::mesh::getPeriodic(1, entity_tags, entity_tags_master);
+    auto iter = std::mismatch(entity_tags.begin(), entity_tags.end(), entity_tags_master.begin());
+    const std::pair<int, int> periodic_entity_tag = std::make_pair(*(iter.second), *(iter.first));
+    // int tag_master;
+    // std::vector<std::size_t> node_tags;
+    // std::vector<std::size_t> node_tags_master;
+    // std::vector<double> affine_transform;
+    // gmsh::model::mesh::getPeriodicNodes(1, periodic_entity_tag.second, tag_master, node_tags, node_tags_master,
+    //                                     affine_transform);
+    std::vector<std::size_t> element_tags_master;
+    std::vector<std::size_t> element_node_tags_master;
+    gmsh::model::mesh::getElementsByType(AdjacencyElementTrait::kGmshTypeNumber, element_tags_master,
+                                         element_node_tags_master, periodic_entity_tag.first);
+    std::vector<std::size_t> element_tags;
+    std::vector<std::size_t> element_node_tags;
+    gmsh::model::mesh::getElementsByType(AdjacencyElementTrait::kGmshTypeNumber, element_tags, element_node_tags,
+                                         periodic_entity_tag.second);
+    // std::vector<std::size_t> basic_node_tags_master;
+    // std::vector<std::size_t> basic_node_tags;
+    // for (Usize i = 0; i < element_tags.size(); i++) {
+    //   basic_node_tags_master.emplace_back(element_node_tags_master[i * AdjacencyElementTrait::kAllNodeNumber]);
+    //   basic_node_tags_master.emplace_back(element_node_tags_master[i * AdjacencyElementTrait::kAllNodeNumber + 1]);
+    //   basic_node_tags.emplace_back(element_node_tags[i * AdjacencyElementTrait::kAllNodeNumber]);
+    //   basic_node_tags.emplace_back(element_node_tags[i * AdjacencyElementTrait::kAllNodeNumber + 1]);
+    // }
+    // std::vector<std::size_t> edge_tags_master;
+    // std::vector<int> edge_orientations_master;
+    // gmsh::model::mesh::getEdges(basic_node_tags_master, edge_tags_master, edge_orientations_master);
+    // std::vector<std::size_t> edge_tags;
+    // std::vector<int> edge_orientations;
+    // gmsh::model::mesh::getEdges(basic_node_tags, edge_tags, edge_orientations);
+    for (Usize i = 0; i < element_tags_master.size(); i++) {
+      const auto element_tag_master = static_cast<Isize>(element_tags_master[i]);
+      const auto element_tag = static_cast<Isize>(element_tags[i]);
+      adjacency_element_mesh_supplemental_map[element_tag_master].is_recorded_ = true;
+      adjacency_element_mesh_supplemental_map[element_tag_master].parent_gmsh_tag_.emplace_back(
+          adjacency_element_mesh_supplemental_map[element_tag].parent_gmsh_tag_[0]);
+      adjacency_element_mesh_supplemental_map[element_tag_master].adjacency_sequence_in_parent_.emplace_back(
+          adjacency_element_mesh_supplemental_map[element_tag].adjacency_sequence_in_parent_[0]);
+      adjacency_element_mesh_supplemental_map[element_tag_master].parent_gmsh_type_number_.emplace_back(
+          adjacency_element_mesh_supplemental_map[element_tag].parent_gmsh_type_number_[0]);
+      adjacency_element_mesh_supplemental_map.erase(element_tag);
+    }
+  }
+}
+
+template <typename AdjacencyElementTrait>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoundaryMesh(
     const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
     MeshInformation& information, const std::vector<Isize>& boundary_tag,
@@ -138,16 +223,16 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
       std::cout << fmt::format("Cannot find adjacency element with node tag: {}", fmt::join(node_tag, ", ")) << '\n';
       std::cout << "Check your physical group definition." << '\n';
     }
-    this->element_(i).gmsh_physical_name_ =
-        information.gmsh_tag_to_element_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_name_;
+    this->element_(i).gmsh_physical_index_ =
+        information.gmsh_tag_to_element_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_index_;
     this->element_(i).element_index_ = i;
-    information.physical_group_information_[this->element_(i).gmsh_physical_name_].element_number_++;
-    information.physical_group_information_[this->element_(i).gmsh_physical_name_].element_gmsh_type_.emplace_back(
+    const std::string gmsh_physical_name =
+        information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_)].second;
+    information.physical_information_[gmsh_physical_name].element_number_++;
+    information.physical_information_[gmsh_physical_name].element_gmsh_type_.emplace_back(
         AdjacencyElementTrait::kGmshTypeNumber);
-    information.physical_group_information_[this->element_(i).gmsh_physical_name_].element_gmsh_tag_.emplace_back(
-        this->element_(i).gmsh_tag_);
-    information.physical_group_information_[this->element_(i).gmsh_physical_name_].node_number_ +=
-        AdjacencyElementTrait::kAllNodeNumber;
+    information.physical_information_[gmsh_physical_name].element_gmsh_tag_.emplace_back(this->element_(i).gmsh_tag_);
+    information.physical_information_[gmsh_physical_name].node_number_ += AdjacencyElementTrait::kAllNodeNumber;
     information.gmsh_tag_to_element_information_[this->element_(i).gmsh_tag_].element_index_ = i;
     this->element_(i).parent_index_each_type_(0) =
         information.gmsh_tag_to_element_information_.at(adjacency_element_mesh_supplemental.parent_gmsh_tag_[0])
@@ -156,9 +241,9 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
         adjacency_element_mesh_supplemental.adjacency_sequence_in_parent_[0];
     this->element_(i).parent_gmsh_type_number_(0) = adjacency_element_mesh_supplemental.parent_gmsh_type_number_[0];
     information.gmsh_tag_to_sub_index_and_type_[adjacency_element_mesh_supplemental.parent_gmsh_tag_[0]].emplace_back(
-        i, AdjacencyElementTrait::kGmshTypeNumber);
+        AdjacencyElementTrait::kGmshTypeNumber, i);
     for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
-      information.physical_group_information_[this->element_(i).gmsh_physical_name_].node_gmsh_tag_.emplace_back(
+      information.physical_information_[gmsh_physical_name].node_gmsh_tag_.emplace_back(
           adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)]);
     }
   }
@@ -199,7 +284,7 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementInte
           adjacency_element_mesh_supplemental.parent_gmsh_type_number_[static_cast<Usize>(j)];
       information
           .gmsh_tag_to_sub_index_and_type_[adjacency_element_mesh_supplemental.parent_gmsh_tag_[static_cast<Usize>(j)]]
-          .emplace_back(i, AdjacencyElementTrait::kGmshTypeNumber);
+          .emplace_back(AdjacencyElementTrait::kGmshTypeNumber, i);
     }
   }
   gmsh::model::mesh::addElementsByType(entity_tag, AdjacencyElementTrait::kGmshTypeNumber, interior_gmsh_tag,
@@ -216,8 +301,7 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementMesh
   if constexpr (AdjacencyElementTrait::kDimension == 0) {
     getAdjacencyElementMeshSupplementalMap<AdjacencyElementTrait, LineTrait<AdjacencyElementTrait::kPolynomialOrder>>(
         adjacency_element_mesh_supplemental_map);
-  }
-  if constexpr (AdjacencyElementTrait::kDimension == 1) {
+  } else if constexpr (AdjacencyElementTrait::kDimension == 1) {
     gmsh::model::mesh::createEdges();
     if constexpr (HasTriangle<MeshModelType>) {
       getAdjacencyElementMeshSupplementalMap<AdjacencyElementTrait,
@@ -229,6 +313,9 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementMesh
                                              QuadrangleTrait<AdjacencyElementTrait::kPolynomialOrder>>(
           adjacency_element_mesh_supplemental_map);
     }
+  }
+  if (!information.periodic_physical_.empty()) {
+    fixAdjacencyElementMeshSupplementalMap<AdjacencyElementTrait>(information, adjacency_element_mesh_supplemental_map);
   }
   std::vector<Isize> interior_tag;
   std::vector<Isize> boundary_tag;

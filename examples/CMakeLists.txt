@@ -18,10 +18,12 @@ set(CMAKE_EXAMPLES_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$
 
 add_custom_target(all_examples)
 
+add_subdirectory(periodic_1d_euler)
+
+add_subdirectory(periodic_2d_euler)
+
 add_subdirectory(cylinder_2d_euler)
 
 add_subdirectory(naca0012_2d_euler)
-
-add_subdirectory(sod_1d_euler)
 
 add_dependencies(all_ci all_examples)
