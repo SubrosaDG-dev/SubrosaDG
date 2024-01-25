@@ -16,14 +16,10 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <filesystem>
-#include <format>
 #include <functional>
-#include <iterator>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -68,9 +64,10 @@ struct PerElementInformation {
 };
 
 struct MeshInformation {
-  std::vector<std::pair<int, std::string>> physical_;
-  std::unordered_set<std::string> periodic_physical_;
-  std::unordered_map<std::string, PhysicalInformation> physical_information_;
+  ordered_set<std::string> physical_;
+  std::vector<Isize> physical_dimension_;
+  std::unordered_set<Isize> periodic_physical_;
+  std::unordered_map<Isize, PhysicalInformation> physical_information_;
   std::unordered_map<Isize, PerElementPhysicalInformation> gmsh_tag_to_element_information_;
   std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>> gmsh_tag_to_sub_index_and_type_;
 };
@@ -250,18 +247,19 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
     std::vector<std::pair<int, int>> dim_tags;
     gmsh::model::getPhysicalGroups(dim_tags);
     for (Usize i = 0; i < dim_tags.size(); i++) {
-      const auto [dim, physical_tag] = dim_tags[i];
+      const auto [physical_dimension, physical_tag] = dim_tags[i];
       std::string name;
-      gmsh::model::getPhysicalName(dim, physical_tag, name);
-      this->information_.physical_.emplace_back(dim, name);
-      this->information_.physical_information_[name].gmsh_tag_ = physical_tag;
+      gmsh::model::getPhysicalName(physical_dimension, physical_tag, name);
+      this->information_.physical_.emplace_back(name);
+      this->information_.physical_dimension_.emplace_back(physical_dimension);
+      this->information_.physical_information_[static_cast<Isize>(i)].gmsh_tag_ = physical_tag;
       std::vector<int> entity_tags;
-      gmsh::model::getEntitiesForPhysicalGroup(dim, physical_tag, entity_tags);
+      gmsh::model::getEntitiesForPhysicalGroup(physical_dimension, physical_tag, entity_tags);
       for (const auto entity_tag : entity_tags) {
         std::vector<int> element_types;
         std::vector<std::vector<std::size_t>> element_tags;
         std::vector<std::vector<std::size_t>> node_tags;
-        gmsh::model::mesh::getElements(element_types, element_tags, node_tags, dim, entity_tag);
+        gmsh::model::mesh::getElements(element_types, element_tags, node_tags, physical_dimension, entity_tag);
         for (Usize j = 0; j < element_types.size(); j++) {
           for (const auto element_tag : element_tags[j]) {
             this->information_.gmsh_tag_to_element_information_[static_cast<Isize>(element_tag)].gmsh_physical_index_ =
@@ -272,18 +270,9 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
     }
   }
 
-  [[nodiscard]] inline Isize getPhysicalNumber(const std::string& physical_name) const {
-    auto iter =
-        std::find_if(this->information_.physical_.begin(), this->information_.physical_.end(),
-                     [&physical_name](const auto& physical_group) { return physical_group.second == physical_name; });
-    if (iter == this->information_.physical_.end()) {
-      throw std::runtime_error(std::format("Physical group {} is not found.", physical_name));
-    }
-    return static_cast<Isize>(std::distance(this->information_.physical_.begin(), iter));
-  }
-
   inline void addPeriodicBoundary(const std::string& physical_name) {
-    this->information_.periodic_physical_.emplace(physical_name);
+    const auto gmsh_physical_index = static_cast<Isize>(this->information_.physical_.find_index(physical_name));
+    this->information_.periodic_physical_.emplace(gmsh_physical_index);
   }
 
   inline void initializeMesh(

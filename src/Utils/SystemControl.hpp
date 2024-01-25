@@ -15,6 +15,7 @@
 
 #include <Eigen/Core>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <string>
@@ -67,7 +68,8 @@ struct System {
   inline void addBoundaryCondition<BoundaryConditionEnum::NormalFarfield>(
       const std::string& boundary_condition_name,
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
-    const Isize boundary_condition_index = this->mesh_.getPhysicalNumber(boundary_condition_name);
+    const auto boundary_condition_index =
+        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
     this->boundary_condition_[boundary_condition_index] =
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionEnum::NormalFarfield>>();
     this->boundary_condition_[boundary_condition_index]->variable_.primitive_ = boundary_condition_variable;
@@ -77,7 +79,8 @@ struct System {
   inline void addBoundaryCondition<BoundaryConditionEnum::RiemannFarfield>(
       const std::string& boundary_condition_name,
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
-    const Isize boundary_condition_index = this->mesh_.getPhysicalNumber(boundary_condition_name);
+    const auto boundary_condition_index =
+        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
     this->boundary_condition_[boundary_condition_index] =
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfield>>();
     this->boundary_condition_[boundary_condition_index]->variable_.primitive_ = boundary_condition_variable;
@@ -85,7 +88,8 @@ struct System {
 
   template <>
   inline void addBoundaryCondition<BoundaryConditionEnum::AdiabaticWall>(const std::string& boundary_condition_name) {
-    const Isize boundary_condition_index = this->mesh_.getPhysicalNumber(boundary_condition_name);
+    const auto boundary_condition_index =
+        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
     this->boundary_condition_[boundary_condition_index] =
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticWall>>();
   }
@@ -99,7 +103,8 @@ struct System {
       const std::string& initial_condition_name,
       const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
           const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>& initial_condition_function) {
-    const Isize initial_condition_index = this->mesh_.getPhysicalNumber(initial_condition_name);
+    const auto initial_condition_index =
+        static_cast<Isize>(this->mesh_.information_.physical_.find_index(initial_condition_name));
     this->initial_condition_[initial_condition_index].function_ = initial_condition_function;
   }
 
@@ -133,7 +138,7 @@ struct System {
   }
 
   inline void setViewConfig(const int io_interval, const std::filesystem::path& output_directory,
-                            const std::string& output_file_name_prefix, const ViewConfigEnum view_config) {
+                            const std::string_view output_file_name_prefix, const ViewConfigEnum view_config) {
     if (io_interval <= 0) {
       this->view_.io_interval_ = this->time_integration_.iteration_number_;
     } else {
@@ -179,6 +184,7 @@ struct System {
   inline void synchronize() { this->mesh_.readMeshElement(); }
 
   inline void solve() {
+    this->command_line_.initializeSolver(this->time_integration_.iteration_number_);
     this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
                                    this->initial_condition_);
     Real delta_time;
@@ -193,18 +199,17 @@ struct System {
         this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
       }
       this->solver_.calculateRelativeError(this->mesh_);
-      this->command_line_.updateSolver(this->time_integration_.iteration_number_, i, delta_time,
-                                       this->solver_.relative_error_, this->view_.error_finout_);
+      this->command_line_.updateSolver(i, delta_time, this->solver_.relative_error_, this->view_.error_finout_);
     }
   }
 
   inline void view(const bool delete_dir = true) {
+    this->command_line_.initializeView(this->time_integration_.iteration_number_ / this->view_.io_interval_);
     this->view_.initializeView(delete_dir, this->time_integration_.iteration_number_, this->mesh_);
     for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
       if (i % this->view_.io_interval_ == 0) {
         this->view_.stepView(i, this->mesh_, this->thermal_model_);
-        this->command_line_.updateView(this->time_integration_.iteration_number_ / this->view_.io_interval_,
-                                       i / this->view_.io_interval_);
+        this->command_line_.updateView();
       }
     }
     this->view_.finalizeView();

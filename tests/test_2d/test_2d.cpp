@@ -108,7 +108,7 @@ void runTest() {
   };
   const std::string output_prefix = std::format("test_2d_{}_{}", magic_enum::enum_name(P), kGenerateMeshPrefix());
   SubrosaDG::System<SimulationControl> system{false};
-  system.setMesh(kTestDirectory / (output_prefix + ".msh"), generateMesh<P, MeshModelType>, {});
+  system.setMesh(kTestDirectory / (output_prefix + ".msh"), generateMesh<P, MeshModelType>);
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.1, 0.0, 1.0};
   });

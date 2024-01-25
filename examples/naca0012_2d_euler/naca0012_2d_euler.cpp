@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticWall>("bc-2");
   system.synchronize();
   system.setTimeIntegration(false, 1, 1.5, 1e-10);
-  system.setViewConfig(-1, kExampleDirectory, "naca0012_2d", SubrosaDG::ViewConfigEnum::SolverSmoothness);
+  system.setViewConfig(-1, kExampleDirectory, "naca0012_2d", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
                           SubrosaDG::ViewVariableEnum::MachNumber});

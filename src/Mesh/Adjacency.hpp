@@ -136,9 +136,9 @@ inline void fixAdjacencyElementMeshSupplementalMap(
     const MeshInformation& information,
     std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
         adjacency_element_mesh_supplemental_map) {
-  for (const auto& periodic_physical : information.periodic_physical_) {
+  for (const auto& periodic_physical_index : information.periodic_physical_) {
     std::vector<int> entity_tags;
-    gmsh::model::getEntitiesForPhysicalGroup(1, information.physical_information_.at(periodic_physical).gmsh_tag_,
+    gmsh::model::getEntitiesForPhysicalGroup(1, information.physical_information_.at(periodic_physical_index).gmsh_tag_,
                                              entity_tags);
     std::vector<int> entity_tags_master;
     gmsh::model::mesh::getPeriodic(1, entity_tags, entity_tags_master);
@@ -227,12 +227,14 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
         information.gmsh_tag_to_element_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_index_;
     this->element_(i).element_index_ = i;
     const std::string gmsh_physical_name =
-        information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_)].second;
-    information.physical_information_[gmsh_physical_name].element_number_++;
-    information.physical_information_[gmsh_physical_name].element_gmsh_type_.emplace_back(
+        information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_)];
+    information.physical_information_[this->element_(i).gmsh_physical_index_].element_number_++;
+    information.physical_information_[this->element_(i).gmsh_physical_index_].element_gmsh_type_.emplace_back(
         AdjacencyElementTrait::kGmshTypeNumber);
-    information.physical_information_[gmsh_physical_name].element_gmsh_tag_.emplace_back(this->element_(i).gmsh_tag_);
-    information.physical_information_[gmsh_physical_name].node_number_ += AdjacencyElementTrait::kAllNodeNumber;
+    information.physical_information_[this->element_(i).gmsh_physical_index_].element_gmsh_tag_.emplace_back(
+        this->element_(i).gmsh_tag_);
+    information.physical_information_[this->element_(i).gmsh_physical_index_].node_number_ +=
+        AdjacencyElementTrait::kAllNodeNumber;
     information.gmsh_tag_to_element_information_[this->element_(i).gmsh_tag_].element_index_ = i;
     this->element_(i).parent_index_each_type_(0) =
         information.gmsh_tag_to_element_information_.at(adjacency_element_mesh_supplemental.parent_gmsh_tag_[0])
@@ -243,7 +245,7 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
     information.gmsh_tag_to_sub_index_and_type_[adjacency_element_mesh_supplemental.parent_gmsh_tag_[0]].emplace_back(
         AdjacencyElementTrait::kGmshTypeNumber, i);
     for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
-      information.physical_information_[gmsh_physical_name].node_gmsh_tag_.emplace_back(
+      information.physical_information_[this->element_(i).gmsh_physical_index_].node_gmsh_tag_.emplace_back(
           adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)]);
     }
   }

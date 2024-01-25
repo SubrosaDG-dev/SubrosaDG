@@ -74,7 +74,7 @@ class ordered_set {
     if (iter != map_.end()) {
       return iter->second;
     }
-    return static_cast<std::size_t>(-1);
+    return vec_.size();
   }
 
   T& operator[](std::size_t index) { return vec_[index]; }
@@ -82,10 +82,8 @@ class ordered_set {
   const T& operator[](std::size_t index) const { return vec_[index]; }
 };
 
-namespace std {
-
 template <typename T, std::size_t N>
-struct hash<unordered_array<T, N>> {
+struct std::hash<unordered_array<T, N>> {
   std::size_t operator()(const unordered_array<T, N>& arr) const {
     unordered_array<T, N> sorted_arr = arr;
     std::sort(sorted_arr.begin(), sorted_arr.end());
@@ -98,7 +96,7 @@ struct hash<unordered_array<T, N>> {
 };
 
 template <typename T, std::size_t N>
-struct equal_to<unordered_array<T, N>> {
+struct std::equal_to<unordered_array<T, N>> {
   bool operator()(const unordered_array<T, N>& arr1, const unordered_array<T, N>& arr2) const {
     unordered_array<T, N> sorted_arr1 = arr1;
     unordered_array<T, N> sorted_arr2 = arr2;
@@ -107,8 +105,6 @@ struct equal_to<unordered_array<T, N>> {
     return sorted_arr1 == sorted_arr2;
   }
 };
-
-}  // namespace std
 
 // NOLINTEND
 

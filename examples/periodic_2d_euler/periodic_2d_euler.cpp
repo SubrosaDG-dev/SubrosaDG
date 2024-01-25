@@ -23,10 +23,10 @@ using SimulationControl =
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::add("periodic_2d");
-  gmsh::model::geo::addPoint(0.0, 0.0, 0.0, 0.01);
-  gmsh::model::geo::addPoint(2.0, 0.0, 0.0, 0.01);
-  gmsh::model::geo::addPoint(2.0, 2.0, 0.0, 0.01);
-  gmsh::model::geo::addPoint(0.0, 2.0, 0.0, 0.01);
+  gmsh::model::geo::addPoint(0.0, 0.0, 0.0, 0.1);
+  gmsh::model::geo::addPoint(2.0, 0.0, 0.0, 0.1);
+  gmsh::model::geo::addPoint(2.0, 2.0, 0.0, 0.1);
+  gmsh::model::geo::addPoint(0.0, 2.0, 0.0, 0.1);
   gmsh::model::geo::addLine(1, 2);
   gmsh::model::geo::addLine(2, 3);
   gmsh::model::geo::addLine(4, 3);
@@ -63,8 +63,8 @@ int main(int argc, char* argv[]) {
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-2");
   system.synchronize();
-  system.setTimeIntegration(false, 100, 1.0, 1e-10);
-  system.setViewConfig(-1, kExampleDirectory, "periodic_2d", SubrosaDG::ViewConfigEnum::SolverSmoothness);
+  system.setTimeIntegration(false, 1, 1.0, 1e-10);
+  system.setViewConfig(-1, kExampleDirectory, "periodic_2d", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});
   system.solve();

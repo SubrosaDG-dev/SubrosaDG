@@ -1,7 +1,7 @@
 FROM fedora:rawhide
 
 RUN dnf update -y && \
-dnf install -y git cmake ccache ninja-build clang-devel llvm-devel gdb lldb lld libcxx-devel clang-tools-extra gcovr gperftools flamegraph python3-numpy eigen3-devel cgnslib-devel zip && \
+dnf install -y git cmake ccache ninja-build clang-devel llvm-devel gdb lldb lld libcxx-devel clang-tools-extra gcovr gperftools flamegraph python3-numpy eigen3-devel cgnslib-devel zip patchelf && \
 dnf clean all
 
 ENV CC=/usr/bin/clang
@@ -26,7 +26,7 @@ cd vcpkg && \
 ENV VCPKG_ROOT=/root/vcpkg
 
 RUN cd /root && \
-git clone --depth 1 --branch "gmsh_4_12_0" https://gitlab.onelab.info/gmsh/gmsh.git && \
+git clone --depth 1 --branch "gmsh_4_12_2" https://gitlab.onelab.info/gmsh/gmsh.git && \
 cd gmsh && \
 sed -i 's|set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")|set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib64")|' CMakeLists.txt && \
 mkdir build && \

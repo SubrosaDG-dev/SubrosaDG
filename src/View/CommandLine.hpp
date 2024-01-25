@@ -59,7 +59,15 @@ struct CommandLine {
     }
   }
 
-  inline void updateSolver(const int iteration_number, const int step, const Real delta_time,
+  inline void initializeSolver(const int iteration_number) {
+    if (this->is_open_) {
+      std::cout << '\n';
+      this->solver_progress_bar_.restart();
+      this->solver_progress_bar_.initialize(iteration_number, this->line_number_ + 2);
+    }
+  }
+
+  inline void updateSolver(const int step, const Real delta_time,
                            const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& new_error,
                            std::fstream& error_finout) {
     this->time_value_ += delta_time;
@@ -76,23 +84,21 @@ struct CommandLine {
       error_string += this->getLineInformation(this->time_value_deque_[i], this->error_deque_[i]) + '\n';
     }
     if (this->is_open_) {
-      if (step == 1) {
-        std::cout << '\n';
-        this->view_progress_bar_.restart();
-        this->solver_progress_bar_.initialize(iteration_number, this->line_number_ + 2);
-      }
       this->solver_progress_bar_ << error_string;
       this->solver_progress_bar_.update();
     }
   }
 
-  inline void updateView(const int iteration_number, const int step) {
+  inline void initializeView(const int iteration_number) {
     if (this->is_open_) {
-      if (step == 1) {
-        std::cout << '\n';
-        this->view_progress_bar_.restart();
-        this->view_progress_bar_.initialize(iteration_number, 1);
-      }
+      std::cout << '\n';
+      this->view_progress_bar_.restart();
+      this->view_progress_bar_.initialize(iteration_number, this->line_number_ + 2);
+    }
+  }
+
+  inline void updateView() {
+    if (this->is_open_) {
       this->view_progress_bar_.update();
     }
   }

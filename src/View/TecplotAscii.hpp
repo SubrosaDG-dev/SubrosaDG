@@ -60,7 +60,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeAsciiVariableL
 template <typename SimulationControl>
 template <int Dimension>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeAsciiHeader(const Real time_value,
-                                                                              const std::string_view physical_name,
+                                                                              const std::string_view physical_index,
                                                                               const Isize node_number,
                                                                               const Isize element_number,
                                                                               std::ofstream& fout) {
@@ -68,14 +68,14 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeAsciiHeader(co
   if constexpr (Dimension == 1) {
     header =
         std::format(R"(Zone T="{}", ZONETYPE=FELINESEG, NODES={}, ELEMENTS={}, DATAPACKING=POINT, SOLUTIONTIME={})",
-                    physical_name, node_number, element_number, time_value);
+                    physical_index, node_number, element_number, time_value);
   } else if constexpr (Dimension == 2) {
     header = std::format(
         R"(Zone T="{}", ZONETYPE=FEQUADRILATERAL, NODES={}, ELEMENTS={}, DATAPACKING=POINT, SOLUTIONTIME={})",
-        physical_name, node_number, element_number, time_value);
+        physical_index, node_number, element_number, time_value);
   } else if constexpr (Dimension == 3) {
     header = std::format(R"(Zone T="{}", ZONETYPE=FEBRICK, NODES={}, ELEMENTS={}, DATAPACKING=POINT, SOLUTIONTIME={})",
-                         physical_name, node_number, element_number, time_value);
+                         physical_index, node_number, element_number, time_value);
   }
   fout << header << '\n';
 }
@@ -83,7 +83,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeAsciiHeader(co
 template <typename SimulationControl>
 template <typename AdjacencyElementTrait>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousAdjacencyElement(
-    const std::string& physical_name, const MeshInformation& mesh_information,
+    const Isize physical_index, const MeshInformation& mesh_information,
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
     const ThermalModel<SimulationControl>& thermal_model,
     Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
@@ -92,7 +92,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousA
     const Isize element_index, Isize& column) {
   Variable<SimulationControl> variable;
   const Isize element_gmsh_tag =
-      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
+      mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   const Eigen::Matrix<int, AdjacencyElementTrait::kTecplotBasicNodeNumber, AdjacencyElementTrait::kSubNumber>
@@ -133,8 +133,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousA
 template <typename SimulationControl>
 template <typename ElementTrait>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousElement(
-    const std::string& physical_name, const MeshInformation& mesh_information,
-    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
+    const Isize physical_index, const MeshInformation& mesh_information, const ElementMesh<ElementTrait>& element_mesh,
+    const ThermalModel<SimulationControl>& thermal_model,
     Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
     Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
     Eigen::Matrix<Isize, ElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
@@ -143,7 +143,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousE
   const ElementViewVariable<ElementTrait, SimulationControl>& element_view_variable =
       this->variable_.*(decltype(this->variable_)::template getElement<ElementTrait>());
   const Isize element_gmsh_tag =
-      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
+      mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   const Eigen::Matrix<int, ElementTrait::kTecplotBasicNodeNumber, ElementTrait::kSubNumber> sub_connectivity{
@@ -166,23 +166,23 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousE
 template <typename SimulationControl>
 template <int Dimension, bool IsAdjacency>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousField(
-    const std::string& physical_name, const Mesh<SimulationControl>& mesh,
+    const Isize physical_index, const Mesh<SimulationControl>& mesh,
     const ThermalModel<SimulationControl>& thermal_model,
     Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
     Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
     Eigen::Matrix<Isize, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic>& element_connectivity) {
-  const Isize element_number = mesh.information_.physical_information_.at(physical_name).element_number_;
+  const Isize element_number = mesh.information_.physical_information_.at(physical_index).element_number_;
   for (Isize i = 0, column = 0; i < element_number; i++) {
     const Isize element_gmsh_type =
-        mesh.information_.physical_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
+        mesh.information_.physical_information_.at(physical_index).element_gmsh_type_[static_cast<Usize>(i)];
     if constexpr (Dimension == 1) {
       if constexpr (IsAdjacency) {
         this->writeDiscontinuousAdjacencyElement<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
-            physical_name, mesh.information_, mesh.line_, thermal_model, node_coordinate, node_variable,
+            physical_index, mesh.information_, mesh.line_, thermal_model, node_coordinate, node_variable,
             element_connectivity, i, column);
       } else {
         this->writeDiscontinuousElement<LineTrait<SimulationControl::kPolynomialOrder>>(
-            physical_name, mesh.information_, mesh.line_, thermal_model, node_coordinate, node_variable,
+            physical_index, mesh.information_, mesh.line_, thermal_model, node_coordinate, node_variable,
             element_connectivity, i, column);
       }
     } else if constexpr (Dimension == 2) {
@@ -190,11 +190,11 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousF
       } else {
         if (element_gmsh_type == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeDiscontinuousElement<TriangleTrait<SimulationControl::kPolynomialOrder>>(
-              physical_name, mesh.information_, mesh.triangle_, thermal_model, node_coordinate, node_variable,
+              physical_index, mesh.information_, mesh.triangle_, thermal_model, node_coordinate, node_variable,
               element_connectivity, i, column);
         } else if (element_gmsh_type == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeDiscontinuousElement<QuadrangleTrait<SimulationControl::kPolynomialOrder>>(
-              physical_name, mesh.information_, mesh.quadrangle_, thermal_model, node_coordinate, node_variable,
+              physical_index, mesh.information_, mesh.quadrangle_, thermal_model, node_coordinate, node_variable,
               element_connectivity, i, column);
         }
       }
@@ -205,13 +205,13 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeDiscontinuousF
 template <typename SimulationControl>
 template <typename AdjacencyElementTrait>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousAdjacencyElementConnectivity(
-    const std::string& physical_name, const MeshInformation& mesh_information,
+    const Isize physical_index, const MeshInformation& mesh_information,
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
     Eigen::Matrix<Isize, AdjacencyElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
     const Isize element_index, Isize& column) {
-  const ordered_set<Isize> node_gmsh_tag = mesh_information.physical_information_.at(physical_name).node_gmsh_tag_;
+  const ordered_set<Isize> node_gmsh_tag = mesh_information.physical_information_.at(physical_index).node_gmsh_tag_;
   const Isize element_gmsh_tag =
-      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
+      mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   const Eigen::Matrix<int, AdjacencyElementTrait::kTecplotBasicNodeNumber, AdjacencyElementTrait::kSubNumber>
@@ -232,13 +232,12 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousAdja
 template <typename SimulationControl>
 template <typename ElementTrait>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousElementConnectivity(
-    const std::string& physical_name, const MeshInformation& mesh_information,
-    const ElementMesh<ElementTrait>& element_mesh,
+    const Isize physical_index, const MeshInformation& mesh_information, const ElementMesh<ElementTrait>& element_mesh,
     Eigen::Matrix<Isize, ElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
     const Isize element_index, Isize& column) {
-  const ordered_set<Isize> node_gmsh_tag = mesh_information.physical_information_.at(physical_name).node_gmsh_tag_;
+  const ordered_set<Isize> node_gmsh_tag = mesh_information.physical_information_.at(physical_index).node_gmsh_tag_;
   const Isize element_gmsh_tag =
-      mesh_information.physical_information_.at(physical_name).element_gmsh_tag_[static_cast<Usize>(element_index)];
+      mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
   const Eigen::Matrix<int, ElementTrait::kTecplotBasicNodeNumber, ElementTrait::kSubNumber> sub_connectivity{
@@ -256,14 +255,14 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousElem
 template <typename SimulationControl>
 template <int Dimension, bool IsAdjacency>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousField(
-    const std::string& physical_name, const Mesh<SimulationControl>& mesh,
+    const Isize physical_index, const Mesh<SimulationControl>& mesh,
     const ThermalModel<SimulationControl>& thermal_model,
     Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
     Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
     Eigen::Matrix<Isize, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic>& element_connectivity) {
   Variable<SimulationControl> variable;
-  const Isize element_number = mesh.information_.physical_information_.at(physical_name).element_number_;
-  const ordered_set<Isize> node_gmsh_tag = mesh.information_.physical_information_.at(physical_name).node_gmsh_tag_;
+  const Isize element_number = mesh.information_.physical_information_.at(physical_index).element_number_;
+  const ordered_set<Isize> node_gmsh_tag = mesh.information_.physical_information_.at(physical_index).node_gmsh_tag_;
   for (Isize i = 0; const auto gmsh_tag : node_gmsh_tag) {
     variable.conserved_ = this->variable_.node_conserved_variable_.col(gmsh_tag - 1);
     variable.calculateComputationalFromConserved(thermal_model);
@@ -274,14 +273,14 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousFiel
   }
   for (Isize i = 0, column = 0; i < element_number; i++) {
     const Isize element_gmsh_type =
-        mesh.information_.physical_information_.at(physical_name).element_gmsh_type_[static_cast<Usize>(i)];
+        mesh.information_.physical_information_.at(physical_index).element_gmsh_type_[static_cast<Usize>(i)];
     if constexpr (Dimension == 1) {
       if constexpr (IsAdjacency) {
         this->writeContinuousAdjacencyElementConnectivity<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
-            physical_name, mesh.information_, mesh.line_, element_connectivity, i, column);
+            physical_index, mesh.information_, mesh.line_, element_connectivity, i, column);
       } else {
         this->writeContinuousElementConnectivity<LineTrait<SimulationControl::kPolynomialOrder>>(
-            physical_name, mesh.information_, mesh.line_, element_connectivity, i, column);
+            physical_index, mesh.information_, mesh.line_, element_connectivity, i, column);
       }
     }
     if constexpr (Dimension == 2) {
@@ -289,10 +288,10 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousFiel
       } else {
         if (element_gmsh_type == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeContinuousElementConnectivity<TriangleTrait<SimulationControl::kPolynomialOrder>>(
-              physical_name, mesh.information_, mesh.triangle_, element_connectivity, i, column);
+              physical_index, mesh.information_, mesh.triangle_, element_connectivity, i, column);
         } else if (element_gmsh_type == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeContinuousElementConnectivity<QuadrangleTrait<SimulationControl::kPolynomialOrder>>(
-              physical_name, mesh.information_, mesh.quadrangle_, element_connectivity, i, column);
+              physical_index, mesh.information_, mesh.quadrangle_, element_connectivity, i, column);
         }
       }
     }
@@ -302,7 +301,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeContinuousFiel
 template <typename SimulationControl>
 template <int Dimension, bool IsAdjacency>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeView(
-    const int step, const std::string& physical_name, const Mesh<SimulationControl>& mesh,
+    const int step, const Isize physical_index, const Mesh<SimulationControl>& mesh,
     const ThermalModel<SimulationControl>& thermal_model, std::ofstream& fout) {
   Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> node_coordinate;
   Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic> node_variable;
@@ -310,9 +309,9 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeView(
   Eigen::Matrix<Isize, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic> element_connectivity;
   const Isize node_number =
       ((this->config_enum_ & ViewConfigEnum::SolverSmoothness) == ViewConfigEnum::SolverSmoothness)
-          ? static_cast<Isize>(mesh.information_.physical_information_.at(physical_name).node_gmsh_tag_.size())
-          : mesh.information_.physical_information_.at(physical_name).node_number_;
-  const Isize element_number = mesh.information_.physical_information_.at(physical_name).element_number_;
+          ? static_cast<Isize>(mesh.information_.physical_information_.at(physical_index).node_gmsh_tag_.size())
+          : mesh.information_.physical_information_.at(physical_index).node_number_;
+  const Isize element_number = mesh.information_.physical_information_.at(physical_index).element_number_;
   const Isize element_sub_number = getElementSubNumber<Dimension, SimulationControl::kPolynomialOrder>();
   node_coordinate.resize(Eigen::NoChange, node_number);
   node_variable.resize(static_cast<Isize>(this->variable_vector_.size()), node_number);
@@ -320,14 +319,15 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeView(
                            node_number);
   element_connectivity.resize(Eigen::NoChange, element_number * element_sub_number);
   if ((this->config_enum_ & ViewConfigEnum::SolverSmoothness) == ViewConfigEnum::SolverSmoothness) {
-    this->writeContinuousField<Dimension, IsAdjacency>(physical_name, mesh, thermal_model, node_coordinate,
+    this->writeContinuousField<Dimension, IsAdjacency>(physical_index, mesh, thermal_model, node_coordinate,
                                                        node_variable, element_connectivity);
   } else {
-    this->writeDiscontinuousField<Dimension, IsAdjacency>(physical_name, mesh, thermal_model, node_coordinate,
+    this->writeDiscontinuousField<Dimension, IsAdjacency>(physical_index, mesh, thermal_model, node_coordinate,
                                                           node_variable, element_connectivity);
   }
   node_all_variable << node_coordinate, node_variable;
-  this->writeAsciiHeader<Dimension>(this->variable_.time_value_(step - 1), physical_name, node_number,
+  this->writeAsciiHeader<Dimension>(this->variable_.time_value_(step - 1),
+                                    mesh.information_.physical_[static_cast<Usize>(physical_index)], node_number,
                                     element_number * element_sub_number, fout);
   fout << node_all_variable.transpose() << '\n';
   fout << element_connectivity.transpose() << '\n';
@@ -340,20 +340,20 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::stepView(
   this->variable_.readRawBinary(mesh, this->config_enum_, this->raw_binary_finout_);
   this->setViewFout(step, fout);
   this->writeAsciiVariableList(fout);
-  for (const auto& [dim, physical_name] : mesh.information_.physical_) {
-    if (mesh.information_.periodic_physical_.contains(physical_name)) {
+  for (Isize i = 0; i < static_cast<Isize>(mesh.information_.physical_.size()); i++) {
+    if (mesh.information_.periodic_physical_.contains(i)) {
       continue;
     }
     if constexpr (SimulationControl::kDimension == 1) {
-      if (dim == 1) {
-        this->writeView<1, false>(step, physical_name, mesh, thermal_model, fout);
+      if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 1) {
+        this->writeView<1, false>(step, i, mesh, thermal_model, fout);
       }
     } else if constexpr (SimulationControl::kDimension == 2) {
-      if (dim == 1) {
+      if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 1) {
         // NOTE: The ParaView can not read the Tecplot ASCII file with FELINESG.
-        this->writeView<1, true>(step, physical_name, mesh, thermal_model, fout);
-      } else if (dim == 2) {
-        this->writeView<2, false>(step, physical_name, mesh, thermal_model, fout);
+        this->writeView<1, true>(step, i, mesh, thermal_model, fout);
+      } else if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 2) {
+        this->writeView<2, false>(step, i, mesh, thermal_model, fout);
       }
     }
   }
