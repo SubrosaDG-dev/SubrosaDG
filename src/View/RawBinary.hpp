@@ -84,7 +84,7 @@ inline void ElementViewVariable<ElementTrait, SimulationControl>::addNodeConserv
     const ElementMesh<ElementTrait>& element_mesh,
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic>& node_conserved_variable) {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for collapse(2) default(none) schedule(auto) \
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
     shared(Eigen::Dynamic, element_mesh, node_conserved_variable)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {

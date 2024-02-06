@@ -35,7 +35,7 @@ template <typename ElementTrait, typename SimulationControl, EquationModelEnum E
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementGaussianQuadrature(
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model) {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for collapse(2) default(none) schedule(auto) \
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
     shared(Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, thermal_model)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
@@ -142,7 +142,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateInter
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(std::remove_reference<decltype(mesh)>::type::template getAdjacencyElement<AdjacencyElementTrait>());
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for collapse(2) default(none) schedule(auto) \
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
     shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, solver)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < adjacency_element_mesh.interior_number_; i++) {
@@ -197,7 +197,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateBound
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(std::remove_reference<decltype(mesh)>::type::template getAdjacencyElement<AdjacencyElementTrait>());
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for collapse(2) default(none) schedule(auto) \
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
     shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, boundary_condition, solver)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = adjacency_element_mesh.interior_number_;
@@ -245,7 +245,7 @@ template <typename ElementTrait, typename SimulationControl, EquationModelEnum E
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementResidual(
     const ElementMesh<ElementTrait>& element_mesh) {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(auto) shared(Eigen::Dynamic, element_mesh)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).residual_.noalias() = this->element_(i).quadrature_without_gradient_basis_function_value_ *

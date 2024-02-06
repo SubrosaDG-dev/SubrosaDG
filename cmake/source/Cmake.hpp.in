@@ -26,6 +26,8 @@ inline constexpr std::string_view kSubrosaDGVersionString{"@SUBROSA_DG_VERSION_S
 
 inline const std::filesystem::path kProjectSourceDirectory{"@PROJECT_SOURCE_DIR@"};
 
+inline constexpr std::string_view kSubrosaDGBuildType{"@CMAKE_BUILD_TYPE@"};
+
 inline constexpr Usize kNumberOfPhysicalCores{@NUMBER_OF_PHYSICAL_CORES@};
 
 }  // namespace SubrosaDG

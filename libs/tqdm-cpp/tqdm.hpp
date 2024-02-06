@@ -115,8 +115,7 @@ class ProgressBar {
 
     std::stringstream bar;
 
-    bar << "\e[2K"
-        << "\e[" << delete_line_ << 'A';
+    bar << "\e[2K" << "\e[" << delete_line_ << 'A';
 
     bar << "Step: " << std::setw(num_order_) << progress_;
 

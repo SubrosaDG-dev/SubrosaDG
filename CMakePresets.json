@@ -13,43 +13,47 @@
             "binaryDir": "${sourceDir}/build"
         },
         {
-            "name": "Build minimum with release",
-            "displayName": "Build minimum with release",
-            "description": "Build minimum with release",
+            "name": "Build minimum in debug",
+            "displayName": "Build minimum in debug",
+            "description": "Build minimum in debug",
             "inherits": "Base",
             "cacheVariables": {
-                "SUBROSA_DG_BUILD_ALL": false,
-                "SUBROSA_DG_DEVELOP": false
-            }
-        },
-        {
-            "name": "Build all with release",
-            "displayName": "Build all with release",
-            "description": "Build all with release",
-            "inherits": "Base",
-            "cacheVariables": {
-                "SUBROSA_DG_BUILD_ALL": true,
-                "SUBROSA_DG_DEVELOP": false
-            }
-        },
-        {
-            "name": "Build minimum with debug",
-            "displayName": "Build minimum with debug",
-            "description": "Build minimum with debug",
-            "inherits": "Base",
-            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
                 "SUBROSA_DG_BUILD_ALL": false,
                 "SUBROSA_DG_DEVELOP": true
             }
         },
         {
-            "name": "Build all with debug",
-            "displayName": "Build all with debug",
-            "description": "Build all with debug",
+            "name": "Build all in debug",
+            "displayName": "Build all in debug",
+            "description": "Build all in debug",
             "inherits": "Base",
             "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
                 "SUBROSA_DG_BUILD_ALL": true,
                 "SUBROSA_DG_DEVELOP": true
+            }
+        },
+        {
+            "name": "Build all in release with debug info",
+            "displayName": "Build all in release with debug info",
+            "description": "Build all in release with debug info",
+            "inherits": "Base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "SUBROSA_DG_BUILD_ALL": true,
+                "SUBROSA_DG_DEVELOP": false
+            }
+        },
+        {
+            "name": "Build all in release",
+            "displayName": "Build all in release",
+            "description": "Build all in release",
+            "inherits": "Base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SUBROSA_DG_BUILD_ALL": true,
+                "SUBROSA_DG_DEVELOP": false
             }
         },
         {
@@ -58,6 +62,7 @@
             "description": "Build docs",
             "inherits": "Base",
             "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
                 "SUBROSA_DG_BUILD_DOCS": true,
                 "SUBROSA_DG_DEVELOP": true
             }

@@ -13,6 +13,10 @@
 #ifndef SUBROSA_DG_COMMAND_LINE_HPP_
 #define SUBROSA_DG_COMMAND_LINE_HPP_
 
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#include <omp.h>
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+
 #include <gmsh.h>
 
 #include <Eigen/Core>
@@ -21,6 +25,7 @@
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <tqdm.hpp>
@@ -114,29 +119,26 @@ struct CommandLine {
   inline CommandLine(const bool open_command_line) {
     this->is_open_ = open_command_line;
     if (this->is_open_) {
-      std::cout << "SubrosaDG Info:" << '\n';
-      std::cout << std::format("Version: {}", kSubrosaDGVersionString) << '\n';
-#ifdef SUBROSA_DG_DEVELOP
-      std::cout << "Build type: Debug" << '\n';
-#else   // SUBROSA_DG_DEVELOP
-      std::cout << "Build type: Release" << '\n';
-#endif  // SUBROSA_DG_DEVELOP
+      std::stringstream information;
+      information << "SubrosaDG Info:" << '\n';
+      information << std::format("Version: {}", kSubrosaDGVersionString) << '\n';
+      information << std::format("Build type: {}", kSubrosaDGBuildType) << '\n';
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-      std::cout << std::format("Number of physical cores: {}", kNumberOfPhysicalCores) << '\n';
+      information << std::format("Number of total threads: {}", omp_get_max_threads()) << '\n';
 #else   // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
-      std::cout << "Number of physical cores: 1" << '\n';
+      information << "Number of total threads: 1" << '\n';
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
-      std::cout << "Eigen SIMD Instructions: " << Eigen::SimdInstructionSetsInUse() << "\n\n";
-      std::cout << "Gmsh Info:" << '\n';
-      std::string info;
-      gmsh::option::getString("General.BuildInfo", info);
+      information << std::format("Eigen SIMD Instructions: {}", Eigen::SimdInstructionSetsInUse()) << "\n\n";
+      information << "Gmsh Info:" << '\n';
+      std::string gmsh_info;
+      gmsh::option::getString("General.BuildInfo", gmsh_info);
       std::regex re(";\\s*");
-      std::vector<std::string> lines{std::sregex_token_iterator(info.begin(), info.end(), re, -1),
+      std::vector<std::string> lines{std::sregex_token_iterator(gmsh_info.begin(), gmsh_info.end(), re, -1),
                                      std::sregex_token_iterator()};
       for (const auto& line : lines) {
-        std::cout << line << '\n';
+        information << line << '\n';
       };
-      std::cout << '\n';
+      std::cout << information.str() << '\n';
     } else {
       gmsh::option::setNumber("General.Terminal", 0);
     }

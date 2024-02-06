@@ -62,7 +62,7 @@ endif()
 
 # set compiler
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    set(COMPILER_PATH "/usr/bin")
+    set(COMPILER_PATH "/usr/bin;/usr/local/bin")
     set(CMAKE_C_COMPILER "/usr/bin/clang")
     set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
@@ -106,15 +106,9 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
         set(VCPKG_HOST_TRIPLET "aarch64-linux-dynamic-llvm")
         set(VCPKG_TARGET_TRIPLET "aarch64-linux-dynamic-llvm")
     endif()
-    set(COMPILER_PATH "/usr/bin;/usr/local/bin")
-    set(CMAKE_C_COMPILER "/usr/bin/clang")
-    set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     set(VCPKG_HOST_TRIPLET "arm64-osx-dynamic-llvm")
     set(VCPKG_TARGET_TRIPLET "arm64-osx-dynamic-llvm")
-    set(COMPILER_PATH "/opt/homebrew/opt/llvm/bin")
-    set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm/bin/clang")
-    set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm/bin/clang++")
 endif()
 
 # add vcpkg cmake
@@ -124,11 +118,11 @@ include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 message(STATUS "Build SubrosaDG: ${SUBROSA_DG_VERSION_STRING}")
 
 # set compilation option for develop
-if(SUBROSA_DG_DEVELOP)
-    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose Release or Debug" FORCE)
-else()
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug" FORCE)
-endif()
+# if(SUBROSA_DG_DEVELOP)
+#     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose Release or Debug" FORCE)
+# else()
+#     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose Release or Debug" FORCE)
+# endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # query the system cores number
@@ -141,18 +135,18 @@ cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PH
 # string(REGEX REPLACE "\n$" "" NUMBER_OF_PHYSICAL_CORES ${NUMBER_OF_PHYSICAL_CORES})
 message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 
-# check cxx23 support
+# check cxx20 support
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-std=c++23 cxx_std_23_support)
-if(NOT cxx_std_23_support)
-    message(FATAL_ERROR "SubrosaDG requires C++23 to compile.")
+check_cxx_compiler_flag(-std=c++20 cxx_std_20_support)
+if(NOT cxx_std_20_support)
+    message(FATAL_ERROR "SubrosaDG requires C++20 to compile.")
 endif()
 
 # set c and cxx standard for all target
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -162,9 +156,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # set(CMAKE_COLOR_DIAGNOSTICS ON)
 
 # set cmake output verbose on
-if(SUBROSA_DG_DEVELOP)
-    set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
-endif()
+set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
 
 # create .gdbinit and .lldbinit file
 if(SUBROSA_DG_DEVELOP)
@@ -173,11 +165,9 @@ if(SUBROSA_DG_DEVELOP)
 endif()
 
 # create vscode launch.json and settings.json
-if(SUBROSA_DG_DEVELOP)
-    file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/.vscode)
-    configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/launch.json.in ${PROJECT_SOURCE_DIR}/.vscode/launch.json @ONLY)
-    configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/settings.json.in ${PROJECT_SOURCE_DIR}/.vscode/settings.json @ONLY)
-endif()
+file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/.vscode)
+configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/launch.json.in ${PROJECT_SOURCE_DIR}/.vscode/launch.json @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/settings.json.in ${PROJECT_SOURCE_DIR}/.vscode/settings.json @ONLY)
 
 # create devcontainer devcontainer.json and Dockerfile
 if(SUBROSA_DG_DEVELOP)
@@ -303,8 +293,9 @@ endif()
 set(SUBROSA_DG_CXX_FLAGS)
 set(SUBROSA_DG_CXX_WARNING_FLAGS)
 set(SUBROSA_DG_CXX_COVER_FLAGS)
-set(SUBROSA_DG_CXX_FLAGS_DEBUG)
-set(SUBROSA_DG_CXX_FLAGS_RELEASE)
+set(SUBROSA_DG_CXX_DEBUG_FLAGS)
+set(SUBROSA_DG_CXX_RELWITHDEBINFO_FLAGS)
+set(SUBROSA_DG_CXX_RELEASE_FLAGS)
 
 # add coverage compilation option
 # set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
@@ -313,18 +304,16 @@ set(SUBROSA_DG_CXX_FLAGS_RELEASE)
 string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ -Wno-narrowing")
 string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation")
 # string(APPEND SUBROSA_DG_CXX_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
-string(APPEND SUBROSA_DG_CXX_FLAGS_DEBUG "${SUBROSA_DG_CXX_FLAGS} ${SUBROSA_DG_CXX_WARNING_FLAGS} \
-    ${SUBROSA_DG_CXX_COVER_FLAGS} -O0 -g3")
-string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "${SUBROSA_DG_CXX_FLAGS} ")
-if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
-    string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "-march=native")
-elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm64")
-    string(APPEND SUBROSA_DG_CXX_FLAGS_RELEASE "-mcpu=native")
-endif()
+string(APPEND SUBROSA_DG_CXX_DEBUG_FLAGS "${SUBROSA_DG_CXX_WARNING_FLAGS} ${SUBROSA_DG_CXX_COVER_FLAGS}")
+string(APPEND SUBROSA_DG_CXX_RELWITHDEBINFO_FLAGS "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native> \
+    $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},arm64>:-mcpu=native>")
+string(APPEND SUBROSA_DG_CXX_RELEASE_FLAGS "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native> \
+    $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},arm64>:-mcpu=native>")
 
 # set different compile option
-set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_FLAGS_DEBUG}> \
-    $<$<CONFIG:Release>:${SUBROSA_DG_CXX_FLAGS_RELEASE}>")
+set(SUBROSA_DG_FLAGS "${SUBROSA_DG_CXX_FLAGS} $<$<CONFIG:Debug>:${SUBROSA_DG_CXX_DEBUG_FLAGS}> \
+    $<$<CONFIG:RelWithDebInfo>:${SUBROSA_DG_CXX_RELWITHDEBINFO_FLAGS}> \
+    $<$<CONFIG:Release>:${SUBROSA_DG_CXX_RELEASE_FLAGS}>")
 string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
 
 # create and include the cmake header
@@ -393,7 +382,6 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES ${GMSH_LIBRARY})
 if(SUBROSA_DG_WITH_OPENMP)
     find_package(OpenMP REQUIRED)
     list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
-    list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS EIGEN_DONT_PARALLELIZE)
 endif()
 
 # set compilation definitions

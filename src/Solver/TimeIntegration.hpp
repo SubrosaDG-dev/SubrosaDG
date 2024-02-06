@@ -71,6 +71,9 @@ struct TimeIntegration : TimeIntegrationData<SimulationControl::kTimeIntegration
 
 template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::copyElementBasisFunctionCoefficient() {
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).conserved_variable_basis_function_coefficient_(0).noalias() =
         this->element_(i).conserved_variable_basis_function_coefficient_(1);
@@ -96,7 +99,8 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(auto) shared(element_mesh, thermal_model, time_integration)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
+    shared(element_mesh, thermal_model, time_integration)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
@@ -164,7 +168,8 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::u
     const int step, const ElementMesh<ElementTrait>& element_mesh,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(auto) shared(Eigen::Dynamic, step, element_mesh, time_integration)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
+    shared(Eigen::Dynamic, step, element_mesh, time_integration)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).conserved_variable_basis_function_coefficient_(1) =
@@ -197,16 +202,22 @@ template <typename ElementTrait, typename SimulationControl, EquationModelEnum E
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementRelativeError(
     const ElementMesh<ElementTrait>& element_mesh,
     Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error) {
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> local_error =
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero();
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#pragma omp parallel for reduction(+ : local_error) default(none) schedule(nonmonotonic : auto) \
+    shared(Eigen::Dynamic, element_mesh)
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    relative_error.array() += ((this->element_(i).residual_ * element_mesh.basis_function_.value_.transpose()).array() /
-                               ((this->element_(i).conserved_variable_basis_function_coefficient_(1) *
-                                 element_mesh.basis_function_.value_.transpose())
-                                    .array() +
-                                1e-10))
-                                  .square()
-                                  .rowwise()
-                                  .mean();
+    local_error.array() += ((this->element_(i).residual_ * element_mesh.basis_function_.value_.transpose()).array() /
+                            ((this->element_(i).conserved_variable_basis_function_coefficient_(1) *
+                              element_mesh.basis_function_.value_.transpose())
+                                 .array()))
+                               .square()
+                               .rowwise()
+                               .mean();
   }
+  relative_error.array() += local_error.array();
 }
 
 template <typename SimulationControl>

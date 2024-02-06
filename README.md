@@ -1,6 +1,6 @@
 ## SubrosaDG
 
-SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (DG) method for computation. The project is based on the pure template construction of C++23 and is open-sourced under the MIT license.
+SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (DG) method for computation. The project is based on the pure template construction of C++20 and is open-sourced under the MIT license.
 
 The project is still in early development stage.
 
