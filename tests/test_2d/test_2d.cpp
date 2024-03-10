@@ -202,3 +202,55 @@ TEST(Test2d, P3TriangleQuadrangleVtu) {
   runTest<SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
           SubrosaDG::ViewModelEnum::Vtu>();
 }
+
+TEST(Test2d, P4TriangleDat) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P4, SubrosaDG::MeshModelEnum::Triangle, SubrosaDG::ViewModelEnum::Dat>();
+}
+
+TEST(Test2d, P4TriangleVtu) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P4, SubrosaDG::MeshModelEnum::Triangle, SubrosaDG::ViewModelEnum::Vtu>();
+}
+
+TEST(Test2d, P4QuadrangleDat) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P4, SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ViewModelEnum::Dat>();
+}
+
+TEST(Test2d, P4QuadrangleVtu) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P4, SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ViewModelEnum::Vtu>();
+}
+
+TEST(Test2d, P4TriangleQuadrangleDat) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P4, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
+          SubrosaDG::ViewModelEnum::Dat>();
+}
+
+TEST(Test2d, P4TriangleQuadrangleVtu) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P4, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
+          SubrosaDG::ViewModelEnum::Vtu>();
+}
+
+TEST(Test2d, P5TriangleDat) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::MeshModelEnum::Triangle, SubrosaDG::ViewModelEnum::Dat>();
+}
+
+TEST(Test2d, P5TriangleVtu) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::MeshModelEnum::Triangle, SubrosaDG::ViewModelEnum::Vtu>();
+}
+
+TEST(Test2d, P5QuadrangleDat) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ViewModelEnum::Dat>();
+}
+
+TEST(Test2d, P5QuadrangleVtu) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ViewModelEnum::Vtu>();
+}
+
+TEST(Test2d, P5TriangleQuadrangleDat) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
+          SubrosaDG::ViewModelEnum::Dat>();
+}
+
+TEST(Test2d, P5TriangleQuadrangleVtu) {
+  runTest<SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
+          SubrosaDG::ViewModelEnum::Vtu>();
+}

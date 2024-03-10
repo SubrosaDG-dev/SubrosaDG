@@ -67,3 +67,11 @@ TEST(Test1d, P2Vtu) { runTest<SubrosaDG::PolynomialOrderEnum::P2, SubrosaDG::Vie
 TEST(Test1d, P3Dat) { runTest<SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::ViewModelEnum::Dat>(); }
 
 TEST(Test1d, P3Vtu) { runTest<SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::ViewModelEnum::Vtu>(); }
+
+TEST(Test1d, P4Dat) { runTest<SubrosaDG::PolynomialOrderEnum::P4, SubrosaDG::ViewModelEnum::Dat>(); }
+
+TEST(Test1d, P4Vtu) { runTest<SubrosaDG::PolynomialOrderEnum::P4, SubrosaDG::ViewModelEnum::Vtu>(); }
+
+TEST(Test1d, P5Dat) { runTest<SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::ViewModelEnum::Dat>(); }
+
+TEST(Test1d, P5Vtu) { runTest<SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::ViewModelEnum::Vtu>(); }

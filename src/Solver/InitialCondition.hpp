@@ -13,7 +13,9 @@
 #ifndef SUBROSA_DG_INITIAL_CONDITION_HPP_
 #define SUBROSA_DG_INITIAL_CONDITION_HPP_
 
+#include <Eigen/Cholesky>  // IWYU pragma: keep
 #include <Eigen/Core>
+#include <Eigen/LU>  // IWYU pragma: keep
 #include <functional>
 #include <memory>
 #include <unordered_map>
