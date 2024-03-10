@@ -130,7 +130,6 @@ enum class ViewModelEnum {
 enum class ViewConfigEnum {
   Default = 0,
   DoNotTruncate = 1 << 0,
-  SolverSmoothness = 1 << 1,
 };
 
 enum class ViewVariableEnum {

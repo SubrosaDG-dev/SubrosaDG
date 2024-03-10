@@ -25,15 +25,6 @@
 namespace SubrosaDG {
 
 template <typename ElementTrait>
-struct ElementGaussianQuadrature {
-  std::vector<double> local_coord_;
-  Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kQuadratureNumber> node_coordinate_;
-  Eigen::Vector<Real, ElementTrait::kQuadratureNumber> weight_;
-
-  inline ElementGaussianQuadrature();
-};
-
-template <typename ElementTrait>
 inline std::pair<std::vector<double>, std::vector<double>> getElementGaussianQuadrature() {
   std::vector<double> local_coord;
   std::vector<double> weights;
@@ -43,16 +34,22 @@ inline std::pair<std::vector<double>, std::vector<double>> getElementGaussianQua
 }
 
 template <typename ElementTrait>
-inline ElementGaussianQuadrature<ElementTrait>::ElementGaussianQuadrature() {
-  const auto [local_coord, weights] = getElementGaussianQuadrature<ElementTrait>();
-  this->local_coord_ = local_coord;
-  for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
-    for (Isize j = 0; j < ElementTrait::kDimension; j++) {
-      this->node_coordinate_(j, i) = static_cast<Real>(local_coord[static_cast<Usize>(i * 3 + j)]);
+struct ElementGaussianQuadrature {
+  std::vector<double> local_coord_;
+  Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kQuadratureNumber> node_coordinate_;
+  Eigen::Vector<Real, ElementTrait::kQuadratureNumber> weight_;
+
+  inline ElementGaussianQuadrature() {
+    const auto [local_coord, weights] = getElementGaussianQuadrature<ElementTrait>();
+    this->local_coord_ = local_coord;
+    for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
+      for (Isize j = 0; j < ElementTrait::kDimension; j++) {
+        this->node_coordinate_(j, i) = static_cast<Real>(local_coord[static_cast<Usize>(i * 3 + j)]);
+      }
+      this->weight_(i) = static_cast<Real>(weights[static_cast<Usize>(i)]);
     }
-    this->weight_(i) = static_cast<Real>(weights[static_cast<Usize>(i)]);
   }
-}
+};
 
 }  // namespace SubrosaDG
 

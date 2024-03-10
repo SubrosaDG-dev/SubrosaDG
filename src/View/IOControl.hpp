@@ -172,12 +172,9 @@ struct ViewVariable : ViewVariableData<SimulationControl, SimulationControl::kDi
     return nullptr;
   }
 
-  inline void readRawBinary(const Mesh<SimulationControl>& mesh, ViewConfigEnum config_enum,
-                            std::fstream& raw_binary_finout);
+  inline void readRawBinary(const Mesh<SimulationControl>& mesh, std::fstream& raw_binary_finout);
 
   inline void readTimeValue(int iteration_number, std::fstream& error_finout);
-
-  inline void calculateNodeConservedVariable(const Mesh<SimulationControl>& mesh);
 
   inline void initializeViewVariable(int iteration_number, const Mesh<SimulationControl>& mesh);
 };
@@ -209,7 +206,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
                                std::ofstream& fout);
 
   template <typename AdjacencyElementTrait>
-  inline void writeDiscontinuousAdjacencyElement(
+  inline void writeAdjacencyElement(
       Isize physical_index, const MeshInformation& mesh_information,
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
       const ThermalModel<SimulationControl>& thermal_model,
@@ -219,7 +216,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
       Isize element_index, Isize& column);
 
   template <typename ElementTrait>
-  inline void writeDiscontinuousElement(
+  inline void writeElement(
       Isize physical_index, const MeshInformation& mesh_information, const ElementMesh<ElementTrait>& element_mesh,
       const ThermalModel<SimulationControl>& thermal_model,
       Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
@@ -228,27 +225,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
       Isize element_index, Isize& column);
 
   template <int Dimension, bool IsAdjacency>
-  inline void writeDiscontinuousField(
-      Isize physical_index, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-      Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
-      Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
-      Eigen::Matrix<Isize, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic>& element_connectivity);
-
-  template <typename AdjacencyElementTrait>
-  inline void writeContinuousAdjacencyElementConnectivity(
-      Isize physical_index, const MeshInformation& mesh_information,
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      Eigen::Matrix<Isize, AdjacencyElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
-      Isize element_index, Isize& column);
-
-  template <typename ElementTrait>
-  inline void writeContinuousElementConnectivity(
-      Isize physical_index, const MeshInformation& mesh_information, const ElementMesh<ElementTrait>& element_mesh,
-      Eigen::Matrix<Isize, ElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
-      Isize element_index, Isize& column);
-
-  template <int Dimension, bool IsAdjacency>
-  inline void writeContinuousField(
+  inline void writeField(
       Isize physical_index, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
       Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
       Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
@@ -274,56 +251,35 @@ struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewData<SimulationCont
                                     Isize column);
 
   template <typename AdjacencyElementTrait>
-  inline void writeDiscontinuousAdjacencyElement(
-      Isize physical_index, const MeshInformation& mesh_information,
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const ThermalModel<SimulationControl>& thermal_model, Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
-      Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
-      Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
-      Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
-      Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, Isize element_index, Isize& column);
+  inline void writeAdjacencyElement(Isize physical_index, const MeshInformation& mesh_information,
+                                    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+                                    const ThermalModel<SimulationControl>& thermal_model,
+                                    Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
+                                    Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
+                                    Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
+                                    Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
+                                    Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type,
+                                    Isize element_index, Isize& column);
 
   template <typename ElementTrait>
-  inline void writeDiscontinuousElement(
-      Isize physical_index, const MeshInformation& mesh_information, const ElementMesh<ElementTrait>& element_mesh,
-      const ThermalModel<SimulationControl>& thermal_model, Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
-      Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
-      Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
-      Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
-      Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, Isize element_index, Isize& column);
+  inline void writeElement(Isize physical_index, const MeshInformation& mesh_information,
+                           const ElementMesh<ElementTrait>& element_mesh,
+                           const ThermalModel<SimulationControl>& thermal_model,
+                           Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
+                           Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
+                           Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
+                           Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
+                           Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, Isize element_index,
+                           Isize& column);
 
   template <int Dimension, bool IsAdjacency>
-  inline void writeDiscontinuousField(
-      Isize physical_index, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-      Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
-      Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
-      Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
-      Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
-      Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type);
-
-  template <typename AdjacencyElementTrait>
-  inline void writeContinuousAdjacencyElementConnectivity(
-      Isize physical_index, const MeshInformation& mesh_information,
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
-      Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
-      Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, Isize element_index, Isize& column);
-
-  template <typename ElementTrait>
-  inline void writeContinuousElementConnectivity(
-      Isize physical_index, const MeshInformation& mesh_information, const ElementMesh<ElementTrait>& element_mesh,
-      Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
-      Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
-      Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, Isize element_index, Isize& column);
-
-  template <int Dimension, bool IsAdjacency>
-  inline void writeContinuousField(Isize physical_index, const Mesh<SimulationControl>& mesh,
-                                   const ThermalModel<SimulationControl>& thermal_model,
-                                   Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
-                                   Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
-                                   Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
-                                   Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
-                                   Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type);
+  inline void writeField(Isize physical_index, const Mesh<SimulationControl>& mesh,
+                         const ThermalModel<SimulationControl>& thermal_model,
+                         Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
+                         Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
+                         Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
+                         Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
+                         Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type);
 
   template <int Dimension, bool IsAdjacency>
   inline void writeView(int step, Isize physical_index, const Mesh<SimulationControl>& mesh,

@@ -235,7 +235,7 @@ In the formula, $\eta_{e}$ is the stability factor, which is usually taken as th
 
 \section{Basis Functions}
 
-For the basis function, our implementation is based on \href{https://gmsh.info}{gmsh}, where the isoparametric Lagrange basis functions are used, which is defined as
+For the basis function, our implementation is based on \href{https://gmsh.info}{gmsh}, where the Lagrange basis functions are used, which is defined as
 \begin{equation}
   \phi_{i}^{k}=\prod_{j=1,j\neq i}^{N_{k}}\dfrac{f_{j}(\bm{\xi})}{f_{j}(\bm{\xi}_{i})},\quad 1\leqslant i\leqslant N_{k}.
 \end{equation}
@@ -296,14 +296,69 @@ which can be written in matrix form as
   \end{bNiceMatrix}.
 \end{equation}
 
-As the isoparametric element is used here, which means that the interpolation functions for the coordinates transformation of the element's geometry use the same interpolation basis functions and interpolation nodes as those used to describe the displacement modes of the element, we have
-\begin{equation}
-  \mathbf{x}=\sum_{i=1}^{N_{k}}\phi_{i}^{k}(\bm{\xi})\mathbf{x}_{i}.
-\end{equation}
 Therefore, we can use this formula to calculate the Jacobi matrix $[\mathbf{J}]$ and its transpose inverse matrix $[\mathbf{J}]^{-\mathrm{T}}$. In the program, we directly use gmsh's API to obtain the derivative values of the basis functions concerning the reference element and the inverse matrix of the Jacobian for each element. Then, we calculate the derivative values of the basis functions concerning the actual element. The \autoref{eq:8} in reference element $E'$ can be written as
 \begin{equation}
   \label{eq:30}
   \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E'}\phi_{i}^{k}\mathbf{u}_{h}|\mathbf{J}|\mathrm{d}\Omega'+\oint_{\partial E'}\phi_{i}^{k}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}|\mathbf{J}|\mathrm{d}\sigma'-\int_{E'}[\mathbf{J}]^{-\mathrm{T}}\cdot\nabla\phi_{i}^{k}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})|\mathbf{J}|\mathrm{d}\Omega'=0\quad 1\leqslant i\leqslant N_{k}.
+\end{equation}
+
+\section{Curved Mesh}
+
+For the FVM (Finite Volume Method), we generally seldom consider curved mesh. This is because FVM itself is either cell-centered or vertex-centered, and it is insensitive to grid deformation. However, for the DG (Discontinuous Galerkin) method, we need to consider curved mesh because the discrete solution in DG is approximated by high-order polynomials on elements, and the coefficients of these polynomials need to be integrated over the elements. Therefore, we need to consider the influence of grid deformation on integration, which Bassi also described in detail in his paper\cite{bassiHighOrderAccurateDiscontinuous1997}.
+
+As the isoparametric element is used here, which means that the interpolation functions for the coordinates transformation of the element's geometry use the same interpolation basis functions and interpolation nodes as those used to describe the displacement modes of the element, we have
+\begin{equation}
+  \mathbf{x}=\sum_{i=1}^{N_{k}}\phi_{i}^{k}(\bm{\xi})\mathbf{x}_{i}.
+\end{equation}
+First, let's consider the two-dimensional case, which involves finding the normal vector to a two-dimensional curve at its boundary. Here, the tangent vector to the two-dimensional curve can be directly obtained. The normal vector can be obtained by rotating the tangent vector by 90 degrees. Specifically,
+\begin{equation}
+  \bm{\tau}=\begin{bNiceMatrix}
+    \dfrac{\partial x}{\partial \xi}\\
+    \dfrac{\partial y}{\partial \xi}
+  \end{bNiceMatrix}=\begin{bNiceMatrix}
+    \displaystyle\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \xi}x_{i}\\
+    \displaystyle\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \xi}y_{i}
+  \end{bNiceMatrix},\mathbf{n}=\mathbf{M}\left(-\dfrac{\pi}{2}\right)\bm{\tau}=\begin{bNiceMatrix}
+    0&1\\
+    -1&0
+  \end{bNiceMatrix}\begin{bNiceMatrix}
+    \dfrac{\partial x}{\partial \xi}\\
+    \dfrac{\partial y}{\partial \xi}
+  \end{bNiceMatrix}=\begin{bNiceMatrix}
+    \displaystyle\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \xi}y_{i}\\
+    \displaystyle-\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \xi}x_{i}
+  \end{bNiceMatrix}.
+\end{equation}
+Next, let's consider the three-dimensional case, where we need to find the normal vector to a three-dimensional surface. Here, we seek two tangent vectors of the three-dimensional surface in the tangent plane, and then obtain the normal vector by taking the cross product of these two tangent vectors. Define $\mathbf{r}=(x(\xi,\eta),y(\xi,\eta),z(\xi,\eta))$, then
+\begin{equation}
+  \begin{aligned}
+    \bm{\tau}_{\xi}&=\dfrac{\partial\mathbf{r}}{\partial\xi}=\begin{bNiceMatrix}
+      \dfrac{\partial x}{\partial\xi}\\
+      \dfrac{\partial y}{\partial\xi}\\
+      \dfrac{\partial z}{\partial\xi}
+    \end{bNiceMatrix},\bm{\tau}_{\eta}=\dfrac{\partial\mathbf{r}}{\partial\eta}=\begin{bNiceMatrix}
+      \dfrac{\partial x}{\partial\eta}\\
+      \dfrac{\partial y}{\partial\eta}\\
+      \dfrac{\partial z}{\partial\eta}
+    \end{bNiceMatrix}\\
+    \mathbf{n}&=\bm{\tau}_{\xi}\times\bm{\tau}_{\eta}=\begin{bNiceMatrix}
+      \dfrac{\partial x}{\partial\xi}\\
+      \dfrac{\partial y}{\partial\xi}\\
+      \dfrac{\partial z}{\partial\xi}
+    \end{bNiceMatrix}\times\begin{bNiceMatrix}
+      \dfrac{\partial x}{\partial\eta}\\
+      \dfrac{\partial y}{\partial\eta}\\
+      \dfrac{\partial z}{\partial\eta}
+    \end{bNiceMatrix}=\begin{bNiceMatrix}
+      \displaystyle\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \xi}x_{i}\\
+      \displaystyle\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \xi}y_{i}\\
+      \displaystyle\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \xi}z_{i}
+    \end{bNiceMatrix}\times\begin{bNiceMatrix}
+      \displaystyle\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \eta}x_{i}\\
+      \displaystyle\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \eta}y_{i}\\
+      \displaystyle\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \eta}z_{i}
+    \end{bNiceMatrix}.
+  \end{aligned}
 \end{equation}
 
 \section{Numerical Integral}

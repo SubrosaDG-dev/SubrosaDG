@@ -16,7 +16,6 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -24,7 +23,6 @@
 #include "Mesh/ReadControl.hpp"
 #include "Solver/SimulationControl.hpp"
 #include "Utils/BasicDataType.hpp"
-#include "Utils/Constant.hpp"
 #include "Utils/Enum.hpp"
 
 namespace SubrosaDG {
@@ -118,20 +116,27 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
 
 template <typename AdjacencyElementTrait>
   requires(AdjacencyElementTrait::kElementType == ElementEnum::Point)
-inline void calculateNormalVector(const Isize adjacency_sequence_in_parent, Eigen::Vector<Real, 1>& normal_vector) {
+inline void calculateNormalVector(const Isize adjacency_sequence_in_parent,
+                                  Eigen::Matrix<Real, 1, AdjacencyElementTrait::kQuadratureNumber>& normal_vector) {
   if (adjacency_sequence_in_parent == 0) {
-    normal_vector(0) = -1.0;
+    normal_vector(0, 0) = -1.0;
   } else if (adjacency_sequence_in_parent == 1) {
-    normal_vector(0) = 1.0;
+    normal_vector(0, 0) = 1.0;
   }
 }
 
 template <typename AdjacencyElementTrait>
   requires(AdjacencyElementTrait::kElementType == ElementEnum::Line)
-inline void calculateNormalVector(const Eigen::Matrix<Real, 2, AdjacencyElementTrait::kAllNodeNumber>& node_coordinate,
-                                  Eigen::Vector<Real, 2>& normal_vector) {
-  const Eigen::Rotation2D<Real> rotation{-kPi / 2.0};
-  normal_vector = rotation * (node_coordinate.col(1) - node_coordinate.col(0)).normalized();
+inline void calculateNormalVector(
+    const Eigen::Matrix<Real, 2, AdjacencyElementTrait::kAllNodeNumber>& node_coordinate,
+    const Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber * AdjacencyElementTrait::kDimension,
+                        AdjacencyElementTrait::kBasisFunctionNumber>& gradient_value,
+    Eigen::Matrix<Real, 2, AdjacencyElementTrait::kQuadratureNumber>& normal_vector) {
+  for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
+    normal_vector(0, i) = gradient_value.row(i) * node_coordinate.row(1).transpose();
+    normal_vector(1, i) = -gradient_value.row(i) * node_coordinate.row(0).transpose();
+    normal_vector.col(i).normalize();
+  }
 }
 
 template <typename AdjacencyElementTrait>
@@ -141,8 +146,8 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::calculateAdjacencyEleme
       calculateNormalVector<AdjacencyElementTrait>(this->element_(i).adjacency_sequence_in_parent_(0),
                                                    this->element_(i).normal_vector_);
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-      calculateNormalVector<AdjacencyElementTrait>(this->element_(i).node_coordinate_,
-                                                   this->element_(i).normal_vector_);
+      calculateNormalVector<AdjacencyElementTrait>(
+          this->element_(i).node_coordinate_, this->basis_function_.gradient_value_, this->element_(i).normal_vector_);
     }
   }
 }

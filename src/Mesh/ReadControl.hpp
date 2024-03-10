@@ -41,7 +41,6 @@ struct PhysicalInformation {
   std::vector<int> element_gmsh_type_;
   std::vector<Isize> element_gmsh_tag_;
   Isize node_number_{0};
-  ordered_set<Isize> node_gmsh_tag_;
 };
 
 struct PerElementPhysicalInformation {
@@ -84,7 +83,7 @@ struct PerAdjacencyElementMesh : PerElementMeshBase<AdjacencyElementTrait> {
   Eigen::Vector<Isize, 2> parent_index_each_type_;
   Eigen::Vector<Isize, 2> adjacency_sequence_in_parent_;
   Eigen::Vector<Isize, 2> parent_gmsh_type_number_;
-  Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> normal_vector_;
+  Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber> normal_vector_;
 };
 
 template <typename ElementTrait>
@@ -110,6 +109,7 @@ struct AdjacencyElementMeshSupplemental {
 template <typename AdjacencyElementTrait>
 struct AdjacencyElementMesh {
   ElementGaussianQuadrature<AdjacencyElementTrait> gaussian_quadrature_;
+  AdjacencyElementBasisFunction<AdjacencyElementTrait> basis_function_;
 
   Isize interior_number_{0};
   Isize boundary_number_{0};
@@ -278,7 +278,7 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
   inline void initializeMesh(
       const std::filesystem::path& mesh_file_path,
       const std::function<void(const std::filesystem::path& mesh_file_path)>& generate_mesh_function) {
-    gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
+    // gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
     generate_mesh_function(mesh_file_path);
     gmsh::clear();
     gmsh::open(mesh_file_path);

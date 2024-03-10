@@ -169,9 +169,9 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateInter
       right_gaussian_quadrature_node_variable.getFromParent(parent_gmsh_type_number(1), parent_index_each_type(1),
                                                             adjacency_gaussian_quadrature_node_sequence_in_parent(1),
                                                             mesh, thermal_model, solver);
-      calculateConvectiveFlux<SimulationControl>(thermal_model, adjacency_element_mesh.element_(i).normal_vector_,
-                                                 left_gaussian_quadrature_node_variable,
-                                                 right_gaussian_quadrature_node_variable, flux);
+      calculateConvectiveFlux<SimulationControl>(
+          thermal_model, adjacency_element_mesh.element_(i).normal_vector_.col(j),
+          left_gaussian_quadrature_node_variable, right_gaussian_quadrature_node_variable, flux);
       const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
           adjacency_element_gaussian_quadrature_node_temporary_variable =
               flux.convective_n_ * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
@@ -215,7 +215,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateBound
                                                            adjacency_gaussian_quadrature_node_sequence_in_parent, mesh,
                                                            thermal_model, solver);
       boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_index_)
-          ->calculateBoundaryConvectiveFlux(thermal_model, adjacency_element_mesh.element_(i).normal_vector_,
+          ->calculateBoundaryConvectiveFlux(thermal_model, adjacency_element_mesh.element_(i).normal_vector_.col(j),
                                             left_gaussian_quadrature_node_variable, flux);
       const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
           adjacency_element_gaussian_quadrature_node_temporary_variable =

@@ -136,3 +136,19 @@
   urldate = {2024-01-16},
   abstract = {The approximate Riemann solver of Harten--Lax--van Leer (HLL) and its variant HLLC (HLL with Contact restoration) solver are widely used as flux functions of finite volume Godunov-type methods for the solution of the gas dynamic Euler equations. However, the HLLC solver suffers from two significant difficulties: an accuracy problem at low-speed flows and shock instability at high-speed flows. To remedy such drawbacks, a novel low-Mach shock-stable HLLC-type scheme called HLLC+ is developed for all speeds. The antidissipation pressure fix is introduced first  to overcome the accuracy problem in low Mach number limits. Then, shear viscosity is identified and scaled into the original HLLC scheme to overcome shock instability. A new pressure-based factor function without switching coefficients is devised to prevent shear viscosity from smearing the  boundary layer. The new HLLC+ scheme involves no empirical parameters and is easy to implement. Asymptotic analysis and low Mach number test cases show the excellent behaviors of HLLC+ in low Mach number limits: no global cut-off problem, damping pressure checkerboard modes, having expected Ma2 scaling of pressure and density fluctuations, and satisfaction of divergence constraint. Furthermore, this work manifests that the accuracy problem is associated with the normal velocity jumps of the flux interface, while shock instability is related to the transverse velocity jumps. Numerical test cases across a wide range of Mach numbers demonstrate the superior performance and potentiality of HLLC+ to simulate all Mach number flows.},
 }
+
+@article{bassiHighOrderAccurateDiscontinuous1997,
+  title = {High-{{Order Accurate Discontinuous Finite Element Solution}} of the {{2D Euler Equations}}},
+  author = {Bassi, F. and Rebay, S.},
+  year = {1997},
+  month = dec,
+  journal = {Journal of Computational Physics},
+  volume = {138},
+  number = {2},
+  pages = {251--285},
+  issn = {0021-9991},
+  doi = {10.1006/jcph.1997.5454},
+  abstract = {This paper deals with a high-order accurate discontinuous finite element method for the numerical solution of the Euler equations. The method combines two key ideas which are at the basis of the finite volume and of the finite element method, the physics of wave propagation being accounted for by means of Riemann problems and accuracy being obtained by means of high-order polynomial approximations within elements. We focus our attention on two-dimensional steady-state problems and present higher order accurate (up to fourth-order) discontinuous finite element solutions on unstructured grids of triangles. In particular we show that, in the presence of curved boundaries, a meaningful high-order accurate solution can be obtained only if a corresponding high-order approximation of the geometry is employed. We present numerical solutions of classical test cases computed with linear, quadratic, and cubic elements which illustrate the versatility of the method and the importance of the boundary condition},
+  langid = {english},
+}
+

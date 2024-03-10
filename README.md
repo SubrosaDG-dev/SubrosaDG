@@ -17,7 +17,7 @@ The project is still in early development stage.
 - [ ] High-order Gmsh .msh output
 - [x] Ascii/Binary VTU output
 - [ ] Documentation for variable storage
-- [ ] Curved elements
+- [x] Curved elements
 - [ ] 2D Navier-Stokes equation(BR2 scheme)
 
   ...

@@ -116,15 +116,12 @@ void runTest() {
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticWall>("bc-2");
   system.synchronize();
   system.setTimeIntegration(false, 1, 1.0, 1e-10);
-  system.setViewConfig(-1, kTestDirectory, output_prefix + "_D", SubrosaDG::ViewConfigEnum::Default);
+  system.setViewConfig(-1, kTestDirectory, output_prefix, SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Temperature, SubrosaDG::ViewVariableEnum::Pressure,
                           SubrosaDG::ViewVariableEnum::SoundSpeed, SubrosaDG::ViewVariableEnum::MachNumber,
                           SubrosaDG::ViewVariableEnum::Entropy});
   system.solve();
-  system.view(false);
-  system.setViewConfig(-1, kTestDirectory, output_prefix + "_S",
-                       SubrosaDG::ViewConfigEnum::DoNotTruncate | SubrosaDG::ViewConfigEnum::SolverSmoothness);
   system.view(false);
 }
 

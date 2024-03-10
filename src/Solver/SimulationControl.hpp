@@ -195,6 +195,12 @@ getElementNodeCoordinate() {
     if constexpr (P == PolynomialOrderEnum::P3) {
       return {-1.0, 1.0, -1.0 / 3.0, 1.0 / 3.0};
     }
+    if constexpr (P == PolynomialOrderEnum::P4) {
+      return {-1.0, 1.0, -0.5, 0.0, 0.5};
+    }
+    if constexpr (P == PolynomialOrderEnum::P5) {
+      return {-1.0, 1.0, -0.6, -0.2, 0.2, 0.6};
+    }
   }
   if constexpr (ElementType == ElementEnum::Triangle) {
     if constexpr (P == PolynomialOrderEnum::P1) {
@@ -207,6 +213,16 @@ getElementNodeCoordinate() {
       return {0.0,       0.0,       1.0,       0.0,       0.0, 1.0,       1.0 / 3.0, 0.0,       2.0 / 3.0, 0.0,
               2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 2.0 / 3.0, 0.0, 2.0 / 3.0, 0.0,       1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
     }
+    if constexpr (P == PolynomialOrderEnum::P4) {
+      return {
+          0.0, 0.0,  1.0,  0.0, 0.0,  1.0, 0.25, 0.0, 0.5,  0.0,  0.75, 0.0, 0.75, 0.25, 0.5,
+          0.5, 0.25, 0.75, 0.0, 0.75, 0.0, 0.5,  0.0, 0.25, 0.25, 0.25, 0.5, 0.25, 0.25, 0.5,
+      };
+    }
+    if constexpr (P == PolynomialOrderEnum::P5) {
+      return {0.0, 0.0, 1.,  0.0, 0.0, 1.,  0.2, 0.0, 0.4, 0.0, 0.6, 0.0, 0.8, 0.0, 0.8, 0.2, 0.6, 0.4, 0.4, 0.6, 0.2,
+              0.8, 0.0, 0.8, 0.0, 0.6, 0.0, 0.4, 0.0, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.6, 0.4, 0.2, 0.4, 0.4, 0.2, 0.4};
+    }
   }
   if constexpr (ElementType == ElementEnum::Quadrangle) {
     if constexpr (P == PolynomialOrderEnum::P1) {
@@ -218,8 +234,20 @@ getElementNodeCoordinate() {
     if constexpr (P == PolynomialOrderEnum::P3) {
       return {-1.0,       -1.0,       1.0,        -1.0,       1.0,       1.0,        -1.0,       1.0,
               -1.0 / 3.0, -1.0,       1.0 / 3.0,  -1.0,       1.0,       -1.0 / 3.0, 1.0,        1.0 / 3.0,
-              1.0 / 3.0,  1.0,        -1.0 / 3.0, 1.0,        -1.0,      -1.0 / 3.0, -1.0,       -1.0 / 3.0,
+              1.0 / 3.0,  1.0,        -1.0 / 3.0, 1.0,        -1.0,      1.0 / 3.0,  -1.0,       -1.0 / 3.0,
               -1.0 / 3.0, -1.0 / 3.0, 1.0 / 3.0,  -1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0,  -1.0 / 3.0, 1.0 / 3.0};
+    }
+    if constexpr (P == PolynomialOrderEnum::P4) {
+      return {-1.0, -1.0, 1.0, -1.0, 1.0,  1.0, -1.0, 1.0,  -0.5, -1.0, 0.0, -1.0, 0.5,  -1.0, 1.0,  -0.5, 1.0,
+              0.0,  1.0,  0.5, 0.5,  1.0,  0.0, 1.0,  -0.5, 1.0,  -1.0, 0.5, -1.0, 0.0,  -1.0, -0.5, -0.5, -0.5,
+              0.5,  -0.5, 0.5, 0.5,  -0.5, 0.5, 0.0,  -0.5, 0.5,  0.,   0.0, 0.5,  -0.5, 0.0,  0.0,  0.0};
+    }
+    if constexpr (P == PolynomialOrderEnum::P5) {
+      return {-1.0, -1.0, 1.0,  -1.0, 1.0,  1.0,  -1.0, 1.0,  -0.6, -1.0, -0.2, -1.0, 0.2, -1.0, 0.6,
+              -1.0, 1.0,  -0.6, 1.0,  -0.2, 1.0,  0.2,  1.0,  0.6,  0.6,  1.0,  0.2,  1.0, -0.2, 1.0,
+              -0.6, 1.0,  -1.0, 0.6,  -1.0, 0.2,  -1.0, -0.2, -1.0, -0.6, -0.6, -0.6, 0.6, -0.6, 0.6,
+              0.6,  -0.6, 0.6,  -0.2, -0.6, 0.2,  -0.6, 0.6,  -0.2, 0.6,  0.2,  0.2,  0.6, -0.2, 0.6,
+              -0.6, 0.2,  -0.6, -0.2, -0.2, -0.2, 0.2,  -0.2, 0.2,  0.2,  -0.2, 0.2};
     }
   }
 }
@@ -241,6 +269,19 @@ getSubElementConnectivity() {
       return {0, 2,
               2, 3,
               3, 1};
+    }
+    if constexpr (P == PolynomialOrderEnum::P4) {
+      return {0, 2,
+              2, 3,
+              3, 4,
+              4, 1};
+    }
+    if constexpr (P == PolynomialOrderEnum::P5) {
+      return {0, 2,
+              2, 3,
+              3, 4,
+              4, 5,
+              5, 1};
     }
   }
   if constexpr (ElementType == ElementEnum::Triangle) {
@@ -264,6 +305,51 @@ getSubElementConnectivity() {
               9, 5, 6, 6,
               7, 6, 2, 2};
     }
+    if constexpr (P == PolynomialOrderEnum::P4) {
+      return {0,  3,  11, 11,
+              3,  12, 11, 11,
+              3,  4,  12, 12,
+              4,  13, 12, 12,
+              4,  5,  13, 13,
+              5,  6,  13, 13,
+              5,  1,  6,  6,
+              11, 12, 10, 10,
+              12, 14, 10, 10,
+              12, 13, 14, 14,
+              13, 7,  14, 14,
+              13, 6,  7,  7,
+              10, 14, 9,  9,
+              14, 8,  9,  9,
+              14, 7,  8,  8,
+              9,  8,  2,  2};
+    }
+    if constexpr (P == PolynomialOrderEnum::P5) {
+      return {0,  3,  14, 14,
+              3,  15, 14, 14,
+              3,  4,  15, 15,
+              4,  18, 15, 15,
+              4,  5,  18, 18,
+              5,  16, 18, 18,
+              5,  6,  16, 16,
+              6,  17, 16, 16,
+              6,  1,  7,  7,
+              14, 15, 13, 13,
+              15, 20, 13, 13,
+              15, 18, 20, 20,
+              18, 19, 20, 20,
+              18, 16, 19, 19,
+              16, 8,  19, 19,
+              16, 7,  8,  8,
+              13, 20, 12, 12,
+              20, 17, 12, 12,
+              20, 19, 17, 17,
+              19, 9,  17, 17,
+              19, 8,  9,  9,
+              12, 17, 11, 11,
+              17, 10, 11, 11,
+              17, 9,  10, 10,
+              11, 10, 2,  2};
+    }
   }
   if constexpr (ElementType == ElementEnum::Quadrangle) {
     if constexpr (P == PolynomialOrderEnum::P1) {
@@ -286,6 +372,51 @@ getSubElementConnectivity() {
               15, 14, 8,  9,
               14, 7,  2,  8};
     }
+    if constexpr (P == PolynomialOrderEnum::P4) {
+      return {0,  4,  16, 15,
+              4,  5,  20, 16,
+              5,  6,  17, 20,
+              6,  1,  7,  17,
+              15, 16, 23, 14,
+              16, 20, 24, 23,
+              20, 17, 21, 24,
+              17, 7,  8,  21,
+              14, 23, 19, 13,
+              23, 24, 22, 19,
+              24, 21, 18, 22,
+              21, 8,  9,  18,
+              13, 19, 12, 3,
+              19, 22, 11, 12,
+              22, 18, 10, 11,
+              18, 9,  2,  10};
+    }
+    if constexpr (P == PolynomialOrderEnum::P5) {
+      return {0,  4,  20, 19,
+              4,  5,  24, 20,
+              5,  6,  25, 24,
+              6,  7,  21, 25,
+              7,  1,  8,  21,
+              19, 20, 31, 18,
+              20, 24, 32, 31,
+              24, 25, 33, 32,
+              25, 21, 26, 33,
+              21, 8,  9,  26,
+              18, 31, 30, 17,
+              31, 32, 35, 30,
+              32, 33, 34, 35,
+              33, 26, 27, 34,
+              26, 9,  10, 27,
+              17, 30, 23, 16,
+              30, 35, 29, 23,
+              35, 34, 28, 29,
+              34, 27, 22, 28,
+              27, 10, 11, 22,
+              16, 23, 15, 3,
+              23, 29, 14, 15,
+              29, 28, 13, 14,
+              28, 22, 12, 13,
+              22, 11, 2,  12};
+    }
   }
   // clang-format on
 }
@@ -302,6 +433,12 @@ inline consteval std::array<int, getElementNodeNumber<ElementType, P>()> getElem
     if constexpr (P == PolynomialOrderEnum::P3) {
       return {0, 1, 2, 3};
     }
+    if constexpr (P == PolynomialOrderEnum::P4) {
+      return {0, 1, 2, 3, 4};
+    }
+    if constexpr (P == PolynomialOrderEnum::P5) {
+      return {0, 1, 2, 3, 4, 5};
+    }
   }
   if constexpr (ElementType == ElementEnum::Triangle) {
     if constexpr (P == PolynomialOrderEnum::P1) {
@@ -312,6 +449,12 @@ inline consteval std::array<int, getElementNodeNumber<ElementType, P>()> getElem
     }
     if constexpr (P == PolynomialOrderEnum::P3) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    }
+    if constexpr (P == PolynomialOrderEnum::P4) {
+      return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
+    }
+    if constexpr (P == PolynomialOrderEnum::P5) {
+      return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
     }
   }
   if constexpr (ElementType == ElementEnum::Quadrangle) {
@@ -324,11 +467,21 @@ inline consteval std::array<int, getElementNodeNumber<ElementType, P>()> getElem
     if constexpr (P == PolynomialOrderEnum::P3) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 9, 8, 11, 10, 12, 13, 15, 14};
     }
+    if constexpr (P == PolynomialOrderEnum::P4) {
+      return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 11, 10, 15, 14, 13, 16, 18, 24, 22, 17, 21, 23, 19, 20};
+    }
+    if constexpr (P == PolynomialOrderEnum::P5) {
+      return {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 15, 14, 13, 12, 19, 18,
+              17, 16, 20, 23, 35, 32, 21, 22, 27, 31, 34, 33, 28, 24, 25, 26, 30, 29};
+    }
   }
 }
 
 template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getElementBasisFunctionNumber() {
+  if constexpr (ElementType == ElementEnum::Point) {
+    return 1;
+  }
   if constexpr (ElementType == ElementEnum::Line) {
     return magic_enum::enum_integer(P) + 1;
   }
@@ -458,6 +611,7 @@ struct ElementTraitBase {
 
 template <ElementEnum ElementType, PolynomialOrderEnum P>
 struct AdjacencyElementTrait : ElementTraitBase<ElementType, P> {
+  inline static constexpr int kBasisFunctionNumber{getElementBasisFunctionNumber<ElementType, P>()};
   inline static constexpr int kQuadratureOrder{getAdjacencyElementGaussianQuadratureOrder<P>()};
   inline static constexpr int kQuadratureNumber{getAdjacencyElementGaussianQuadratureNumber<ElementType, P>()};
 };

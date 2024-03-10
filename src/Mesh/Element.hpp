@@ -60,7 +60,6 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
       const auto node_tag = static_cast<Isize>(node_tags[static_cast<Usize>(i * ElementTrait::kAllNodeNumber + j)]);
       this->element_(i).node_coordinate_.col(j) = node_coordinate.col(node_tag - 1);
       this->element_(i).node_tag_(j) = node_tag;
-      information.physical_information_[this->element_(i).gmsh_physical_index_].node_gmsh_tag_.emplace_back(node_tag);
       node_element_number(node_tag - 1)++;
     }
   }

@@ -15,7 +15,6 @@
 
 #include <Eigen/Core>
 #include <fstream>
-#include <magic_enum.hpp>
 #include <sstream>
 #include <string>
 
@@ -96,7 +95,6 @@ inline void ElementViewVariable<ElementTrait, SimulationControl>::addNodeConserv
 
 template <typename SimulationControl>
 inline void ViewVariable<SimulationControl>::readRawBinary(const Mesh<SimulationControl>& mesh,
-                                                           const ViewConfigEnum config_enum,
                                                            std::fstream& raw_binary_finout) {
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.readElementRawBinary(mesh.line_, raw_binary_finout);
@@ -107,9 +105,6 @@ inline void ViewVariable<SimulationControl>::readRawBinary(const Mesh<Simulation
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.readElementRawBinary(mesh.quadrangle_, raw_binary_finout);
     }
-  }
-  if ((config_enum & ViewConfigEnum::SolverSmoothness) == ViewConfigEnum::SolverSmoothness) {
-    this->calculateNodeConservedVariable(mesh);
   }
 }
 
@@ -122,23 +117,6 @@ inline void ViewVariable<SimulationControl>::readTimeValue(const int iteration_n
     std::stringstream ss(line);
     ss.ignore(2) >> this->time_value_(i);
   }
-}
-
-template <typename SimulationControl>
-inline void ViewVariable<SimulationControl>::calculateNodeConservedVariable(const Mesh<SimulationControl>& mesh) {
-  this->node_conserved_variable_.setZero();
-  if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.addNodeConservedVariable(mesh.line_, this->node_conserved_variable_);
-  } else if constexpr (SimulationControl::kDimension == 2) {
-    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.addNodeConservedVariable(mesh.triangle_, this->node_conserved_variable_);
-    }
-    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.addNodeConservedVariable(mesh.quadrangle_, this->node_conserved_variable_);
-    }
-  }
-  this->node_conserved_variable_.array().rowwise() /=
-      mesh.node_element_number_.template cast<Real>().transpose().array();
 }
 
 template <typename SimulationControl>

@@ -54,9 +54,6 @@ void runTest() {
                           SubrosaDG::ViewVariableEnum::Entropy});
   system.solve();
   system.view(false);
-  system.setViewConfig(-1, kTestDirectory, output_prefix + "_S",
-                       SubrosaDG::ViewConfigEnum::DoNotTruncate | SubrosaDG::ViewConfigEnum::SolverSmoothness);
-  system.view(false);
 }
 
 TEST(Test1d, P1Dat) { runTest<SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::ViewModelEnum::Dat>(); }
