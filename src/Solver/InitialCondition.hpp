@@ -15,7 +15,6 @@
 
 #include <Eigen/Cholesky>  // IWYU pragma: keep
 #include <Eigen/Core>
-#include <Eigen/LU>  // IWYU pragma: keep
 #include <functional>
 #include <memory>
 #include <unordered_map>
@@ -45,14 +44,17 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::i
   this->number_ = element_mesh.number_;
   this->element_.resize(this->number_);
   this->delta_time_.resize(this->number_);
+  Variable<SimulationControl> variable;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>
+      quadrature_node_conserved_variable;
+  Eigen::LLT<Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>>
+      basis_function_value_llt(element_mesh.basis_function_.value_.transpose() * element_mesh.basis_function_.value_);
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, element_mesh, thermal_model, initial_condition)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                \
+    shared(Eigen::Dynamic, element_mesh, thermal_model, initial_condition) private( \
+            variable, quadrature_node_conserved_variable) firstprivate(basis_function_value_llt)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    Variable<SimulationControl> variable;
-    Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>
-        quadrature_node_conserved_variable;
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
       variable.primitive_ = initial_condition.at(element_mesh.element_(i).gmsh_physical_index_)
                                 .function_(element_mesh.element_(i).gaussian_quadrature_node_coordinate_.col(j));
@@ -60,8 +62,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::i
       quadrature_node_conserved_variable.col(j) = variable.conserved_;
     }
     this->element_(i).conserved_variable_basis_function_coefficient_(1).noalias() =
-        (element_mesh.basis_function_.value_.transpose() * element_mesh.basis_function_.value_)
-            .llt()
+        basis_function_value_llt
             .solve((quadrature_node_conserved_variable * element_mesh.basis_function_.value_).transpose())
             .transpose();
   }

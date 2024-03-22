@@ -20,11 +20,7 @@ find_package(GTest CONFIG REQUIRED)
 
 add_custom_target(all_tests)
 
-if(SUBROSA_DG_WITH_MPI)
-    set(TEST_MAIN_CPP "${CMAKE_CURRENT_LIST_DIR}/test_main_mpi.cpp")
-else()
-    set(TEST_MAIN_CPP "${CMAKE_CURRENT_LIST_DIR}/test_main.cpp")
-endif()
+set(TEST_MAIN_CPP "${CMAKE_CURRENT_LIST_DIR}/test_main.cpp")
 
 function(add_gtest testname testfile)
     add_executable(${testname} EXCLUDE_FROM_ALL ${testfile} ${ARGN} ${TEST_MAIN_CPP})

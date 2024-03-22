@@ -45,7 +45,7 @@ struct PerElementSolverBase {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
                 ElementTrait::kQuadratureNumber * SimulationControl::kDimension>
       quadrature_without_gradient_basis_function_value_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAdjacencyQuadratureNumber>
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllAdjacencyQuadratureNumber>
       adjacency_quadrature_without_basis_function_value_;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber> residual_;
 };

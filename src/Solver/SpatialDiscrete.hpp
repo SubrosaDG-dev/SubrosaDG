@@ -34,26 +34,29 @@ namespace SubrosaDG {
 template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementGaussianQuadrature(
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model) {
+  Variable<SimulationControl> gaussian_quadrature_node_variable;
+  Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kDimension>
+      gaussian_quadrature_node_jacobian_transpose_inverse;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension> convective_variable;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
+      element_gaussian_quadrature_node_temporary_variable;
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, thermal_model)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                                \
+    shared(Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh,                     \
+               thermal_model) private(gaussian_quadrature_node_variable,                                            \
+                                          gaussian_quadrature_node_jacobian_transpose_inverse, convective_variable, \
+                                          element_gaussian_quadrature_node_temporary_variable)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      Variable<SimulationControl> gaussian_quadrature_node_variable;
-      Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kDimension>
-          gaussian_quadrature_node_jacobian_transpose_inverse;
-      Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
-          convective_variable;
       gaussian_quadrature_node_variable.template getFromSelf<ElementTrait>(i, j, element_mesh, thermal_model, *this);
       calculateConvectiveVariable(gaussian_quadrature_node_variable, convective_variable);
       gaussian_quadrature_node_jacobian_transpose_inverse =
           element_mesh.element_(i).jacobian_transpose_inverse_.col(j).reshaped(ElementTrait::kDimension,
                                                                                ElementTrait::kDimension);
-      const Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
-          element_gaussian_quadrature_node_temporary_variable =
-              convective_variable * gaussian_quadrature_node_jacobian_transpose_inverse *
-              element_mesh.element_(i).jacobian_determinant_(j) * element_mesh.gaussian_quadrature_.weight_(j);
+      element_gaussian_quadrature_node_temporary_variable =
+          convective_variable * gaussian_quadrature_node_jacobian_transpose_inverse *
+          element_mesh.element_(i).jacobian_determinant_(j) * element_mesh.gaussian_quadrature_.weight_(j);
       this->element_(i).quadrature_without_gradient_basis_function_value_(
           Eigen::all, Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
           element_gaussian_quadrature_node_temporary_variable;
@@ -141,22 +144,27 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateInter
     Solver<SimulationControl>& solver) {
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(std::remove_reference<decltype(mesh)>::type::template getAdjacencyElement<AdjacencyElementTrait>());
+  Variable<SimulationControl> left_gaussian_quadrature_node_variable;
+  Variable<SimulationControl> right_gaussian_quadrature_node_variable;
+  Flux<SimulationControl> flux;
+  Eigen::Vector<Isize, 2> adjacency_gaussian_quadrature_node_sequence_in_parent;
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
+      adjacency_element_gaussian_quadrature_node_temporary_variable;
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, solver)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                               \
+    shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, solver) private(           \
+            left_gaussian_quadrature_node_variable, right_gaussian_quadrature_node_variable, flux, \
+                adjacency_gaussian_quadrature_node_sequence_in_parent,                             \
+                adjacency_element_gaussian_quadrature_node_temporary_variable)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < adjacency_element_mesh.interior_number_; i++) {
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-      Variable<SimulationControl> left_gaussian_quadrature_node_variable;
-      Variable<SimulationControl> right_gaussian_quadrature_node_variable;
-      Flux<SimulationControl> flux;
       const Eigen::Vector<Isize, 2>& parent_index_each_type =
           adjacency_element_mesh.element_(i).parent_index_each_type_;
       const Eigen::Vector<Isize, 2>& adjacency_sequence_in_parent =
           adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_;
       const Eigen::Vector<Isize, 2>& parent_gmsh_type_number =
           adjacency_element_mesh.element_(i).parent_gmsh_type_number_;
-      Eigen::Vector<Isize, 2> adjacency_gaussian_quadrature_node_sequence_in_parent;
       adjacency_gaussian_quadrature_node_sequence_in_parent(0) =
           this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<true>(
               parent_gmsh_type_number(0), adjacency_sequence_in_parent(0), j);
@@ -172,10 +180,9 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateInter
       calculateConvectiveFlux<SimulationControl>(
           thermal_model, adjacency_element_mesh.element_(i).normal_vector_.col(j),
           left_gaussian_quadrature_node_variable, right_gaussian_quadrature_node_variable, flux);
-      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
-          adjacency_element_gaussian_quadrature_node_temporary_variable =
-              flux.convective_n_ * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
-              adjacency_element_mesh.gaussian_quadrature_.weight_(j);
+      adjacency_element_gaussian_quadrature_node_temporary_variable =
+          flux.convective_n_ * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
+          adjacency_element_mesh.gaussian_quadrature_.weight_(j);
       this->storeAdjacencyElementNodeGaussianQuadrature(parent_gmsh_type_number(0), parent_index_each_type(0),
                                                         adjacency_gaussian_quadrature_node_sequence_in_parent(0),
                                                         adjacency_element_gaussian_quadrature_node_temporary_variable,
@@ -196,15 +203,19 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateBound
     Solver<SimulationControl>& solver) {
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(std::remove_reference<decltype(mesh)>::type::template getAdjacencyElement<AdjacencyElementTrait>());
+  Variable<SimulationControl> left_gaussian_quadrature_node_variable;
+  Flux<SimulationControl> flux;
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
+      adjacency_element_gaussian_quadrature_node_temporary_variable;
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, boundary_condition, solver)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                         \
+    shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, boundary_condition, solver) private( \
+            left_gaussian_quadrature_node_variable, flux,                                                    \
+                adjacency_element_gaussian_quadrature_node_temporary_variable)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = adjacency_element_mesh.interior_number_;
        i < adjacency_element_mesh.boundary_number_ + adjacency_element_mesh.interior_number_; i++) {
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-      Variable<SimulationControl> left_gaussian_quadrature_node_variable;
-      Flux<SimulationControl> flux;
       const Isize parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_(0);
       const Isize adjacency_sequence_in_parent = adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_(0);
       const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
@@ -217,10 +228,9 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateBound
       boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_index_)
           ->calculateBoundaryConvectiveFlux(thermal_model, adjacency_element_mesh.element_(i).normal_vector_.col(j),
                                             left_gaussian_quadrature_node_variable, flux);
-      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
-          adjacency_element_gaussian_quadrature_node_temporary_variable =
-              flux.convective_n_ * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
-              adjacency_element_mesh.gaussian_quadrature_.weight_(j);
+      adjacency_element_gaussian_quadrature_node_temporary_variable =
+          flux.convective_n_ * adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
+          adjacency_element_mesh.gaussian_quadrature_.weight_(j);
       this->storeAdjacencyElementNodeGaussianQuadrature(
           parent_gmsh_type_number, parent_index_each_type, adjacency_gaussian_quadrature_node_sequence_in_parent,
           adjacency_element_gaussian_quadrature_node_temporary_variable, solver);

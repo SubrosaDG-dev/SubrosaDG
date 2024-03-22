@@ -78,21 +78,6 @@ inline void ElementViewVariable<ElementTrait, SimulationControl>::readElementRaw
   }
 }
 
-template <typename ElementTrait, typename SimulationControl>
-inline void ElementViewVariable<ElementTrait, SimulationControl>::addNodeConservedVariable(
-    const ElementMesh<ElementTrait>& element_mesh,
-    Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic>& node_conserved_variable) {
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, element_mesh, node_conserved_variable)
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
-  for (Isize i = 0; i < element_mesh.number_; i++) {
-    for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
-      node_conserved_variable.col(element_mesh.element_(i).node_tag_(j) - 1) += this->conserved_variable_(i).col(j);
-    }
-  }
-}
-
 template <typename SimulationControl>
 inline void ViewVariable<SimulationControl>::readRawBinary(const Mesh<SimulationControl>& mesh,
                                                            std::fstream& raw_binary_finout) {

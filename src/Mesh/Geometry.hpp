@@ -16,6 +16,7 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
+#include <Eigen/LU>  // IWYU pragma: keep
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -67,12 +68,11 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementJaco
 template <typename ElementTrait>
 inline void ElementMesh<ElementTrait>::calculateElementLocalMassMatrixInverse() {
   for (Isize i = 0; i < this->number_; i++) {
-    this->element_(i).local_mass_matrix_inverse_.noalias() =
+    this->element_(i).local_mass_matrix_llt_.compute(
         (this->basis_function_.value_.transpose() *
          (this->basis_function_.value_.array().colwise() *
           (this->gaussian_quadrature_.weight_.array() * this->element_(i).jacobian_determinant_.array()))
-             .matrix())
-            .inverse();
+             .matrix()));
   }
 }
 

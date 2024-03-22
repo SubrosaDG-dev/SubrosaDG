@@ -15,6 +15,7 @@
 
 #include <array>
 #include <magic_enum.hpp>
+#include <numeric>
 
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
@@ -127,16 +128,49 @@ inline consteval int getElementAdjacencyNumber() {
   }
 }
 
-template <ElementEnum ElementType, PolynomialOrderEnum P>
-inline consteval int getElementAdjacencyNodeNumber() {
+template <ElementEnum ElementType>
+inline consteval std::array<ElementEnum, getElementAdjacencyNumber<ElementType>()> getElementPerAdjacencyType() {
   if constexpr (ElementType == ElementEnum::Line) {
-    return 2;
+    return {ElementEnum::Point, ElementEnum::Point};
   }
   if constexpr (ElementType == ElementEnum::Triangle) {
-    return 3 * getElementNodeNumber<ElementEnum::Line, P>();
+    return {ElementEnum::Line, ElementEnum::Line, ElementEnum::Line};
   }
   if constexpr (ElementType == ElementEnum::Quadrangle) {
-    return 4 * getElementNodeNumber<ElementEnum::Line, P>();
+    return {ElementEnum::Line, ElementEnum::Line, ElementEnum::Line, ElementEnum::Line};
+  }
+}
+
+template <ElementEnum ElementType>
+inline consteval std::array<int, getElementAdjacencyNumber<ElementType>()> getElementPerAdjacencyNodeNumber() {
+  if constexpr (ElementType == ElementEnum::Line) {
+    return {1, 1};
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    return {2, 2, 2};
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    return {2, 2, 2, 2};
+  }
+}
+
+template <ElementEnum ElementType>
+inline consteval int getElementAllAdjacencyNodeNumber() {
+  constexpr std::array<int, getElementAdjacencyNumber<ElementType>()> kElementPerAdjacencyNodeNumber{
+      getElementPerAdjacencyNodeNumber<ElementType>()};
+  return std::accumulate(kElementPerAdjacencyNodeNumber.begin(), kElementPerAdjacencyNodeNumber.end(), 0);
+}
+
+template <ElementEnum ElementType>
+inline consteval std::array<int, getElementAllAdjacencyNodeNumber<ElementType>()> getElementPerAdjacencyNodeIndex() {
+  if constexpr (ElementType == ElementEnum::Line) {
+    return {0, 1};
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    return {0, 1, 1, 2, 2, 0};
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    return {0, 1, 1, 2, 2, 3, 3, 0};
   }
 }
 
@@ -493,9 +527,9 @@ inline consteval int getElementBasisFunctionNumber() {
   }
 }
 
-inline constexpr std::array<int, 12> kLineQuadratureNumber{1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6};
-inline constexpr std::array<int, 12> kTriangleQuadratureNumber{1, 1, 3, 4, 6, 7, 12, 13, 16, 19, 25, 27};
-inline constexpr std::array<int, 12> kQuadrangleQuadratureNumber{1, 3, 7, 4, 9, 9, 16, 16, 25, 25, 36, 36};
+inline constexpr std::array<int, 12> kLineGaussianQuadratureNumber{1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6};
+inline constexpr std::array<int, 12> kTriangleGaussianQuadratureNumber{1, 1, 3, 4, 6, 7, 12, 13, 16, 19, 25, 27};
+inline constexpr std::array<int, 12> kQuadrangleGaussianQuadratureNumber{1, 3, 7, 4, 9, 9, 16, 16, 25, 25, 36, 36};
 
 template <PolynomialOrderEnum P>
 inline consteval int getElementGaussianQuadratureOrder() {
@@ -510,35 +544,50 @@ inline consteval int getAdjacencyElementGaussianQuadratureOrder() {
 template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getElementGaussianQuadratureNumber() {
   if constexpr (ElementType == ElementEnum::Line) {
-    return kLineQuadratureNumber[static_cast<Usize>(getElementGaussianQuadratureOrder<P>())];
+    return kLineGaussianQuadratureNumber[static_cast<Usize>(getElementGaussianQuadratureOrder<P>())];
   }
   if constexpr (ElementType == ElementEnum::Triangle) {
-    return kTriangleQuadratureNumber[static_cast<Usize>(getElementGaussianQuadratureOrder<P>())];
+    return kTriangleGaussianQuadratureNumber[static_cast<Usize>(getElementGaussianQuadratureOrder<P>())];
   }
   if constexpr (ElementType == ElementEnum::Quadrangle) {
-    return kQuadrangleQuadratureNumber[static_cast<Usize>(getElementGaussianQuadratureOrder<P>())];
+    return kQuadrangleGaussianQuadratureNumber[static_cast<Usize>(getElementGaussianQuadratureOrder<P>())];
   }
 }
 
 template <ElementEnum ElementType, PolynomialOrderEnum P>
 inline consteval int getAdjacencyElementGaussianQuadratureNumber() {
-  if constexpr (Is0dElement<ElementType>) {
+  if constexpr (ElementType == ElementEnum::Point) {
     return 1;
   }
-  if constexpr (Is1dElement<ElementType>) {
-    return kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementGaussianQuadratureOrder<P>())];
+  if constexpr (ElementType == ElementEnum::Line) {
+    return kLineGaussianQuadratureNumber[static_cast<Usize>(getAdjacencyElementGaussianQuadratureOrder<P>())];
   }
 }
 
 template <ElementEnum ElementType, PolynomialOrderEnum P>
-inline consteval int getElementAdjacencyQuadratureNumber() {
-  if constexpr (Is1dElement<ElementType>) {
-    return 2;
+inline consteval std::array<int, getElementAdjacencyNumber<ElementType>()>
+getElementPerAdjacencyGaussianQuadratureNumber() {
+  if constexpr (ElementType == ElementEnum::Line) {
+    return {1, 1};
   }
-  if constexpr (Is2dElement<ElementType>) {
-    return kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementGaussianQuadratureOrder<P>())] *
-           getElementAdjacencyNumber<ElementType>();
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    constexpr int kLineGaussianQuadrature{
+        kLineGaussianQuadratureNumber[static_cast<Usize>(getAdjacencyElementGaussianQuadratureOrder<P>())]};
+    return {kLineGaussianQuadrature, kLineGaussianQuadrature, kLineGaussianQuadrature};
   }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    constexpr int kLineGaussianQuadrature{
+        kLineGaussianQuadratureNumber[static_cast<Usize>(getAdjacencyElementGaussianQuadratureOrder<P>())]};
+    return {kLineGaussianQuadrature, kLineGaussianQuadrature, kLineGaussianQuadrature, kLineGaussianQuadrature};
+  }
+}
+
+template <ElementEnum ElementType, PolynomialOrderEnum P>
+inline consteval int getElementAllAdjacencyGaussianQuadratureNumber() {
+  constexpr std::array<int, getElementAdjacencyNumber<ElementType>()> kElementPerAdjacencyGaussianQuadratureNumber{
+      getElementPerAdjacencyGaussianQuadratureNumber<ElementType, P>()};
+  return std::accumulate(kElementPerAdjacencyGaussianQuadratureNumber.begin(),
+                         kElementPerAdjacencyGaussianQuadratureNumber.end(), 0);
 }
 
 template <int Dimension, EquationModelEnum EquationModelType>
@@ -618,11 +667,12 @@ struct AdjacencyElementTrait : ElementTraitBase<ElementType, P> {
 
 template <ElementEnum ElementType, PolynomialOrderEnum P>
 struct ElementTrait : ElementTraitBase<ElementType, P> {
-  inline static constexpr int kAdjacencyNodeNumber{getElementAdjacencyNodeNumber<ElementType, P>()};
+  inline static constexpr int kAllAdjacencyNodeNumber{getElementAllAdjacencyNodeNumber<ElementType>()};
   inline static constexpr int kBasisFunctionNumber{getElementBasisFunctionNumber<ElementType, P>()};
   inline static constexpr int kQuadratureOrder{getElementGaussianQuadratureOrder<P>()};
   inline static constexpr int kQuadratureNumber{getElementGaussianQuadratureNumber<ElementType, P>()};
-  inline static constexpr int kAdjacencyQuadratureNumber{getElementAdjacencyQuadratureNumber<ElementType, P>()};
+  inline static constexpr int kAllAdjacencyQuadratureNumber{
+      getElementAllAdjacencyGaussianQuadratureNumber<ElementType, P>()};
 };
 
 template <PolynomialOrderEnum P>

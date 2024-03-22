@@ -16,6 +16,7 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
+#include <array>
 #include <format>
 #include <vector>
 
@@ -35,6 +36,37 @@ inline std::vector<double> getElementBasisFunction(const std::vector<double>& lo
                                        std::format("Lagrange{}", static_cast<int>(ElementTrait::kPolynomialOrder)),
                                        num_components, basis_functions, num_orientations);
   return basis_functions;
+}
+
+template <typename ElementTrait, typename AdjacencyElementTrait>
+inline std::vector<double> getElementPerAdjacencyBasisFunction(
+    const Eigen::Matrix<Real, ElementTrait::kDimension, AdjacencyElementTrait::kBasicNodeNumber>&
+        adjacency_basic_node_coordinate) {
+  const auto [local_coord, weights] = getElementGaussianQuadrature<AdjacencyElementTrait>();
+  int num_components;
+  std::vector<double> basis_functions;
+  int num_orientations;
+  gmsh::model::mesh::getBasisFunctions(AdjacencyElementTrait::kGmshTypeNumber, local_coord, "Lagrange1", num_components,
+                                       basis_functions, num_orientations);
+  constexpr int kAdjacencyElementP1BasisFunctionNumber =
+      getElementBasisFunctionNumber<AdjacencyElementTrait::kElementType, PolynomialOrderEnum::P1>();
+  Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, kAdjacencyElementP1BasisFunctionNumber>
+      basis_function_value;
+  for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
+    for (Isize j = 0; j < kAdjacencyElementP1BasisFunctionNumber; j++) {
+      basis_function_value(i, j) =
+          static_cast<Real>(basis_functions[static_cast<Usize>(i * kAdjacencyElementP1BasisFunctionNumber + j)]);
+    }
+  }
+  Eigen::Matrix<Real, 3, AdjacencyElementTrait::kQuadratureNumber> adjacency_local_coord =
+      Eigen::Matrix<Real, 3, AdjacencyElementTrait::kQuadratureNumber>::Zero();
+  adjacency_local_coord(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>), Eigen::all) =
+      adjacency_basic_node_coordinate * basis_function_value.transpose();
+  Eigen::Matrix<double, 3, AdjacencyElementTrait::kQuadratureNumber> adjacency_local_coord_double =
+      adjacency_local_coord.template cast<double>();
+  return (getElementBasisFunction<ElementTrait>(
+      {adjacency_local_coord_double.data(),
+       adjacency_local_coord_double.data() + adjacency_local_coord_double.size()}));
 }
 
 template <typename AdjacencyElementTrait>
@@ -69,41 +101,45 @@ struct ElementBasisFunction {
   Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, ElementTrait::kBasisFunctionNumber, Eigen::RowMajor> value_;
   Eigen::Matrix<Real, ElementTrait::kQuadratureNumber * ElementTrait::kDimension, ElementTrait::kBasisFunctionNumber>
       gradient_value_;
-  Eigen::Matrix<Real, ElementTrait::kAdjacencyQuadratureNumber, ElementTrait::kBasisFunctionNumber, Eigen::RowMajor>
+  Eigen::Matrix<Real, ElementTrait::kAllAdjacencyQuadratureNumber, ElementTrait::kBasisFunctionNumber, Eigen::RowMajor>
       adjacency_value_;
 
-  template <typename AdjacencyElementTrait>
-  inline void getElementAdjacencyBasisFunction() {
-    const auto [local_coord, weights] = getElementGaussianQuadrature<AdjacencyElementTrait>();
-    int num_components;
-    std::vector<double> basis_functions;
-    int num_orientations;
-    gmsh::model::mesh::getBasisFunctions(AdjacencyElementTrait::kGmshTypeNumber, local_coord, "Lagrange1",
-                                         num_components, basis_functions, num_orientations);
-    Eigen::Matrix<Real, 3, ElementTrait::kAdjacencyQuadratureNumber> adjacency_local_coord =
-        Eigen::Matrix<Real, 3, ElementTrait::kAdjacencyQuadratureNumber>::Zero();
-    Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kBasicNodeNumber> basic_node_coord{
-        getElementNodeCoordinate<ElementTrait::kElementType, PolynomialOrderEnum::P1>().data()};
-    for (Isize i = 0; i < ElementTrait::kAdjacencyNumber; i++) {
-      for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-        adjacency_local_coord(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>),
-                              i * AdjacencyElementTrait::kQuadratureNumber + j) =
-            (basic_node_coord.col((i + 1) % ElementTrait::kAdjacencyNumber) *
-                 basis_functions[static_cast<Usize>(j * AdjacencyElementTrait::kAdjacencyNumber + 1)] +
-             basic_node_coord.col(i) * basis_functions[static_cast<Usize>(j * AdjacencyElementTrait::kAdjacencyNumber)])
-                .transpose();
+  template <int I>
+  inline void getElementAdjacencyBasisFunction(int node_column = 0, int quadrature_column = 0) {
+    if constexpr (I < ElementTrait::kAdjacencyNumber) {
+      constexpr std::array<ElementEnum, ElementTrait::kAdjacencyNumber> kAdjacencyElementType{
+          getElementPerAdjacencyType<ElementTrait::kElementType>()};
+      constexpr std::array<int, ElementTrait::kAdjacencyNumber> kElementPerAdjacencyNodeNumber{
+          getElementPerAdjacencyNodeNumber<ElementTrait::kElementType>()};
+      constexpr std::array<int, ElementTrait::kAllAdjacencyNodeNumber> kElementAdjacencyNodeIndex{
+          getElementPerAdjacencyNodeIndex<ElementTrait::kElementType>()};
+      constexpr std::array<int, getElementAdjacencyNumber<ElementTrait::kElementType>()>
+          kElementPerAdjacencyGaussianQuadratureNumber{
+              getElementPerAdjacencyGaussianQuadratureNumber<ElementTrait::kElementType,
+                                                             ElementTrait::kPolynomialOrder>()};
+      const Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kBasicNodeNumber> basic_node_coordinate{
+          getElementNodeCoordinate<ElementTrait::kElementType, PolynomialOrderEnum::P1>().data()};
+      Eigen::Matrix<Real, ElementTrait::kDimension, kElementPerAdjacencyNodeNumber[static_cast<Usize>(I)]>
+          adjacency_basic_node_coordinate;
+      for (Isize j = 0; j < kElementPerAdjacencyNodeNumber[static_cast<Usize>(I)]; j++) {
+        adjacency_basic_node_coordinate.col(j) =
+            basic_node_coordinate.col(kElementAdjacencyNodeIndex[static_cast<Usize>(node_column + j)]);
       }
-    }
-    Eigen::Matrix<double, 3, ElementTrait::kAdjacencyQuadratureNumber> adjacency_local_coord_double =
-        adjacency_local_coord.template cast<double>();
-    std::vector<double> adjacency_basis_functions = getElementBasisFunction<ElementTrait>(
-        {adjacency_local_coord_double.data(),
-         adjacency_local_coord_double.data() + adjacency_local_coord_double.size()});
-    for (Isize i = 0; i < ElementTrait::kAdjacencyQuadratureNumber; i++) {
-      for (Isize j = 0; j < ElementTrait::kBasisFunctionNumber; j++) {
-        this->adjacency_value_(i, j) = static_cast<Real>(
-            adjacency_basis_functions[static_cast<Usize>(i * ElementTrait::kBasisFunctionNumber + j)]);
+      const std::vector<double> adjacency_basis_functions = getElementPerAdjacencyBasisFunction<
+          ElementTrait,
+          AdjacencyElementTrait<kAdjacencyElementType[static_cast<Usize>(I)], ElementTrait::kPolynomialOrder>>(
+          adjacency_basic_node_coordinate);
+      for (Isize j = 0; j < kElementPerAdjacencyGaussianQuadratureNumber[static_cast<Usize>(I)]; j++) {
+        for (Isize k = 0; k < ElementTrait::kBasisFunctionNumber; k++) {
+          this->adjacency_value_(quadrature_column + j, k) = static_cast<Real>(
+              adjacency_basis_functions[static_cast<Usize>(j * ElementTrait::kBasisFunctionNumber + k)]);
+        }
       }
+      this->template getElementAdjacencyBasisFunction<I + 1>(
+          node_column + kElementPerAdjacencyNodeNumber[static_cast<Usize>(I)],
+          quadrature_column + kElementPerAdjacencyGaussianQuadratureNumber[static_cast<Usize>(I)]);
+    } else {
+      return;
     }
   }
 
@@ -131,12 +167,7 @@ struct ElementBasisFunction {
         }
       }
     }
-    if constexpr (ElementTrait::kElementType == ElementEnum::Line) {
-      this->getElementAdjacencyBasisFunction<AdjacencyPointTrait<ElementTrait::kPolynomialOrder>>();
-    } else if constexpr (ElementTrait::kElementType == ElementEnum::Triangle ||
-                         ElementTrait::kElementType == ElementEnum::Quadrangle) {
-      this->getElementAdjacencyBasisFunction<AdjacencyLineTrait<ElementTrait::kPolynomialOrder>>();
-    }
+    this->template getElementAdjacencyBasisFunction<0>();
   }
 };
 

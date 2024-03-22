@@ -110,10 +110,6 @@ struct ElementViewVariable : ElementViewBasisFunction<ElementTrait> {
 
   inline void readElementRawBinary(const ElementMesh<ElementTrait>& element_mesh, std::fstream& raw_binary_finout);
 
-  inline void addNodeConservedVariable(
-      const ElementMesh<ElementTrait>& element_mesh,
-      Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic>& node_conserved_variable);
-
   inline ElementViewVariable() : ElementViewBasisFunction<ElementTrait>(){};
 };
 

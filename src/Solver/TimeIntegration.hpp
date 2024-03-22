@@ -98,14 +98,14 @@ template <typename ElementTrait, typename SimulationControl, EquationModelEnum E
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementDeltaTime(
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+  Variable<SimulationControl> variable;
+  Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(element_mesh, thermal_model, time_integration)
+    shared(element_mesh, thermal_model, time_integration) private(variable, delta_time)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
-    Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      Variable<SimulationControl> variable;
       variable.template getFromSelf<ElementTrait>(i, j, element_mesh, thermal_model, *this);
       const Real spectral_radius =
           std::sqrt(variable.template get<ComputationalVariableEnum::VelocitySquareSummation>()) +
@@ -178,7 +178,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::u
         time_integration.kStepCoefficients[static_cast<Usize>(step)][1] *
             this->element_(i).conserved_variable_basis_function_coefficient_(1) +
         time_integration.kStepCoefficients[static_cast<Usize>(step)][2] * this->delta_time_(i) *
-            this->element_(i).residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
+            element_mesh.element_(i).local_mass_matrix_llt_.solve(this->element_(i).residual_.transpose()).transpose();
   }
 }
 
