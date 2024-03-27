@@ -10,18 +10,6 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#include <gmsh.h>
-
-#include <Eigen/Cholesky>
-#include <Eigen/Core>
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <cstdlib>
-#include <filesystem>
-#include <functional>
-#include <vector>
-
 #include "SubrosaDG"
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory /

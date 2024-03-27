@@ -279,7 +279,6 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
   inline void initializeMesh(
       const std::filesystem::path& mesh_file_path,
       const std::function<void(const std::filesystem::path& mesh_file_path)>& generate_mesh_function) {
-    // gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
     generate_mesh_function(mesh_file_path);
     gmsh::clear();
     gmsh::open(mesh_file_path);

@@ -205,6 +205,8 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> local_error =
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero();
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#pragma omp declare reduction(+ : Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> : omp_out += \
+                                  omp_in) initializer(omp_priv = decltype(omp_orig)::Zero())
 #pragma omp parallel for reduction(+ : local_error) default(none) schedule(nonmonotonic : auto) \
     shared(Eigen::Dynamic, element_mesh)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
@@ -212,7 +214,8 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
     local_error.array() += ((this->element_(i).residual_ * element_mesh.basis_function_.value_.transpose()).array() /
                             ((this->element_(i).conserved_variable_basis_function_coefficient_(1) *
                               element_mesh.basis_function_.value_.transpose())
-                                 .array()))
+                                 .array() +
+                             1e-8))
                                .square()
                                .rowwise()
                                .mean();
