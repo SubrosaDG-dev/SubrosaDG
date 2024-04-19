@@ -16,7 +16,7 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
                                                      "build/out/naca0012_2d_euler"};
 
 using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
+    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
                                       SubrosaDG::ThermodynamicModelEnum::ConstantE,
                                       SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
                                       SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
@@ -148,9 +148,9 @@ int main(int argc, char* argv[]) {
   });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticWall>("bc-2");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
   system.synchronize();
-  system.setTimeIntegration(false, 1, 1.5, 1e-10);
+  system.setTimeIntegration(false, 1, 1.0);
   system.setViewConfig(-1, kExampleDirectory, "naca0012_2d", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,

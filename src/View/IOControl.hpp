@@ -99,80 +99,103 @@ struct ElementViewBasisFunction {
 };
 
 template <typename AdjacencyElementTrait>
-struct AdjacencyElementViewVariable
+struct AdjacencyElementViewSolver
     : AdjacencyElementViewBasisFunction<AdjacencyElementTrait, AdjacencyElementTrait::kPolynomialOrder> {};
 
+template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+struct ElementViewSolver;
+
 template <typename ElementTrait, typename SimulationControl>
-struct ElementViewVariable : ElementViewBasisFunction<ElementTrait> {
-  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
-               Eigen::Dynamic, 1>
-      conserved_variable_;
+struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>
+    : ElementViewBasisFunction<ElementTrait> {
+  Eigen::Array<ViewVariable<SimulationControl>, ElementTrait::kAllNodeNumber, Eigen::Dynamic> view_variable_;
 
-  inline void readElementRawBinary(const ElementMesh<ElementTrait>& element_mesh, std::fstream& raw_binary_finout);
+  inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
+                                           const ThermalModel<SimulationControl>& thermal_model,
+                                           std::fstream& raw_binary_finout);
 
-  inline ElementViewVariable() : ElementViewBasisFunction<ElementTrait>(){};
+  inline ElementViewSolver() : ElementViewBasisFunction<ElementTrait>(){};
+};
+
+template <typename ElementTrait, typename SimulationControl>
+struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>
+    : ElementViewBasisFunction<ElementTrait> {
+  Eigen::Array<ViewVariable<SimulationControl>, ElementTrait::kAllNodeNumber, Eigen::Dynamic> view_variable_;
+
+  inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
+                                           const ThermalModel<SimulationControl>& thermal_model,
+                                           std::fstream& raw_binary_finout);
+
+  inline ElementViewSolver() : ElementViewBasisFunction<ElementTrait>(){};
 };
 
 template <typename SimulationControl, int Dimension>
-struct ViewVariableData;
+struct ViewSolverData;
 
 template <typename SimulationControl>
-struct ViewVariableData<SimulationControl, 1> {
-  AdjacencyElementViewVariable<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>> point_;
-  ElementViewVariable<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
+struct ViewSolverData<SimulationControl, 1> {
+  AdjacencyElementViewSolver<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>> point_;
+  ElementViewSolver<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
+                    SimulationControl::kEquationModel>
+      line_;
 
   Eigen::Vector<Real, Eigen::Dynamic> time_value_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic> node_conserved_variable_;
 };
 
 template <typename SimulationControl>
-struct ViewVariableData<SimulationControl, 2> {
-  AdjacencyElementViewVariable<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>> line_;
-  ElementViewVariable<TriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> triangle_;
-  ElementViewVariable<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> quadrangle_;
+struct ViewSolverData<SimulationControl, 2> {
+  AdjacencyElementViewSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>> line_;
+  ElementViewSolver<TriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
+                    SimulationControl::kEquationModel>
+      triangle_;
+  ElementViewSolver<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
+                    SimulationControl::kEquationModel>
+      quadrangle_;
 
   Eigen::Vector<Real, Eigen::Dynamic> time_value_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic> node_conserved_variable_;
 };
 
 template <typename SimulationControl>
-struct ViewVariable : ViewVariableData<SimulationControl, SimulationControl::kDimension> {
+struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimension> {
   template <typename ElementTrait>
-  inline static ElementViewVariable<ElementTrait, SimulationControl> ViewVariable::*getElement() {
+  inline static ElementViewSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel> ViewSolver::*
+  getElement() {
     if constexpr (SimulationControl::kDimension == 1) {
       if constexpr (ElementTrait::kElementType == ElementEnum::Line) {
-        return &ViewVariable::line_;
+        return &ViewSolver::line_;
       }
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (ElementTrait::kElementType == ElementEnum::Triangle) {
-        return &ViewVariable::triangle_;
+        return &ViewSolver::triangle_;
       }
       if constexpr (ElementTrait::kElementType == ElementEnum::Quadrangle) {
-        return &ViewVariable::quadrangle_;
+        return &ViewSolver::quadrangle_;
       }
     }
     return nullptr;
   }
 
   template <typename AdjacencyElementTrait>
-  inline static AdjacencyElementViewVariable<AdjacencyElementTrait> ViewVariable::*getAdjacencyElement() {
+  inline static AdjacencyElementViewSolver<AdjacencyElementTrait> ViewSolver::*getAdjacencyElement() {
     if constexpr (SimulationControl::kDimension == 1) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
-        return &ViewVariable::point_;
+        return &ViewSolver::point_;
       }
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-        return &ViewVariable::line_;
+        return &ViewSolver::line_;
       }
     }
     return nullptr;
   }
 
-  inline void readRawBinary(const Mesh<SimulationControl>& mesh, std::fstream& raw_binary_finout);
+  inline void calcluateViewVariable(const Mesh<SimulationControl>& mesh,
+                                    const ThermalModel<SimulationControl>& thermal_model,
+                                    std::fstream& raw_binary_finout);
 
   inline void readTimeValue(int iteration_number, std::fstream& error_finout);
 
-  inline void initializeViewVariable(int iteration_number, const Mesh<SimulationControl>& mesh);
+  inline void initializeViewSolver(int iteration_number, const Mesh<SimulationControl>& mesh);
 };
 
 template <typename SimulationControl>
@@ -184,12 +207,62 @@ struct ViewData {
   std::fstream error_finout_;
   std::fstream raw_binary_finout_;
   ViewConfigEnum config_enum_;
-  std::vector<ViewVariableEnum> variable_vector_;
-  ViewVariable<SimulationControl> variable_;
+  std::vector<ViewVariableEnum> variable_type_;
+  ViewSolver<SimulationControl> solver_;
 };
 
 template <typename SimulationControl, ViewModelEnum ViewModelType>
 struct ViewBase;
+
+template <typename SimulationControl>
+struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewData<SimulationControl> {
+  inline std::string getBaseName(int step, std::string_view physical_name);
+
+  inline void getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information);
+
+  inline void calculateViewVariable(const ThermalModel<SimulationControl>& thermal_model,
+                                    const ViewVariable<SimulationControl>& view_variable,
+                                    Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
+                                    Isize column);
+
+  template <typename AdjacencyElementTrait>
+  inline void writeAdjacencyElement(Isize physical_index, const MeshInformation& mesh_information,
+                                    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+                                    const ThermalModel<SimulationControl>& thermal_model,
+                                    Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
+                                    Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
+                                    Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
+                                    Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
+                                    Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type,
+                                    Isize element_index, Isize& column);
+
+  template <typename ElementTrait>
+  inline void writeElement(Isize physical_index, const MeshInformation& mesh_information,
+                           const ElementMesh<ElementTrait>& element_mesh,
+                           const ThermalModel<SimulationControl>& thermal_model,
+                           Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
+                           Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
+                           Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
+                           Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
+                           Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, Isize element_index,
+                           Isize& column);
+
+  template <int Dimension, bool IsAdjacency>
+  inline void writeField(Isize physical_index, const Mesh<SimulationControl>& mesh,
+                         const ThermalModel<SimulationControl>& thermal_model,
+                         Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
+                         Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
+                         Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
+                         Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
+                         Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type);
+
+  template <int Dimension, bool IsAdjacency>
+  inline void writeView(int step, Isize physical_index, const Mesh<SimulationControl>& mesh,
+                        const ThermalModel<SimulationControl>& thermal_model, const std::string& base_name);
+
+  inline void stepView(int step, const Mesh<SimulationControl>& mesh,
+                       const ThermalModel<SimulationControl>& thermal_model);
+};
 
 template <typename SimulationControl>
 struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationControl> {
@@ -236,56 +309,6 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
 };
 
 template <typename SimulationControl>
-struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewData<SimulationControl> {
-  inline std::string getBaseName(int step, std::string_view physical_name);
-
-  inline void getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information);
-
-  inline void calculateViewVariable(const ThermalModel<SimulationControl>& thermal_model,
-                                    Variable<SimulationControl>& variable,
-                                    Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
-                                    Isize column);
-
-  template <typename AdjacencyElementTrait>
-  inline void writeAdjacencyElement(Isize physical_index, const MeshInformation& mesh_information,
-                                    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-                                    const ThermalModel<SimulationControl>& thermal_model,
-                                    Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
-                                    Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
-                                    Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
-                                    Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
-                                    Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type,
-                                    Isize element_index, Isize& column);
-
-  template <typename ElementTrait>
-  inline void writeElement(Isize physical_index, const MeshInformation& mesh_information,
-                           const ElementMesh<ElementTrait>& element_mesh,
-                           const ThermalModel<SimulationControl>& thermal_model,
-                           Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
-                           Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
-                           Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
-                           Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
-                           Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, Isize element_index,
-                           Isize& column);
-
-  template <int Dimension, bool IsAdjacency>
-  inline void writeField(Isize physical_index, const Mesh<SimulationControl>& mesh,
-                         const ThermalModel<SimulationControl>& thermal_model,
-                         Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
-                         Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
-                         Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
-                         Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
-                         Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type);
-
-  template <int Dimension, bool IsAdjacency>
-  inline void writeView(int step, Isize physical_index, const Mesh<SimulationControl>& mesh,
-                        const ThermalModel<SimulationControl>& thermal_model, const std::string& base_name);
-
-  inline void stepView(int step, const Mesh<SimulationControl>& mesh,
-                       const ThermalModel<SimulationControl>& thermal_model);
-};
-
-template <typename SimulationControl>
 struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
   inline void initializeViewRawBinary(const ViewConfigEnum view_config) {
     std::ios::openmode open_mode = std::ios::in | std::ios::out;
@@ -306,14 +329,10 @@ struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
 
   inline void initializeView(const bool delete_dir, const int iteration_number, const Mesh<SimulationControl>& mesh) {
     std::filesystem::path view_output_directory;
-    if constexpr (SimulationControl::kViewModel == ViewModelEnum::Dat) {
-      view_output_directory = this->output_directory_ / "dat";
-    } else if constexpr (SimulationControl::kViewModel == ViewModelEnum::Msh) {
-      view_output_directory = this->output_directory_ / "msh";
-    } else if constexpr (SimulationControl::kViewModel == ViewModelEnum::Plt) {
-      view_output_directory = this->output_directory_ / "plt";
-    } else if constexpr (SimulationControl::kViewModel == ViewModelEnum::Vtu) {
+    if constexpr (SimulationControl::kViewModel == ViewModelEnum::Vtu) {
       view_output_directory = this->output_directory_ / "vtu";
+    } else if constexpr (SimulationControl::kViewModel == ViewModelEnum::Dat) {
+      view_output_directory = this->output_directory_ / "dat";
     }
     if (delete_dir) {
       if (std::filesystem::exists(view_output_directory)) {
@@ -325,8 +344,8 @@ struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
     }
     this->raw_binary_finout_.seekg(0, std::ios::beg);
     this->error_finout_.seekg(0, std::ios::beg);
-    this->variable_.initializeViewVariable(iteration_number, mesh);
-    this->variable_.readTimeValue(iteration_number, this->error_finout_);
+    this->solver_.initializeViewSolver(iteration_number, mesh);
+    this->solver_.readTimeValue(iteration_number, this->error_finout_);
   }
 
   inline void finalizeView() {

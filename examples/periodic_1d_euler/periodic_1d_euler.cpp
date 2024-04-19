@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
   system.synchronize();
-  system.setTimeIntegration(false, 1, 1.0, 1e-10);
+  system.setTimeIntegration(false, 1, 1.0);
   system.setViewConfig(-1, kExampleDirectory, "periodic_1d", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});

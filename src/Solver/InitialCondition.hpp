@@ -37,8 +37,8 @@ struct InitialCondition {
       function_;
 };
 
-template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::initializeElementSolver(
+template <typename ElementTrait, typename SimulationControl>
+inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElementSolver(
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
     const std::unordered_map<Isize, InitialCondition<SimulationControl>>& initial_condition) {
   this->number_ = element_mesh.number_;
@@ -57,14 +57,27 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::i
   for (Isize i = 0; i < this->number_; i++) {
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
       variable.primitive_ = initial_condition.at(element_mesh.element_(i).gmsh_physical_index_)
-                                .function_(element_mesh.element_(i).gaussian_quadrature_node_coordinate_.col(j));
+                                .function_(element_mesh.element_(i).quadrature_node_coordinate_.col(j));
       variable.calculateConservedFromPrimitive(thermal_model);
       quadrature_node_conserved_variable.col(j) = variable.conserved_;
     }
-    this->element_(i).conserved_variable_basis_function_coefficient_(1).noalias() =
+    this->element_(i).variable_basis_function_coefficient_(1).noalias() =
         basis_function_value_llt
             .solve((quadrature_node_conserved_variable * element_mesh.basis_function_.value_).transpose())
             .transpose();
+  }
+}
+
+template <typename ElementTrait, typename SimulationControl>
+inline void
+ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::initializeElementGardientSolver() {
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh)
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+  for (Isize i = 0; i < this->number_; i++) {
+    for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
+      this->element_(i).variable_gradient_interface_adjacency_quadrature_(j).setZero();
+    }
   }
 }
 
@@ -73,18 +86,24 @@ inline void Solver<SimulationControl>::initializeSolver(
     const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
     std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
     const std::unordered_map<Isize, InitialCondition<SimulationControl>>& initial_condition) {
-  for (auto& [boundary_condition_name, boundary_condition_variable] : boundary_condition) {
-    boundary_condition_variable->variable_.calculateConservedFromPrimitive(thermal_model);
-    boundary_condition_variable->variable_.calculateComputationalFromPrimitive(thermal_model);
+  for (auto& [name, variable] : boundary_condition) {
+    variable->boundary_dummy_variable_.calculateConservedFromPrimitive(thermal_model);
+    variable->boundary_dummy_variable_.calculateComputationalFromPrimitive(thermal_model);
   }
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.initializeElementSolver(mesh.line_, thermal_model, initial_condition);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
       this->triangle_.initializeElementSolver(mesh.triangle_, thermal_model, initial_condition);
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
+        this->triangle_.initializeElementGardientSolver();
+      }
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.initializeElementSolver(mesh.quadrangle_, thermal_model, initial_condition);
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
+        this->quadrangle_.initializeElementGardientSolver();
+      }
     }
   }
 }

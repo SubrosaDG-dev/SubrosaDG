@@ -35,7 +35,6 @@ struct TimeIntegrationDataBase {
   bool is_steady_;
   int iteration_number_;
   Real courant_friedrichs_lewy_number_;
-  Real tolerance_;
 };
 
 template <TimeIntegrationEnum TimeIntegrationType>
@@ -69,14 +68,14 @@ struct TimeIntegrationData<TimeIntegrationEnum::SSPRK3> : TimeIntegrationDataBas
 template <typename SimulationControl>
 struct TimeIntegration : TimeIntegrationData<SimulationControl::kTimeIntegration> {};
 
-template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::copyElementBasisFunctionCoefficient() {
+template <typename ElementTrait, typename SimulationControl>
+inline void ElementSolverBase<ElementTrait, SimulationControl>::copyElementBasisFunctionCoefficient() {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    this->element_(i).conserved_variable_basis_function_coefficient_(0).noalias() =
-        this->element_(i).conserved_variable_basis_function_coefficient_(1);
+    this->element_(i).variable_basis_function_coefficient_(0).noalias() =
+        this->element_(i).variable_basis_function_coefficient_(1);
   }
 }
 
@@ -94,11 +93,11 @@ inline void Solver<SimulationControl>::copyBasisFunctionCoefficient() {
   }
 }
 
-template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementDeltaTime(
+template <typename ElementTrait, typename SimulationControl>
+inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElementDeltaTime(
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
-  Variable<SimulationControl> variable;
+  Variable<SimulationControl> quadrature_node_variable;
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
@@ -106,11 +105,12 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      variable.template getFromSelf<ElementTrait>(i, j, element_mesh, thermal_model, *this);
+      quadrature_node_variable.template getFromSelf<ElementTrait>(i, j, element_mesh, *this);
+      quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
       const Real spectral_radius =
-          std::sqrt(variable.template get<ComputationalVariableEnum::VelocitySquareSummation>()) +
+          std::sqrt(quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>()) +
           thermal_model.calculateSoundSpeedFromInternalEnergy(
-              variable.template get<ComputationalVariableEnum::InternalEnergy>());
+              quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>());
       delta_time(j) =
           time_integration.courant_friedrichs_lewy_number_ * element_mesh.element_(i).size_ / spectral_radius;
     }
@@ -163,8 +163,8 @@ inline Real Solver<SimulationControl>::calculateDeltaTime(
   return this->setDeltaTime(time_integration);
 }
 
-template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::updateElementBasisFunctionCoefficient(
+template <typename ElementTrait, typename SimulationControl>
+inline void ElementSolverBase<ElementTrait, SimulationControl>::updateElementBasisFunctionCoefficient(
     const int step, const ElementMesh<ElementTrait>& element_mesh,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
 #if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
@@ -172,13 +172,40 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::u
     shared(Eigen::Dynamic, step, element_mesh, time_integration)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    this->element_(i).conserved_variable_basis_function_coefficient_(1) =
+    // NOTE: Here we split the calculation to trigger eigen's noalias to avoid intermediate variables.
+    this->element_(i).variable_basis_function_coefficient_(1) *=
+        time_integration.kStepCoefficients[static_cast<Usize>(step)][1];
+    this->element_(i).variable_basis_function_coefficient_(1).noalias() +=
         time_integration.kStepCoefficients[static_cast<Usize>(step)][0] *
-            this->element_(i).conserved_variable_basis_function_coefficient_(0) +
-        time_integration.kStepCoefficients[static_cast<Usize>(step)][1] *
-            this->element_(i).conserved_variable_basis_function_coefficient_(1) +
+        this->element_(i).variable_basis_function_coefficient_(0);
+    this->element_(i).variable_basis_function_coefficient_(1).noalias() +=
         time_integration.kStepCoefficients[static_cast<Usize>(step)][2] * this->delta_time_(i) *
-            element_mesh.element_(i).local_mass_matrix_llt_.solve(this->element_(i).residual_.transpose()).transpose();
+        element_mesh.element_(i)
+            .local_mass_matrix_llt_.solve(this->element_(i).variable_residual_.transpose())
+            .transpose();
+  }
+}
+
+template <typename ElementTrait, typename SimulationControl>
+inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::
+    updateElementGardientBasisFunctionCoefficient(const ElementMesh<ElementTrait>& element_mesh) {
+#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
+    shared(Eigen::Dynamic, step, element_mesh, time_integration)
+#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+  for (Isize i = 0; i < this->number_; i++) {
+    this->element_(i).variable_gradient_basis_function_coefficient_ =
+        element_mesh.element_(i)
+            .local_mass_matrix_llt_.solve(this->element_(i).variable_gradient_volume_residual_.transpose())
+            .transpose();
+    for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
+      this->element_(i).variable_gradient_interface_basis_function_coefficient_(j) =
+          element_mesh.element_(i)
+              .local_mass_matrix_llt_.solve(this->element_(i).variable_gradient_interface_residual_(j).transpose())
+              .transpose();
+      this->element_(i).variable_gradient_basis_function_coefficient_ +=
+          this->element_(i).variable_gradient_interface_basis_function_coefficient_(j);
+    }
   }
 }
 
@@ -198,8 +225,20 @@ inline void Solver<SimulationControl>::updateBasisFunctionCoefficient(
   }
 }
 
-template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::calculateElementRelativeError(
+template <typename SimulationControl>
+inline void Solver<SimulationControl>::updateGardientBasisFunctionCoefficient(const Mesh<SimulationControl>& mesh) {
+  if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.updateElementGardientBasisFunctionCoefficient(mesh.triangle_);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.updateElementGardientBasisFunctionCoefficient(mesh.quadrangle_);
+    }
+  }
+}
+
+template <typename ElementTrait, typename SimulationControl>
+inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElementRelativeError(
     const ElementMesh<ElementTrait>& element_mesh,
     Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error) {
   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> local_error =
@@ -211,14 +250,14 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::c
     shared(Eigen::Dynamic, element_mesh)
 #endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    local_error.array() += ((this->element_(i).residual_ * element_mesh.basis_function_.value_.transpose()).array() /
-                            ((this->element_(i).conserved_variable_basis_function_coefficient_(1) *
-                              element_mesh.basis_function_.value_.transpose())
-                                 .array() +
-                             1e-8))
-                               .square()
-                               .rowwise()
-                               .mean();
+    local_error.array() +=
+        ((this->element_(i).variable_residual_ * element_mesh.basis_function_.value_.transpose()).array() /
+         ((this->element_(i).variable_basis_function_coefficient_(1) * element_mesh.basis_function_.value_.transpose())
+              .array() +
+          1e-8))
+            .square()
+            .rowwise()
+            .mean();
   }
   relative_error.array() += local_error.array();
 }
@@ -244,8 +283,14 @@ inline void Solver<SimulationControl>::stepSolver(
     const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
     const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
-  this->calculateGaussianQuadrature(mesh, thermal_model);
-  this->calculateAdjacencyGaussianQuadrature(mesh, thermal_model, boundary_condition);
+  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
+    this->calculateGardientQuadrature(mesh);
+    this->calculateAdjacencyGardientQuadrature(mesh, thermal_model, boundary_condition);
+    this->calculateGardientResidual(mesh);
+    this->updateGardientBasisFunctionCoefficient(mesh);
+  }
+  this->calculateQuadrature(mesh, thermal_model);
+  this->calculateAdjacencyQuadrature(mesh, thermal_model, boundary_condition);
   this->calculateResidual(mesh);
   this->updateBasisFunctionCoefficient(step, mesh, time_integration);
 }

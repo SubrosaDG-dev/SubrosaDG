@@ -20,7 +20,7 @@
 #include <format>
 #include <vector>
 
-#include "Mesh/GaussianQuadrature.hpp"
+#include "Mesh/Quadrature.hpp"
 #include "Solver/SimulationControl.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Enum.hpp"
@@ -42,7 +42,7 @@ template <typename ElementTrait, typename AdjacencyElementTrait>
 inline std::vector<double> getElementPerAdjacencyBasisFunction(
     const Eigen::Matrix<Real, ElementTrait::kDimension, AdjacencyElementTrait::kBasicNodeNumber>&
         adjacency_basic_node_coordinate) {
-  const auto [local_coord, weights] = getElementGaussianQuadrature<AdjacencyElementTrait>();
+  const auto [local_coord, weights] = getElementQuadrature<AdjacencyElementTrait>();
   int num_components;
   std::vector<double> basis_functions;
   int num_orientations;
@@ -76,7 +76,7 @@ struct AdjacencyElementBasisFunction {
       gradient_value_;
 
   inline AdjacencyElementBasisFunction() {
-    const auto [local_coord, weights] = getElementGaussianQuadrature<AdjacencyElementTrait>();
+    const auto [local_coord, weights] = getElementQuadrature<AdjacencyElementTrait>();
     int num_components;
     std::vector<double> gradient_basis_functions;
     int num_orientations;
@@ -114,9 +114,8 @@ struct ElementBasisFunction {
       constexpr std::array<int, ElementTrait::kAllAdjacencyNodeNumber> kElementAdjacencyNodeIndex{
           getElementPerAdjacencyNodeIndex<ElementTrait::kElementType>()};
       constexpr std::array<int, getElementAdjacencyNumber<ElementTrait::kElementType>()>
-          kElementPerAdjacencyGaussianQuadratureNumber{
-              getElementPerAdjacencyGaussianQuadratureNumber<ElementTrait::kElementType,
-                                                             ElementTrait::kPolynomialOrder>()};
+          kElementPerAdjacencyQuadratureNumber{
+              getElementPerAdjacencyQuadratureNumber<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>()};
       const Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kBasicNodeNumber> basic_node_coordinate{
           getElementNodeCoordinate<ElementTrait::kElementType, PolynomialOrderEnum::P1>().data()};
       Eigen::Matrix<Real, ElementTrait::kDimension, kElementPerAdjacencyNodeNumber[static_cast<Usize>(I)]>
@@ -129,7 +128,7 @@ struct ElementBasisFunction {
           ElementTrait,
           AdjacencyElementTrait<kAdjacencyElementType[static_cast<Usize>(I)], ElementTrait::kPolynomialOrder>>(
           adjacency_basic_node_coordinate);
-      for (Isize j = 0; j < kElementPerAdjacencyGaussianQuadratureNumber[static_cast<Usize>(I)]; j++) {
+      for (Isize j = 0; j < kElementPerAdjacencyQuadratureNumber[static_cast<Usize>(I)]; j++) {
         for (Isize k = 0; k < ElementTrait::kBasisFunctionNumber; k++) {
           this->adjacency_value_(quadrature_column + j, k) = static_cast<Real>(
               adjacency_basis_functions[static_cast<Usize>(j * ElementTrait::kBasisFunctionNumber + k)]);
@@ -137,14 +136,14 @@ struct ElementBasisFunction {
       }
       this->template getElementAdjacencyBasisFunction<I + 1>(
           node_column + kElementPerAdjacencyNodeNumber[static_cast<Usize>(I)],
-          quadrature_column + kElementPerAdjacencyGaussianQuadratureNumber[static_cast<Usize>(I)]);
+          quadrature_column + kElementPerAdjacencyQuadratureNumber[static_cast<Usize>(I)]);
     } else {
       return;
     }
   }
 
   inline ElementBasisFunction() {
-    const auto [local_coord, weights] = getElementGaussianQuadrature<ElementTrait>();
+    const auto [local_coord, weights] = getElementQuadrature<ElementTrait>();
     std::vector<double> basis_functions = getElementBasisFunction<ElementTrait>(local_coord);
     for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kBasisFunctionNumber; j++) {

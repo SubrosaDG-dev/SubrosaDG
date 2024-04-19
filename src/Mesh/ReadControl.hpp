@@ -28,7 +28,7 @@
 #include <vector>
 
 #include "Mesh/BasisFunction.hpp"
-#include "Mesh/GaussianQuadrature.hpp"
+#include "Mesh/Quadrature.hpp"
 #include "Solver/SimulationControl.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
@@ -90,7 +90,7 @@ struct PerAdjacencyElementMesh : PerElementMeshBase<AdjacencyElementTrait> {
 template <typename ElementTrait>
 struct PerElementMesh : PerElementMeshBase<ElementTrait> {
   Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kAllNodeNumber> node_coordinate_;
-  Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kQuadratureNumber> gaussian_quadrature_node_coordinate_;
+  Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kQuadratureNumber> quadrature_node_coordinate_;
   Eigen::LLT<Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>>
       local_mass_matrix_llt_;
   Eigen::Matrix<Real, ElementTrait::kDimension * ElementTrait::kDimension, ElementTrait::kQuadratureNumber>
@@ -109,7 +109,7 @@ struct AdjacencyElementMeshSupplemental {
 
 template <typename AdjacencyElementTrait>
 struct AdjacencyElementMesh {
-  ElementGaussianQuadrature<AdjacencyElementTrait> gaussian_quadrature_;
+  ElementQuadrature<AdjacencyElementTrait> quadrature_;
   AdjacencyElementBasisFunction<AdjacencyElementTrait> basis_function_;
 
   Isize interior_number_{0};
@@ -137,12 +137,12 @@ struct AdjacencyElementMesh {
 
   inline void calculateAdjacencyElementNormalVector();
 
-  inline AdjacencyElementMesh() : gaussian_quadrature_(){};
+  inline AdjacencyElementMesh() : quadrature_(){};
 };
 
 template <typename ElementTrait>
 struct ElementMesh {
-  ElementGaussianQuadrature<ElementTrait> gaussian_quadrature_;
+  ElementQuadrature<ElementTrait> quadrature_;
   ElementBasisFunction<ElementTrait> basis_function_;
 
   Isize number_{0};
@@ -153,7 +153,7 @@ struct ElementMesh {
 
   inline void getElementJacobian();
 
-  inline void calculateElementLocalMassMatrixInverse();
+  inline void calculateElementLocalMassMatrixLLT();
 
   inline void calculateElementMeshSize(
       const MeshInformation& information,
@@ -163,7 +163,7 @@ struct ElementMesh {
       const MeshInformation& information,
       const AdjacencyElementMesh<AdjacencyLineTrait<ElementTrait::kPolynomialOrder>>& line);
 
-  inline ElementMesh() : gaussian_quadrature_(), basis_function_(){};
+  inline ElementMesh() : quadrature_(), basis_function_(){};
 };
 
 template <typename SimulationControl>

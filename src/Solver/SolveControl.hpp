@@ -41,13 +41,14 @@ template <typename ElementTrait, typename SimulationControl>
 struct PerElementSolverBase {
   Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>, 2,
                1>
-      conserved_variable_basis_function_coefficient_;
+      variable_basis_function_coefficient_;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
                 ElementTrait::kQuadratureNumber * SimulationControl::kDimension>
-      quadrature_without_gradient_basis_function_value_;
+      variable_quadrature_;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllAdjacencyQuadratureNumber>
-      adjacency_quadrature_without_basis_function_value_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber> residual_;
+      variable_adjacency_quadrature_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
+      variable_residual_;
 };
 
 template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
@@ -58,15 +59,39 @@ struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Eule
     : PerElementSolverBase<ElementTrait, SimulationControl> {};
 
 template <typename ElementTrait, typename SimulationControl>
-struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NS>
+struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>
     : PerElementSolverBase<ElementTrait, SimulationControl> {
-  // TODO: add NS specific data
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kBasisFunctionNumber>
+      variable_gradient_basis_function_coefficient_;
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             ElementTrait::kBasisFunctionNumber>,
+               ElementTrait::kAdjacencyNumber, 1>
+      variable_gradient_interface_basis_function_coefficient_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kQuadratureNumber * SimulationControl::kDimension>
+      variable_gradient_volume_quadrature_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kAllAdjacencyQuadratureNumber>
+      variable_gradient_volume_adjacency_quadrature_;
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             ElementTrait::kAllAdjacencyQuadratureNumber>,
+               ElementTrait::kAdjacencyNumber, 1>
+      variable_gradient_interface_adjacency_quadrature_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kBasisFunctionNumber>
+      variable_gradient_volume_residual_;
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             ElementTrait::kBasisFunctionNumber>,
+               ElementTrait::kAdjacencyNumber, 1>
+      variable_gradient_interface_residual_;
 };
 
-template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-struct ElementSolver {
-  Isize number_;
-  Eigen::Array<PerElementSolver<ElementTrait, SimulationControl, EquationModelType>, Eigen::Dynamic, 1> element_;
+template <typename ElementTrait, typename SimulationControl>
+struct ElementSolverBase {
+  Isize number_{0};
+  Eigen::Array<PerElementSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel>, Eigen::Dynamic, 1>
+      element_;
 
   Eigen::Vector<Real, Eigen::Dynamic> delta_time_;
 
@@ -80,9 +105,6 @@ struct ElementSolver {
       const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
       const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
 
-  inline void calculateElementGaussianQuadrature(const ElementMesh<ElementTrait>& element_mesh,
-                                                 const ThermalModel<SimulationControl>& thermal_model);
-
   inline void calculateElementResidual(const ElementMesh<ElementTrait>& element_mesh);
 
   inline void updateElementBasisFunctionCoefficient(
@@ -92,47 +114,95 @@ struct ElementSolver {
   inline void calculateElementRelativeError(
       const ElementMesh<ElementTrait>& element_mesh,
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error);
+};
+
+template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+struct ElementSolver;
+
+template <typename ElementTrait, typename SimulationControl>
+struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>
+    : ElementSolverBase<ElementTrait, SimulationControl> {
+  inline void calculateElementQuadrature(const ElementMesh<ElementTrait>& element_mesh,
+                                         const ThermalModel<SimulationControl>& thermal_model);
+
+  inline void writeElementRawBinary(std::fstream& fout) const;
+};
+
+template <typename ElementTrait, typename SimulationControl>
+struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>
+    : ElementSolverBase<ElementTrait, SimulationControl> {
+  inline void initializeElementGardientSolver();
+
+  inline void calculateElementQuadrature(const ElementMesh<ElementTrait>& element_mesh,
+                                         const ThermalModel<SimulationControl>& thermal_model);
+
+  inline void calculateElementGardientQuadrature(const ElementMesh<ElementTrait>& element_mesh);
+
+  inline void calculateElementGardientResidual(const ElementMesh<ElementTrait>& element_mesh);
+
+  inline void updateElementGardientBasisFunctionCoefficient(const ElementMesh<ElementTrait>& element_mesh);
 
   inline void writeElementRawBinary(std::fstream& fout) const;
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
-struct AdjacencyElementSolverBase;
-
-template <typename SimulationControl>
-struct AdjacencyElementSolverBase<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl> {
-  template <bool IsLeft>
-  [[nodiscard]] inline Isize getAdjacencyParentElementQuadratureNodeSequenceInParent(
-      [[maybe_unused]] Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent,
-      Isize qudrature_sequence_in_adjacency) const;
-
-  inline void storeAdjacencyElementNodeGaussianQuadrature(
-      Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
-      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
-          adjacency_element_gaussian_quadrature_node_temporary_variable,
-      Solver<SimulationControl>& solver);
-};
-
-template <typename SimulationControl>
-struct AdjacencyElementSolverBase<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> {
+struct AdjacencyElementSolverBase {
   template <bool IsLeft>
   [[nodiscard]] inline Isize getAdjacencyParentElementQuadratureNodeSequenceInParent(
       Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent, Isize qudrature_sequence_in_adjacency) const;
 
-  inline void storeAdjacencyElementNodeGaussianQuadrature(
-      Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
+  inline void storeAdjacencyElementNodeQuadrature(
+      Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_quadrature_node_sequence_in_parent,
       const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
-          adjacency_element_gaussian_quadrature_node_temporary_variable,
+          adjacency_element_quadrature_node_temporary_variable,
+      Solver<SimulationControl>& solver);
+};
+
+template <typename AdjacencyElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+struct AdjacencyElementSolver;
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::Euler>
+    : AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl> {
+  inline void calculateInteriorAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
+                                                          const ThermalModel<SimulationControl>& thermal_model,
+                                                          Solver<SimulationControl>& solver);
+
+  inline void calculateBoundaryAdjacencyElementQuadrature(
+      const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       Solver<SimulationControl>& solver);
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
-struct AdjacencyElementSolver : AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl> {
-  inline void calculateInteriorAdjacencyElementGaussianQuadrature(const Mesh<SimulationControl>& mesh,
-                                                                  const ThermalModel<SimulationControl>& thermal_model,
+struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::NavierStokes>
+    : AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl> {
+  inline void storeAdjacencyElementNodeVolumeGardientQuadrature(
+      Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_quadrature_node_sequence_in_parent,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>&
+          adjacency_element_quadrature_node_temporary_variable,
+      Solver<SimulationControl>& solver);
+
+  inline void storeAdjacencyElementNodeInterfaceGardientQuadrature(
+      Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_sequence_in_parent,
+      Isize adjacency_quadrature_node_sequence_in_parent,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>&
+          adjacency_element_quadrature_node_temporary_variable,
+      Solver<SimulationControl>& solver);
+
+  inline void calculateInteriorAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
+                                                          const ThermalModel<SimulationControl>& thermal_model,
+                                                          Solver<SimulationControl>& solver);
+
+  inline void calculateInteriorAdjacencyElementGardientQuadrature(const Mesh<SimulationControl>& mesh,
                                                                   Solver<SimulationControl>& solver);
 
-  inline void calculateBoundaryAdjacencyElementGaussianQuadrature(
+  inline void calculateBoundaryAdjacencyElementQuadrature(
+      const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
+      Solver<SimulationControl>& solver);
+
+  inline void calculateBoundaryAdjacencyElementGardientQuadrature(
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       Solver<SimulationControl>& solver);
@@ -140,21 +210,27 @@ struct AdjacencyElementSolver : AdjacencyElementSolverBase<AdjacencyElementTrait
 
 template <typename SimulationControl>
 struct SolverData<SimulationControl, 1> {
-  AdjacencyElementSolver<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl> point_;
+  AdjacencyElementSolver<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
+                         SimulationControl::kEquationModel>
+      point_;
   ElementSolver<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl, SimulationControl::kEquationModel>
       line_;
+
   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
 };
 
 template <typename SimulationControl>
 struct SolverData<SimulationControl, 2> {
-  AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
+  AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
+                         SimulationControl::kEquationModel>
+      line_;
   ElementSolver<TriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
                 SimulationControl::kEquationModel>
       triangle_;
   ElementSolver<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
                 SimulationControl::kEquationModel>
       quadrangle_;
+
   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
 };
 
@@ -179,7 +255,8 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
   }
 
   template <typename AdjacencyElementTrait>
-  inline static AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl> Solver::*getAdjacencyElement() {
+  inline static AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, SimulationControl::kEquationModel>
+      Solver::*getAdjacencyElement() {
     if constexpr (SimulationControl::kDimension == 1) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
         return &Solver<SimulationControl>::point_;
@@ -205,18 +282,28 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
                                  const ThermalModel<SimulationControl>& thermal_model,
                                  const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
 
-  inline void calculateGaussianQuadrature(const Mesh<SimulationControl>& mesh,
-                                          const ThermalModel<SimulationControl>& thermal_model);
+  inline void calculateQuadrature(const Mesh<SimulationControl>& mesh,
+                                  const ThermalModel<SimulationControl>& thermal_model);
 
-  inline void calculateAdjacencyGaussianQuadrature(
+  inline void calculateGardientQuadrature(const Mesh<SimulationControl>& mesh);
+
+  inline void calculateAdjacencyQuadrature(
+      const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
+
+  inline void calculateAdjacencyGardientQuadrature(
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
 
   inline void calculateResidual(const Mesh<SimulationControl>& mesh);
 
+  inline void calculateGardientResidual(const Mesh<SimulationControl>& mesh);
+
   inline void updateBasisFunctionCoefficient(
       int step, const Mesh<SimulationControl>& mesh,
       const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+
+  inline void updateGardientBasisFunctionCoefficient(const Mesh<SimulationControl>& mesh);
 
   inline void stepSolver(
       int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,

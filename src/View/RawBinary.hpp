@@ -20,6 +20,7 @@
 
 #include "Mesh/ReadControl.hpp"
 #include "Solver/SolveControl.hpp"
+#include "Solver/ThermalModel.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
 #include "Utils/Enum.hpp"
@@ -27,17 +28,34 @@
 
 namespace SubrosaDG {
 
-template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-inline void ElementSolver<ElementTrait, SimulationControl, EquationModelType>::writeElementRawBinary(
+template <typename ElementTrait, typename SimulationControl>
+inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>::writeElementRawBinary(
     std::fstream& fout) const {
   for (Isize i = 0; i < this->number_; i++) {
 #ifdef SUBROSA_DG_DEVELOP
-    fout << this->element_(i).conserved_variable_basis_function_coefficient_(1) << '\n';
+    fout << this->element_(i).variable_basis_function_coefficient_(1) << '\n';
 #else
-    fout.write(
-        reinterpret_cast<const char*>(this->element_(i).conserved_variable_basis_function_coefficient_(1).data()),
-        SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
-            static_cast<std::streamsize>(sizeof(Real)));
+    fout.write(reinterpret_cast<const char*>(this->element_(i).variable_basis_function_coefficient_(1).data()),
+               SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
+                   static_cast<std::streamsize>(sizeof(Real)));
+#endif
+  }
+}
+
+template <typename ElementTrait, typename SimulationControl>
+inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::writeElementRawBinary(
+    std::fstream& fout) const {
+  for (Isize i = 0; i < this->number_; i++) {
+#ifdef SUBROSA_DG_DEVELOP
+    fout << this->element_(i).variable_basis_function_coefficient_(1) << '\n'
+         << this->element_(i).variable_gradient_basis_function_coefficient_ << '\n';
+#else
+    fout.write(reinterpret_cast<const char*>(this->element_(i).variable_basis_function_coefficient_(1).data()),
+               SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
+                   static_cast<std::streamsize>(sizeof(Real)));
+    fout.write(reinterpret_cast<const char*>(this->element_(i).variable_gradient_basis_function_coefficient_.data()),
+               SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
+                   ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
 #endif
   }
 }
@@ -57,10 +75,12 @@ inline void Solver<SimulationControl>::writeRawBinary(std::fstream& fout) const 
 }
 
 template <typename ElementTrait, typename SimulationControl>
-inline void ElementViewVariable<ElementTrait, SimulationControl>::readElementRawBinary(
-    const ElementMesh<ElementTrait>& element_mesh, std::fstream& raw_binary_finout) {
+inline void ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>::calcluateElementViewVariable(
+    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
+    std::fstream& raw_binary_finout) {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
       conserved_variable_basis_function_coefficient;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllNodeNumber> conserved_variable;
   for (Isize i = 0; i < element_mesh.number_; i++) {
 #ifdef SUBROSA_DG_DEVELOP
     for (Isize j = 0; j < SimulationControl::kConservedVariableNumber; j++) {
@@ -73,28 +93,80 @@ inline void ElementViewVariable<ElementTrait, SimulationControl>::readElementRaw
                            SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
                                static_cast<std::streamsize>(sizeof(Real)));
 #endif
-    this->conserved_variable_(i).noalias() =
-        conserved_variable_basis_function_coefficient * this->basis_function_value_;
+    conserved_variable.noalias() = conserved_variable_basis_function_coefficient * this->basis_function_value_;
+    for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
+      this->view_variable_(j, i).variable_.conserved_ = conserved_variable.col(j);
+      this->view_variable_(j, i).variable_.calculateComputationalFromConserved(thermal_model);
+    }
+  }
+}
+
+template <typename ElementTrait, typename SimulationControl>
+inline void
+ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::calcluateElementViewVariable(
+    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
+    std::fstream& raw_binary_finout) {
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
+      conserved_variable_basis_function_coefficient;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllNodeNumber> conserved_variable;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kBasisFunctionNumber>
+      conserved_variable_gradient_basis_function_coefficient;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kAllNodeNumber>
+      conserved_variable_gradient;
+  for (Isize i = 0; i < element_mesh.number_; i++) {
+#ifdef SUBROSA_DG_DEVELOP
+    for (Isize j = 0; j < SimulationControl::kConservedVariableNumber; j++) {
+      for (Isize k = 0; k < ElementTrait::kBasisFunctionNumber; k++) {
+        raw_binary_finout >> conserved_variable_basis_function_coefficient(j, k);
+      }
+    }
+    for (Isize j = 0; j < SimulationControl::kConservedVariableNumber; j++) {
+      for (Isize k = 0; k < SimulationControl::kDimension * ElementTrait::kBasisFunctionNumber; k++) {
+        raw_binary_finout >> conserved_variable_gradient_basis_function_coefficient(j, k);
+      }
+    }
+#else
+    raw_binary_finout.read(reinterpret_cast<char*>(conserved_variable_basis_function_coefficient.data()),
+                           SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
+                               static_cast<std::streamsize>(sizeof(Real)));
+    raw_binary_finout.read(reinterpret_cast<char*>(conserved_variable_gradient_basis_function_coefficient.data()),
+                           SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
+                               ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
+#endif
+    conserved_variable.noalias() = conserved_variable_basis_function_coefficient * this->basis_function_value_;
+    conserved_variable_gradient.noalias() =
+        conserved_variable_gradient_basis_function_coefficient * this->basis_function_value_;
+    for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
+      this->view_variable_(j, i).variable_.conserved_ = conserved_variable.col(j);
+      this->view_variable_(j, i).variable_.calculateComputationalFromConserved(thermal_model);
+      this->view_variable_(j, i).variable_gradient_.conserved_ = conserved_variable_gradient.col(j).reshaped(
+          SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+      this->view_variable_(j, i).variable_gradient_.calculatePrimitiveFromConserved(
+          thermal_model, this->view_variable_(j, i).variable_);
+    }
   }
 }
 
 template <typename SimulationControl>
-inline void ViewVariable<SimulationControl>::readRawBinary(const Mesh<SimulationControl>& mesh,
-                                                           std::fstream& raw_binary_finout) {
+inline void ViewSolver<SimulationControl>::calcluateViewVariable(const Mesh<SimulationControl>& mesh,
+                                                                 const ThermalModel<SimulationControl>& thermal_model,
+                                                                 std::fstream& raw_binary_finout) {
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.readElementRawBinary(mesh.line_, raw_binary_finout);
+    this->line_.calcluateElementViewVariable(mesh.line_, thermal_model, raw_binary_finout);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.readElementRawBinary(mesh.triangle_, raw_binary_finout);
+      this->triangle_.calcluateElementViewVariable(mesh.triangle_, thermal_model, raw_binary_finout);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.readElementRawBinary(mesh.quadrangle_, raw_binary_finout);
+      this->quadrangle_.calcluateElementViewVariable(mesh.quadrangle_, thermal_model, raw_binary_finout);
     }
   }
 }
 
 template <typename SimulationControl>
-inline void ViewVariable<SimulationControl>::readTimeValue(const int iteration_number, std::fstream& error_finout) {
+inline void ViewSolver<SimulationControl>::readTimeValue(const int iteration_number, std::fstream& error_finout) {
   std::string line;
   std::getline(error_finout, line);
   for (int i = 0; i < iteration_number; i++) {
@@ -105,20 +177,19 @@ inline void ViewVariable<SimulationControl>::readTimeValue(const int iteration_n
 }
 
 template <typename SimulationControl>
-inline void ViewVariable<SimulationControl>::initializeViewVariable(const int iteration_number,
-                                                                    const Mesh<SimulationControl>& mesh) {
+inline void ViewSolver<SimulationControl>::initializeViewSolver(const int iteration_number,
+                                                                const Mesh<SimulationControl>& mesh) {
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.conserved_variable_.resize(mesh.line_.number_);
+    this->line_.view_variable_.resize(Eigen::NoChange, mesh.line_.number_);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.conserved_variable_.resize(mesh.triangle_.number_);
+      this->triangle_.view_variable_.resize(Eigen::NoChange, mesh.triangle_.number_);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.conserved_variable_.resize(mesh.quadrangle_.number_);
+      this->quadrangle_.view_variable_.resize(Eigen::NoChange, mesh.quadrangle_.number_);
     }
   }
   this->time_value_.resize(iteration_number);
-  this->node_conserved_variable_.resize(Eigen::NoChange, mesh.node_coordinate_.cols());
 }
 
 }  // namespace SubrosaDG

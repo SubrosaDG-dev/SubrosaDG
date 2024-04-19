@@ -54,48 +54,34 @@ struct System {
   }
 
   template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::AdiabaticWall ||
-             BoundaryConditionType == BoundaryConditionEnum::Periodic)
-  inline void addBoundaryCondition(const std::string&);
+    requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
+             BoundaryConditionType == BoundaryConditionEnum::CharacteristicInflow ||
+             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow ||
+             BoundaryConditionType == BoundaryConditionEnum::IsothermalNoslipWall)
+  inline void addBoundaryCondition(
+      const std::string& boundary_condition_name,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
+    const auto boundary_condition_index =
+        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
+    this->boundary_condition_[boundary_condition_index] =
+        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
+    this->boundary_condition_[boundary_condition_index]->boundary_dummy_variable_.primitive_ =
+        boundary_condition_variable;
+  }
 
   template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::NormalFarfield ||
-             BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield)
-  inline void addBoundaryCondition(const std::string&,
-                                   const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>&);
-
-  template <>
-  inline void addBoundaryCondition<BoundaryConditionEnum::NormalFarfield>(
-      const std::string& boundary_condition_name,
-      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
+    requires(BoundaryConditionType == BoundaryConditionEnum::AdiabaticSlipWall ||
+             BoundaryConditionType == BoundaryConditionEnum::AdiabaticNoSlipWall)
+  inline void addBoundaryCondition(const std::string& boundary_condition_name) {
     const auto boundary_condition_index =
         static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
     this->boundary_condition_[boundary_condition_index] =
-        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionEnum::NormalFarfield>>();
-    this->boundary_condition_[boundary_condition_index]->variable_.primitive_ = boundary_condition_variable;
+        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
   }
 
-  template <>
-  inline void addBoundaryCondition<BoundaryConditionEnum::RiemannFarfield>(
-      const std::string& boundary_condition_name,
-      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
-    const auto boundary_condition_index =
-        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
-    this->boundary_condition_[boundary_condition_index] =
-        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfield>>();
-    this->boundary_condition_[boundary_condition_index]->variable_.primitive_ = boundary_condition_variable;
-  }
-
-  template <>
-  inline void addBoundaryCondition<BoundaryConditionEnum::AdiabaticWall>(const std::string& boundary_condition_name) {
-    const auto boundary_condition_index =
-        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
-    this->boundary_condition_[boundary_condition_index] =
-        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticWall>>();
-  }
-
-  template <>
-  inline void addBoundaryCondition<BoundaryConditionEnum::Periodic>(const std::string& boundary_condition_name) {
+  template <BoundaryConditionEnum BoundaryConditionType>
+    requires(BoundaryConditionType == BoundaryConditionEnum::Periodic)
+  inline void addBoundaryCondition(const std::string& boundary_condition_name) {
     this->mesh_.addPeriodicBoundary(boundary_condition_name);
   }
 
@@ -108,33 +94,11 @@ struct System {
     this->initial_condition_[initial_condition_index].function_ = initial_condition_function;
   }
 
-  template <ThermodynamicModelEnum ThermodynamicModelType>
-  inline void setThermodynamicModel(Real);
-
-  template <>
-  inline void setThermodynamicModel<ThermodynamicModelEnum::ConstantE>(const Real specific_heat_constant_volume) {
-    this->thermal_model_.specific_heat_constant_volume_ = specific_heat_constant_volume;
-  }
-
-  template <>
-  inline void setThermodynamicModel<ThermodynamicModelEnum::ConstantH>(const Real specific_heat_constant_pressure) {
-    this->thermal_model_.specific_heat_constant_pressure_ = specific_heat_constant_pressure;
-  }
-
-  template <EquationOfStateEnum EquationOfStateType>
-  inline void setEquationOfState(Real);
-
-  template <>
-  inline void setEquationOfState<EquationOfStateEnum::IdealGas>(const Real specific_heat_ratio) {
-    this->thermal_model_.specific_heat_ratio_ = specific_heat_ratio;
-  }
-
   inline void setTimeIntegration(const bool is_steady, const int iteration_number,
-                                 const Real courant_friedrichs_lewy_number, Real tolerance) {
+                                 const Real courant_friedrichs_lewy_number) {
     this->time_integration_.is_steady_ = is_steady;
     this->time_integration_.iteration_number_ = iteration_number;
     this->time_integration_.courant_friedrichs_lewy_number_ = courant_friedrichs_lewy_number;
-    this->time_integration_.tolerance_ = tolerance;
   }
 
   inline void setViewConfig(const int io_interval, const std::filesystem::path& output_directory,
@@ -153,16 +117,16 @@ struct System {
   }
 
   inline void setViewVariable(const std::vector<ViewVariableEnum>& view_variable) {
-    this->view_.variable_vector_.clear();
+    this->view_.variable_type_.clear();
     if constexpr (SimulationControl::kViewModel == ViewModelEnum::Dat) {
       auto handle_variable = [this](ViewVariableEnum variable_x, ViewVariableEnum variable_y,
                                     ViewVariableEnum variable_z) {
-        this->view_.variable_vector_.emplace_back(variable_x);
+        this->view_.variable_type_.emplace_back(variable_x);
         if constexpr (SimulationControl::kDimension >= 2) {
-          this->view_.variable_vector_.emplace_back(variable_y);
+          this->view_.variable_type_.emplace_back(variable_y);
         }
         if constexpr (SimulationControl::kDimension >= 3) {
-          this->view_.variable_vector_.emplace_back(variable_z);
+          this->view_.variable_type_.emplace_back(variable_z);
         }
       };
       for (const auto variable : view_variable) {
@@ -173,11 +137,11 @@ struct System {
         } else if (variable == ViewVariableEnum::Vorticity) {
           handle_variable(ViewVariableEnum::VorticityX, ViewVariableEnum::VorticityY, ViewVariableEnum::VorticityZ);
         } else {
-          this->view_.variable_vector_.emplace_back(variable);
+          this->view_.variable_type_.emplace_back(variable);
         }
       }
     } else if constexpr (SimulationControl::kViewModel == ViewModelEnum::Vtu) {
-      this->view_.variable_vector_ = view_variable;
+      this->view_.variable_type_ = view_variable;
     }
   }
 

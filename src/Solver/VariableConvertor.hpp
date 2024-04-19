@@ -87,28 +87,64 @@ inline consteval int getPrimitiveVariableIndex() {
   return -1;
 }
 
-template <typename SimulationControl, EquationModelEnum EquationModelType>
-struct FluxData;
+template <VariableGradientEnum VariableGradientType>
+inline consteval int getVariableGradientIndex() {
+  if constexpr (VariableGradientType == VariableGradientEnum::X) {
+    return 0;
+  }
+  if constexpr (VariableGradientType == VariableGradientEnum::Y) {
+    return 1;
+  }
+  if constexpr (VariableGradientType == VariableGradientEnum::Z) {
+    return 2;
+  }
+  return -1;
+}
 
 template <typename SimulationControl>
-struct FluxData<SimulationControl, EquationModelEnum::Euler> {
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> left_convective_n_;
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> right_convective_n_;
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> convective_n_;
+struct FluxNormalVariable {
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> normal_variable_;
+
+  template <ConservedVariableEnum ConservedVariableType>
+  inline void setScalar(const Real value) {
+    this->normal_variable_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()) = value;
+  }
+
+  template <ConservedVariableEnum ConservedVariableType>
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value);
+
+  template <>
+  inline void setVector<ConservedVariableEnum::Momentum>(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
+    this->normal_variable_(Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
+  }
 };
 
 template <typename SimulationControl>
-struct FluxData<SimulationControl, EquationModelEnum::NS> {
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> left_convective_n_;
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> right_convective_n_;
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> convective_n_;
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> left_viscous_n_;
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> right_viscous_n_;
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> viscous_n_;
+struct FluxVariable {
+  Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber> variable_;
+
+  template <ConservedVariableEnum ConservedVariableType>
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
+    this->variable_.col(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()) = value;
+  }
+
+  template <ConservedVariableEnum ConservedVariableType>
+  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value);
+
+  template <>
+  inline void setMatrix<ConservedVariableEnum::Momentum>(
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value) {
+    this->variable_(Eigen::all, Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
+  }
 };
 
 template <typename SimulationControl>
-struct Flux : FluxData<SimulationControl, SimulationControl::kEquationModel> {};
+struct Flux {
+  FluxNormalVariable<SimulationControl> left_flux_;
+  FluxNormalVariable<SimulationControl> right_flux_;
+  FluxNormalVariable<SimulationControl> normal_flux_;
+};
 
 template <typename SimulationControl>
 struct Variable {
@@ -117,7 +153,7 @@ struct Variable {
   Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber> primitive_;
 
   template <ConservedVariableEnum ConservedVariableType>
-  [[nodiscard]] inline Real get() const {
+  [[nodiscard]] inline Real getScalar() const {
     return this->conserved_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>());
   }
 
@@ -131,7 +167,7 @@ struct Variable {
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
-  [[nodiscard]] inline Real get() const {
+  [[nodiscard]] inline Real getScalar() const {
     return this->computational_(
         getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>());
   }
@@ -146,12 +182,12 @@ struct Variable {
   }
 
   template <>
-  [[nodiscard]] inline Real get<ComputationalVariableEnum::VelocitySquareSummation>() const {
+  [[nodiscard]] inline Real getScalar<ComputationalVariableEnum::VelocitySquareSummation>() const {
     return this->getVector<ComputationalVariableEnum::Velocity>().squaredNorm();
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  [[nodiscard]] inline Real get() const {
+  [[nodiscard]] inline Real getScalar() const {
     return this->primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>());
   }
 
@@ -164,63 +200,8 @@ struct Variable {
     return this->primitive_(Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>()));
   }
 
-  [[nodiscard]] inline Real get(const ThermalModel<SimulationControl>& thermal_model,
-                                const ViewVariableEnum& view_variable) const {
-    if (view_variable == ViewVariableEnum::Density) {
-      return this->get<ComputationalVariableEnum::Density>();
-    }
-    if (view_variable == ViewVariableEnum::Velocity) {
-      return std::sqrt(this->template get<ComputationalVariableEnum::VelocitySquareSummation>());
-    }
-    if (view_variable == ViewVariableEnum::VelocityX) {
-      return this->get<ComputationalVariableEnum::VelocityX>();
-    }
-    if (view_variable == ViewVariableEnum::VelocityY) {
-      return this->get<ComputationalVariableEnum::VelocityY>();
-    }
-    if (view_variable == ViewVariableEnum::VelocityZ) {
-      return this->get<ComputationalVariableEnum::VelocityZ>();
-    }
-    if (view_variable == ViewVariableEnum::Temperature) {
-      return thermal_model.calculateTemperatureFromInternalEnergy(
-          this->get<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (view_variable == ViewVariableEnum::Pressure) {
-      return this->get<ComputationalVariableEnum::Pressure>();
-    }
-    if (view_variable == ViewVariableEnum::SoundSpeed) {
-      return thermal_model.calculateSoundSpeedFromInternalEnergy(
-          this->get<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (view_variable == ViewVariableEnum::MachNumber) {
-      return std::sqrt(this->template get<ComputationalVariableEnum::VelocitySquareSummation>()) /
-             thermal_model.calculateSoundSpeedFromInternalEnergy(
-                 this->get<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (view_variable == ViewVariableEnum::MachNumberX) {
-      return this->get<ComputationalVariableEnum::VelocityX>() /
-             thermal_model.calculateSoundSpeedFromInternalEnergy(
-                 this->get<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (view_variable == ViewVariableEnum::MachNumberY) {
-      return this->get<ComputationalVariableEnum::VelocityY>() /
-             thermal_model.calculateSoundSpeedFromInternalEnergy(
-                 this->get<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (view_variable == ViewVariableEnum::MachNumberZ) {
-      return this->get<ComputationalVariableEnum::VelocityZ>() /
-             thermal_model.calculateSoundSpeedFromInternalEnergy(
-                 this->get<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (view_variable == ViewVariableEnum::Entropy) {
-      return thermal_model.calculateEntropyFromDensityPressure(this->get<ComputationalVariableEnum::Density>(),
-                                                               this->get<ComputationalVariableEnum::Pressure>());
-    }
-    return -1.0;
-  }
-
   template <ConservedVariableEnum ConservedVariableType>
-  inline void set(const Real value) {
+  inline void setScalar(const Real value) {
     this->conserved_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()) = value;
   }
 
@@ -234,13 +215,13 @@ struct Variable {
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  inline void set(const Variable<SimulationControl>& variable) {
+  inline void setScalar(const Variable<SimulationControl>& variable) {
     this->conserved_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()) =
         variable.conserved_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>());
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
-  inline void set(const Real value) {
+  inline void setScalar(const Real value) {
     this->computational_(getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>()) =
         value;
   }
@@ -255,14 +236,14 @@ struct Variable {
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
-  inline void set(const Variable<SimulationControl>& variable) {
+  inline void setScalar(const Variable<SimulationControl>& variable) {
     this->computational_(getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>()) =
         variable.computational_(
             getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>());
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  inline void set(const Real value) {
+  inline void setScalar(const Real value) {
     this->primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>()) = value;
   }
 
@@ -276,85 +257,335 @@ struct Variable {
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  inline void set(const Variable<SimulationControl>& variable) {
+  inline void setScalar(const Variable<SimulationControl>& variable) {
     this->primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>()) =
         variable.primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>());
   }
 
   inline void calculateConservedFromComputational() {
-    const Real density = this->get<ComputationalVariableEnum::Density>();
-    this->set<ConservedVariableEnum::Density>(density);
+    const Real density = this->getScalar<ComputationalVariableEnum::Density>();
+    this->setScalar<ConservedVariableEnum::Density>(density);
     this->setVector<ConservedVariableEnum::Momentum>(density * this->getVector<ComputationalVariableEnum::Velocity>());
-    const Real total_energy = this->get<ComputationalVariableEnum::InternalEnergy>() +
-                              this->get<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
-    this->set<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy);
+    const Real total_energy = this->getScalar<ComputationalVariableEnum::InternalEnergy>() +
+                              this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
+    this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy);
   }
 
   inline void calculateComputationalFromConserved(const ThermalModel<SimulationControl>& thermal_model) {
-    const Real density = this->get<ConservedVariableEnum::Density>();
-    this->set<ComputationalVariableEnum::Density>(density);
+    const Real density = this->getScalar<ConservedVariableEnum::Density>();
+    this->setScalar<ComputationalVariableEnum::Density>(density);
     this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<ConservedVariableEnum::Momentum>() / density);
-    const Real internal_energy = this->get<ConservedVariableEnum::DensityTotalEnergy>() / density -
-                                 this->get<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
-    this->set<ComputationalVariableEnum::InternalEnergy>(internal_energy);
-    this->set<ComputationalVariableEnum::Pressure>(
+    const Real internal_energy = this->getScalar<ConservedVariableEnum::DensityTotalEnergy>() / density -
+                                 this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
+    this->setScalar<ComputationalVariableEnum::InternalEnergy>(internal_energy);
+    this->setScalar<ComputationalVariableEnum::Pressure>(
         thermal_model.calculatePressureFormDensityInternalEnergy(density, internal_energy));
   }
 
   inline void calculateConservedFromPrimitive(const ThermalModel<SimulationControl>& thermal_model) {
-    const Real density = this->get<PrimitiveVariableEnum::Density>();
-    this->set<ConservedVariableEnum::Density>(density);
+    const Real density = this->getScalar<PrimitiveVariableEnum::Density>();
+    this->setScalar<ConservedVariableEnum::Density>(density);
     this->setVector<ConservedVariableEnum::Momentum>(density * this->getVector<PrimitiveVariableEnum::Velocity>());
     this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<PrimitiveVariableEnum::Velocity>());
     const Real total_energy =
-        thermal_model.calculateInternalEnergyFromTemperature(this->get<PrimitiveVariableEnum::Temperature>()) +
-        this->get<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
-    this->set<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy);
+        thermal_model.calculateInternalEnergyFromTemperature(this->getScalar<PrimitiveVariableEnum::Temperature>()) +
+        this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
+    this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy);
   }
 
   inline void calculateComputationalFromPrimitive(const ThermalModel<SimulationControl>& thermal_model) {
-    this->set<ComputationalVariableEnum::Density>(this->get<PrimitiveVariableEnum::Density>());
+    this->setScalar<ComputationalVariableEnum::Density>(this->getScalar<PrimitiveVariableEnum::Density>());
     this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<PrimitiveVariableEnum::Velocity>());
-    this->set<ComputationalVariableEnum::InternalEnergy>(
-        thermal_model.calculateInternalEnergyFromTemperature(this->get<PrimitiveVariableEnum::Temperature>()));
-    this->set<ComputationalVariableEnum::Pressure>(thermal_model.calculatePressureFormDensityInternalEnergy(
-        this->get<ComputationalVariableEnum::Density>(), this->get<ComputationalVariableEnum::InternalEnergy>()));
+    this->setScalar<ComputationalVariableEnum::InternalEnergy>(
+        thermal_model.calculateInternalEnergyFromTemperature(this->getScalar<PrimitiveVariableEnum::Temperature>()));
+    this->setScalar<ComputationalVariableEnum::Pressure>(thermal_model.calculatePressureFormDensityInternalEnergy(
+        this->getScalar<ComputationalVariableEnum::Density>(),
+        this->getScalar<ComputationalVariableEnum::InternalEnergy>()));
   }
 
   template <typename ElementTrait>
-  inline void getFromSelf(
-      const Isize element_index, const Isize element_gaussian_quadrature_node_sequence,
-      const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
-      const ElementSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel>& element_solver) {
-    this->conserved_.noalias() =
-        element_solver.element_(element_index).conserved_variable_basis_function_coefficient_(1) *
-        element_mesh.basis_function_.value_.row(element_gaussian_quadrature_node_sequence).transpose();
-    this->calculateComputationalFromConserved(thermal_model);
+  inline void getFromSelf(const Isize element_index, const Isize element_quadrature_node_sequence,
+                          const ElementMesh<ElementTrait>& element_mesh,
+                          const ElementSolverBase<ElementTrait, SimulationControl>& element_solver) {
+    this->conserved_.noalias() = element_solver.element_(element_index).variable_basis_function_coefficient_(1) *
+                                 element_mesh.basis_function_.value_.row(element_quadrature_node_sequence).transpose();
   }
 
-  inline void getFromParent(const Isize parent_gmsh_type_number, const Isize parent_index,
-                            const Isize adjacency_gaussian_quadrature_node_sequence_in_parent,
-                            const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-                            const Solver<SimulationControl>& solver) {
+  inline void getFromParent(const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
+                            const Isize adjacency_quadrature_node_sequence_in_parent,
+                            const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver) {
     if constexpr (SimulationControl::kDimension == 1) {
       this->conserved_.noalias() =
-          solver.line_.element_(parent_index).conserved_variable_basis_function_coefficient_(1) *
-          mesh.line_.basis_function_.adjacency_value_.row(adjacency_gaussian_quadrature_node_sequence_in_parent)
-              .transpose();
+          solver.line_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
+          mesh.line_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent).transpose();
     } else if constexpr (SimulationControl::kDimension == 2) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->conserved_.noalias() =
-            solver.triangle_.element_(parent_index).conserved_variable_basis_function_coefficient_(1) *
-            mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_gaussian_quadrature_node_sequence_in_parent)
+            solver.triangle_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
+            mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
                 .transpose();
       } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->conserved_.noalias() =
-            solver.quadrangle_.element_(parent_index).conserved_variable_basis_function_coefficient_(1) *
-            mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_gaussian_quadrature_node_sequence_in_parent)
+            solver.quadrangle_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
+            mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
                 .transpose();
       }
     }
-    this->calculateComputationalFromConserved(thermal_model);
+  }
+};
+
+template <typename SimulationControl>
+struct VariableGradient {
+  Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber> conserved_;
+  Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kPrimitiveVariableNumber> primitive_;
+
+  template <ConservedVariableEnum ConservedVariableType>
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector() const {
+    return this->conserved_.col(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>());
+  }
+
+  template <ConservedVariableEnum ConservedVariableType>
+  [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> getMatrix()
+      const;
+
+  template <>
+  [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>
+  getMatrix<ConservedVariableEnum::Momentum>() const {
+    return this->conserved_(Eigen::all, Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>()));
+  }
+
+  template <PrimitiveVariableEnum PrimitiveVariableType, VariableGradientEnum VariableGradientType>
+  [[nodiscard]] inline Real getScalar() const {
+    return this->primitive_(getVariableGradientIndex<VariableGradientType>(),
+                            getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>());
+  }
+
+  template <PrimitiveVariableEnum PrimitiveVariableType>
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector() const {
+    return this->primitive_.col(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>());
+  }
+
+  template <PrimitiveVariableEnum PrimitiveVariableType>
+  [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> getMatrix()
+      const;
+
+  template <>
+  [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>
+  getMatrix<PrimitiveVariableEnum::Velocity>() const {
+    return this->primitive_(Eigen::all, Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>()));
+  }
+
+  template <ConservedVariableEnum ConservedVariableType>
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
+    this->conserved_.col(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()) = value;
+  }
+
+  template <ConservedVariableEnum ConservedVariableType>
+  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value);
+
+  template <>
+  inline void setMatrix<ConservedVariableEnum::Momentum>(
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value) {
+    this->conserved_(Eigen::all, Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
+  }
+
+  template <PrimitiveVariableEnum PrimitiveVariableType>
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
+    this->primitive_.col(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>()) = value;
+  }
+
+  template <PrimitiveVariableEnum PrimitiveVariableType>
+  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value);
+
+  template <>
+  inline void setMatrix<PrimitiveVariableEnum::Velocity>(
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value) {
+    this->primitive_(Eigen::all, Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
+  }
+
+  inline void calculatePrimitiveFromConserved(const ThermalModel<SimulationControl>& thermal_model,
+                                              const Variable<SimulationControl>& variable) {
+    const Real density = variable.template getScalar<ComputationalVariableEnum::Density>();
+    const Eigen::Vector<Real, SimulationControl::kDimension> density_gradient =
+        this->getVector<ConservedVariableEnum::Density>();
+    this->setVector<PrimitiveVariableEnum::Density>(density_gradient);
+    const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
+        variable.template getVector<ComputationalVariableEnum::Velocity>();
+    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> velocity_gradient =
+        (this->getMatrix<ConservedVariableEnum::Momentum>() - density_gradient * velocity.transpose()) / density;
+    this->setMatrix<PrimitiveVariableEnum::Velocity>(velocity_gradient);
+    const Eigen::Vector<Real, SimulationControl::kDimension> internal_energy_gradient =
+        this->getVector<ConservedVariableEnum::DensityTotalEnergy>() / density - velocity_gradient * velocity;
+    Eigen::Vector<Real, SimulationControl::kDimension> temperature_gradient;
+    for (Isize i = 0; i < SimulationControl::kDimension; i++) {
+      temperature_gradient(i) = thermal_model.calculateTemperatureFromInternalEnergy(internal_energy_gradient(i));
+    }
+    this->setVector<PrimitiveVariableEnum::Temperature>(temperature_gradient);
+  }
+
+  template <typename ElementTrait>
+  inline void getFromSelf(const Isize element_index, const Isize element_quadrature_node_sequence,
+                          const ElementMesh<ElementTrait>& element_mesh,
+                          const ElementSolverBase<ElementTrait, SimulationControl>& element_solver) {
+    this->conserved_.noalias() =
+        (element_solver.element_(element_index).variable_gradient_basis_function_coefficient_ *
+         element_mesh.basis_function_.value_.row(element_quadrature_node_sequence).transpose())
+            .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+  }
+
+  template <ViscousFluxEnum ViscousFluxType>
+  inline void getFromParent(Isize parent_gmsh_type_number, Isize parent_index_each_type,
+                            Isize adjacency_sequence_in_parent, Isize adjacency_quadrature_node_sequence_in_parent,
+                            const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver);
+
+  template <>
+  inline void getFromParent<ViscousFluxEnum::BR1>(const Isize parent_gmsh_type_number,
+                                                  const Isize parent_index_each_type,
+                                                  [[maybe_unused]] const Isize adjacency_sequence_in_parent,
+                                                  const Isize adjacency_quadrature_node_sequence_in_parent,
+                                                  const Mesh<SimulationControl>& mesh,
+                                                  const Solver<SimulationControl>& solver) {
+    if constexpr (SimulationControl::kDimension == 2) {
+      if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        this->conserved_.noalias() =
+            (solver.triangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+             mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent))
+                .reshape(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+      } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        this->conserved_.noalias() =
+            (solver.quadrangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+             mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                 .transpose())
+                .reshape(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+      }
+    }
+  }
+
+  template <>
+  inline void getFromParent<ViscousFluxEnum::BR2>(const Isize parent_gmsh_type_number,
+                                                  const Isize parent_index_each_type,
+                                                  const Isize adjacency_sequence_in_parent,
+                                                  const Isize adjacency_quadrature_node_sequence_in_parent,
+                                                  const Mesh<SimulationControl>& mesh,
+                                                  const Solver<SimulationControl>& solver) {
+    if constexpr (SimulationControl::kDimension == 2) {
+      if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        this->conserved_.noalias() =
+            ((solver.triangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ +
+              3.0 * solver.triangle_.element_(parent_index_each_type)
+                        .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+             mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                 .transpose())
+                .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+      } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        this->conserved_.noalias() =
+            ((solver.quadrangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ +
+              4.0 * solver.quadrangle_.element_(parent_index_each_type)
+                        .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+             mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                 .transpose())
+                .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+      }
+    }
+  }
+};
+
+template <typename SimulationControl>
+struct ViewVariable {
+  Variable<SimulationControl> variable_;
+  VariableGradient<SimulationControl> variable_gradient_;
+
+  [[nodiscard]] inline Real getView(const ThermalModel<SimulationControl>& thermal_model,
+                                    const ViewVariableEnum variable_type) const {
+    if (variable_type == ViewVariableEnum::Density) {
+      return this->variable_.template getScalar<ComputationalVariableEnum::Density>();
+    }
+    if (variable_type == ViewVariableEnum::Velocity) {
+      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>());
+    }
+    if (variable_type == ViewVariableEnum::Temperature) {
+      return thermal_model.calculateTemperatureFromInternalEnergy(
+          this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+    }
+    if (variable_type == ViewVariableEnum::Pressure) {
+      return this->variable_.template getScalar<ComputationalVariableEnum::Pressure>();
+    }
+    if (variable_type == ViewVariableEnum::SoundSpeed) {
+      return thermal_model.calculateSoundSpeedFromInternalEnergy(
+          this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+    }
+    if (variable_type == ViewVariableEnum::MachNumber) {
+      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>()) /
+             thermal_model.calculateSoundSpeedFromInternalEnergy(
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+    }
+    if (variable_type == ViewVariableEnum::Entropy) {
+      return thermal_model.calculateEntropyFromDensityPressure(
+          this->variable_.template getScalar<ComputationalVariableEnum::Density>(),
+          this->variable_.template getScalar<ComputationalVariableEnum::Pressure>());
+    }
+    if (variable_type == ViewVariableEnum::Vorticity) {
+      if constexpr (SimulationControl::kDimension == 2) {
+        return this->variable_gradient_
+                   .template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>() -
+               this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>();
+      }
+      if constexpr (SimulationControl::kDimension == 3) {
+        return std::sqrt(
+            std::pow(this->variable_gradient_
+                             .template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>() -
+                         this->variable_gradient_
+                             .template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>(),
+                     2) +
+            std::pow(this->variable_gradient_
+                             .template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>() -
+                         this->variable_gradient_
+                             .template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>(),
+                     2) +
+            std::pow(this->variable_gradient_
+                             .template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>() -
+                         this->variable_gradient_
+                             .template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(),
+                     2));
+      }
+    }
+    if (variable_type == ViewVariableEnum::MachNumberX) {
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>() /
+             thermal_model.calculateSoundSpeedFromInternalEnergy(
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+    }
+    if (variable_type == ViewVariableEnum::MachNumberY) {
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>() /
+             thermal_model.calculateSoundSpeedFromInternalEnergy(
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+    }
+    if (variable_type == ViewVariableEnum::MachNumberZ) {
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>() /
+             thermal_model.calculateSoundSpeedFromInternalEnergy(
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+    }
+    if (variable_type == ViewVariableEnum::VelocityX) {
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>();
+    }
+    if (variable_type == ViewVariableEnum::VelocityY) {
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>();
+    }
+    if (variable_type == ViewVariableEnum::VelocityZ) {
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>();
+    }
+    if (variable_type == ViewVariableEnum::VorticityX) {
+      return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>() -
+             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>();
+    }
+    if (variable_type == ViewVariableEnum::VorticityY) {
+      return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>() -
+             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>();
+    }
+    if (variable_type == ViewVariableEnum::VorticityZ) {
+      return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>() -
+             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>();
+    }
+    return 0.0;
   }
 };
 

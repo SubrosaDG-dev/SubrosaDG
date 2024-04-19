@@ -1,6 +1,6 @@
 /**
- * @file GaussianQuadrature.hpp
- * @brief The header file of GaussianQuadrature.
+ * @file Quadrature.hpp
+ * @brief The header file of Quadrature.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-11-06
@@ -10,8 +10,8 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_GAUSSIAN_QUADRATURE_HPP_
-#define SUBROSA_DG_GAUSSIAN_QUADRATURE_HPP_
+#ifndef SUBROSA_DG_QUADRATURE_HPP_
+#define SUBROSA_DG_QUADRATURE_HPP_
 
 #include <gmsh.h>
 
@@ -25,7 +25,7 @@
 namespace SubrosaDG {
 
 template <typename ElementTrait>
-inline std::pair<std::vector<double>, std::vector<double>> getElementGaussianQuadrature() {
+inline std::pair<std::vector<double>, std::vector<double>> getElementQuadrature() {
   std::vector<double> local_coord;
   std::vector<double> weights;
   gmsh::model::mesh::getIntegrationPoints(ElementTrait::kGmshTypeNumber,
@@ -34,13 +34,13 @@ inline std::pair<std::vector<double>, std::vector<double>> getElementGaussianQua
 }
 
 template <typename ElementTrait>
-struct ElementGaussianQuadrature {
+struct ElementQuadrature {
   std::vector<double> local_coord_;
   Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kQuadratureNumber> node_coordinate_;
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> weight_;
 
-  inline ElementGaussianQuadrature() {
-    const auto [local_coord, weights] = getElementGaussianQuadrature<ElementTrait>();
+  inline ElementQuadrature() {
+    const auto [local_coord, weights] = getElementQuadrature<ElementTrait>();
     this->local_coord_ = local_coord;
     for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kDimension; j++) {
@@ -53,4 +53,4 @@ struct ElementGaussianQuadrature {
 
 }  // namespace SubrosaDG
 
-#endif  // SUBROSA_DG_GAUSSIAN_QUADRATURE_HPP_
+#endif  // SUBROSA_DG_QUADRATURE_HPP_

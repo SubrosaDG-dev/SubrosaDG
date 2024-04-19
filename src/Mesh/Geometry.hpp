@@ -35,12 +35,11 @@ inline void ElementMesh<ElementTrait>::getElementJacobian() {
     std::vector<double> determinants;
     std::vector<double> coord;
     gmsh::model::mesh::getJacobian(static_cast<std::size_t>(this->element_(i).gmsh_tag_),
-                                   this->gaussian_quadrature_.local_coord_, jacobians, determinants, coord);
+                                   this->quadrature_.local_coord_, jacobians, determinants, coord);
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
       Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kDimension> jacobian_transpose;
       for (Isize k = 0; k < ElementTrait::kDimension; k++) {
-        this->element_(i).gaussian_quadrature_node_coordinate_(k, j) =
-            static_cast<Real>(coord[static_cast<Usize>(j * 3 + k)]);
+        this->element_(i).quadrature_node_coordinate_(k, j) = static_cast<Real>(coord[static_cast<Usize>(j * 3 + k)]);
         for (Isize l = 0; l < ElementTrait::kDimension; l++) {
           jacobian_transpose(k, l) = static_cast<Real>(jacobians[static_cast<Usize>(j * 9 + k * 3 + l)]);
         }
@@ -58,7 +57,7 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementJaco
     std::vector<double> determinants;
     std::vector<double> coord;
     gmsh::model::mesh::getJacobian(static_cast<std::size_t>(this->element_(i).gmsh_tag_),
-                                   this->gaussian_quadrature_.local_coord_, jacobians, determinants, coord);
+                                   this->quadrature_.local_coord_, jacobians, determinants, coord);
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
       this->element_(i).jacobian_determinant_(j) = static_cast<Real>(determinants[static_cast<Usize>(j)]);
     }
@@ -66,12 +65,12 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementJaco
 }
 
 template <typename ElementTrait>
-inline void ElementMesh<ElementTrait>::calculateElementLocalMassMatrixInverse() {
+inline void ElementMesh<ElementTrait>::calculateElementLocalMassMatrixLLT() {
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).local_mass_matrix_llt_.compute(
         (this->basis_function_.value_.transpose() *
          (this->basis_function_.value_.array().colwise() *
-          (this->gaussian_quadrature_.weight_.array() * this->element_(i).jacobian_determinant_.array()))
+          (this->quadrature_.weight_.array() * this->element_(i).jacobian_determinant_.array()))
              .matrix()));
   }
 }
@@ -86,10 +85,9 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
     Real adjacency_size = 0.0;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
       adjacency_size += point.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
-                        point.gaussian_quadrature_.weight_;
+                        point.quadrature_.weight_;
     }
-    this->element_(i).size_ =
-        (this->element_(i).jacobian_determinant_.transpose() * this->gaussian_quadrature_.weight_);
+    this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_);
     this->element_(i).size_ /=
         (adjacency_size * std::pow((static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0), 2.0));
   }
@@ -105,10 +103,9 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
     Real adjacency_size = 0.0;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
       adjacency_size += line.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
-                        line.gaussian_quadrature_.weight_;
+                        line.quadrature_.weight_;
     }
-    this->element_(i).size_ =
-        (this->element_(i).jacobian_determinant_.transpose() * this->gaussian_quadrature_.weight_);
+    this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_);
     this->element_(i).size_ /=
         (adjacency_size * std::pow((static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0), 2.0));
   }

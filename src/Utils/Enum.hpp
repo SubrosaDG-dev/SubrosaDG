@@ -39,20 +39,6 @@ enum class MeshModelEnum {
   TetrahedronPyramidHexahedron,
 };
 
-enum class BoundaryConditionEnum {
-  NormalFarfield = 1,
-  RiemannFarfield,
-  AdiabaticWall,
-  Periodic,
-};
-
-enum class ConvectiveFluxEnum {
-  Central = 1,
-  LaxFriedrichs,
-  HLLC,
-  Roe,
-};
-
 enum class PolynomialOrderEnum {
   P1 = 1,
   P2,
@@ -63,8 +49,30 @@ enum class PolynomialOrderEnum {
 
 enum class EquationModelEnum {
   Euler = 1,
-  NS,
+  NavierStokes,
   RANS,
+};
+
+enum class BoundaryConditionEnum {
+  RiemannFarfield = 1,
+  CharacteristicInflow,
+  PressureOutflow,
+  IsothermalNoslipWall,
+  AdiabaticSlipWall,
+  AdiabaticNoSlipWall,
+  Periodic,
+};
+
+enum class ConvectiveFluxEnum {
+  Central = 1,
+  LaxFriedrichs,
+  HLLC,
+  Roe,
+};
+
+enum class ViscousFluxEnum {
+  BR1 = 1,
+  BR2,
 };
 
 enum class ThermodynamicModelEnum {
@@ -115,16 +123,15 @@ enum class ComputationalVariableEnum {
 
 enum class PrimitiveVariableEnum { Density = 1, Velocity, VelocityX, VelocityY, VelocityZ, Temperature };
 
-enum class ViscousFluxEnum {
-  BR1 = 1,
-  BR2,
+enum class VariableGradientEnum {
+  X = 1,
+  Y,
+  Z,
 };
 
 enum class ViewModelEnum {
-  Msh = 1,
+  Vtu = 1,
   Dat,
-  Plt,
-  Vtu,
 };
 
 enum class ViewConfigEnum {
@@ -139,8 +146,8 @@ enum class ViewVariableEnum {
   Pressure,
   SoundSpeed,
   MachNumber,
-  Vorticity,
   Entropy,
+  Vorticity,
   VelocityX,
   VelocityY,
   VelocityZ,

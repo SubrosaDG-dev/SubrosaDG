@@ -44,7 +44,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::getDataSetInfomatoi
     std::vector<vtu11::DataSetInfo>& data_set_information) {
   data_set_information.emplace_back("TMSTEP", vtu11::DataSetType::FieldData, 1, 1);
   data_set_information.emplace_back("TimeValue", vtu11::DataSetType::FieldData, 1, 1);
-  for (const auto variable : this->variable_vector_) {
+  for (const auto variable : this->variable_type_) {
     if (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
         variable == ViewVariableEnum::Vorticity) {
       data_set_information.emplace_back(magic_enum::enum_name(variable), vtu11::DataSetType::PointData,
@@ -57,28 +57,28 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::getDataSetInfomatoi
 
 template <typename SimulationControl>
 inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::calculateViewVariable(
-    const ThermalModel<SimulationControl>& thermal_model, Variable<SimulationControl>& variable,
+    const ThermalModel<SimulationControl>& thermal_model, const ViewVariable<SimulationControl>& view_variable,
     Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable, const Isize column) {
-  auto handle_variable = [&variable, &thermal_model, &node_variable, column](Isize i, ViewVariableEnum variable_x,
-                                                                             ViewVariableEnum variable_y,
-                                                                             ViewVariableEnum variable_z) {
-    node_variable(i)(column * SimulationControl::kDimension) = variable.get(thermal_model, variable_x);
+  auto handle_variable = [&view_variable, &thermal_model, &node_variable, column](Isize i, ViewVariableEnum variable_x,
+                                                                                  ViewVariableEnum variable_y,
+                                                                                  ViewVariableEnum variable_z) {
+    node_variable(i)(column * SimulationControl::kDimension) = view_variable.getView(thermal_model, variable_x);
     if constexpr (SimulationControl::kDimension >= 2) {
-      node_variable(i)(column * SimulationControl::kDimension + 1) = variable.get(thermal_model, variable_y);
+      node_variable(i)(column * SimulationControl::kDimension + 1) = view_variable.getView(thermal_model, variable_y);
     }
     if constexpr (SimulationControl::kDimension >= 3) {
-      node_variable(i)(column * SimulationControl::kDimension + 2) = variable.get(thermal_model, variable_z);
+      node_variable(i)(column * SimulationControl::kDimension + 2) = view_variable.getView(thermal_model, variable_z);
     }
   };
-  for (Isize i = 0; i < static_cast<Isize>(this->variable_vector_.size()); i++) {
-    if (this->variable_vector_[static_cast<Usize>(i)] == ViewVariableEnum::Velocity) {
+  for (Isize i = 0; i < static_cast<Isize>(this->variable_type_.size()); i++) {
+    if (this->variable_type_[static_cast<Usize>(i)] == ViewVariableEnum::Velocity) {
       handle_variable(i, ViewVariableEnum::VelocityX, ViewVariableEnum::VelocityY, ViewVariableEnum::VelocityZ);
-    } else if (this->variable_vector_[static_cast<Usize>(i)] == ViewVariableEnum::MachNumber) {
+    } else if (this->variable_type_[static_cast<Usize>(i)] == ViewVariableEnum::MachNumber) {
       handle_variable(i, ViewVariableEnum::MachNumberX, ViewVariableEnum::MachNumberY, ViewVariableEnum::MachNumberZ);
-    } else if (this->variable_vector_[static_cast<Usize>(i)] == ViewVariableEnum::Vorticity) {
+    } else if (this->variable_type_[static_cast<Usize>(i)] == ViewVariableEnum::Vorticity) {
       handle_variable(i, ViewVariableEnum::VorticityX, ViewVariableEnum::VorticityY, ViewVariableEnum::VorticityZ);
     } else {
-      node_variable(i)(column) = variable.get(thermal_model, this->variable_vector_[static_cast<Usize>(i)]);
+      node_variable(i)(column) = view_variable.getView(thermal_model, this->variable_type_[static_cast<Usize>(i)]);
     }
   }
 }
@@ -93,8 +93,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeAdjacencyEleme
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
     Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, const Isize element_index, Isize& column) {
-  Variable<SimulationControl> variable;
-  const std::array<int, AdjacencyElementTrait::kAllNodeNumber> vtk_connectivity{
+  constexpr std::array<int, AdjacencyElementTrait::kAllNodeNumber> kVtkConnectivity{
       getElementVTKConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()};
   const Isize element_gmsh_tag =
       mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
@@ -110,19 +109,23 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeAdjacencyEleme
     }
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       const Isize adjacency_parent_element_view_basis_function_sequence_in_parent =
-          this->variable_.line_.getAdjacencyParentElementViewBasisFunctionSequenceInParent(
+          this->solver_.line_.getAdjacencyParentElementViewBasisFunctionSequenceInParent(
               parent_gmsh_type_number, adjacency_sequence_in_parent, i);
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        variable.conserved_ = this->variable_.triangle_.conserved_variable_(parent_index_each_type)
-                                  .col(adjacency_parent_element_view_basis_function_sequence_in_parent);
+        this->calculateViewVariable(
+            thermal_model,
+            this->solver_.triangle_.view_variable_(adjacency_parent_element_view_basis_function_sequence_in_parent,
+                                                   parent_index_each_type),
+            node_variable, column + i);
       } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        variable.conserved_ = this->variable_.quadrangle_.conserved_variable_(parent_index_each_type)
-                                  .col(adjacency_parent_element_view_basis_function_sequence_in_parent);
+        this->calculateViewVariable(
+            thermal_model,
+            this->solver_.quadrangle_.view_variable_(adjacency_parent_element_view_basis_function_sequence_in_parent,
+                                                     parent_index_each_type),
+            node_variable, column + i);
       }
     }
-    variable.calculateComputationalFromConserved(thermal_model);
-    this->calculateViewVariable(thermal_model, variable, node_variable, column + i);
-    element_connectivity(column + i) = vtk_connectivity[static_cast<Usize>(i)] + column;
+    element_connectivity(column + i) = kVtkConnectivity[static_cast<Usize>(i)] + column;
   }
   column += AdjacencyElementTrait::kAllNodeNumber;
   element_offset(element_index) = column;
@@ -138,9 +141,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeElement(
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_offset,
     Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic>& element_type, const Isize element_index, Isize& column) {
-  Variable<SimulationControl> variable;
-  const ElementViewVariable<ElementTrait, SimulationControl>& element_view_variable =
-      this->variable_.*(decltype(this->variable_)::template getElement<ElementTrait>());
+  const ElementViewSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel>& element_view_solver =
+      this->solver_.*(decltype(this->solver_)::template getElement<ElementTrait>());
   const std::array<int, ElementTrait::kAllNodeNumber> vtk_connectivity{
       getElementVTKConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>()};
   const Isize element_gmsh_tag =
@@ -151,9 +153,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeElement(
     for (Isize j = 0; j < SimulationControl::kDimension; j++) {
       node_coordinate(j, column + i) = element_mesh.element_(element_index_per_type).node_coordinate_(j, i);
     }
-    variable.conserved_ = element_view_variable.conserved_variable_(element_index_per_type).col(i);
-    variable.calculateComputationalFromConserved(thermal_model);
-    this->calculateViewVariable(thermal_model, variable, node_variable, column + i);
+    this->calculateViewVariable(thermal_model, element_view_solver.view_variable_(i, element_index_per_type),
+                                node_variable, column + i);
     element_connectivity(column + i) = vtk_connectivity[static_cast<Usize>(i)] + column;
   }
   column += ElementTrait::kAllNodeNumber;
@@ -214,12 +215,12 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
   std::vector<vtu11::DataSetInfo> data_set_information;
   std::vector<vtu11::DataSetData> data_set_data;
   this->getDataSetInfomatoin(data_set_information);
-  data_set_data.resize(this->variable_vector_.size() + 2);
+  data_set_data.resize(this->variable_type_.size() + 2);
   const Isize node_number = mesh.information_.physical_information_.at(physical_index).node_number_;
   node_coordinate.resize(Eigen::NoChange, node_number);
   node_coordinate.setZero();
-  node_variable.resize(static_cast<Isize>(this->variable_vector_.size()));
-  for (Isize i = 0; const auto variable : this->variable_vector_) {
+  node_variable.resize(static_cast<Isize>(this->variable_type_.size()));
+  for (Isize i = 0; const auto variable : this->variable_type_) {
     if (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
         variable == ViewVariableEnum::Vorticity) {
       node_variable(i++).resize(SimulationControl::kDimension * node_number);
@@ -244,8 +245,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
   const std::string write_mode = "rawbinarycompressed";
 #endif
   data_set_data[0].emplace_back(step);
-  data_set_data[1].emplace_back(this->variable_.time_value_(step - 1));
-  for (Isize i = 0; i < static_cast<Isize>(this->variable_vector_.size()); i++) {
+  data_set_data[1].emplace_back(this->solver_.time_value_(step - 1));
+  for (Isize i = 0; i < static_cast<Isize>(this->variable_type_.size()); i++) {
     data_set_data[static_cast<Usize>(i) + 2].assign(node_variable(i).data(),
                                                     node_variable(i).data() + node_variable(i).size());
   }
@@ -256,7 +257,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
 template <typename SimulationControl>
 inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::stepView(
     const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model) {
-  this->variable_.readRawBinary(mesh, this->raw_binary_finout_);
+  this->solver_.calcluateViewVariable(mesh, thermal_model, this->raw_binary_finout_);
   for (Isize i = 0; i < static_cast<Isize>(mesh.information_.physical_.size()); i++) {
     if (mesh.information_.periodic_physical_.contains(i)) {
       continue;

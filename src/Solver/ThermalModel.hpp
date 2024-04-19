@@ -25,27 +25,27 @@ struct ThermodynamicModel;
 
 template <>
 struct ThermodynamicModel<ThermodynamicModelEnum::ConstantE> {
-  Real specific_heat_constant_volume_ = 25.0 / 14.0;
+  inline static constexpr Real kSpecificHeatConstantVolume = 25.0 / 14.0;
 
   [[nodiscard]] inline Real calculateInternalEnergyFromTemperature(const Real temperature) const {
-    return this->specific_heat_constant_volume_ * temperature;
+    return this->kSpecificHeatConstantVolume * temperature;
   }
 
   [[nodiscard]] inline Real calculateTemperatureFormInternalEnergy(const Real internal_energy) const {
-    return internal_energy / this->specific_heat_constant_volume_;
+    return internal_energy / this->kSpecificHeatConstantVolume;
   }
 };
 
 template <>
 struct ThermodynamicModel<ThermodynamicModelEnum::ConstantH> {
-  Real specific_heat_constant_pressure_ = 5.0 / 2.0;
+  inline static constexpr Real kSpecificHeatConstantPressure = 5.0 / 2.0;
 
   [[nodiscard]] inline Real calculateEnthalpyFromTemperature(const Real temperature) const {
-    return this->specific_heat_constant_pressure_ * temperature;
+    return this->kSpecificHeatConstantPressure * temperature;
   }
 
   [[nodiscard]] inline Real calculateTemperatureFromEnthalpy(const Real enthalpy) const {
-    return enthalpy / this->specific_heat_constant_pressure_;
+    return enthalpy / this->kSpecificHeatConstantPressure;
   }
 };
 
@@ -54,50 +54,84 @@ struct EquationOfState;
 
 template <>
 struct EquationOfState<EquationOfStateEnum::IdealGas> {
-  Real specific_heat_ratio_ = 1.4;
+  inline static constexpr Real kSpecificHeatRatio = 1.4;
 
   [[nodiscard]] inline Real calculatePressureFormDensityInternalEnergy(const Real density,
                                                                        const Real internal_energy) const {
-    return (this->specific_heat_ratio_ - 1.0) * density * internal_energy;
+    return (this->kSpecificHeatRatio - 1.0) * density * internal_energy;
   }
 
   [[nodiscard]] inline Real calculateInternalEnergyFromDensityPressure(const Real density, const Real pressure) const {
-    return pressure / ((this->specific_heat_ratio_ - 1.0) * density);
+    return pressure / ((this->kSpecificHeatRatio - 1.0) * density);
   }
 
   [[nodiscard]] inline Real calculateInternalEnergyFromEnthalpy(const Real enthalpy) const {
-    return enthalpy / this->specific_heat_ratio_;
+    return enthalpy / this->kSpecificHeatRatio;
   }
 
   [[nodiscard]] inline Real calculateEnthalpyFromInternalEnergy(const Real internal_energy) const {
-    return internal_energy * this->specific_heat_ratio_;
+    return internal_energy * this->kSpecificHeatRatio;
   }
 
   [[nodiscard]] inline Real calculateSoundSpeedFromInternalEnergy(const Real internal_energy) const {
-    return std::sqrt(this->specific_heat_ratio_ * (this->specific_heat_ratio_ - 1.0) * internal_energy);
+    return std::sqrt(this->kSpecificHeatRatio * (this->kSpecificHeatRatio - 1.0) * internal_energy);
   }
 
   [[nodiscard]] inline Real calculateInternalEnergyFromSoundSpeed(const Real sound_speed) const {
-    return sound_speed * sound_speed / (this->specific_heat_ratio_ * (this->specific_heat_ratio_ - 1.0));
+    return sound_speed * sound_speed / (this->kSpecificHeatRatio * (this->kSpecificHeatRatio - 1.0));
   }
 
   [[nodiscard]] inline Real calculateRiemannInvariantPart(const Real internal_energy) const {
-    return 2 * this->calculateSoundSpeedFromInternalEnergy(internal_energy) / (this->specific_heat_ratio_ - 1.0);
+    return 2 * this->calculateSoundSpeedFromInternalEnergy(internal_energy) / (this->kSpecificHeatRatio - 1.0);
   }
 
   [[nodiscard]] inline Real calculateInternalEnergyFromRiemannInvariantPart(const Real riemann_invariant_part) const {
-    return this->calculateInternalEnergyFromSoundSpeed((this->specific_heat_ratio_ - 1.0) * riemann_invariant_part /
-                                                       2.0);
+    return this->calculateInternalEnergyFromSoundSpeed((this->kSpecificHeatRatio - 1.0) * riemann_invariant_part / 2.0);
   }
 
   [[nodiscard]] inline Real calculateEntropyFromDensityPressure(const Real density, const Real pressure) const {
-    return pressure / std::pow(density, this->specific_heat_ratio_);
+    return pressure / std::pow(density, this->kSpecificHeatRatio);
   }
 
   [[nodiscard]] inline Real calculateDensityFromEntropyInternalEnergy(const Real entropy,
                                                                       const Real internal_energy) const {
-    return std::pow((this->specific_heat_ratio_ - 1.0) * internal_energy / entropy,
-                    1.0 / (this->specific_heat_ratio_ - 1.0));
+    return std::pow((this->kSpecificHeatRatio - 1.0) * internal_energy / entropy,
+                    1.0 / (this->kSpecificHeatRatio - 1.0));
+  }
+};
+
+template <TransportModelEnum TransportModelType>
+struct TransportModel;
+
+template <>
+struct TransportModel<TransportModelEnum::Constant> {
+  inline static constexpr Real kDynamicViscosity = 1.0;
+  inline static constexpr Real kThermalConductivity = 250.0 / 72.0;
+
+  [[nodiscard]] inline Real calculateDynamicViscosity() const { return this->kDynamicViscosity; }
+
+  [[nodiscard]] inline Real calculateThermalConductivity() const { return this->kThermalConductivity; }
+};
+
+template <>
+struct TransportModel<TransportModelEnum::Sutherland> {
+  inline static constexpr Real kDynamicViscosity = 1.0;
+  inline static constexpr Real kThermalConductivity = 250.0 / 72.0;
+
+  inline static constexpr Real kReferenceTemperature = 273.15;
+  inline static constexpr Real kSutherlandTemperature = 110.4;
+
+  [[nodiscard]] inline Real calculateSutherlandRatio(const Real temperature) const {
+    return std::pow(temperature, 1.5) * (this->kReferenceTemperature + this->kSutherlandTemperature) /
+           (temperature * this->kReferenceTemperature + this->kSutherlandTemperature);
+  }
+
+  [[nodiscard]] inline Real calculateDynamicViscosity(const Real temperature) const {
+    return this->kDynamicViscosity * this->calculateSutherlandRatio(temperature);
+  }
+
+  [[nodiscard]] inline Real calculateThermalConductivity(const Real temperature) const {
+    return this->kThermalConductivity * this->calculateSutherlandRatio(temperature);
   }
 };
 
@@ -108,27 +142,37 @@ template <typename SimulationControl>
 struct ThermalModelData<SimulationControl, EquationModelEnum::Euler> {
   ThermodynamicModel<SimulationControl::kThermodynamicModel> thermodynamic_model_;
   EquationOfState<SimulationControl::kEquationOfState> equation_of_state_;
+};
 
+template <typename SimulationControl>
+struct ThermalModelData<SimulationControl, EquationModelEnum::NavierStokes> {
+  ThermodynamicModel<SimulationControl::kThermodynamicModel> thermodynamic_model_;
+  EquationOfState<SimulationControl::kEquationOfState> equation_of_state_;
+  TransportModel<SimulationControl::kTransportModel> transport_model_;
+};
+
+template <typename SimulationControl>
+struct ThermalModel : ThermalModelData<SimulationControl, SimulationControl::kEquationModel> {
   [[nodiscard]] inline Real calculateInternalEnergyFromTemperature(const Real temperature) const {
     if constexpr (SimulationControl::kThermodynamicModel == ThermodynamicModelEnum::ConstantE) {
-      return thermodynamic_model_.calculateInternalEnergyFromTemperature(temperature);
+      return this->thermodynamic_model_.calculateInternalEnergyFromTemperature(temperature);
     }
     if constexpr (SimulationControl::kThermodynamicModel == ThermodynamicModelEnum::ConstantH) {
       if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-        return equation_of_state_.calculateInternalEnergyFromEnthalpy(
-            thermodynamic_model_.calculateEnthalpyFromTemperature(temperature));
+        return this->equation_of_state_.calculateInternalEnergyFromEnthalpy(
+            this->thermodynamic_model_.calculateEnthalpyFromTemperature(temperature));
       }
     }
   }
 
   [[nodiscard]] inline Real calculateTemperatureFromInternalEnergy(const Real internal_energy) const {
     if constexpr (SimulationControl::kThermodynamicModel == ThermodynamicModelEnum::ConstantE) {
-      return thermodynamic_model_.calculateTemperatureFormInternalEnergy(internal_energy);
+      return this->thermodynamic_model_.calculateTemperatureFormInternalEnergy(internal_energy);
     }
     if constexpr (SimulationControl::kThermodynamicModel == ThermodynamicModelEnum::ConstantH) {
       if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-        return thermodynamic_model_.calculateTemperatureFromEnthalpy(
-            equation_of_state_.calculateEnthalpyFromInternalEnergy(internal_energy));
+        return this->thermodynamic_model_.calculateTemperatureFromEnthalpy(
+            this->equation_of_state_.calculateEnthalpyFromInternalEnergy(internal_energy));
       }
     }
   }
@@ -136,68 +180,83 @@ struct ThermalModelData<SimulationControl, EquationModelEnum::Euler> {
   [[nodiscard]] inline Real calculatePressureFormDensityInternalEnergy(const Real density,
                                                                        const Real internal_energy) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-      return equation_of_state_.calculatePressureFormDensityInternalEnergy(density, internal_energy);
+      return this->equation_of_state_.calculatePressureFormDensityInternalEnergy(density, internal_energy);
     }
   }
 
   [[nodiscard]] inline Real calculateInternalEnergyFromDensityPressure(const Real density, const Real pressure) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-      return equation_of_state_.calculateInternalEnergyFromDensityPressure(density, pressure);
+      return this->equation_of_state_.calculateInternalEnergyFromDensityPressure(density, pressure);
     }
   }
 
   [[nodiscard]] inline Real calculateInternalEnergyFromEnthalpy(const Real enthalpy) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-      return equation_of_state_.calculateInternalEnergyFromEnthalpy(enthalpy);
+      return this->equation_of_state_.calculateInternalEnergyFromEnthalpy(enthalpy);
     }
   }
 
   [[nodiscard]] inline Real calculateEnthalpyFromInternalEnergy(const Real internal_energy) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-      return equation_of_state_.calculateEnthalpyFromInternalEnergy(internal_energy);
+      return this->equation_of_state_.calculateEnthalpyFromInternalEnergy(internal_energy);
     }
   }
 
   [[nodiscard]] inline Real calculateSoundSpeedFromInternalEnergy(const Real internal_energy) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-      return equation_of_state_.calculateSoundSpeedFromInternalEnergy(internal_energy);
+      return this->equation_of_state_.calculateSoundSpeedFromInternalEnergy(internal_energy);
     }
   }
 
   [[nodiscard]] inline Real calculateInternalEnergyFromSoundSpeed(const Real sound_speed) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-      return equation_of_state_.calculateInternalEnergyFromSoundSpeed(sound_speed);
+      return this->equation_of_state_.calculateInternalEnergyFromSoundSpeed(sound_speed);
     }
   }
 
   [[nodiscard]] inline Real calculateRiemannInvariantPart(const Real internal_energy) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-      return equation_of_state_.calculateRiemannInvariantPart(internal_energy);
+      return this->equation_of_state_.calculateRiemannInvariantPart(internal_energy);
     }
   }
 
   [[nodiscard]] inline Real calculateInternalEnergyFromRiemannInvariantPart(const Real riemann_invariant_part) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-      return equation_of_state_.calculateInternalEnergyFromRiemannInvariantPart(riemann_invariant_part);
+      return this->equation_of_state_.calculateInternalEnergyFromRiemannInvariantPart(riemann_invariant_part);
     }
   }
 
   [[nodiscard]] inline Real calculateEntropyFromDensityPressure(const Real density, const Real pressure) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-      return equation_of_state_.calculateEntropyFromDensityPressure(density, pressure);
+      return this->equation_of_state_.calculateEntropyFromDensityPressure(density, pressure);
     }
   }
 
   [[nodiscard]] inline Real calculateDensityFromEntropyInternalEnergy(const Real entropy,
                                                                       const Real internal_energy) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
-      return equation_of_state_.calculateDensityFromEntropyInternalEnergy(entropy, internal_energy);
+      return this->equation_of_state_.calculateDensityFromEntropyInternalEnergy(entropy, internal_energy);
+    }
+  }
+
+  [[nodiscard]] inline Real calculateDynamicViscosity([[maybe_unused]] const Real temperature) const {
+    if constexpr (SimulationControl::kTransportModel == TransportModelEnum::Constant) {
+      return this->transport_model_.calculateDynamicViscosity();
+    }
+    if constexpr (SimulationControl::kTransportModel == TransportModelEnum::Sutherland) {
+      return this->transport_model_.calculateDynamicViscosity(temperature);
+    }
+  }
+
+  [[nodiscard]] inline Real calculateThermalConductivity([[maybe_unused]] const Real temperature) const {
+    if constexpr (SimulationControl::kTransportModel == TransportModelEnum::Constant) {
+      return this->transport_model_.calculateThermalConductivity();
+    }
+    if constexpr (SimulationControl::kTransportModel == TransportModelEnum::Sutherland) {
+      return this->transport_model_.calculateThermalConductivity(temperature);
     }
   }
 };
-
-template <typename SimulationControl>
-struct ThermalModel : ThermalModelData<SimulationControl, SimulationControl::kEquationModel> {};
 
 }  // namespace SubrosaDG
 

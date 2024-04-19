@@ -20,9 +20,9 @@
 
 \section{Governing Equation}
 
-We consider the three-dimensional Navier-Stokes equations written in conservation form
+We consider the three-dimensional Navier-Stokes equations with source terms written in conservation form
 \begin{equation}
-  \partial_{t}\mathbf{u}+\nabla\cdot\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\nabla\cdot\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})=0,
+  \mathbf{u}_{,t}+\nabla\cdot\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\nabla\cdot\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})=\mathbf{S}(\mathbf{u},\nabla\mathbf{u})
 \end{equation}
 equipped with suitable initial-boundary conditions. The conservative variables $\mathbf{u}$ and the cartesian components $\mathbf{f}_{\mathrm{e}}(\mathbf{u})$, $\mathbf{g}_{\mathrm{e}}(\mathbf{u})$ and $\mathbf{h}_{\mathrm{e}}(\mathbf{u})$ of the inviscid (Euler) flux function $\mathbf{F}_{\mathrm{e}}(\mathbf{u})$ are given by
 \begin{equation}
@@ -77,161 +77,168 @@ The cartesian components $\mathbf{f}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$,
       \tau_{zz}\\
       \theta_{z}
     \end{bNiceMatrix},\bm{\theta}=\begin{bNiceMatrix}
-      u\tau_{xx}+v\tau_{xy}+w\tau_{xz}+\kappa T_{x}\\
-      u\tau_{yx}+v\tau_{yy}+w\tau_{yz}+\kappa T_{y}\\
-      u\tau_{zx}+v\tau_{zy}+w\tau_{zz}+\kappa T_{z}
+      u\tau_{xx}+v\tau_{xy}+w\tau_{xz}+\kappa T_{,x}\\
+      u\tau_{yx}+v\tau_{yy}+w\tau_{yz}+\kappa T_{,y}\\
+      u\tau_{zx}+v\tau_{zy}+w\tau_{zz}+\kappa T_{,z}
     \end{bNiceMatrix},\\
     &\bm{\tau}=\begin{bNiceMatrix}
-      2\mu u_{x}+\lambda(u_{x}+v_{y}+w_{z})&\mu(u_{y}+v_{x})&\mu(u_{z}+w_{x})\\
-      \mu(u_{y}+v_{x})&2\mu v_{y}+\lambda(u_{x}+v_{y}+w_{z})&\mu(v_{z}+w_{y})\\
-      \mu(u_{z}+w_{x})&\mu(v_{z}+w_{y})&2\mu w_{z}+\lambda(u_{x}+v_{y}+w_{z})
-    \end{bNiceMatrix}
+      2\mu u_{,x}+\lambda(u_{,x}+v_{,y}+w_{,z})&\mu(u_{,y}+v_{,x})&\mu(u_{,z}+w_{,x})\\
+      \mu(u_{,y}+v_{,x})&2\mu v_{,y}+\lambda(u_{,x}+v_{,y}+w_{,z})&\mu(v_{,z}+w_{,y})\\
+      \mu(u_{,z}+w_{,x})&\mu(v_{,z}+w_{,y})&2\mu w_{,z}+\lambda(u_{,x}+v_{,y}+w_{,z})
+    \end{bNiceMatrix},
   \end{aligned}
 \end{equation}
-where $\mu$ is the dynamic viscosity coefficient, and using the Stokes hypothesis, $\lambda=-(2/3)\mu$. The derivatives of the primitive variables such as $u_{x}$, $u_{y}$, ... can be easily computed by expanding the derivatives of the conservative variables. For example, $(\rho u)_{x}=\rho_{x}u+\rho u_{x}$ , and, therefore, $u_{x}=(1/\rho)((\rho u)_{x}-\rho_{x}u)$.
+where $\mu$ is the dynamic viscosity coefficient, and using the Stokes hypothesis, $\lambda=-(2/3)\mu$. The derivatives of the primitive variables such as $u_{,x}$, $u_{,y}$, ... can be easily computed by expanding the derivatives of the conservative variables. For example, $(\rho u)_{,x}=\rho_{,x}u+\rho u_{,x}$ , and, therefore, $u_{,x}=(1/\rho)((\rho u)_{,x}-\rho_{,x}u)$.
+
+The source term $\mathbf{S}(\mathbf{u},\nabla\mathbf{u})$ is variant, and it can be used to model the effects of gravity, buoyancy, and other external forces.
 
 \section{Spatial Discretization}
 
 Here for the spatial discretization of DG, the reference is from Bassi's paper\cite{bassiHighOrderAccurateDiscontinuous1997a}, which proposed the BR1 format. As a supplement, we also discuss the BR2 format, which you can find in this paper\cite{bassiDiscontinuousGalerkinSolution2005}, but the BR2 format was first proposed in this conference paper\cite{bassiHighOrderAccurate1997}.
 
-By multiplying by a ``test function'' $\mathbf{v}$ and integrating over the domain $\Omega$ we obtain the weighted residual formulation,
+By multiplying by a ``test function'' $v$ and integrating over the domain $\Omega$ we obtain the weighted residual formulation,
 \begin{equation}
   \label{eq:4}
-  \int_{\Omega}\mathbf{v}\partial_{t}\mathbf{u}\mathrm{d}\Omega+\int_{\Omega}\mathbf{v}\nabla\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega=\sum_{E}\left(\int_{E}\mathbf{v}\partial_{t}\mathbf{u}\mathrm{d}\Omega+\int_{E}\mathbf{v}\nabla\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega\right)=0\quad\forall\mathbf{v},
+  \int_{\Omega}v\mathbf{u}_{,t}\mathrm{d}\Omega+\int_{\Omega}v(\nabla\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u}))\mathrm{d}\Omega=\int_{\Omega}v\mathbf{S}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega\quad\forall v,
 \end{equation}
-where $\mathbf{F}(\mathbf{u},\nabla\mathbf{u})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$, and the integrals over the domain $\Omega$ have been expanded into the sum of integrals over a collection of non-overlapping elements ${E}$, which have been assumed to be triangles and quadrangles. By integrating by parts each elemental contribution of \autoref{eq:4} which contains the divergence of the Navier-Stokes flux function, we obtain the weak formulation
+where $\mathbf{F}(\mathbf{u},\nabla\mathbf{u})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$, and the integrals over the domain $\Omega$ have been expanded into the sum of integrals over a collection of non-overlapping elements ${E}$, which have been assumed to be triangles and quadrangles.
 \begin{equation}
-  \label{eq:5}
-  \sum_{E}\left(\int_{E}\mathbf{v}\partial_{t}\mathbf{u}\mathrm{d}\Omega+\oint_{\partial E}\mathbf{v}\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\cdot\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\mathbf{v}\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega\right)=0\quad\forall\mathbf{v},
+  \sum_{E}\left(\int_{E}v\mathbf{u}_{,t}\mathrm{d}\Omega+\int_{E}v\nabla\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega-\int_{E}v\mathbf{S}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega\right)=0\quad\forall v,
+\end{equation}
+By integrating by parts each elemental contribution of \autoref{eq:4} which contains the divergence of the Navier-Stokes flux function, we obtain the weak formulation
+\begin{equation}
+  \label{eq:6}
+  \int_{E}v\mathbf{u}_{,t}\mathrm{d}\Omega+\oint_{\partial E}v\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\cdot\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla v\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega=\int_{E}v\mathbf{S}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega\quad\forall v,
 \end{equation}
 where $\partial E$ denotes the boundary of element $E$.
 
-A discrete analog of \autoref{eq:5} is obtained by considering, within each element, only the functions $\mathbf{u}_{h}$ and $\mathbf{v}_{h}$ given by
+A discrete analog of \autoref{eq:6} is obtained by considering, within each element, only the functions $\mathbf{u}_{h,t}$ and $v_{h}$ given by
 \begin{equation}
-  \mathbf{u}_{h}(\mathbf{x},t)_{h|E}=\sum_{i=1}^{N_{k}}\mathbf{U}_{i}(t)\phi_{i}^{k}(\mathbf{x}),\quad\mathbf{v}_{h}(\mathbf{x})_{h|E}=\sum_{i=1}^{N_{k}}\mathbf{V}_{i}\phi_{i}^{k}(\mathbf{x}),\quad\forall\mathbf{x}\in E,
+  \mathbf{u}_{h,t}(\mathbf{x},t)_{h|E}=\sum_{i=1}^{N_{k}}\mathbf{U}_{i,t}(t)\phi_{i}^{k}(\mathbf{x}),\quad v_{h}(\mathbf{x})_{h|E}=\sum_{i=1}^{N_{k}}V_{i}\phi_{i}^{k}(\mathbf{x}),\quad\forall\mathbf{x}\in E,
 \end{equation}
-where the expansion coefficients $\mathbf{U}_{i}(t)$ and $\mathbf{V}_{i}$ denote the degrees of freedom of the numerical solution and the test function in element $E$, and the $N_{k}$ (shape) functions $\phi_{i}^{k}$ are a base for the polynomial functions $\mathbb{P}^{k}$. Note that there is no global continuity requirement for $\mathbf{u}_{h}$ and $\mathbf{v}_{h}$, which are therefore discontinuous functions across element interfaces. By admitting only the functions $\mathbf{u}_{h|E}$ and $\mathbf{v}_{h|E}$, the summation in \autoref{eq:5} can be reduced to
-\begin{equation}
-  \label{eq:7}
-  \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E}\mathbf{v}_{h}\mathbf{u}_{h}\mathrm{d}\Omega+\oint_{\partial E}\mathbf{v}_{h}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\mathbf{v}_{h}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\mathrm{d}\Omega=0\quad\forall\mathbf{v}_{h|E}.
-\end{equation}
-\autoref{eq:7} must be satisfied for any element $E$ and for any function $\mathbf{v}_{h|E}$. However, within each element, the $\mathbf{v}_{h}$ are a linear combination of $N_{k}$ shape functions $\phi_{i}^{k}$, and \autoref{eq:7} is therefore equivalent to the system of $N_{k}$ equations,
+where the expansion coefficients $\mathbf{U}_{i,t}(t)$ and $V_{i}$ denote the degrees of freedom of the numerical solution and the test function in element $E$, and the $N_{k}$ (shape) functions $\phi_{i}^{k}$ are a base for the polynomial functions $\mathbb{P}^{k}$. Note that there is no global continuity requirement for $\mathbf{u}_{h,t}$ and $v_{h}$, which are therefore discontinuous functions across element interfaces. By admitting only the functions $\mathbf{u}_{h,t|E}$ and $v_{h|E}$, the summation in \autoref{eq:6} can be reduced to
 \begin{equation}
   \label{eq:8}
-  \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E}\phi_{i}^{k}\mathbf{u}_{h}\mathrm{d}\Omega+\oint_{\partial E}\phi_{i}^{k}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\phi_{i}^{k}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\mathrm{d}\Omega=0\quad 1\leqslant i\leqslant N_{k}.
+  \int_{E}v_{h}\mathbf{u}_{h,t}\mathrm{d}\Omega+\oint_{\partial E}v_{h}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla v_{h}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\mathrm{d}\Omega=\int_{E}v_{h}\mathbf{S}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\mathrm{d}\Omega\quad\forall v_{h|E}.
 \end{equation}
-% \begin{equation}
-%   \label{eq:8}
-%   \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E}\phi_{i}^{k}\mathbf{u}_{h}\mathrm{d}\Omega+\eqnmarkbox[blue]{interface}{\oint_{\partial E}\phi_{i}^{k}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}\mathrm{d}\sigma}-\eqnmarkbox[red]{volume}{\int_{E}\nabla\phi_{i}^{k}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\mathrm{d}\Omega}=0\quad 1\leqslant i\leqslant N_{k}.
-% \end{equation}
-% \annotate[]{below}{interface}{interface integral}
-% \annotate[]{below}{volume}{volume integral}
-
-Notice that, when evaluating the boundary integral of \autoref{eq:8} at an internal interface, the flux terms are not uniquely defined due to the discontinuous function approximation. It is, therefore, necessary to substitute the Navier-Stokes flux function $\mathbf{F}$ with an interface numerical flux function $\mathbf{H}$ which, in general, depends on both interface states and which introduces a coupling between the unknowns of neighboring elements which would be otherwise completely missing. It is possible to show that \autoref{eq:8} with $\mathbf{F}$ replaced by the numerical flux function $\mathbf{H}$ is nothing but the Galerkin method applied to just one element $E$ with weakly prescribed boundary conditions obtained from the neighboring elements of $E$ if $\partial E\cap\partial\Omega =0$ or from the boundary conditions of the Navier-Stokes problem if $\partial E\cap\partial\Omega\neq 0$.
-
-We first restrict our attention to the treatment of interface integrals. The inviscid interface integral terms are constructed with a technique traditionally used in upwind finite volume schemes. The flux function $\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n}$ appearing in the second term of \autoref{eq:7} is in fact replaced by a numerical flux function $\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$ depends on the internal interface state $\mathbf{u}^{-}$, on the neighboring element interface state $\mathbf{u}^{+}$, and on the direction of the normal unit vector $\mathbf{n}$. To guarantee the formal accuracy of the scheme, the numerical flux is required to satisfy the consistency relations
+\autoref{eq:8} must be satisfied for any element $E$ and for any function $v_{h|E}$. However, within each element, the $v_{h}$ are a linear combination of $N_{k}$ shape functions $\phi_{i}^{k}$, and \autoref{eq:8} is therefore equivalent to the system of $N_{k}$ equations,
 \begin{equation}
   \label{eq:9}
+  \int_{E}\phi_{i}^{k}\mathbf{u}_{h,t}\mathrm{d}\Omega+\oint_{\partial E}\phi_{i}^{k}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\phi_{i}^{k}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\mathbf{S}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\mathrm{d}\Omega\quad 1\leqslant i\leqslant N_{k}.
+\end{equation}
+
+Notice that, when evaluating the boundary integral of \autoref{eq:9} at an internal interface, the flux terms are not uniquely defined due to the discontinuous function approximation. It is, therefore, necessary to substitute the Navier-Stokes flux function $\mathbf{F}$ with an interface numerical flux function $\mathbf{H}$ which, in general, depends on both interface states and which introduces a coupling between the unknowns of neighboring elements which would be otherwise completely missing. It is possible to show that \autoref{eq:9} with $\mathbf{F}$ replaced by the numerical flux function $\mathbf{H}$ is nothing but the Galerkin method applied to just one element $E$ with weakly prescribed boundary conditions obtained from the neighboring elements of $E$ if $\partial E\cap\partial\Omega =0$ or from the boundary conditions of the Navier-Stokes problem if $\partial E\cap\partial\Omega\neq 0$.
+
+We first restrict our attention to the treatment of interface integrals. The inviscid interface integral terms are constructed with a technique traditionally used in upwind finite volume schemes. The flux function $\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n}$ appearing in the second term of \autoref{eq:8} is in fact replaced by a numerical flux function $\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$ depends on the internal interface state $\mathbf{u}^{-}$, on the neighboring element interface state $\mathbf{u}^{+}$, and on the direction of the normal unit vector $\mathbf{n}$. To guarantee the formal accuracy of the scheme, the numerical flux is required to satisfy the consistency relations
+\begin{equation}
+  \label{eq:10}
   \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n},\quad\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=-\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};-\mathbf{n}),
 \end{equation}
 Several numerical flux functions satisfy the above criteria such as the Godunov, Lax-Friedrichs, Roe, Engquist-Osher, or HLLE (Harten, Lax, Van Leer, Einfeldt).
 
-The spatial discretization of the viscous term of the Navier-Stokes equations is constructed by resorting to a mixed finite element formulation. The first-order derivatives of the conservative variables appearing in the \autoref{eq:3} lead to second-order derivatives when we evaluate the divergence of the viscous fluxes. However, second-order derivatives cannot be accommodated directly in a weak variational formulation using a discontinuous function space. We therefore regard the gradient of the conservative variables $\mathbf{S}(\mathbf{u})=\nabla\mathbf{u}$ as auxiliary unknowns of the Navier-Stokes equations, which are therefore reformulated as the following coupled system for the unknowns $\mathbf{S}$ and $\mathbf{u}$,
-\begin{equation}
-  \label{eq:10}
-  \begin{aligned}
-    &\mathbf{S}-\nabla\mathbf{u}=0\\
-    &\partial_{t}\mathbf{u}+\nabla\cdot\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\nabla\cdot\mathbf{F}_{\mathrm{v}}(\mathbf{u},\mathbf{S})=0.
-  \end{aligned}
-\end{equation}
-
-\autoref{eq:10} can be approximated using a discontinuous finite element formulation in a way similar to that employed for the inviscid part of the equations. The use of an explicit time-stepping scheme greatly simplifies the mixed finite element formulation, since it allows a decoupled solution of \autoref{eq:10}. At each time level $n$, in fact, we first compute a discontinuous approximation of $\mathbf{S}^{n}$ by solving the first equation of the system and then use $\mathbf{u}^{n}$ and $\mathbf{S}^{n}$ to evaluate the inviscid and viscous fluxes of the second equation which is then advanced in time.
-
-The weak formulation of the first equation of \autoref{eq:10} is
+The spatial discretization of the viscous term of the Navier-Stokes equations is constructed by resorting to a mixed finite element formulation. The first-order derivatives of the conservative variables appearing in the \autoref{eq:3} lead to second-order derivatives when we evaluate the divergence of the viscous fluxes. However, second-order derivatives cannot be accommodated directly in a weak variational formulation using a discontinuous function space. We therefore regard the gradient of the conservative variables $\mathbf{w}(\mathbf{u})=\nabla\mathbf{u}$ as auxiliary unknowns of the Navier-Stokes equations, which are therefore reformulated as the following coupled system for the unknowns $\mathbf{w}$ and $\mathbf{u}$,
 \begin{equation}
   \label{eq:11}
-  \int_{E}\phi_{i}^{k}\mathbf{S}_{h}\mathrm{d}\Omega-\oint_{\partial E}\phi_{i}^{k}\mathbf{u}_{h}\mathbf{n}\mathrm{d}\sigma+\int_{E}\nabla\phi_{i}^{k}\mathbf{u}_{h}\mathrm{d}\Omega=0\quad 1\leqslant i\leqslant N_{k},
-\end{equation}
-where, due to the discontinuous function approximation at internal interfaces, the unknown $\mathbf{u}_{h}$ appearing in the boundary integral is not uniquely defined. In analogy with the procedure described for the inviscid part of the equations, it is therefore necessary to introduce a numerical flux function $\mathbf{H}_{\mathrm{s}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$ to replace the term $\mathbf{u}_{h}\mathbf{n}$. Since we are constructing the discrete analog of a diffusive operator, we define the numerical flux function as the average between the two interface states, i.e., as
-\begin{equation}
-  \label{eq:12}
-  \mathbf{H}_{\mathrm{s}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{u}^{-}+\mathbf{u}^{+})\mathbf{n}.
-\end{equation}
-
-Here, unlike Bassi, we do not assemble all the mass matrices, but solve \autoref{eq:11} separately on each element $E$. The computed auxiliary variables $\mathbf{S}_{h}$ are then used in the weak form of the second equation of \autoref{eq:10},
-\begin{equation}
-  \label{eq:13}
   \begin{aligned}
-    \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E}\phi_{i}^{k}\mathbf{u}_{h}\mathrm{d}\Omega &+\oint_{\partial E}\phi_{i}^{k}(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})\cdot\mathbf{n}+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{S}_{h})\cdot\mathbf{n})\mathrm{d}\sigma\\
-    &-\int_{E}\nabla\phi_{i}^{k}\cdot(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{S}_{h}))\mathrm{d}\Omega=0\quad 1\leqslant i\leqslant N_{k},
+    &\mathbf{w}-\nabla\mathbf{u}=0\\
+    &\mathbf{u}_{,t}+\nabla\cdot\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\nabla\cdot\mathbf{F}_{\mathrm{v}}(\mathbf{u},\mathbf{w})=\mathbf{S}(\mathbf{u},\mathbf{w}).
   \end{aligned}
 \end{equation}
-in which, once again, the boundary integral contains flux terms that are not uniquely defined. It is therefore necessary to replace the term $\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{S}_{h})$ with the numerical flux function $\mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{S}^{-},\mathbf{u}^{+},\mathbf{S}^{+};\mathbf{n})$, defined in a ``centered'' way as
-\begin{equation}
-  \mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{S}^{-},\mathbf{u}^{+},\mathbf{S}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{S}^{-})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{+},\mathbf{S}^{+}))\cdot\mathbf{n}
-\end{equation}
 
-For there, an important issue in mixed finite element formulations is the choice of the approximation space for the auxiliary variables $\mathbf{S}_{h}$ concerning the original ones, i.e., the conservative variables $\mathbf{u}_{h}$. An inconsistent choice of the two approximation spaces may result in a solution that is polluted by spurious modes. We have not tried to address this issue from a theoretical point of view. In practice, we have used the same type of approximations for both $\mathbf{u}_{h}$ and $\mathbf{S}_{h}$. It is important to point out that, even if both $\mathbf{u}_{h}$ and $\mathbf{S}_{h}$ have been chosen in the same function space (say that of piecewise discontinuous polynomial $\mathbb{P}^{k}$ of order k inside each element), the auxiliary variable $\mathbf{S}_{h}$ can, however, be regarded as the sum of an ``interface contribution'' $\mathbf{S}_{h}^{\mathrm{int}}\in\mathbb{P}^{k}$ plus a ``volume contribution'' $\mathbf{S}_{h}^{\mathrm{vol}}\in\mathbb{P}^{k-1}$. Since $\mathbf{S}_{h}^{\mathrm{int}}$ vanishes when the jump of $\mathbf{u}_{h}$ at the element interfaces is zero, the auxiliary variable $\mathbf{S}_{h}\in\mathbb{P}^{k-1}$ when the solution $\mathbf{u}_{h}\in\mathbb{P}^{k}$ is continuous. In bassi's later papers, he will write $\mathbf{S}_{h}^{\mathrm{vol}}$ as $\nabla\mathbf{u}$ and $\mathbf{S}_{h}^{\mathrm{int}}$ as $\mathbf{R}$, that is to say, there are $\mathbf{S}=\nabla\mathbf{u}+\mathbf{R}$. Here we use the original notation. Next, let's introduce the BR1 format first.
-
-In order to define $\mathbf{S}_{h}^{\mathrm{int}}$ and $\mathbf{S}_{h}^{\mathrm{vol}}$, it is necessary to rewrite the numerical flux function in \autoref{eq:12} as $\mathbf{u}+(\mathbf{u}^{+}-\mathbf{u}^{-})/2$ (here $\mathbf{u}$ is the same as $\mathbf{u}^{-}$). By inserting this expression into the boundary integral of \autoref{eq:11}, we obtain
-\begin{equation}
-  \label{eq:15}
-  \int_{E}\phi_{i}^{k}\mathbf{S}_{h}\mathrm{d}\Omega=\oint_{\partial E}\phi_{i}^{k}\mathbf{u}_{h}\mathbf{n}\mathrm{d}\sigma+\oint_{\partial E}\phi_{i}^{k}\dfrac{1}{2}(\mathbf{u}_{h}^{+}-\mathbf{u}_{h}^{-})\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\phi_{i}^{k}\mathbf{u}_{h}\mathrm{d}\Omega.
-\end{equation}
+\autoref{eq:11} can be approximated using a discontinuous finite element formulation in a way similar to that employed for the inviscid part of the equations. The use of an explicit time-stepping scheme greatly simplifies the mixed finite element formulation, since it allows a decoupled solution of \autoref{eq:11}. At each time level $n$, in fact, we first compute a discontinuous approximation of $\mathbf{w}^{n}$ by solving the first equation of the system and then use $\mathbf{u}^{n}$ and $\mathbf{w}^{n}$ to evaluate the inviscid and viscous fluxes of the second equation which is then advanced in time.
 
 Here by replacing $\mathbf{F}$ to $f\mathbf{c}$ for a scalar function $f$ and vector field $\mathbf{c}$ in the \href{https://en.wikipedia.org/wiki/Divergence_theorem}{divergence theorem} with specific forms, we have
 \begin{equation}
-  \iiint_{V}\mathbf{c}\cdot\nabla f\mathrm{d}V=\oiint_{S}(\mathbf{c}f)\cdot\mathbf{n}\mathrm{d}S-\iiint_{V}f(\nabla\cdot\mathbf{c})\mathrm{d}V.
+  \int_{V}\mathbf{c}\cdot\nabla f\mathrm{d}V=\oint_{S}(\mathbf{c}f)\cdot\mathbf{n}\mathrm{d}S-\int_{V}f(\nabla\cdot\mathbf{c})\mathrm{d}V.
 \end{equation}
 The last term on the right vanishes for constant $\mathbf{c}$ or any divergence-free (solenoidal) vector field, e.g. Incompressible flows without sources or sinks such as phase change or chemical reactions etc. In particular, taking
 $\mathbf{c}$ to be constant:
 \begin{equation}
-  \iiint_{V}\nabla f\mathrm{d}V=\oiint_{S}f\mathbf{n}\mathrm{d}S
+  \int_{V}\nabla f\mathrm{d}V=\oint_{S}f\mathbf{n}\mathrm{d}S
+\end{equation}
+Here, if the formula is rewritten into vector form, we have
+\begin{equation}
+  \int_{V}\nabla\mathbf{f}\mathrm{d}V=\oint_{S}\mathbf{f}\otimes\mathbf{n}\mathrm{d}S
 \end{equation}
 
-Therefore, the first and the last integrals appearing on the right-hand side of \autoref{eq:15} can be (back) integrated by parts to obtain a single volume integral, i.e.,
+The weak formulation of the first equation of \autoref{eq:11} is
 \begin{equation}
-  \oint_{\partial E}\phi_{i}^{k}\mathbf{u}_{h}\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\phi_{i}^{k}\mathbf{u}_{h}\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\nabla\mathbf{u}_{h}\mathrm{d}\Omega.
+  \label{eq:15}
+  \int_{E}\phi_{i}^{k}\mathbf{w}_{h}\mathrm{d}\Omega-\oint_{\partial E}\phi_{i}^{k}\mathbf{u}_{h}\otimes\mathbf{n}\mathrm{d}\sigma+\int_{E}\nabla\phi_{i}^{k}\otimes\mathbf{u}_{h}\mathrm{d}\Omega=0\quad 1\leqslant i\leqslant N_{k},
+\end{equation}
+where, due to the discontinuous function approximation at internal interfaces, the unknown $\mathbf{u}_{h}$ appearing in the boundary integral is not uniquely defined. In analogy with the procedure described for the inviscid part of the equations, it is therefore necessary to introduce a numerical flux function $\mathbf{h}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$ to replace the term $\mathbf{u}_{h}\otimes\mathbf{n}$. Since we are constructing the discrete analog of a diffusive operator, we define the numerical flux function as the average between the two interface states, i.e., as
+\begin{equation}
+  \label{eq:16}
+  \mathbf{h}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{u}^{-}+\mathbf{u}^{+})\otimes\mathbf{n}.
 \end{equation}
 
-\autoref{eq:15} can therefore be rewritten as
+Here, unlike Bassi, we do not assemble all the mass matrices, but solve \autoref{eq:15} separately on each element $E$. The computed auxiliary variables $\mathbf{w}_{h}$ are then used in the weak form of the second equation of \autoref{eq:11},
 \begin{equation}
-  \label{eq:18}
-  \int_{E}\phi_{i}^{k}\mathbf{S}_{h}\mathrm{d}\Omega=\oint_{\partial E}\phi_{i}^{k}\dfrac{1}{2}(\mathbf{u}_{h}^{+}-\mathbf{u}_{h}^{-})\mathbf{n}\mathrm{d}\sigma+\int_{E}\phi_{i}^{k}\nabla\mathbf{u}_{h}\mathrm{d}\Omega.
-\end{equation}
-
-The contributions $\mathbf{S}_{h}^{\mathrm{int}}$ and $\mathbf{S}_{h}^{\mathrm{vol}}$ are given by the boundary and by the volume integrals appearing on the right-hand side of \autoref{eq:18}, i.e.,
-\begin{equation}
-  \int_{E}\phi_{i}^{k}\mathbf{S}_{h}^{\mathrm{int}}\mathrm{d}\Omega=\oint_{\partial E}\phi_{i}^{k}\dfrac{1}{2}(\mathbf{u}_{h}^{+}-\mathbf{u}_{h}^{-})\mathbf{n}\mathrm{d}\sigma,\quad \int_{E}\phi_{i}^{k}\mathbf{S}_{h}^{\mathrm{vol}}\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\nabla\mathbf{u}_{h}\mathrm{d}\Omega.
-\end{equation}
-
-So for the formulation of BR1, the \autoref{eq:13} can be rewritten as
-\begin{equation}
-  \label{eq:20}
+  \label{eq:17}
   \begin{aligned}
-    \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E}\phi_{i}^{k}\mathbf{u}_{h}\mathrm{d}\Omega &+\oint_{\partial E}\phi_{i}^{k}(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})\cdot\mathbf{n}+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{S}_{h}^{\mathrm{int}}+\mathbf{S}_{h}^{\mathrm{vol}})\cdot\mathbf{n})\mathrm{d}\sigma\\
-    &-\int_{E}\nabla\phi_{i}^{k}\cdot(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{S}_{h}^{\mathrm{int}}+\mathbf{S}_{h}^{\mathrm{vol}}))\mathrm{d}\Omega=0\quad 1\leqslant i\leqslant N_{k}.
+    \int_{E}\phi_{i}^{k}\mathbf{u}_{h,t}\mathrm{d}\Omega &+\oint_{\partial E}\phi_{i}^{k}(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{w}_{h}))\cdot\mathbf{n}\mathrm{d}\sigma\\
+    &-\int_{E}\nabla\phi_{i}^{k}\cdot(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{w}_{h}))\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\mathbf{S}(\mathbf{u}_{h},\mathbf{w}_{h})\mathrm{d}\Omega\quad 1\leqslant i\leqslant N_{k},
+  \end{aligned}
+\end{equation}
+in which, once again, the boundary integral contains flux terms that are not uniquely defined. It is therefore necessary to replace the term $\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{w}_{h})$ with the numerical flux function $\mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-},\mathbf{u}^{+},\mathbf{w}^{+};\mathbf{n})$, defined in a ``centered'' way as
+\begin{equation}
+  \mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-},\mathbf{u}^{+},\mathbf{w}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{+},\mathbf{w}^{+}))\cdot\mathbf{n}
+\end{equation}
+
+For there, an important issue in mixed finite element formulations is the choice of the approximation space for the auxiliary variables $\mathbf{w}_{h}$ concerning the original ones, i.e., the conservative variables $\mathbf{u}_{h}$. An inconsistent choice of the two approximation spaces may result in a solution that is polluted by spurious modes. We have not tried to address this issue from a theoretical point of view. In practice, we have used the same type of approximations for both $\mathbf{u}_{h}$ and $\mathbf{w}_{h}$. It is important to point out that, even if both $\mathbf{u}_{h}$ and $\mathbf{w}_{h}$ have been chosen in the same function space (say that of piecewise discontinuous polynomial $\mathbb{P}^{k}$ of order k inside each element), the auxiliary variable $\mathbf{w}_{h}$ can, however, be regarded as the sum of an ``interface contribution'' $\mathbf{w}_{h}^{\mathrm{int}}\in\mathbb{P}^{k}$ plus a ``volume contribution'' $\mathbf{w}_{h}^{\mathrm{vol}}\in\mathbb{P}^{k-1}$. Since $\mathbf{w}_{h}^{\mathrm{int}}$ vanishes when the jump of $\mathbf{u}_{h}$ at the element interfaces is zero, the auxiliary variable $\mathbf{w}_{h}\in\mathbb{P}^{k-1}$ when the solution $\mathbf{u}_{h}\in\mathbb{P}^{k}$ is continuous. In bassi's later papers, he will write $\mathbf{w}_{h}^{\mathrm{vol}}$ as $\nabla\mathbf{u}$ and $\mathbf{w}_{h}^{\mathrm{int}}$ as $\mathbf{r}$, that is to say, there are $\mathbf{w}=\nabla\mathbf{u}+\mathbf{r}$. Here we use the original notation. Next, let's introduce the BR1 format first.
+
+In order to define $\mathbf{w}_{h}^{\mathrm{int}}$ and $\mathbf{w}_{h}^{\mathrm{vol}}$, it is necessary to rewrite the numerical flux function in \autoref{eq:16} as $\mathbf{u}+(\mathbf{u}^{+}-\mathbf{u}^{-})/2$ (here $\mathbf{u}$ is the same as $\mathbf{u}^{-}$). By inserting this expression into the boundary integral of \autoref{eq:15}, we obtain
+\begin{equation}
+  \label{eq:19}
+  \int_{E}\phi_{i}^{k}\mathbf{w}_{h}\mathrm{d}\Omega=\oint_{\partial E}\phi_{i}^{k}\mathbf{u}_{h}\otimes\mathbf{n}\mathrm{d}\sigma+\oint_{\partial E}\phi_{i}^{k}\dfrac{1}{2}(\mathbf{u}_{h}^{+}-\mathbf{u}_{h}^{-})\otimes\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\phi_{i}^{k}\otimes\mathbf{u}_{h}\mathrm{d}\Omega.
+\end{equation}
+
+Besides, the first and the last integrals appearing on the right-hand side of \autoref{eq:19} can be (back) integrated by parts to obtain a single volume integral, i.e.,
+\begin{equation}
+  \oint_{\partial E}\phi_{i}^{k}\mathbf{u}_{h}\otimes\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla\phi_{i}^{k}\otimes\mathbf{u}_{h}\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\nabla\mathbf{u}_{h}\mathrm{d}\Omega.
+\end{equation}
+
+\autoref{eq:19} can therefore be rewritten as
+\begin{equation}
+  \label{eq:21}
+  \int_{E}\phi_{i}^{k}\mathbf{w}_{h}\mathrm{d}\Omega=\oint_{\partial E}\phi_{i}^{k}\dfrac{1}{2}(\mathbf{u}_{h}^{+}-\mathbf{u}_{h}^{-})\otimes\mathbf{n}\mathrm{d}\sigma+\int_{E}\phi_{i}^{k}\nabla\mathbf{u}_{h}\mathrm{d}\Omega.
+\end{equation}
+
+The contributions $\mathbf{w}_{h}^{\mathrm{int}}$ and $\mathbf{w}_{h}^{\mathrm{vol}}$ are given by the boundary and by the volume integrals appearing on the right-hand side of \autoref{eq:21}, i.e.,
+\begin{equation}
+  \label{eq:22}
+  \int_{E}\phi_{i}^{k}\mathbf{w}_{h}^{\mathrm{int}}\mathrm{d}\Omega=\oint_{\partial E}\phi_{i}^{k}\dfrac{1}{2}(\mathbf{u}_{h}^{+}-\mathbf{u}_{h}^{-})\otimes\mathbf{n}\mathrm{d}\sigma,\quad \int_{E}\phi_{i}^{k}\mathbf{w}_{h}^{\mathrm{vol}}\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\nabla\mathbf{u}_{h}\mathrm{d}\Omega.
+\end{equation}
+Please note that in some papers, the average value of the left and right states at the element boundary is denoted as $\hat{\mathbf{u}}$, defined as $\hat{\mathbf{u}}=(\mathbf{u}^{+}+\mathbf{u}^{-})/2$. With this notation, the first equation in \autoref{eq:22} will become:
+\begin{equation}
+  \int_{E}\phi_{i}^{k}\mathbf{w}_{h}^{\mathrm{int}}\mathrm{d}\Omega=\oint_{\partial E}\phi_{i}^{k}(\hat{\mathbf{u}}_{h}-\mathbf{u}_{h})\otimes\mathbf{n}\mathrm{d}\sigma
+\end{equation}
+These two equations only differ in notation, but they are equivalent. So for the formulation of BR1, the \autoref{eq:17} can be rewritten as
+\begin{equation}
+  \label{eq:24}
+  \begin{aligned}
+    \int_{E}\phi_{i}^{k}\mathbf{u}_{h,t}\mathrm{d}\Omega &+\oint_{\partial E}\phi_{i}^{k}(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})\cdot\mathbf{n}+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{w}_{h}^{\mathrm{int}}+\mathbf{w}_{h}^{\mathrm{vol}})\cdot\mathbf{n})\mathrm{d}\sigma\\
+    &-\int_{E}\nabla\phi_{i}^{k}\cdot(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{w}_{h}^{\mathrm{int}}+\mathbf{w}_{h}^{\mathrm{vol}}))\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\mathbf{S}(\mathbf{u}_{h},\mathbf{w}_{h}^{\mathrm{int}}+\mathbf{w}_{h}^{\mathrm{vol}})\mathrm{d}\Omega\quad 1\leqslant i\leqslant N_{k}.
   \end{aligned}
 \end{equation}
 Unfortunately, this formulation can be shown to be singular in some model problems and displays an unsatisfactory convergence rate for polynomial approximations of odd order.
 
-A cure to this problem, which is BR2 format, has been found by replacing the $\mathbf{S}_{h}^{\mathrm{int}}$ in the contour integral of \autoref{eq:20} with ``face'' contributions redefined as
+A cure to this problem, which is BR2 format, has been found by replacing the $\mathbf{w}_{h}^{\mathrm{int}}$ in the contour integral of \autoref{eq:24} with ``face'' contributions redefined as
 \begin{equation}
-  \int_{E}\phi_{i}^{k}\mathbf{s}_{h|e}^{\mathrm{int}}\mathrm{d}\Omega=\int_{e}\phi_{i}^{k}\dfrac{1}{2}(\mathbf{u}_{h}^{+}-\mathbf{u}_{h}^{-})\mathbf{n}\mathrm{d}\sigma\quad\forall e \in\partial E.
+  \int_{E}\phi_{i}^{k}\mathbf{w}_{h|e}^{\mathrm{int}}\mathrm{d}\Omega=\int_{e}\phi_{i}^{k}\dfrac{1}{2}(\mathbf{u}_{h}^{+}-\mathbf{u}_{h}^{-})\otimes\mathbf{n}\mathrm{d}\sigma\quad\forall e \in\partial E.
 \end{equation}
-Notice that the following relation between the functions $\mathbf{S}_{h}^{\mathrm{int}}$ and $\mathbf{s}_{h|e}^{\mathrm{int}}$ holds
+Notice that the following relation between the functions $\mathbf{w}_{h}^{\mathrm{int}}$ and $\mathbf{w}_{h|e}^{\mathrm{int}}$ holds
 \begin{equation}
-  \mathbf{S}_{h}^{\mathrm{int}}=\sum_{e\in\partial E}\mathbf{s}_{h|e}^{\mathrm{int}}.
+  \mathbf{w}_{h}^{\mathrm{int}}=\sum_{e\in\partial E}\mathbf{w}_{h|e}^{\mathrm{int}}.
 \end{equation}
-With this modification, \autoref{eq:20} becomes
+With this modification, \autoref{eq:24} becomes
 \begin{equation}
-  \label{eq:23}
   \begin{aligned}
-    \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E}\phi_{i}^{k}\mathbf{u}_{h}\mathrm{d}\Omega &+\oint_{\partial E}\phi_{i}^{k}(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})\cdot\mathbf{n}+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\eta_{e}\mathbf{s}_{h|e}^{\mathrm{int}}+\mathbf{S}_{h}^{\mathrm{vol}})\cdot\mathbf{n})\mathrm{d}\sigma\\
-    &-\int_{E}\nabla\phi_{i}^{k}\cdot(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{S}_{h}^{\mathrm{int}}+\mathbf{S}_{h}^{\mathrm{vol}}))\mathrm{d}\Omega=0\quad 1\leqslant i\leqslant N_{k}.
+    \int_{E}\phi_{i}^{k}\mathbf{u}_{h,t}\mathrm{d}\Omega &+\oint_{\partial E}\phi_{i}^{k}(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})\cdot\mathbf{n}+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\eta_{e}\mathbf{w}_{h|e}^{\mathrm{int}}+\mathbf{w}_{h}^{\mathrm{vol}})\cdot\mathbf{n})\mathrm{d}\sigma\\
+    &-\int_{E}\nabla\phi_{i}^{k}\cdot(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{w}_{h}^{\mathrm{int}}+\mathbf{w}_{h}^{\mathrm{vol}}))\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\mathbf{S}(\mathbf{u}_{h},\mathbf{w}_{h}^{\mathrm{int}}+\mathbf{w}_{h}^{\mathrm{vol}})\mathrm{d}\Omega\quad 1\leqslant i\leqslant N_{k}.
   \end{aligned}
 \end{equation}
-In the formula, $\eta_{e}$ is the stability factor, which is usually taken as the number of interfaces of the volume.
+In the formula, $\eta_{e}$ is the stability factor, which is usually taken as the number of interfaces of the element. Of course, you can also directly take it as $3.0$.
 
 \section{Basis Functions}
 
@@ -296,10 +303,13 @@ which can be written in matrix form as
   \end{bNiceMatrix}.
 \end{equation}
 
-Therefore, we can use this formula to calculate the Jacobi matrix $[\mathbf{J}]$ and its transpose inverse matrix $[\mathbf{J}]^{-\mathrm{T}}$. In the program, we directly use gmsh's API to obtain the derivative values of the basis functions concerning the reference element and the inverse matrix of the Jacobian for each element. Then, we calculate the derivative values of the basis functions concerning the actual element. The \autoref{eq:8} in reference element $E'$ can be written as
+Therefore, we can use this formula to calculate the Jacobi matrix $[\mathbf{J}]$ and its transpose inverse matrix $[\mathbf{J}]^{-\mathrm{T}}$. In the program, we directly use gmsh's API to obtain the derivative values of the basis functions concerning the reference element and the inverse matrix of the Jacobian for each element. Then, we calculate the derivative values of the basis functions concerning the actual element. The \autoref{eq:9} in reference element $E'$ can be written as
 \begin{equation}
-  \label{eq:30}
-  \dfrac{\mathrm{d}}{\mathrm{d}t}\int_{E'}\phi_{i}^{k}\mathbf{u}_{h}|\mathbf{J}|\mathrm{d}\Omega'+\oint_{\partial E'}\phi_{i}^{k}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}|\mathbf{J}|\mathrm{d}\sigma'-\int_{E'}[\mathbf{J}]^{-\mathrm{T}}\cdot\nabla\phi_{i}^{k}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})|\mathbf{J}|\mathrm{d}\Omega'=0\quad 1\leqslant i\leqslant N_{k}.
+  \label{eq:35}
+  \begin{aligned}
+    \int_{E'}\phi_{i}^{k}\mathbf{u}_{h,t}|\mathbf{J}|\mathrm{d}\Omega' &+\oint_{\partial E'}\phi_{i}^{k}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}|\mathbf{J}|\mathrm{d}\sigma'\\
+    &-\int_{E'}\left([\mathbf{J}]^{-\mathrm{T}}\cdot\nabla\phi_{i}^{k}\right)\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})|\mathbf{J}|\mathrm{d}\Omega'=\int_{E'}\phi_{i}^{k}\mathbf{S}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})|\mathbf{J}|\mathrm{d}\Omega'\quad 1\leqslant i\leqslant N_{k}.
+  \end{aligned}
 \end{equation}
 
 \section{Curved Mesh}
@@ -329,7 +339,7 @@ First, let's consider the two-dimensional case, which involves finding the norma
     \displaystyle-\sum_{i=1}^{N_{k}}\dfrac{\partial\phi_{i}^{k}}{\partial \xi}x_{i}
   \end{bNiceMatrix}.
 \end{equation}
-Next, let's consider the three-dimensional case, where we need to find the normal vector to a three-dimensional surface. Here, we seek two tangent vectors of the three-dimensional surface in the tangent plane, and then obtain the normal vector by taking the cross product of these two tangent vectors. Define $\mathbf{r}=(x(\xi,\eta),y(\xi,\eta),z(\xi,\eta))$, then
+Next, let's consider the three-dimensional case, where we need to find the normal vector to a three-dimensional surface. Here, we seek two tangent vectors of the three-dimensional surface in the tangent plane and then obtain the normal vector by taking the cross-product of these two tangent vectors. Define $\mathbf{r}=(x(\xi,\eta),y(\xi,\eta),z(\xi,\eta))$, then
 \begin{equation}
   \begin{aligned}
     \bm{\tau}_{\xi}&=\dfrac{\partial\mathbf{r}}{\partial\xi}=\begin{bNiceMatrix}
@@ -363,7 +373,7 @@ Next, let's consider the three-dimensional case, where we need to find the norma
 
 \section{Numerical Integral}
 
-For the integrals in \autoref{eq:30}, both on the elements and at element edges, numerical integration is typically employed, such as Gauss quadrature. Cockburn's paper\cite{cockburnRungeKuttaLocalProjection1990} provides the order requirements for Gauss quadrature for different integrals in this context. Here's a direct excerpt from the original text: \textit{Assume that the family of triangulations $\mathscr{F}$ is regular and \textbf{B}-uniform. Suppose that $V(K)\supset P^{k}(K)$, $\forall K\in\mathscr{T}_{h}$, $\forall\mathscr{T}_{h}\in\mathscr{F}$, and that the quadrature rule over the edges is exact for polynomials of degree $(2k +1)$, and the quadrature rule over the elements is exact for polynomials of degree $2k$. Then:}
+For the integrals in \autoref{eq:35}, both on the elements and at element edges, numerical integration is typically employed, such as Gauss quadrature. Cockburn's paper\cite{cockburnRungeKuttaLocalProjection1990} provides the order requirements for Gauss quadrature for different integrals in this context. Here's a direct excerpt from the original text: \textit{Assume that the family of triangulations $\mathscr{F}$ is regular and \textbf{B}-uniform. Suppose that $V(K)\supset P^{k}(K)$, $\forall K\in\mathscr{T}_{h}$, $\forall\mathscr{T}_{h}\in\mathscr{F}$, and that the quadrature rule over the edges is exact for polynomials of degree $(2k +1)$, and the quadrature rule over the elements is exact for polynomials of degree $2k$. Then:}
 \begin{enumerate}
   \item \textit{The RKDG method is formally uniformly $(k+1)$st-order accurate in time and space if $\Delta t=\mathcal{O}(h)$};
   \item \textit{The approximate solution generated by the RKDG method verifies the maximum principle $(2.8)$ if the CFL-condition $(2.19)$ is verified with $\delta=\mathrm{max}_{i,l}\left|\frac{\beta_{i,l}}{\alpha_{i,l}}\right|$};
@@ -392,15 +402,15 @@ is of the order $p$ for polynomials of two independent variables $\xi_{1},\xi_{2
 
 However, for triangular elements, the situation is more complicated. The fundamental equation for the construction of the integration points and weights for the reference triangle $K_{t}$ reads
 \begin{equation}
-  \int_{-1}^{1}\int_{-1}^{1-\xi_{1}}f(\xi_{1},\xi_{2})\mathrm{d}\xi_{2}\mathrm{d}\xi_{1}\approx\sum_{i=1}^{m}w_{k}f(\xi_{1,k},\xi_{2,k}),
+  \int_{-1}^{1}\int_{-1}^{1-\xi_{1}}f(\xi_{1},\xi_{2})\mathrm{d}\xi_{2}\mathrm{d}\xi_{1}\approx\sum_{i=1}^{n}w_{i}f(\xi_{1,i},\xi_{2,i}),
 \end{equation}
-where $m$ denotes the number of integration points. Each point is characterized by three unknowns: $\omega_{k},\xi_{1,k}$ and $\xi_{2,k}$. If we want to solve for these three unknowns, we will need to solve a nonlinear system of algebraic equations. It is practically infeasible to calculate the integration points and weights for higher values of $p$ by standard methods or mathematical software. Lyness\cite{lynessModerateDegreeSymmetric1975} proposed a sophisticated algorithm based on determining the points and weights within an equilateral triangle in polar coordinates, taking advantage of its multiple symmetries. The algorithm provides the minimum number of Gaussian points for any polynomial order $p$ and strongly reduces the size of the nonlinear system. Dunavant\cite{dunavantHighDegreeEfficient1985} extended the algorithm and calculated the points and weights up to the order $p=20$ (some weights being negative and some points lying outside the triangle). The position of integration points and values of the weights corresponding to other triangles can be obtained by a simple affine transformation.
+where $n$ denotes the number of integration points. Each point is characterized by three unknowns: $\omega_{i},\xi_{1,i}$ and $\xi_{2,i}$. If we want to solve for these three unknowns, we will need to solve a nonlinear system of algebraic equations. It is practically infeasible to calculate the integration points and weights for higher values of $p$ by standard methods or mathematical software. Lyness\cite{lynessModerateDegreeSymmetric1975} proposed a sophisticated algorithm based on determining the points and weights within an equilateral triangle in polar coordinates, taking advantage of its multiple symmetries. The algorithm provides the minimum number of Gaussian points for any polynomial order $p$ and strongly reduces the size of the nonlinear system. Dunavant\cite{dunavantHighDegreeEfficient1985} extended the algorithm and calculated the points and weights up to the order $p=20$ (some weights being negative and some points lying outside the triangle). The position of integration points and values of the weights corresponding to other triangles can be obtained by a simple affine transformation.
 
 The fact that some of the weights are negative means that the stability of the quadrature will tend to decrease when integrating oscillatory functions whose polynomial behavior exceeds the order of accuracy of the quadrature formulae. In this case, the schemes still can be used, but one has to combine them with spatial refinements of the reference element. If oscillations (or other excessive nonlinearities) in the integrated functions are expected, an application of adaptive formulae that compare results from several refinement levels may be a good idea.
 
 \section{Convective Flux}
 
-We mentioned some methods for calculating convective numerical fluxes at \autoref{eq:9}, and here we will introduce these methods in some detail. Note that what our convective numerical flux needs to replace here is $\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n}$, which means that the flux we calculate is on the normal vector $\mathbf{n}$, which will cause a relatively large change compared to the one-dimensional form for some schemes. Here we focus on how to calculate these formats, and we will not introduce too much about the properties and derivation of these schemes.
+We mentioned some methods for calculating convective numerical fluxes at \autoref{eq:10}, and here we will introduce these methods in some detail. Note that what our convective numerical flux needs to replace here is $\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n}$, which means that the flux we calculate is on the normal vector $\mathbf{n}$, which will cause a relatively large change compared to the one-dimensional form for some schemes. Here we focus on how to calculate these formats, and we will not introduce too much about the properties and derivation of these schemes.
 
 Here we first define some symbols that we will use next. The first is the value on the left and right sides of the conserved variable $\mathbf{u}$. $\mathbf{u}^{-}$ represents the value on the left side of the interface, and $\mathbf{u}^{+}$ represents the value on the right side of the interface. $V=u n_{x}+v n_{y}+w n_{z}$ represents the velocity along the interface normal vector.
 \begin{equation}
@@ -602,7 +612,7 @@ If you need, the formula $\tilde{\alpha}_{3}\tilde{\mathbf{K}}_{3}+\tilde{\alpha
       \Delta v - \Delta V n_{y}\\
       \Delta w - \Delta V n_{z}\\
       \tilde{u}\Delta u+\tilde{v}\Delta v+\tilde{w}\Delta w-\tilde{V}\Delta V\\
-    \end{bNiceMatrix}
+    \end{bNiceMatrix}.
   \end{aligned}
 \end{equation}
 Before applying the scheme as described to practical problems, a modification using Harten's entropy correction to handle sonic flow correctly is required.
@@ -614,7 +624,7 @@ Before applying the scheme as described to practical problems, a modification us
 \end{equation}
 Where $\delta$ is a small value, which can be conveniently set equal to some fraction (e.g., $1/10$ Or $1/20$) of the local speed of sound.
 
-\section{Diffusive Flux}
+\section{Viscous Flux}
 
 
 \section{Time Integration}
@@ -622,13 +632,153 @@ Where $\delta$ is a small value, which can be conveniently set equal to some fra
 
 \section{Boundary Condition}
 
+In the preceding section, we have discussed the calculation of numerical fluxes at element interfaces. However, for certain elements that are located at the domain boundary, they lack a neighboring element on the right side. Therefore, we need to handle this particular situation differently. Here, most of the boundary processing is based on the Mengaldo\cite{mengaldoGuideImplementationBoundary2014} papers, so we first quote a passage from the article to introduce the boundary conditions: \textit{Usually BCs are imposed in two different ways: by directly modifying the boundary solution at each iteration/time-step (strong BCs) or by modifying the state from which the numerical flux is calculated (weak BCs). Published studies to date suggest that weak BCs tend to improve convergence and can improve accuracy over strong BCs.}
+
+\subsection*{Riemann Farfield}
+
+First, let's introduce the farfield boundary. The Riemann farfield boundary condition is used to calculate boundary fluxes based on the Riemann solution. Here, we define a state $\mathbf{u}_{\mathrm{bc}}$ for the boundary, and then compute the boundary flux based on this state. In other words, we only need to use the Riemann solver to compute the flux for this state.
+\begin{equation}
+  \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}_{\infty};\mathbf{n})=\mathbf{F}_{\mathrm{e},n}(\mathbf{u}_{\mathrm{bc}}).
+\end{equation}
+
+There are five eigenvalues for $\mathbf{A}_{\mathrm{e},n}(\mathbf{u})=\partial\mathbf{F}_{\mathrm{e},n}/\partial\mathbf{u}$. The boundary conditions can be divided into four situations according to the positivity and negativity of the five eigenvalues, namely
+\begin{itemize}
+  \item $V+c<0\Rightarrow \mathrm{Ma}<-1$ supersonic inflow
+  \item $V<0,V+c>0\Rightarrow -1<\mathrm{Ma}<0$ subsonic inflow
+  \item $V>0,V-c<0\Rightarrow 0<\mathrm{Ma}<1$ subsonic outflow
+  \item $V-c>0\Rightarrow \mathrm{Ma}>1$ supersonic outflow
+\end{itemize}
+
+For supersonic inflow, the direction of all characteristic lines is from the boundary to the interior, so the boundary state is determined by the farfield state.
+\begin{equation}
+  \mathbf{u}_{\mathrm{bc}}=\mathbf{u}_{\infty}.
+\end{equation}
+
+Similarly, for supersonic outflow, the direction of all characteristic lines is from the interior to the boundary, so the boundary state is determined by the interior state.
+\begin{equation}
+  \mathbf{u}_{\mathrm{bc}}=\mathbf{u}^{-}.
+\end{equation}
+
+Next we deal with the case of subsonic inflow and subsonic outflow. In both cases, there are some characteristic lines that flow from the interior to the boundary, and another part of the characteristic lines that flow from the boundary to the interior. In this case, we need to use Riemann invariants to calculate the intermediate state we need. In the case of subsonic inflow
+\begin{equation}
+  \label{eq:65}
+  R^{-}=V_{\infty}-\dfrac{2c_{\infty}}{\gamma-1},\quad R^{+}=V^{-}+\dfrac{2c^{-}}{\gamma-1}.
+\end{equation}
+In addition we know that
+\begin{equation}
+  \label{eq:66}
+  R_\mathrm{bc}^{-}=V_\mathrm{bc}-\dfrac{2c_\mathrm{bc}}{\gamma-1}=R^{-},\quad R_\mathrm{bc}^{+}=V_\mathrm{bc}+\dfrac{2c_\mathrm{bc}}{\gamma-1}=R^{+}.
+\end{equation}
+From \autoref{eq:66} we can therefore calculate a velocity and a speed of sound at the boundary as follows:
+\begin{equation}
+  V_{\mathrm{bc}}=\dfrac{1}{2}(R^{-}+R^{+}),\quad c_{\mathrm{bc}}=\dfrac{\gamma-1}{4}(R^{+}-R^{-}).
+\end{equation}
+The velocity $V_\mathrm{bc}$ can then be used to calculate the physical velocity at the boundary
+\begin{equation}
+  \begin{bNiceMatrix}
+    u_\mathrm{bc}\\
+    v_\mathrm{bc}\\
+    w_\mathrm{bc}\\
+  \end{bNiceMatrix}=\begin{bNiceMatrix}
+    u_{\infty}\\
+    v_{\infty}\\
+    w_{\infty}\\
+  \end{bNiceMatrix}+(V_{\mathrm{bc}}-V_{\infty})\begin{bNiceMatrix}
+    n_{x}\\
+    n_{y}\\
+    n_{z}\\
+  \end{bNiceMatrix}.
+\end{equation}
+Since the flow is entering the domain the entropy at the boundary is equal to the free-stream entropy
+\begin{equation}
+  \dfrac{c_{\mathrm{bc}}^{2}}{\gamma\rho_{\mathrm{bc}}^{\gamma-1}}=\dfrac{c_{\infty}^{2}}{\gamma\rho_{\infty}^{\gamma-1}}.
+\end{equation}
+The pressure at the boundary can be calculated as
+\begin{equation}
+  p_{\mathrm{bc}}=\dfrac{\rho_{\mathrm{bc}}c_{\mathrm{bc}}^{2}}{\gamma}.
+\end{equation}
+So all the conserved variables can be evaluated at the boundary,
+\begin{equation}
+  \mathbf{u}_{\mathrm{bc}}=\begin{bNiceMatrix}
+    \rho_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}u_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}v_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}w_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}E_{\mathrm{bc}}
+  \end{bNiceMatrix}=
+  \begin{bNiceMatrix}
+    \rho_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}u_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}v_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}w_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}\left(\dfrac{p_{\mathrm{bc}}}{\gamma-1}+\dfrac{1}{2}\rho_{\mathrm{bc}}(u_{\mathrm{bc}}^{2}+v_{\mathrm{bc}}^{2}+w_{\mathrm{bc}}^{2})\right)
+  \end{bNiceMatrix}.
+\end{equation}
+
+For subsonic outflow, the boundary state is determined by the interior state. We can use the same method as subsonic inflow to calculate the boundary state just some equations are different. \autoref{eq:65} becomes
+\begin{equation}
+  R^{-}=V^{-}-\dfrac{2c^{-}}{\gamma-1},\quad R^{+}=V_{\infty}+\dfrac{2c_{\infty}}{\gamma-1}.
+\end{equation}
+The physical velocity at the boundary is
+\begin{equation}
+  \begin{bNiceMatrix}
+    u_\mathrm{bc}\\
+    v_\mathrm{bc}\\
+    w_\mathrm{bc}\\
+  \end{bNiceMatrix}=
+  \begin{bNiceMatrix}
+    u^{-}\\
+    v^{-}\\
+    w^{-}\\
+  \end{bNiceMatrix}+(V_{\mathrm{bc}}-V^{-})\begin{bNiceMatrix}
+    n_{x}\\
+    n_{y}\\
+    n_{z}\\
+  \end{bNiceMatrix}.
+\end{equation}
+The entropy at the boundary is
+\begin{equation}
+  \dfrac{c_{\mathrm{bc}}^{2}}{\gamma\rho_{\mathrm{bc}}^{\gamma-1}}=\dfrac{(c^{-})^{2}}{\gamma(\rho^{-})^{\gamma-1}}.
+\end{equation}
+
+For the vicious flux, we need to calculate some auxiliary variables like $\mathbf{w}_{h|e}^{\mathrm{int}}$ and $\mathbf{w}_{h}^{\mathrm{vol}}$. In the process of calculating these variables, the value of the element on the right must be given directly, which is here
+\begin{equation}
+  \mathbf{h}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}_{\infty};\mathbf{n})=\dfrac{1}{2}(\mathbf{u}^{-}+\mathbf{u}_{\infty})\otimes\mathbf{n}.
+\end{equation}
+After calculating the auxiliary variables, we can calculate the viscous flux at the boundary. It is just the same as the viscous flux at the element interface, but the value of the element on the right is given directly as left boundary value.
+\begin{equation}
+  \mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-};\mathbf{n})=\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-})\cdot\mathbf{n}
+\end{equation}
+
+\subsection*{IsoThermal Wall}
+
+An isothermal wall implies that the temperature of the wall needs to be specified. This wall temperature can be a constant or vary with time. It's important to note that an isothermal wall is only applicable to the Navier-Stokes equations. The Euler equations cannot utilize an isothermal wall because the Euler equations lack the thermal conduction term $\kappa\nabla T$. Therefore, next we only describe the no-slip isothermal wall boundary conditions under the Navier-Stokes equation. Similarly to the farfield boundary, we define a state $\mathbf{u}_{\mathrm{bc}}$ for the boundary, and then compute the boundary flux based on this state.
+\begin{equation}
+  \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}_{\mathrm{w}};\mathbf{n})=\mathbf{F}_{\mathrm{e},n}(\mathbf{u}_{\mathrm{bc}}).
+\end{equation}
+For a no-slip wall, that is to say, the velocity on the wall is zero.
+\begin{equation}
+  \mathbf{u}_{\mathrm{bc}}=\begin{bNiceMatrix}
+    \rho_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}u_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}v_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}w_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}E_{\mathrm{bc}}
+  \end{bNiceMatrix}=\begin{bNiceMatrix}
+    \rho_{\mathrm{bc}}\\
+    0\\
+    0\\
+    0\\
+    \dfrac{\rho_{\mathrm{bc}}R T_{\mathrm{w}}}{\gamma-1}
+  \end{bNiceMatrix}
+\end{equation}
 
 \section{Post Processing}
 
 
 \section{Variable Storage}
 
-% TODO: DOP
+%# TODO: DOP
 
 For scientific computing, the storage of variables can generally be divided into two paradigms. For instance, when dealing with all the information on a particular element, you can either store each piece of information separately in an array or wrap these pieces of information into a structure and store them as an array. These two approaches are respectively known as Structure of Arrays (SOA) and Array of Structures (AOS).
 
@@ -638,17 +788,17 @@ Therefore, in most of our program implementations, we organize data for the same
 
 Moreover, all storage for the variables required for computations is done using Eigen Matrix, Vector and Array as the underlying storage. This allows us to directly utilize Eigen API for calculations without the need to implement matrix and vector operations ourselves, significantly reducing our workload. Eigen API is highly optimized, so there is also minimal loss in efficiency.
 
-Considering that the storage order of matrices in Eigen is column-major, the order in memory is column 0, column 1... and is stored like this. Therefore, the system of equations is transposed here, that is, changing i in \autoref{eq:30} from row order to column order. In this way, when we process data within a single unit, each column represents the weighted residuals resulting from the multiplication of a certain basis function with the equation. This can help improve cache hit rates in certain loops.
+Considering that the storage order of matrices in Eigen is column-major, the order in memory is column 0, column 1... and is stored like this. Therefore, the system of equations is transposed here, that is, changing i in \autoref{eq:35} from row order to column order. In this way, when we process data within a single unit, each column represents the weighted residuals resulting from the multiplication of a certain basis function with the equation. This can help improve cache hit rates in certain loops.
 
-Regarding how the data is encapsulated, let's set that aside for now and first take a look at how various variables in the equations are stored in one element.
+% Regarding how the data is encapsulated, let's set that aside for now and first take a look at how various variables in the equations are stored in one element.
 
-We start with the Integral class, first, the local coordinates of the integration point, which is the \texttt{integral\_point} variable in the program, is a variable of type \texttt{Eigen::Matrix}. The dimension of this matrix is \texttt{getDim<ElemT>()} $\times$ \texttt{getElemIntegralNum<ElemT>(P)}, where \texttt{getDim<ElemT>()} is the dimension of the reference element, and \texttt{getElem} \texttt{IntegralNum<ElemT>(P)} is the number of integration points of the element. Each column of this matrix stores the local coordinates of an integration point. For example, for a two-dimensional element, the variable is
-\begin{equation}
-  \begin{bNiceMatrix}
-    \xi_{1}^{0}&\xi_{1}^{1}&\Cdots&\xi_{1}^{n}\\
-    \xi_{2}^{0}&\xi_{2}^{1}&\Cdots&\xi_{2}^{n}
-  \end{bNiceMatrix}_{\texttt{Dim}\times\texttt{ElemIntegralNum}.}
-\end{equation}
+% We start with the Integral class, first, the local coordinates of the integration point, which is the \texttt{integral\_point} variable in the program, is a variable of type \texttt{Eigen::Matrix}. The dimension of this matrix is \texttt{getDim<ElemT>()} $\times$ \texttt{getElemIntegralNum<ElemT>(P)}, where \texttt{getDim<ElemT>()} is the dimension of the reference element, and \texttt{getElem} \texttt{IntegralNum<ElemT>(P)} is the number of integration points of the element. Each column of this matrix stores the local coordinates of an integration point. For example, for a two-dimensional element, the variable is
+% \begin{equation}
+%   \begin{bNiceMatrix}
+%     \xi_{1}^{0}&\xi_{1}^{1}&\Cdots&\xi_{1}^{n}\\
+%     \xi_{2}^{0}&\xi_{2}^{1}&\Cdots&\xi_{2}^{n}
+%   \end{bNiceMatrix}_{\texttt{Dim}\times\texttt{ElemIntegralNum}.}
+% \end{equation}
 
 % The weight of the integration point, which is the \texttt{weight} variable in the program, is a variable of type \texttt{Eigen::Vector}. The dimension of this vector is \texttt{getElemIntegralNum<ElemT>(P)} $\times 1$, where \texttt{getElemIntegralNum<ElemT>(P)} is the number of integration points of the element. The column of this vector stores the weight of an integration point. For example, for an element, the variable is
 % \begin{equation}
@@ -660,41 +810,41 @@ We start with the Integral class, first, the local coordinates of the integratio
 %   \end{bNiceMatrix}_{\texttt{ElemIntegralNum}\times 1.}
 % \end{equation}
 
-The value of the basis function at each integration point, which is the \texttt{basis\_fun} variable in the program, is a variable of type \texttt{Eigen::Matrix}. The dimension of this matrix is \texttt{getElemIntegralNum<ElemT>(P)} $\times$ \texttt{calBasisFunNum<ElemT>(P)}, where \texttt{getElemIntegralNum<ElemT>(P)} is the number of integration points of the element, and \texttt{calBasisFunNum<ElemT>(P)} is the number of basis functions of the element. Each column of this matrix stores the value of a basis function at an integration point. For example, for an element, the variable is
-\begin{equation}
-  \begin{bNiceMatrix}
-    \phi_{1}^{0}&\phi_{1}^{1}&\Cdots&\phi_{1}^{n}\\
-    \phi_{2}^{0}&\phi_{2}^{1}&\Cdots&\phi_{2}^{n}\\
-    \Vdots      &\Vdots      &      &\Vdots      \\
-    \phi_{m}^{0}&\phi_{m}^{1}&\Cdots&\phi_{m}^{n}
-  \end{bNiceMatrix}_{\texttt{ElemIntegralNum}\times\texttt{BasisFunNum}.}
-\end{equation}
+% The value of the basis function at each integration point, which is the \texttt{basis\_fun} variable in the program, is a variable of type \texttt{Eigen::Matrix}. The dimension of this matrix is \texttt{getElemIntegralNum<ElemT>(P)} $\times$ \texttt{calBasisFunNum<ElemT>(P)}, where \texttt{getElemIntegralNum<ElemT>(P)} is the number of integration points of the element, and \texttt{calBasisFunNum<ElemT>(P)} is the number of basis functions of the element. Each column of this matrix stores the value of a basis function at an integration point. For example, for an element, the variable is
+% \begin{equation}
+%   \begin{bNiceMatrix}
+%     \phi_{1}^{0}&\phi_{1}^{1}&\Cdots&\phi_{1}^{n}\\
+%     \phi_{2}^{0}&\phi_{2}^{1}&\Cdots&\phi_{2}^{n}\\
+%     \Vdots      &\Vdots      &      &\Vdots      \\
+%     \phi_{m}^{0}&\phi_{m}^{1}&\Cdots&\phi_{m}^{n}
+%   \end{bNiceMatrix}_{\texttt{ElemIntegralNum}\times\texttt{BasisFunNum}.}
+% \end{equation}
 
-The value of the gradient of the basis function at each integration point, which is the \texttt{basis\_fun\_grad} variable in the program, is a variable of type \texttt{Eigen::Matrix}. The dimension of this matrix is (\texttt{getElemIntegralNum<ElemT>(P)} $\times$ \texttt{getDim<ElemT>()}) $\times$ \texttt{calBasisFunNum<ElemT>(P)}, where \texttt{getElemIntegralNum<ElemT>(P)} is the number of integration points of the element,  \texttt{getDim<ElemT>()} is the dimension of the reference element, and \texttt{calBasisFunNum<ElemT>(P)} is the number of basis functions of the element. Each column of this matrix stores the value of the gradient of a basis function at an integration point. For example, for a two-dimensional element, the variable is
-\begin{equation}
-  \begin{bNiceMatrix}
-    \dfrac{\partial\phi_{1}^{0}}{\partial\xi_{1}}&\dfrac{\partial\phi_{1}^{1}}{\partial\xi_{1}}&\Cdots&\dfrac{\partial\phi_{1}^{n}}{\partial\xi_{1}}\\
-    \dfrac{\partial\phi_{1}^{0}}{\partial\xi_{2}}&\dfrac{\partial\phi_{1}^{1}}{\partial\xi_{2}}&\Cdots&\dfrac{\partial\phi_{1}^{n}}{\partial\xi_{2}}\\
-    \dfrac{\partial\phi_{2}^{0}}{\partial\xi_{1}}&\dfrac{\partial\phi_{2}^{1}}{\partial\xi_{1}}&\Cdots&\dfrac{\partial\phi_{2}^{n}}{\partial\xi_{1}}\\
-    \dfrac{\partial\phi_{2}^{0}}{\partial\xi_{2}}&\dfrac{\partial\phi_{2}^{1}}{\partial\xi_{2}}&\Cdots&\dfrac{\partial\phi_{2}^{n}}{\partial\xi_{2}}\\
-    \Vdots                                       &\Vdots                                       &      &\Vdots                                       \\
-    \dfrac{\partial\phi_{m}^{0}}{\partial\xi_{1}}&\dfrac{\partial\phi_{m}^{1}}{\partial\xi_{1}}&\Cdots&\dfrac{\partial\phi_{m}^{n}}{\partial\xi_{1}}\\
-    \dfrac{\partial\phi_{m}^{0}}{\partial\xi_{2}}&\dfrac{\partial\phi_{m}^{1}}{\partial\xi_{2}}&\Cdots&\dfrac{\partial\phi_{m}^{n}}{\partial\xi_{2}}
-  \end{bNiceMatrix}_{(\texttt{ElemIntegralNum}\times\texttt{Dim})\times\texttt{BasisFunNum}}.
-\end{equation}
+% The value of the gradient of the basis function at each integration point, which is the \texttt{basis\_fun\_grad} variable in the program, is a variable of type \texttt{Eigen::Matrix}. The dimension of this matrix is (\texttt{getElemIntegralNum<ElemT>(P)} $\times$ \texttt{getDim<ElemT>()}) $\times$ \texttt{calBasisFunNum<ElemT>(P)}, where \texttt{getElemIntegralNum<ElemT>(P)} is the number of integration points of the element,  \texttt{getDim<ElemT>()} is the dimension of the reference element, and \texttt{calBasisFunNum<ElemT>(P)} is the number of basis functions of the element. Each column of this matrix stores the value of the gradient of a basis function at an integration point. For example, for a two-dimensional element, the variable is
+% \begin{equation}
+%   \begin{bNiceMatrix}
+%     \dfrac{\partial\phi_{1}^{0}}{\partial\xi_{1}}&\dfrac{\partial\phi_{1}^{1}}{\partial\xi_{1}}&\Cdots&\dfrac{\partial\phi_{1}^{n}}{\partial\xi_{1}}\\
+%     \dfrac{\partial\phi_{1}^{0}}{\partial\xi_{2}}&\dfrac{\partial\phi_{1}^{1}}{\partial\xi_{2}}&\Cdots&\dfrac{\partial\phi_{1}^{n}}{\partial\xi_{2}}\\
+%     \dfrac{\partial\phi_{2}^{0}}{\partial\xi_{1}}&\dfrac{\partial\phi_{2}^{1}}{\partial\xi_{1}}&\Cdots&\dfrac{\partial\phi_{2}^{n}}{\partial\xi_{1}}\\
+%     \dfrac{\partial\phi_{2}^{0}}{\partial\xi_{2}}&\dfrac{\partial\phi_{2}^{1}}{\partial\xi_{2}}&\Cdots&\dfrac{\partial\phi_{2}^{n}}{\partial\xi_{2}}\\
+%     \Vdots                                       &\Vdots                                       &      &\Vdots                                       \\
+%     \dfrac{\partial\phi_{m}^{0}}{\partial\xi_{1}}&\dfrac{\partial\phi_{m}^{1}}{\partial\xi_{1}}&\Cdots&\dfrac{\partial\phi_{m}^{n}}{\partial\xi_{1}}\\
+%     \dfrac{\partial\phi_{m}^{0}}{\partial\xi_{2}}&\dfrac{\partial\phi_{m}^{1}}{\partial\xi_{2}}&\Cdots&\dfrac{\partial\phi_{m}^{n}}{\partial\xi_{2}}
+%   \end{bNiceMatrix}_{(\texttt{ElemIntegralNum}\times\texttt{Dim})\times\texttt{BasisFunNum}}.
+% \end{equation}
 
-Next let's look at Mesh class, first the
+% Next let's look at Mesh class, first the
 
-The basis function coefficients, which is the \texttt{basis\_fun\_coeff} variable in the program, is a variable of type \texttt{Eigen::Array} of \texttt{Eigen::Matrix}. The dimension of the array is $2\times 1$, which means it contains two matrices. The first one is to record the data of the initial step in the explicit time integration, and the second one is to record the data of the current step. The dimension of each matrix is \texttt{getConservedVarNum<EquModelT>(Dim)} $\times$ \texttt{calBasisFunNum<ElemT>(P)}, where \texttt{getConservedVarNum<EquModelT>(Dim)} is the number of conservative variables of the equation, and \texttt{calBasisFunNum} \texttt{<ElemT>(P)} is the number of basis functions of the element. Each column of this matrix stores the basis function coefficients of a conservative variable on an element. For Navier-Stokes equations, the variable is
-\begin{equation}
-  \begin{bNiceMatrix}
-    a_{\rho}^{0}  &a_{\rho}^{1}  &\Cdots&a_{\rho}^{n}  \\
-    a_{\rho u}^{0}&a_{\rho u}^{1}&\Cdots&a_{\rho u}^{n}\\
-    a_{\rho v}^{0}&a_{\rho v}^{1}&\Cdots&a_{\rho v}^{n}\\
-    a_{\rho w}^{0}&a_{\rho w}^{1}&\Cdots&a_{\rho w}^{n}\\
-    a_{\rho E}^{0}&a_{\rho E}^{1}&\Cdots&a_{\rho E}^{n}
-  \end{bNiceMatrix}_{\texttt{ConservedVarNum}\times\texttt{BasisFunNum}.}
-\end{equation}
+% The basis function coefficients, which is the \texttt{basis\_fun\_coeff} variable in the program, is a variable of type \texttt{Eigen::Array} of \texttt{Eigen::Matrix}. The dimension of the array is $2\times 1$, which means it contains two matrices. The first one is to record the data of the initial step in the explicit time integration, and the second one is to record the data of the current step. The dimension of each matrix is \texttt{getConservedVarNum<EquModelT>(Dim)} $\times$ \texttt{calBasisFunNum<ElemT>(P)}, where \texttt{getConservedVarNum<EquModelT>(Dim)} is the number of conservative variables of the equation, and \texttt{calBasisFunNum} \texttt{<ElemT>(P)} is the number of basis functions of the element. Each column of this matrix stores the basis function coefficients of a conservative variable on an element. For Navier-Stokes equations, the variable is
+% \begin{equation}
+%   \begin{bNiceMatrix}
+%     a_{\rho}^{0}  &a_{\rho}^{1}  &\Cdots&a_{\rho}^{n}  \\
+%     a_{\rho u}^{0}&a_{\rho u}^{1}&\Cdots&a_{\rho u}^{n}\\
+%     a_{\rho v}^{0}&a_{\rho v}^{1}&\Cdots&a_{\rho v}^{n}\\
+%     a_{\rho w}^{0}&a_{\rho w}^{1}&\Cdots&a_{\rho w}^{n}\\
+%     a_{\rho E}^{0}&a_{\rho E}^{1}&\Cdots&a_{\rho E}^{n}
+%   \end{bNiceMatrix}_{\texttt{ConservedVarNum}\times\texttt{BasisFunNum}.}
+% \end{equation}
 
 \newpage
 

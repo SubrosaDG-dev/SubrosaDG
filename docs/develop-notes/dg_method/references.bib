@@ -10,7 +10,6 @@
   pages = {507--540},
   issn = {0045-7930},
   doi = {10.1016/j.compfluid.2003.08.004},
-  urldate = {2021-04-12},
   abstract = {Discontinuous Galerkin methods, originally developed in the advective case, have been successively extended to advection\textendash diffusion problems, and are now used in very diverse applications. We here consider the numerical solution of the compressible Reynolds-averaged Navier\textendash Stokes and k\textendash{$\omega$} turbulence model equations by means of DG space discretization and implicit time integration. Detailed description of the DG discretization of the viscous part of the equations and of several implementation details of the k\textendash{$\omega$} turbulence model are given. To assess the performance of the proposed methodology we present the results obtained in the computation of the turbulent flow over a flat plate and of the turbulent unsteady wake developing behind a turbine blade.},
   langid = {english}
 }
@@ -75,7 +74,6 @@
   pages = {1129--1148},
   issn = {1097-0207},
   doi = {10.1002/nme.1620210612},
-  urldate = {2023-09-20},
   abstract = {Gaussian quadrature is required for the computation of matrices based on the isoparametric formulztion of the finite element method. A brief review of existing quadrature rules for the triangle is given, and the method for the determination of high degree efficient symmetrical rules for the triangle is discussed. New quadrature rules of degree 12\textendash 20 are presented, and a short FORTRAN program is included.},
   copyright = {Copyright \textcopyright{} 1985 John Wiley \& Sons, Ltd},
   langid = {english}
@@ -92,7 +90,6 @@
   pages = {19--32},
   issn = {0272-4960},
   doi = {10.1093/imamat/15.1.19},
-  urldate = {2023-09-20},
   abstract = {A variant formulation of the moment fitting equations for the construction of D3 (triangularly symmetric) quadrature rules for the triangle is derived. These equations are solved to produce weights and abscissas for quadrature rules of polynomial degree up to 11 for the triangle, some of which require fewer function evaluations than any presently available rule of the same polynomial degree. Cytolic rules of degrees up to 9 are also derived.}
 }
 
@@ -133,7 +130,6 @@
   publisher = {{Society for Industrial and Applied Mathematics}},
   issn = {1064-8275},
   doi = {10.1137/S1064827593260140},
-  urldate = {2024-01-16},
   abstract = {The approximate Riemann solver of Harten--Lax--van Leer (HLL) and its variant HLLC (HLL with Contact restoration) solver are widely used as flux functions of finite volume Godunov-type methods for the solution of the gas dynamic Euler equations. However, the HLLC solver suffers from two significant difficulties: an accuracy problem at low-speed flows and shock instability at high-speed flows. To remedy such drawbacks, a novel low-Mach shock-stable HLLC-type scheme called HLLC+ is developed for all speeds. The antidissipation pressure fix is introduced first  to overcome the accuracy problem in low Mach number limits. Then, shear viscosity is identified and scaled into the original HLLC scheme to overcome shock instability. A new pressure-based factor function without switching coefficients is devised to prevent shear viscosity from smearing the  boundary layer. The new HLLC+ scheme involves no empirical parameters and is easy to implement. Asymptotic analysis and low Mach number test cases show the excellent behaviors of HLLC+ in low Mach number limits: no global cut-off problem, damping pressure checkerboard modes, having expected Ma2 scaling of pressure and density fluctuations, and satisfaction of divergence constraint. Furthermore, this work manifests that the accuracy problem is associated with the normal velocity jumps of the flux interface, while shock instability is related to the transverse velocity jumps. Numerical test cases across a wide range of Mach numbers demonstrate the superior performance and potentiality of HLLC+ to simulate all Mach number flows.},
 }
 
@@ -152,3 +148,13 @@
   langid = {english},
 }
 
+@inproceedings{mengaldoGuideImplementationBoundary2014,
+  title = {A {{Guide}} to the {{Implementation}} of {{Boundary Conditions}} in {{Compact High-Order Methods}} for {{Compressible Aerodynamics}}},
+  booktitle = {7th {{AIAA Theoretical Fluid Mechanics Conference}}},
+  author = {Mengaldo, Gianmarco and De Grazia, Daniele and Witherden, Freddie and Farrington, Antony and Vincent, Peter and Sherwin, Spencer and Peiro, Joaquim},
+  year = {2014},
+  month = jun,
+  publisher = {{American Institute of Aeronautics and Astronautics}},
+  address = {Atlanta, GA},
+  doi = {10.2514/6.2014-2923},
+}

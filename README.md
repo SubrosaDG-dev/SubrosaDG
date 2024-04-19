@@ -14,10 +14,9 @@ The project is still in early development stage.
 - [x] Ascii Tecplot output(for different physical groups)
 - [x] Riemann invariant for boundary condition
 - [x] Periodic boundary condition
-- [ ] High-order Gmsh .msh output
 - [x] Ascii/Binary VTU output
 - [ ] Documentation for variable storage
 - [x] Curved elements
-- [ ] 2D Navier-Stokes equation(BR2 scheme)
+- [ ] 2D Navier-Stokes equation(BR1/BR2 scheme)
 
   ...

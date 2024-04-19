@@ -23,8 +23,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::addPoint(1.0, 0.0, 0.0, 0.5);
   gmsh::model::geo::addLine(1, 2);
   gmsh::model::geo::synchronize();
-  gmsh::model::addPhysicalGroup(0, {1}, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(0, {2}, -1, "bc-2");
+  gmsh::model::addPhysicalGroup(0, {1, 2}, -1, "bc-1");
   gmsh::model::addPhysicalGroup(1, {1}, -1, "vc-1");
   gmsh::model::mesh::generate(1);
   gmsh::model::mesh::setOrder(magic_enum::enum_integer(P));
@@ -43,10 +42,9 @@ void runTest() {
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.1, 1.0};
   });
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::NormalFarfield>("bc-1", {1.4, 0.1, 1.0});
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-2", {1.4, 0.1, 1.0});
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.1, 1.0});
   system.synchronize();
-  system.setTimeIntegration(false, 1, 1.0, 1e-10);
+  system.setTimeIntegration(false, 1, 1.0);
   system.setViewConfig(-1, kTestDirectory, output_prefix + "_D", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Temperature, SubrosaDG::ViewVariableEnum::Pressure,
