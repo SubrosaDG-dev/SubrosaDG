@@ -22,6 +22,12 @@
                 "dbg-macro"
             ]
         },
+        "cuda": {
+            "description": "Build with CUDA support",
+            "dependencies": [
+                "cuda-api-wrappers"
+            ]
+        },
         "tests": {
             "description": "Build tests",
             "dependencies": [

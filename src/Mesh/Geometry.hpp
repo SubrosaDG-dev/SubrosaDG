@@ -65,13 +65,14 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementJaco
 }
 
 template <typename ElementTrait>
-inline void ElementMesh<ElementTrait>::calculateElementLocalMassMatrixLLT() {
+inline void ElementMesh<ElementTrait>::calculateElementLocalMassMatrixInverse() {
   for (Isize i = 0; i < this->number_; i++) {
-    this->element_(i).local_mass_matrix_llt_.compute(
+    this->element_(i).local_mass_matrix_inverse_.noalias() =
         (this->basis_function_.value_.transpose() *
          (this->basis_function_.value_.array().colwise() *
           (this->quadrature_.weight_.array() * this->element_(i).jacobian_determinant_.array()))
-             .matrix()));
+             .matrix())
+            .inverse();
   }
 }
 
@@ -88,8 +89,7 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
                         point.quadrature_.weight_;
     }
     this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_);
-    this->element_(i).size_ /=
-        (adjacency_size * std::pow((static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0), 2.0));
+    this->element_(i).size_ /= (adjacency_size * (static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
   }
 }
 
@@ -106,8 +106,7 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
                         line.quadrature_.weight_;
     }
     this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_);
-    this->element_(i).size_ /=
-        (adjacency_size * std::pow((static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0), 2.0));
+    this->element_(i).size_ /= (adjacency_size * (static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
   }
 }
 

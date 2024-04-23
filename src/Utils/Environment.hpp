@@ -13,9 +13,9 @@
 #ifndef SUBROSA_DG_ENVIRONMENT_HPP_
 #define SUBROSA_DG_ENVIRONMENT_HPP_
 
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#ifndef SUBROSA_DG_DEVELOP
 #include <omp.h>
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+#endif  // SUBROSA_DG_DEVELOP
 
 #include <gmsh.h>
 
@@ -29,10 +29,10 @@ struct Environment {
 
 inline Environment::Environment() {
   gmsh::initialize();
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#ifndef SUBROSA_DG_DEVELOP
   omp_set_num_threads(omp_get_max_threads());
   gmsh::option::setNumber("General.NumThreads", omp_get_max_threads());
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+#endif  // SUBROSA_DG_DEVELOP
 }
 
 inline Environment::~Environment() { gmsh::finalize(); }

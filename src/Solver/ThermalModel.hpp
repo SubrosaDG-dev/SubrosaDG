@@ -105,6 +105,8 @@ struct TransportModel;
 
 template <>
 struct TransportModel<TransportModelEnum::Constant> {
+  // NOTE: Reference Temperature = 273.15, Reference Dynamic Viscosity = 1.716e-5,
+  // Reference Reynolds Number = 1.293 * 331.45 / 1.716e-5 =  2.497e7 ~ 2.5e7
   inline static constexpr Real kDynamicViscosity = 1.0;
   inline static constexpr Real kThermalConductivity = 250.0 / 72.0;
 

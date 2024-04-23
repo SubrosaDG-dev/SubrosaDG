@@ -64,7 +64,7 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
     }
   }
   this->getElementJacobian();
-  this->calculateElementLocalMassMatrixLLT();
+  this->calculateElementLocalMassMatrixInverse();
 }
 
 }  // namespace SubrosaDG

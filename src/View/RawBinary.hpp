@@ -79,23 +79,23 @@ inline void ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
     std::fstream& raw_binary_finout) {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
-      conserved_variable_basis_function_coefficient;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllNodeNumber> conserved_variable;
+      variable_basis_function_coefficient;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllNodeNumber> variable;
   for (Isize i = 0; i < element_mesh.number_; i++) {
 #ifdef SUBROSA_DG_DEVELOP
     for (Isize j = 0; j < SimulationControl::kConservedVariableNumber; j++) {
       for (Isize k = 0; k < ElementTrait::kBasisFunctionNumber; k++) {
-        raw_binary_finout >> conserved_variable_basis_function_coefficient(j, k);
+        raw_binary_finout >> variable_basis_function_coefficient(j, k);
       }
     }
 #else
-    raw_binary_finout.read(reinterpret_cast<char*>(conserved_variable_basis_function_coefficient.data()),
+    raw_binary_finout.read(reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
                            SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
                                static_cast<std::streamsize>(sizeof(Real)));
 #endif
-    conserved_variable.noalias() = conserved_variable_basis_function_coefficient * this->basis_function_value_;
+    variable.noalias() = variable_basis_function_coefficient * this->basis_function_value_;
     for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
-      this->view_variable_(j, i).variable_.conserved_ = conserved_variable.col(j);
+      this->view_variable_(j, i).variable_.conserved_ = variable.col(j);
       this->view_variable_(j, i).variable_.calculateComputationalFromConserved(thermal_model);
     }
   }
@@ -107,42 +107,41 @@ ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStok
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
     std::fstream& raw_binary_finout) {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
-      conserved_variable_basis_function_coefficient;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllNodeNumber> conserved_variable;
+      variable_basis_function_coefficient;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllNodeNumber> variable;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 ElementTrait::kBasisFunctionNumber>
-      conserved_variable_gradient_basis_function_coefficient;
+      variable_gradient_basis_function_coefficient;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 ElementTrait::kAllNodeNumber>
-      conserved_variable_gradient;
+      variable_gradient;
   for (Isize i = 0; i < element_mesh.number_; i++) {
 #ifdef SUBROSA_DG_DEVELOP
     for (Isize j = 0; j < SimulationControl::kConservedVariableNumber; j++) {
       for (Isize k = 0; k < ElementTrait::kBasisFunctionNumber; k++) {
-        raw_binary_finout >> conserved_variable_basis_function_coefficient(j, k);
+        raw_binary_finout >> variable_basis_function_coefficient(j, k);
       }
     }
-    for (Isize j = 0; j < SimulationControl::kConservedVariableNumber; j++) {
-      for (Isize k = 0; k < SimulationControl::kDimension * ElementTrait::kBasisFunctionNumber; k++) {
-        raw_binary_finout >> conserved_variable_gradient_basis_function_coefficient(j, k);
+    for (Isize j = 0; j < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; j++) {
+      for (Isize k = 0; k < ElementTrait::kBasisFunctionNumber; k++) {
+        raw_binary_finout >> variable_gradient_basis_function_coefficient(j, k);
       }
     }
 #else
-    raw_binary_finout.read(reinterpret_cast<char*>(conserved_variable_basis_function_coefficient.data()),
+    raw_binary_finout.read(reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
                            SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
                                static_cast<std::streamsize>(sizeof(Real)));
-    raw_binary_finout.read(reinterpret_cast<char*>(conserved_variable_gradient_basis_function_coefficient.data()),
+    raw_binary_finout.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                            SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
                                ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
 #endif
-    conserved_variable.noalias() = conserved_variable_basis_function_coefficient * this->basis_function_value_;
-    conserved_variable_gradient.noalias() =
-        conserved_variable_gradient_basis_function_coefficient * this->basis_function_value_;
+    variable.noalias() = variable_basis_function_coefficient * this->basis_function_value_;
+    variable_gradient.noalias() = variable_gradient_basis_function_coefficient * this->basis_function_value_;
     for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
-      this->view_variable_(j, i).variable_.conserved_ = conserved_variable.col(j);
+      this->view_variable_(j, i).variable_.conserved_ = variable.col(j);
       this->view_variable_(j, i).variable_.calculateComputationalFromConserved(thermal_model);
-      this->view_variable_(j, i).variable_gradient_.conserved_ = conserved_variable_gradient.col(j).reshaped(
-          SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+      this->view_variable_(j, i).variable_gradient_.conserved_ =
+          variable_gradient.col(j).reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
       this->view_variable_(j, i).variable_gradient_.calculatePrimitiveFromConserved(
           thermal_model, this->view_variable_(j, i).variable_);
     }

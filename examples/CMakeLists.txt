@@ -26,4 +26,6 @@ add_subdirectory(cylinder_2d_euler)
 
 add_subdirectory(naca0012_2d_euler)
 
+add_subdirectory(rae2822_2d_ns)
+
 add_dependencies(all_ci all_examples)

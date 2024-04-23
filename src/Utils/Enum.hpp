@@ -90,11 +90,9 @@ enum class TransportModelEnum {
 };
 
 enum class TimeIntegrationEnum {
-  TestInitialization = 1,
-  ForwardEuler,
+  ForwardEuler = 1,
   HeunRK2,
   SSPRK3,
-  BackwardEuler,
 };
 
 enum class TurbulenceModelEnum {

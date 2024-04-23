@@ -23,15 +23,6 @@ get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 string(SUBSTRING ${GIT_SHA1} 0 8 SHORT_SHA1)
 git_local_changes(GIT_CHANGE)
 
-# update submodules
-# find_package(Git REQUIRED)
-# if(NOT EXISTS ${CMAKE_BINARY_DIR}/.identify)
-#   execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init
-#     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-#     COMMAND_ERROR_IS_FATAL ANY)
-#   file(WRITE ${CMAKE_BINARY_DIR}/.identify "SubrosaDG")
-# endif()
-
 # define color
 # NOTE: vscode output do not support ansi color until now
 define_colors()
@@ -43,17 +34,19 @@ set(SUBROSA_DG_VERSION_STRING "${SUBROSA_DG_VERSION} - ${SHORT_SHA1} - ${GIT_CHA
 # set option for develop build
 option(SUBROSA_DG_DEVELOP "Build SubrosaDG in Develop" OFF)
 
+# set option for cuda
+option(SUBROSA_DG_CUDA "Build SubrosaDG with CUDA" OFF)
+
 # set option to build different target
 option(SUBROSA_DG_BUILD_ALL "Build all artifacts" OFF)
 option(SUBROSA_DG_BUILD_EXAMPLES "Build SubrosaDG example cases" OFF)
 option(SUBROSA_DG_BUILD_TESTS "Build SubrosaDG tests" OFF)
 option(SUBROSA_DG_BUILD_DOCS "Build SubrosaDG document" OFF)
 
-# set option for floating point precision
-option(SUBROSA_DG_SINGLE_PRECISION "Build SubrosaDG with float" OFF)
-
-# set option for different compilation
-option(SUBROSA_DG_WITH_OPENMP "Build SubrosaDG with OpenMP support" ON)
+#set vcpkg feature cuda
+if(SUBROSA_DG_CUDA)
+    list(APPEND VCPKG_MANIFEST_FEATURES "cuda")
+endif()
 
 # set vcpkg feature tests
 if(SUBROSA_DG_BUILD_TESTS OR SUBROSA_DG_BUILD_ALL)
@@ -117,22 +110,11 @@ include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 # message build version
 message(STATUS "Build SubrosaDG: ${SUBROSA_DG_VERSION_STRING}")
 
-# set compilation option for develop
-# if(SUBROSA_DG_DEVELOP)
-#     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose Release or Debug" FORCE)
-# else()
-#     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose Release or Debug" FORCE)
-# endif()
+# message build type
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # query the system cores number
 cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
-# if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-#     execute_process(COMMAND nproc OUTPUT_VARIABLE NUMBER_OF_PHYSICAL_CORES)
-# elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-#     execute_process(COMMAND sysctl -n hw.physicalcpu OUTPUT_VARIABLE NUMBER_OF_PHYSICAL_CORES)
-# endif()
-# string(REGEX REPLACE "\n$" "" NUMBER_OF_PHYSICAL_CORES ${NUMBER_OF_PHYSICAL_CORES})
 message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 
 # check cxx20 support
@@ -153,7 +135,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # open color compiler information
 # NOTE: the output still not colorized due to ninja
 # https://github.com/ninja-build/ninja/wiki/FAQ#why-does-my-program-with-colored-output-not-have-color-under-ninja
-# set(CMAKE_COLOR_DIAGNOSTICS ON)
+set(CMAKE_COLOR_DIAGNOSTICS ON)
 
 # set cmake output verbose on
 set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
@@ -258,25 +240,11 @@ set(SUBROSA_DG_INCLUDE_DIRS)
 set(SUBROSA_DG_INCLUDE_SYSTEM_DIRS)
 set(SUBROSA_DG_LINK_LIBRARIES)
 set(SUBROSA_DG_COMPILE_OPTIONS)
-# set(SUBROSA_DG_COMPILE_FEATURES)
 set(SUBROSA_DG_COMPILE_DEFINITIONS)
 
 # set library and add compile option
 add_library(${PROJECT_NAME} INTERFACE)
 add_library(lib::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
-
-# set c and cxx standard
-# list(APPEND SUBROSA_DG_COMPILE_FEATURES c_std_17 cxx_std_20)
-# set_target_properties(
-#     ${PROJECT_NAME} PROPERTIES
-#     C_EXTENSIONS OFF
-#     C_STANDARD_REQUIRED ON
-# )
-# set_target_properties(
-#     ${PROJECT_NAME} PROPERTIES
-#     CXX_EXTENSIONS OFF
-#     CXX_STANDARD_REQUIRED ON
-# )
 
 # check for interprocedural optimization
 if(NOT SUBROSA_DG_DEVELOP)
@@ -285,7 +253,6 @@ if(NOT SUBROSA_DG_DEVELOP)
     if(IPO_SUPPORT)
         message(STATUS "Enable interprocedural optimization")
         set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
-#       set_target_properties(${PROJECT_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
     endif()
 endif()
 
@@ -327,13 +294,6 @@ configure_file(${PROJECT_SOURCE_DIR}/cmake/source/SubrosaDG.in ${SUBROSA_DG_SOUR
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/src)
 list(APPEND SUBROSA_DG_COMPILE_OPTIONS ${SUBROSA_DG_FLAGS})
 
-# enable mutilthread support
-# set(CMAKE_THREAD_LIBS_INIT "-lpthread")
-# set(CMAKE_HAVE_THREADS_LIBRARY 1)
-# set(CMAKE_USE_WIN32_THREADS_INIT 0)
-# set(CMAKE_USE_PTHREADS_INIT 1)
-# set(THREADS_PREFER_PTHREAD_FLAG ON)
-
 # find tqdm-cpp
 find_path(TQDM_DIR NAMES tqdm.hpp PATHS ${PROJECT_SOURCE_DIR}/libs/tqdm-cpp)
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${TQDM_DIR})
@@ -345,9 +305,6 @@ list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${VTU11_DIR})
 # find dbg-macro
 find_path(DBG_MACRO_DIR NAMES dbg.h)
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${DBG_MACRO_DIR})
-if(NOT SUBROSA_DG_DEVELOP)
-    list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS DBG_MACRO_DISABLE)
-endif()
 
 # find fmt
 find_package(fmt CONFIG REQUIRED)
@@ -359,7 +316,6 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES magic_enum::magic_enum)
 
 # find zlib
 find_package(ZLIB REQUIRED)
-list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS VTU11_ENABLE_ZLIB)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES ZLIB::ZLIB)
 
 # find eigen3
@@ -379,16 +335,13 @@ list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${GMSH_DIR})
 list(APPEND SUBROSA_DG_LINK_LIBRARIES ${GMSH_LIBRARY})
 
 # set for openmp
-if(SUBROSA_DG_WITH_OPENMP)
-    find_package(OpenMP REQUIRED)
-    list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
-endif()
+find_package(OpenMP REQUIRED)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
 
 # set compilation definitions
 foreach(SUBROSA_DG_OPTION IN ITEMS
         SUBROSA_DG_DEVELOP
-        SUBROSA_DG_SINGLE_PRECISION
-        SUBROSA_DG_WITH_OPENMP)
+        SUBROSA_DG_CUDA)
     if(${SUBROSA_DG_OPTION})
         list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS ${SUBROSA_DG_OPTION})
         message(STATUS "Option: ${SUBROSA_DG_OPTION}: ON")

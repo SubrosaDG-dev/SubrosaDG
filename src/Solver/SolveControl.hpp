@@ -64,6 +64,9 @@ struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Navi
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 ElementTrait::kBasisFunctionNumber>
       variable_gradient_basis_function_coefficient_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kBasisFunctionNumber>
+      variable_gradient_volume_basis_function_coefficient_;
   Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                              ElementTrait::kBasisFunctionNumber>,
                ElementTrait::kAdjacencyNumber, 1>

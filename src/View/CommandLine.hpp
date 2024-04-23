@@ -13,9 +13,9 @@
 #ifndef SUBROSA_DG_COMMAND_LINE_HPP_
 #define SUBROSA_DG_COMMAND_LINE_HPP_
 
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#ifndef SUBROSA_DG_DEVELOP
 #include <omp.h>
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+#endif  // SUBROSA_DG_DEVELOP
 
 #include <gmsh.h>
 
@@ -123,11 +123,11 @@ struct CommandLine {
       information << "SubrosaDG Info:" << '\n';
       information << std::format("Version: {}", kSubrosaDGVersionString) << '\n';
       information << std::format("Build type: {}", kSubrosaDGBuildType) << '\n';
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#ifndef SUBROSA_DG_DEVELOP
       information << std::format("Number of total threads: {}", omp_get_max_threads()) << '\n';
 #else   // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
       information << "Number of total threads: 1" << '\n';
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+#endif  // SUBROSA_DG_DEVELOP
       information << std::format("Eigen SIMD Instructions: {}", Eigen::SimdInstructionSetsInUse()) << "\n\n";
       information << "Gmsh Info:" << '\n';
       std::string gmsh_info;

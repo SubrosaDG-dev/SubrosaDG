@@ -49,11 +49,11 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElemen
       quadrature_node_conserved_variable;
   Eigen::LLT<Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>>
       basis_function_value_llt(element_mesh.basis_function_.value_.transpose() * element_mesh.basis_function_.value_);
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto)                \
     shared(Eigen::Dynamic, element_mesh, thermal_model, initial_condition) private( \
             variable, quadrature_node_conserved_variable) firstprivate(basis_function_value_llt)
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
       variable.primitive_ = initial_condition.at(element_mesh.element_(i).gmsh_physical_index_)
@@ -71,9 +71,9 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElemen
 template <typename ElementTrait, typename SimulationControl>
 inline void
 ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::initializeElementGardientSolver() {
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh)
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
       this->element_(i).variable_gradient_interface_adjacency_quadrature_(j).setZero();
@@ -106,6 +106,7 @@ inline void Solver<SimulationControl>::initializeSolver(
       }
     }
   }
+  this->relative_error_.setZero();
 }
 
 }  // namespace SubrosaDG

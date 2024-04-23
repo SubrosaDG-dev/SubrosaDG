@@ -13,6 +13,14 @@
 #ifndef SUBROSA_DG_HPP_
 #define SUBROSA_DG_HPP_
 
+// #define SUBROSA_DG_SINGLE_PRECISION
+
+#ifndef SUBROSA_DG_DEVELOP
+#define DBG_MACRO_DISABLE
+#endif
+
+#define VTU11_ENABLE_ZLIB
+
 // clang-format off
 
 // IWYU pragma: begin_exports

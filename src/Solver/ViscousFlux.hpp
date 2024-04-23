@@ -23,16 +23,16 @@
 namespace SubrosaDG {
 
 template <typename SimulationControl>
-inline void calculateGardientRawFlux(const Variable<SimulationControl>& variable,
-                                     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+inline void calculateGardientRawFlux(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                     const Variable<SimulationControl>& variable,
                                      FluxVariable<SimulationControl>& gardient_raw_flux) {
   gardient_raw_flux.variable_.noalias() = normal_vector * variable.conserved_.transpose();
 }
 
 template <typename SimulationControl>
-inline void calculateVolumeGardientFlux(const Variable<SimulationControl>& left_quadrature_node_variable,
+inline void calculateVolumeGardientFlux(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                        const Variable<SimulationControl>& left_quadrature_node_variable,
                                         const Variable<SimulationControl>& right_quadrature_node_variable,
-                                        const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                         FluxVariable<SimulationControl>& gardient_volume_flux) {
   gardient_volume_flux.variable_.noalias() =
       normal_vector *
@@ -40,9 +40,9 @@ inline void calculateVolumeGardientFlux(const Variable<SimulationControl>& left_
 }
 
 template <typename SimulationControl>
-inline void calculateInterfaceGardientFlux(const Variable<SimulationControl>& left_quadrature_node_variable,
+inline void calculateInterfaceGardientFlux(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                           const Variable<SimulationControl>& left_quadrature_node_variable,
                                            const Variable<SimulationControl>& right_quadrature_node_variable,
-                                           const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                            FluxVariable<SimulationControl>& gardient_interface_flux) {
   gardient_interface_flux.variable_.noalias() =
       normal_vector *
@@ -76,22 +76,30 @@ inline void calculateViscousRawFlux(const ThermalModel<SimulationControl>& therm
 }
 
 template <typename SimulationControl>
+inline void calculateViscousNormalFlux(const ThermalModel<SimulationControl>& thermal_model,
+                                       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                       const Variable<SimulationControl>& variable,
+                                       const VariableGradient<SimulationControl>& variable_gradient,
+                                       FluxNormalVariable<SimulationControl>& viscous_normal_flux) {
+  FluxVariable<SimulationControl> viscous_raw_flux;
+  calculateViscousRawFlux(thermal_model, variable, variable_gradient, viscous_raw_flux);
+  viscous_normal_flux.normal_variable_.noalias() = viscous_raw_flux.variable_.transpose() * normal_vector;
+}
+
+template <typename SimulationControl>
 inline void calculateViscousFlux(const ThermalModel<SimulationControl>& thermal_model,
                                  const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                  const Variable<SimulationControl>& left_quadrature_node_variable,
                                  const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
                                  const Variable<SimulationControl>& right_quadrature_node_variable,
                                  const VariableGradient<SimulationControl>& right_quadrature_node_variable_gradient,
-                                 FluxNormalVariable<SimulationControl>& viscous_flux) {
-  FluxVariable<SimulationControl> left_quadrature_node_viscous_raw_flux;
-  FluxVariable<SimulationControl> right_quadrature_node_viscous_raw_flux;
-  calculateViscousRawFlux(thermal_model, left_quadrature_node_variable, left_quadrature_node_variable_gradient,
-                          left_quadrature_node_viscous_raw_flux);
-  calculateViscousRawFlux(thermal_model, right_quadrature_node_variable, right_quadrature_node_variable_gradient,
-                          right_quadrature_node_viscous_raw_flux);
-  viscous_flux.normal_variable_.noalias() =
-      (left_quadrature_node_viscous_raw_flux.variable_ + right_quadrature_node_viscous_raw_flux.variable_).transpose() *
-      normal_vector / 2.0;
+                                 Flux<SimulationControl>& viscous_flux) {
+  calculateViscousNormalFlux(thermal_model, normal_vector, left_quadrature_node_variable,
+                             left_quadrature_node_variable_gradient, viscous_flux.left_);
+  calculateViscousNormalFlux(thermal_model, normal_vector, right_quadrature_node_variable,
+                             right_quadrature_node_variable_gradient, viscous_flux.right_);
+  viscous_flux.result_.normal_variable_.noalias() =
+      (viscous_flux.left_.normal_variable_ + viscous_flux.right_.normal_variable_) / 2.0;
 }
 
 }  // namespace SubrosaDG

@@ -46,7 +46,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::getDataSetInfomatoi
   data_set_information.emplace_back("TimeValue", vtu11::DataSetType::FieldData, 1, 1);
   for (const auto variable : this->variable_type_) {
     if (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
-        variable == ViewVariableEnum::Vorticity) {
+        (variable == ViewVariableEnum::Vorticity && SimulationControl::kDimension == 3)) {
       data_set_information.emplace_back(magic_enum::enum_name(variable), vtu11::DataSetType::PointData,
                                         SimulationControl::kDimension, 0);
     } else {
@@ -75,7 +75,8 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::calculateViewVariab
       handle_variable(i, ViewVariableEnum::VelocityX, ViewVariableEnum::VelocityY, ViewVariableEnum::VelocityZ);
     } else if (this->variable_type_[static_cast<Usize>(i)] == ViewVariableEnum::MachNumber) {
       handle_variable(i, ViewVariableEnum::MachNumberX, ViewVariableEnum::MachNumberY, ViewVariableEnum::MachNumberZ);
-    } else if (this->variable_type_[static_cast<Usize>(i)] == ViewVariableEnum::Vorticity) {
+    } else if (this->variable_type_[static_cast<Usize>(i)] == ViewVariableEnum::Vorticity &&
+               SimulationControl::kDimension == 3) {
       handle_variable(i, ViewVariableEnum::VorticityX, ViewVariableEnum::VorticityY, ViewVariableEnum::VorticityZ);
     } else {
       node_variable(i)(column) = view_variable.getView(thermal_model, this->variable_type_[static_cast<Usize>(i)]);
@@ -99,13 +100,15 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeAdjacencyEleme
       mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
       mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
-  const Isize parent_index_each_type = adjacency_element_mesh.element_(element_index).parent_index_each_type_(0);
+  const Isize parent_index_each_type =
+      adjacency_element_mesh.element_(element_index_per_type).parent_index_each_type_(0);
   const Isize adjacency_sequence_in_parent =
-      adjacency_element_mesh.element_(element_index).adjacency_sequence_in_parent_(0);
-  const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(element_index).parent_gmsh_type_number_(0);
+      adjacency_element_mesh.element_(element_index_per_type).adjacency_sequence_in_parent_(0);
+  const Isize parent_gmsh_type_number =
+      adjacency_element_mesh.element_(element_index_per_type).parent_gmsh_type_number_(0);
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
     for (Isize j = 0; j < SimulationControl::kDimension; j++) {
-      node_coordinate(j, i) = adjacency_element_mesh.element_(element_index_per_type).node_coordinate_(j, i);
+      node_coordinate(j, column + i) = adjacency_element_mesh.element_(element_index_per_type).node_coordinate_(j, i);
     }
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       const Isize adjacency_parent_element_view_basis_function_sequence_in_parent =
@@ -222,7 +225,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
   node_variable.resize(static_cast<Isize>(this->variable_type_.size()));
   for (Isize i = 0; const auto variable : this->variable_type_) {
     if (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
-        variable == ViewVariableEnum::Vorticity) {
+        (variable == ViewVariableEnum::Vorticity && Dimension == 3)) {
       node_variable(i++).resize(SimulationControl::kDimension * node_number);
     } else {
       node_variable(i++).resize(node_number);
@@ -245,7 +248,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
   const std::string write_mode = "rawbinarycompressed";
 #endif
   data_set_data[0].emplace_back(step);
-  data_set_data[1].emplace_back(this->solver_.time_value_(step - 1));
+  data_set_data[1].emplace_back(this->solver_.time_value_(step));
   for (Isize i = 0; i < static_cast<Isize>(this->variable_type_.size()); i++) {
     data_set_data[static_cast<Usize>(i) + 2].assign(node_variable(i).data(),
                                                     node_variable(i).data() + node_variable(i).size());

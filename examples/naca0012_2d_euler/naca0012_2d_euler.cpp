@@ -16,19 +16,18 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
                                                      "build/out/naca0012_2d_euler"};
 
 using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
+    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
                                       SubrosaDG::ThermodynamicModelEnum::ConstantE,
                                       SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
                                       SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
 
 inline std::array<double, 64> naca0012_point_x_array{
-    0.9994160, 0.9976658, 0.9947532, 0.9906850, 0.9854709, 0.9791229, 0.9716559, 0.9630873, 0.9534372, 0.9427280,
-    0.9309849, 0.9182351, 0.9045085, 0.8898372, 0.8742554, 0.8577995, 0.8405079, 0.8224211, 0.8035813, 0.7840324,
-    0.7638202, 0.7429917, 0.7215958, 0.6996823, 0.6773025, 0.6545085, 0.6313537, 0.6078921, 0.5841786, 0.5602683,
-    0.5362174, 0.5120819, 0.4879181, 0.4637826, 0.4397317, 0.4158215, 0.3921079, 0.3686463, 0.3454915, 0.3226976,
-    0.3003177, 0.2784042, 0.2570083, 0.2361799, 0.2159676, 0.1964187, 0.1775789, 0.1594921, 0.1422005, 0.1257446,
-    0.1101628, 0.0954915, 0.0817649, 0.0690152, 0.0572720, 0.0465628, 0.0369127, 0.0283441, 0.0208771, 0.0145291,
-    0.0093149, 0.0052468, 0.0023342, 0.0005839};
+    0.000584, 0.002334, 0.005247, 0.009315, 0.014529, 0.020877, 0.028344, 0.036913, 0.046563, 0.057272, 0.069015,
+    0.081765, 0.095492, 0.110163, 0.125745, 0.142201, 0.159492, 0.177579, 0.196419, 0.215968, 0.236180, 0.257008,
+    0.278404, 0.300318, 0.322698, 0.345492, 0.368646, 0.392108, 0.415822, 0.439732, 0.463783, 0.487918, 0.512082,
+    0.536217, 0.560268, 0.584179, 0.607892, 0.631354, 0.654509, 0.677303, 0.699682, 0.721596, 0.742992, 0.763820,
+    0.784032, 0.803581, 0.822421, 0.840508, 0.857800, 0.874255, 0.889837, 0.904509, 0.918235, 0.930985, 0.942728,
+    0.953437, 0.963087, 0.971656, 0.979123, 0.985471, 0.990685, 0.994753, 0.997666, 0.999416};
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Map<Eigen::RowVector<double, 64>> naca0012_point_x{naca0012_point_x_array.data()};
@@ -66,14 +65,14 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         gmsh::model::geo::addPoint(farfield_point(i, 0), farfield_point(i, 1), farfield_point(i, 2));
   }
   for (std::size_t i = 0; i < 2; i++) {
-    naca0012_point_tag[i].emplace_back(naca0012_trailing_edge_point_tag);
+    naca0012_point_tag[i].emplace_back(naca0012_leading_edge_point_tag);
   }
   for (std::ptrdiff_t i = 0; i < 64; i++) {
     naca0012_point_tag[0].emplace_back(gmsh::model::geo::addPoint(naca0012_point(0, i), naca0012_point(1, i), 0.0));
     naca0012_point_tag[1].emplace_back(gmsh::model::geo::addPoint(naca0012_point(0, i), -naca0012_point(1, i), 0.0));
   }
   for (std::size_t i = 0; i < 2; i++) {
-    naca0012_point_tag[i].emplace_back(naca0012_leading_edge_point_tag);
+    naca0012_point_tag[i].emplace_back(naca0012_trailing_edge_point_tag);
   }
   for (std::ptrdiff_t i = 0; i < 6; i++) {
     if (i < 2) {
@@ -91,9 +90,9 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     naca0012_line_tag(i) = gmsh::model::geo::addSpline(naca0012_point_tag[static_cast<std::size_t>(i)]);
   }
   curve_loop_tag(0) = gmsh::model::geo::addCurveLoop(
-      {-connection_line_tag(0), farfield_line_tag(0), connection_line_tag(1), -naca0012_line_tag(0)});
+      {-connection_line_tag(0), farfield_line_tag(0), connection_line_tag(1), naca0012_line_tag(0)});
   curve_loop_tag(1) = gmsh::model::geo::addCurveLoop(
-      {-connection_line_tag(1), farfield_line_tag(1), connection_line_tag(2), naca0012_line_tag(1)});
+      {-connection_line_tag(1), farfield_line_tag(1), connection_line_tag(2), -naca0012_line_tag(1)});
   curve_loop_tag(2) = gmsh::model::geo::addCurveLoop(
       {-connection_line_tag(2), farfield_line_tag(2), farfield_line_tag(3), connection_line_tag(3)});
   curve_loop_tag(3) = gmsh::model::geo::addCurveLoop(
@@ -102,19 +101,19 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     plane_surface_tag(i) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i)});
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
-    gmsh::model::geo::mesh::setTransfiniteCurve(naca0012_line_tag(i), 40, "Progression", -1.08);
+    gmsh::model::geo::mesh::setTransfiniteCurve(naca0012_line_tag(i), 40, "Progression", 1.08);
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(i), 40);
   }
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 20, "Progression", 1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 20);
   gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 20, "Progression", -1.25);
   gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 20, "Progression", 1.25);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 20, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 20);
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 20, "Progression", -1.25);
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 20, "Progression", -1.2);
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 20, "Progression", -1.25);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 20, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 20);
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
     gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i));
@@ -148,10 +147,10 @@ int main(int argc, char* argv[]) {
   });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-2");
   system.synchronize();
   system.setTimeIntegration(false, 1, 1.0);
-  system.setViewConfig(-1, kExampleDirectory, "naca0012_2d", SubrosaDG::ViewConfigEnum::Default);
+  system.setViewConfig(1, kExampleDirectory, "naca0012_2d", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
                           SubrosaDG::ViewVariableEnum::MachNumber});

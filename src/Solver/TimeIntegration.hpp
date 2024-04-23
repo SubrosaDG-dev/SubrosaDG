@@ -31,35 +31,29 @@
 
 namespace SubrosaDG {
 
-struct TimeIntegrationDataBase {
+struct TimeIntegrationBase {
   bool is_steady_;
   int iteration_number_;
   Real courant_friedrichs_lewy_number_;
 };
 
 template <TimeIntegrationEnum TimeIntegrationType>
-struct TimeIntegrationData : TimeIntegrationDataBase {};
+struct TimeIntegrationData : TimeIntegrationBase {};
 
 template <>
-struct TimeIntegrationData<TimeIntegrationEnum::TestInitialization> : TimeIntegrationDataBase {
-  inline static constexpr int kStep = 0;
-  inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{};
-};
-
-template <>
-struct TimeIntegrationData<TimeIntegrationEnum::ForwardEuler> : TimeIntegrationDataBase {
+struct TimeIntegrationData<TimeIntegrationEnum::ForwardEuler> : TimeIntegrationBase {
   inline static constexpr int kStep = 1;
   inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{{{1.0, 0.0, 1.0}}};
 };
 
 template <>
-struct TimeIntegrationData<TimeIntegrationEnum::HeunRK2> : TimeIntegrationDataBase {
+struct TimeIntegrationData<TimeIntegrationEnum::HeunRK2> : TimeIntegrationBase {
   inline static constexpr int kStep = 2;
   inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{{{1.0, 0.0, 1.0}, {0.5, 0.0, 0.5}}};
 };
 
 template <>
-struct TimeIntegrationData<TimeIntegrationEnum::SSPRK3> : TimeIntegrationDataBase {
+struct TimeIntegrationData<TimeIntegrationEnum::SSPRK3> : TimeIntegrationBase {
   inline static constexpr int kStep = 3;
   inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{
       {{1.0, 0.0, 1.0}, {3.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0}, {1.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0}}};
@@ -70,9 +64,9 @@ struct TimeIntegration : TimeIntegrationData<SimulationControl::kTimeIntegration
 
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolverBase<ElementTrait, SimulationControl>::copyElementBasisFunctionCoefficient() {
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto)
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).variable_basis_function_coefficient_(0).noalias() =
         this->element_(i).variable_basis_function_coefficient_(1);
@@ -99,10 +93,10 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
   Variable<SimulationControl> quadrature_node_variable;
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(element_mesh, thermal_model, time_integration) private(variable, delta_time)
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+    shared(element_mesh, thermal_model, time_integration) private(quadrature_node_variable, delta_time)
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
       quadrature_node_variable.template getFromSelf<ElementTrait>(i, j, element_mesh, *this);
@@ -167,10 +161,10 @@ template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolverBase<ElementTrait, SimulationControl>::updateElementBasisFunctionCoefficient(
     const int step, const ElementMesh<ElementTrait>& element_mesh,
     const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
     shared(Eigen::Dynamic, step, element_mesh, time_integration)
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     // NOTE: Here we split the calculation to trigger eigen's noalias to avoid intermediate variables.
     this->element_(i).variable_basis_function_coefficient_(1) *=
@@ -180,30 +174,26 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::updateElementBas
         this->element_(i).variable_basis_function_coefficient_(0);
     this->element_(i).variable_basis_function_coefficient_(1).noalias() +=
         time_integration.kStepCoefficients[static_cast<Usize>(step)][2] * this->delta_time_(i) *
-        element_mesh.element_(i)
-            .local_mass_matrix_llt_.solve(this->element_(i).variable_residual_.transpose())
-            .transpose();
+        this->element_(i).variable_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
   }
 }
 
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::
     updateElementGardientBasisFunctionCoefficient(const ElementMesh<ElementTrait>& element_mesh) {
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, step, element_mesh, time_integration)
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh)
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    this->element_(i).variable_gradient_basis_function_coefficient_ =
-        element_mesh.element_(i)
-            .local_mass_matrix_llt_.solve(this->element_(i).variable_gradient_volume_residual_.transpose())
-            .transpose();
+    this->element_(i).variable_gradient_volume_basis_function_coefficient_.noalias() =
+        this->element_(i).variable_gradient_volume_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
+    this->element_(i).variable_gradient_basis_function_coefficient_.noalias() =
+        this->element_(i).variable_gradient_volume_basis_function_coefficient_;
     for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
-      this->element_(i).variable_gradient_interface_basis_function_coefficient_(j) =
-          element_mesh.element_(i)
-              .local_mass_matrix_llt_.solve(this->element_(i).variable_gradient_interface_residual_(j).transpose())
-              .transpose();
-      this->element_(i).variable_gradient_basis_function_coefficient_ +=
+      this->element_(i).variable_gradient_interface_basis_function_coefficient_(j).noalias() =
+          this->element_(i).variable_gradient_interface_residual_(j) *
+          element_mesh.element_(i).local_mass_matrix_inverse_;
+      this->element_(i).variable_gradient_basis_function_coefficient_.noalias() +=
           this->element_(i).variable_gradient_interface_basis_function_coefficient_(j);
     }
   }
@@ -243,12 +233,12 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
     Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error) {
   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> local_error =
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero();
-#if defined(SUBROSA_DG_WITH_OPENMP) && !defined(SUBROSA_DG_DEVELOP)
+#ifndef SUBROSA_DG_DEVELOP
 #pragma omp declare reduction(+ : Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> : omp_out += \
                                   omp_in) initializer(omp_priv = decltype(omp_orig)::Zero())
 #pragma omp parallel for reduction(+ : local_error) default(none) schedule(nonmonotonic : auto) \
     shared(Eigen::Dynamic, element_mesh)
-#endif  // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     local_error.array() +=
         ((this->element_(i).variable_residual_ * element_mesh.basis_function_.value_.transpose()).array() /

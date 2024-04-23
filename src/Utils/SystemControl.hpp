@@ -56,8 +56,7 @@ struct System {
   template <BoundaryConditionEnum BoundaryConditionType>
     requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
              BoundaryConditionType == BoundaryConditionEnum::CharacteristicInflow ||
-             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow ||
-             BoundaryConditionType == BoundaryConditionEnum::IsothermalNoslipWall)
+             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow)
   inline void addBoundaryCondition(
       const std::string& boundary_condition_name,
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
@@ -67,6 +66,20 @@ struct System {
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
     this->boundary_condition_[boundary_condition_index]->boundary_dummy_variable_.primitive_ =
         boundary_condition_variable;
+  }
+
+  template <BoundaryConditionEnum BoundaryConditionType>
+    requires(BoundaryConditionType == BoundaryConditionEnum::IsothermalNoslipWall)
+  inline void addBoundaryCondition(const std::string& boundary_condition_name,
+                                   const Real boundary_condition_temperature) {
+    const auto boundary_condition_index =
+        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
+    this->boundary_condition_[boundary_condition_index] =
+        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
+    this->boundary_condition_[boundary_condition_index]->boundary_dummy_variable_.primitive_.setZero();
+    this->boundary_condition_[boundary_condition_index]
+        ->boundary_dummy_variable_.template setScalar<PrimitiveVariableEnum::Temperature>(
+            boundary_condition_temperature);
   }
 
   template <BoundaryConditionEnum BoundaryConditionType>
@@ -134,7 +147,7 @@ struct System {
           handle_variable(ViewVariableEnum::VelocityX, ViewVariableEnum::VelocityY, ViewVariableEnum::VelocityZ);
         } else if (variable == ViewVariableEnum::MachNumber) {
           handle_variable(ViewVariableEnum::MachNumberX, ViewVariableEnum::MachNumberY, ViewVariableEnum::MachNumberZ);
-        } else if (variable == ViewVariableEnum::Vorticity) {
+        } else if (variable == ViewVariableEnum::Vorticity && SimulationControl::kDimension == 3) {
           handle_variable(ViewVariableEnum::VorticityX, ViewVariableEnum::VorticityY, ViewVariableEnum::VorticityZ);
         } else {
           this->view_.variable_type_.emplace_back(variable);
@@ -151,7 +164,9 @@ struct System {
     this->command_line_.initializeSolver(this->time_integration_.iteration_number_);
     this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
                                    this->initial_condition_);
-    Real delta_time;
+    Real delta_time{0.0};
+    this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
+    this->view_.error_finout_ << this->command_line_.getLineInformation(delta_time, this->solver_.relative_error_) << '\n';
     for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
       this->solver_.copyBasisFunctionCoefficient();
       delta_time = this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
@@ -169,7 +184,8 @@ struct System {
 
   inline void view(const bool delete_dir = true) {
     this->command_line_.initializeView(this->time_integration_.iteration_number_ / this->view_.io_interval_);
-    this->view_.initializeView(delete_dir, this->time_integration_.iteration_number_, this->mesh_);
+    this->view_.initializeView(delete_dir, this->time_integration_.iteration_number_ + 1, this->mesh_);
+    this->view_.stepView(0, this->mesh_, this->thermal_model_);
     for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
       if (i % this->view_.io_interval_ == 0) {
         this->view_.stepView(i, this->mesh_, this->thermal_model_);

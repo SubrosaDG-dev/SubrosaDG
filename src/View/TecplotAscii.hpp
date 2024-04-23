@@ -98,10 +98,12 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeAdjacencyEleme
       sub_connectivity{
           getSubElementConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()
               .data()};
-  const Isize parent_index_each_type = adjacency_element_mesh.element_(element_index).parent_index_each_type_(0);
+  const Isize parent_index_each_type =
+      adjacency_element_mesh.element_(element_index_per_type).parent_index_each_type_(0);
   const Isize adjacency_sequence_in_parent =
-      adjacency_element_mesh.element_(element_index).adjacency_sequence_in_parent_(0);
-  const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(element_index).parent_gmsh_type_number_(0);
+      adjacency_element_mesh.element_(element_index_per_type).adjacency_sequence_in_parent_(0);
+  const Isize parent_gmsh_type_number =
+      adjacency_element_mesh.element_(element_index_per_type).parent_gmsh_type_number_(0);
   node_coordinate(Eigen::all, Eigen::seqN(column, AdjacencyElementTrait::kAllNodeNumber)) =
       adjacency_element_mesh.element_(element_index_per_type)
           .node_coordinate_(Eigen::all, Eigen::seqN(Eigen::fix<0>, AdjacencyElementTrait::kAllNodeNumber));
@@ -224,7 +226,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeView(
   this->writeField<Dimension, IsAdjacency>(physical_index, mesh, thermal_model, node_coordinate, node_variable,
                                            element_connectivity);
   node_all_variable << node_coordinate, node_variable;
-  this->writeAsciiHeader<Dimension>(this->variable_.time_value_(step - 1),
+  this->writeAsciiHeader<Dimension>(this->variable_.time_value_(step),
                                     mesh.information_.physical_[static_cast<Usize>(physical_index)], node_number,
                                     element_number * element_sub_number, fout);
   fout << node_all_variable.transpose() << '\n';
