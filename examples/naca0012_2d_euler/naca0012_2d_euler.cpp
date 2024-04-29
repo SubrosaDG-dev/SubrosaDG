@@ -149,7 +149,7 @@ int main(int argc, char* argv[]) {
       "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-2");
   system.synchronize();
-  system.setTimeIntegration(false, 1, 1.0);
+  system.setTimeIntegration(1, 1.0);
   system.setViewConfig(1, kExampleDirectory, "naca0012_2d", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,

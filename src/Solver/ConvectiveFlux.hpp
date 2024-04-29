@@ -66,8 +66,8 @@ inline void calculateConvectiveCentralFlux([[maybe_unused]] const ThermalModel<S
                                            const Variable<SimulationControl>& left_quadrature_node_variable,
                                            const Variable<SimulationControl>& right_quadrature_node_variable,
                                            Flux<SimulationControl>& convective_flux) {
-  calculateConvectiveNormalVariable(left_quadrature_node_variable, normal_vector, convective_flux.left_flux_);
-  calculateConvectiveNormalVariable(right_quadrature_node_variable, normal_vector, convective_flux.right_flux_);
+  calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_);
+  calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_);
   convective_flux.result_.normal_variable_.noalias() =
       (convective_flux.left_.normal_variable_ + convective_flux.right_.normal_variable_) / 2.0;
 }
@@ -78,8 +78,8 @@ inline void calculateConvectiveLaxFriedrichsFlux(
     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
     const Variable<SimulationControl>& left_quadrature_node_variable,
     const Variable<SimulationControl>& right_quadrature_node_variable, Flux<SimulationControl>& convective_flux) {
-  calculateConvectiveNormalVariable(left_quadrature_node_variable, normal_vector, convective_flux.left_flux_);
-  calculateConvectiveNormalVariable(right_quadrature_node_variable, normal_vector, convective_flux.right_flux_);
+  calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_flux_);
+  calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_flux_);
   const Real left_normal_velocity =
       left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
       normal_vector;
@@ -205,8 +205,8 @@ inline void calculateConvectiveRoeFlux(const ThermalModel<SimulationControl>& th
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kConservedVariableNumber>
       roe_matrix = Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
                                  SimulationControl::kConservedVariableNumber>::Zero();
-  calculateConvectiveNormalVariable(left_quadrature_node_variable, normal_vector, convective_flux.left_);
-  calculateConvectiveNormalVariable(right_quadrature_node_variable, normal_vector, convective_flux.right_);
+  calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_);
+  calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_);
   const Real left_sqrt_density =
       std::sqrt(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>());
   const Real right_sqrt_density =

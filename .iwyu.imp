@@ -1,5 +1,5 @@
 [
-    { "ref": "utils/include-what-you-use/libcxx.imp" },
+    { "ref": "/usr/share/include-what-you-use/libcxx.imp" },
     { "include": ["@<__hash_table>", "private", "<unordered_map>", "public"] },
     { "include": ["@<__hash_table>", "private", "<unordered_set>", "public"] },
     { "include": ["@<__fwd/.*>", private, "<fstream>", public ] },

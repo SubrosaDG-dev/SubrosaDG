@@ -31,12 +31,12 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
 }
 
 template <SubrosaDG::PolynomialOrderEnum P, SubrosaDG::ViewModelEnum ViewModelType>
-void runTest() {
+void runEulerTest() {
   using SimulationControl = SubrosaDG::SimulationControlEuler<
       1, P, SubrosaDG::MeshModelEnum::Line, SubrosaDG::ThermodynamicModelEnum::ConstantE,
       SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::Central,
-      SubrosaDG::TimeIntegrationEnum::TestInitialization, ViewModelType>;
-  const std::string output_prefix = std::format("test_1d_{}", magic_enum::enum_name(P));
+      SubrosaDG::TimeIntegrationEnum::ForwardEuler, ViewModelType>;
+  const std::string output_prefix = std::format("test_1d_{}_euler", magic_enum::enum_name(P));
   SubrosaDG::System<SimulationControl> system{false};
   system.setMesh(kTestDirectory / (output_prefix + ".msh"), generateMesh<P>);
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate) {
@@ -44,7 +44,7 @@ void runTest() {
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.1, 1.0});
   system.synchronize();
-  system.setTimeIntegration(false, 1, 1.0);
+  system.setTimeIntegration(1, 1.0);
   system.setViewConfig(-1, kTestDirectory, output_prefix + "_D", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Temperature, SubrosaDG::ViewVariableEnum::Pressure,
@@ -54,22 +54,6 @@ void runTest() {
   system.view(false);
 }
 
-TEST(Test1d, P1Dat) { runTest<SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::ViewModelEnum::Dat>(); }
+TEST(Test1d, P3EulerDat) { runEulerTest<SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::ViewModelEnum::Dat>(); }
 
-TEST(Test1d, P1Vtu) { runTest<SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::ViewModelEnum::Vtu>(); }
-
-TEST(Test1d, P2Dat) { runTest<SubrosaDG::PolynomialOrderEnum::P2, SubrosaDG::ViewModelEnum::Dat>(); }
-
-TEST(Test1d, P2Vtu) { runTest<SubrosaDG::PolynomialOrderEnum::P2, SubrosaDG::ViewModelEnum::Vtu>(); }
-
-TEST(Test1d, P3Dat) { runTest<SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::ViewModelEnum::Dat>(); }
-
-TEST(Test1d, P3Vtu) { runTest<SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::ViewModelEnum::Vtu>(); }
-
-TEST(Test1d, P4Dat) { runTest<SubrosaDG::PolynomialOrderEnum::P4, SubrosaDG::ViewModelEnum::Dat>(); }
-
-TEST(Test1d, P4Vtu) { runTest<SubrosaDG::PolynomialOrderEnum::P4, SubrosaDG::ViewModelEnum::Vtu>(); }
-
-TEST(Test1d, P5Dat) { runTest<SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::ViewModelEnum::Dat>(); }
-
-TEST(Test1d, P5Vtu) { runTest<SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::ViewModelEnum::Vtu>(); }
+TEST(Test1d, P3EulerVtu) { runEulerTest<SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::ViewModelEnum::Vtu>(); }

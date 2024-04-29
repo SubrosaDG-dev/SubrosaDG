@@ -55,11 +55,9 @@ endif()
 
 # set compiler
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    set(COMPILER_PATH "/usr/bin;/usr/local/bin")
     set(CMAKE_C_COMPILER "/usr/bin/clang")
     set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    set(COMPILER_PATH "/opt/homebrew/opt/llvm/bin")
     set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm/bin/clang")
     set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm/bin/clang++")
 endif()
@@ -79,7 +77,7 @@ if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 # use clang lld to link
-find_program(LLD NAMES ld.lld PATHS ${COMPILER_PATH})
+find_program(LLD NAMES ld.lld)
 if(LLD)
     set(CMAKE_LINKER "${LLD}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld -stdlib=libc++")
@@ -117,11 +115,19 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
 message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 
-# check cxx20 support
+# add cmake check
 include(CheckCXXCompilerFlag)
+
+# check cxx20 support
 check_cxx_compiler_flag(-std=c++20 cxx_std_20_support)
 if(NOT cxx_std_20_support)
     message(FATAL_ERROR "SubrosaDG requires C++20 to compile.")
+endif()
+
+#check libc++ support
+check_cxx_compiler_flag(-stdlib=libc++ libcxx_support)
+if(NOT libcxx_support)
+    message(FATAL_ERROR "SubrosaDG requires libc++ to compile.")
 endif()
 
 # set c and cxx standard for all target
@@ -160,10 +166,8 @@ endif()
 
 # use clang-tidy to check file
 if(SUBROSA_DG_DEVELOP)
-    find_program(CLANG_TIDY NAMES clang-tidy PATHS ${COMPILER_PATH})
+    find_program(CLANG_TIDY NAMES clang-tidy)
     if(CLANG_TIDY)
-        # set(CMAKE_C_CLANG_TIDY "${CLANG_TIDY}")
-        # set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
         include(${PROJECT_SOURCE_DIR}/cmake/ClangTidy.cmake)
         message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
     else()
@@ -173,7 +177,7 @@ endif()
 
 # use clang-format to format file
 if(SUBROSA_DG_DEVELOP)
-    find_program(CLANG_FORMAT NAMES clang-format PATHS ${COMPILER_PATH})
+    find_program(CLANG_FORMAT NAMES clang-format)
     if(CLANG_FORMAT)
         include(${PROJECT_SOURCE_DIR}/cmake/ClangFormat.cmake)
         message_tool_version(clang-format "${CLANG_FORMAT}")
@@ -183,7 +187,7 @@ if(SUBROSA_DG_DEVELOP)
 endif()
 
 # use clangd for intellisense
-find_program(CLANGD NAMES clangd PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
+find_program(CLANGD NAMES clangd)
 if(CLANGD)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     message_tool_version(clangd "${CLANGD}")
@@ -193,19 +197,16 @@ endif()
 
 # use iwyu to check header file
 if(SUBROSA_DG_DEVELOP)
-    find_program(IWYU NAMES include-what-you-use iwyu PATHS ${COMPILER_PATH})
+    find_program(IWYU NAMES include-what-you-use iwyu)
     if(IWYU)
-        # set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU}")
-        # set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU}")
         message_tool_version(include-what-you-use "${IWYU}")
     else()
         message(WARNING "include-what-you-use not found. Please install include-what-you-use.")
     endif()
-    find_program(IWYU_TOOL NAMES iwyu_tool.py PATHS ${COMPILER_PATH})
-    find_program(IWYU_FIX_TOOL NAMES fix_includes.py PATHS ${COMPILER_PATH})
+    find_program(IWYU_TOOL NAMES iwyu_tool.py)
+    find_program(IWYU_FIX_TOOL NAMES fix_includes.py)
     if(IWYU_TOOL AND IWYU_FIX_TOOL)
         include(${PROJECT_SOURCE_DIR}/cmake/Iwyu.cmake)
-        # list(APPEND CMAKE_CXX_INCLUDE_WHAT_YOU_USE "-Xiwyu --mapping_file=${CMAKE_CURRENT_LIST_DIR}/.iwyu.imp")
     endif()
 endif()
 
@@ -355,7 +356,6 @@ target_include_directories(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME} SYSTEM INTERFACE ${SUBROSA_DG_INCLUDE_SYSTEM_DIRS})
 target_link_libraries(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_LINK_LIBRARIES})
 target_compile_options(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_OPTIONS})
-# target_compile_features(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_FEATURES})
 target_compile_definitions(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_DEFINITIONS})
 
 # TODO: use cmake install and XXXXConfig.cmake to link

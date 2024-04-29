@@ -96,17 +96,15 @@ struct ElementSolverBase {
   Eigen::Array<PerElementSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel>, Eigen::Dynamic, 1>
       element_;
 
-  Eigen::Vector<Real, Eigen::Dynamic> delta_time_;
-
   inline void initializeElementSolver(
       const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
       const std::unordered_map<Isize, InitialCondition<SimulationControl>>& initial_condition);
 
   inline void copyElementBasisFunctionCoefficient();
 
-  inline void calculateElementDeltaTime(
-      const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
-      const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+  inline Real calculateElementDeltaTime(const ElementMesh<ElementTrait>& element_mesh,
+                                        const ThermalModel<SimulationControl>& thermal_model,
+                                        Real courant_friedrichs_lewy_number);
 
   inline void calculateElementResidual(const ElementMesh<ElementTrait>& element_mesh);
 
@@ -279,11 +277,9 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void copyBasisFunctionCoefficient();
 
-  inline Real setDeltaTime(const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
-
-  inline Real calculateDeltaTime(const Mesh<SimulationControl>& mesh,
+  inline void calculateDeltaTime(const Mesh<SimulationControl>& mesh,
                                  const ThermalModel<SimulationControl>& thermal_model,
-                                 const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+                                 TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
 
   inline void calculateQuadrature(const Mesh<SimulationControl>& mesh,
                                   const ThermalModel<SimulationControl>& thermal_model);

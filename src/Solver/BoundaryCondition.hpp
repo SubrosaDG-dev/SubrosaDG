@@ -112,12 +112,17 @@ struct BoundaryConditionBase {
       Variable<SimulationControl>& boundary_quadrature_node_variable) const = 0;
 
   virtual inline void calculateBoundaryGradientVariable(
-      const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
-      VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const = 0;
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable) const = 0;
 
-  virtual inline void calculateBoundaryLeftVariable(
+  virtual inline void calculateBoundaryVariableGradient(
       Variable<SimulationControl>& left_quadrature_node_variable,
-      const Variable<SimulationControl>& boundary_quadrature_node_variable) const = 0;
+      const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
+      const Variable<SimulationControl>& boundary_quadrature_node_variable,
+      VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const = 0;
 
   virtual ~BoundaryConditionBase() = default;
 };
@@ -133,17 +138,24 @@ struct BoundaryConditionCRTP : BoundaryConditionBase<SimulationControl> {
   }
 
   inline void calculateBoundaryGradientVariable(
-      const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
-      VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const override {
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable) const override {
     static_cast<Derived const*>(this)->calculateBoundaryGradientVariableImpl(
-        left_quadrature_node_variable_gradient, boundary_quadrature_node_variable_gradient);
+        thermal_model, normal_vector, left_quadrature_node_variable, boundary_quadrature_node_volume_gradient_variable,
+        boundary_quadrature_node_interface_gradient_variable);
   }
 
-  inline void calculateBoundaryLeftVariable(
+  inline void calculateBoundaryVariableGradient(
       Variable<SimulationControl>& left_quadrature_node_variable,
-      const Variable<SimulationControl>& boundary_quadrature_node_variable) const override {
-    static_cast<Derived const*>(this)->calculateBoundaryLeftVariableImpl(left_quadrature_node_variable,
-                                                                         boundary_quadrature_node_variable);
+      const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
+      const Variable<SimulationControl>& boundary_quadrature_node_variable,
+      VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const override {
+    static_cast<Derived const*>(this)->calculateBoundaryVariableGradientImpl(
+        left_quadrature_node_variable, left_quadrature_node_variable_gradient, boundary_quadrature_node_variable,
+        boundary_quadrature_node_variable_gradient);
   }
 };
 
@@ -163,14 +175,27 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfie
   }
 
   inline void calculateBoundaryGradientVariableImpl(
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable) const {
+    Variable<SimulationControl> boundary_quadrature_node_variable;
+    calculateRiemannSolver(thermal_model, normal_vector, left_quadrature_node_variable, this->boundary_dummy_variable_,
+                           boundary_quadrature_node_variable);
+    boundary_quadrature_node_variable.calculateConservedFromComputational();
+    boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
+    boundary_quadrature_node_interface_gradient_variable.conserved_ =
+        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_;
+  }
+
+  inline void calculateBoundaryVariableGradientImpl(
+      [[maybe_unused]] Variable<SimulationControl>& left_quadrature_node_variable,
       const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
+      [[maybe_unused]] const Variable<SimulationControl>& boundary_quadrature_node_variable,
       VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const {
     boundary_quadrature_node_variable_gradient.primitive_ = left_quadrature_node_variable_gradient.primitive_;
   }
-
-  inline void calculateBoundaryLeftVariableImpl(
-      [[maybe_unused]] Variable<SimulationControl>& left_quadrature_node_variable,
-      [[maybe_unused]] const Variable<SimulationControl>& boundary_quadrature_node_variable) const {}
 };
 
 template <typename SimulationControl>
@@ -186,24 +211,37 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::Characteristi
   }
 
   inline void calculateBoundaryGradientVariableImpl(
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable) const {
+    Variable<SimulationControl> boundary_quadrature_node_variable;
+    calculateRiemannSolver(thermal_model, normal_vector, left_quadrature_node_variable, this->boundary_dummy_variable_,
+                           boundary_quadrature_node_variable);
+    boundary_quadrature_node_variable.calculateConservedFromComputational();
+    boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
+    boundary_quadrature_node_interface_gradient_variable.conserved_ =
+        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_;
+  }
+
+  inline void calculateBoundaryVariableGradientImpl(
+      [[maybe_unused]] Variable<SimulationControl>& left_quadrature_node_variable,
       const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
+      [[maybe_unused]] const Variable<SimulationControl>& boundary_quadrature_node_variable,
       VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const {
     boundary_quadrature_node_variable_gradient.primitive_ = left_quadrature_node_variable_gradient.primitive_;
   }
-
-  inline void calculateBoundaryLeftVariableImpl(
-      [[maybe_unused]] Variable<SimulationControl>& left_quadrature_node_variable,
-      [[maybe_unused]] const Variable<SimulationControl>& boundary_quadrature_node_variable) const {}
 };
 
 template <typename SimulationControl>
 struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::PressureOutflow>
     : BoundaryConditionCRTP<SimulationControl,
                             BoundaryCondition<SimulationControl, BoundaryConditionEnum::PressureOutflow>> {
-  inline void calculateBoundaryVariableImpl(const ThermalModel<SimulationControl>& thermal_model,
-                                            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                            const Variable<SimulationControl>& left_quadrature_node_variable,
-                                            Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+  inline void calculateBoundaryVariableLocally(const ThermalModel<SimulationControl>& thermal_model,
+                                               const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                               const Variable<SimulationControl>& left_quadrature_node_variable,
+                                               Variable<SimulationControl>& boundary_quadrature_node_variable) const {
     const Real normal_velocity =
         left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
         normal_vector;
@@ -223,26 +261,45 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::PressureOutfl
     }
   }
 
+  inline void calculateBoundaryVariableImpl(const ThermalModel<SimulationControl>& thermal_model,
+                                            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                            const Variable<SimulationControl>& left_quadrature_node_variable,
+                                            Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+    this->calculateBoundaryVariableLocally(thermal_model, normal_vector, left_quadrature_node_variable,
+                                           boundary_quadrature_node_variable);
+  }
+
   inline void calculateBoundaryGradientVariableImpl(
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable) const {
+    Variable<SimulationControl> boundary_quadrature_node_variable;
+    calculateRiemannSolver(thermal_model, normal_vector, left_quadrature_node_variable, this->boundary_dummy_variable_,
+                           boundary_quadrature_node_variable);
+    boundary_quadrature_node_variable.calculateConservedFromComputational();
+    boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
+    boundary_quadrature_node_interface_gradient_variable.conserved_ =
+        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_;
+  }
+
+  inline void calculateBoundaryVariableGradientImpl(
+      [[maybe_unused]] Variable<SimulationControl>& left_quadrature_node_variable,
       const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
+      [[maybe_unused]] const Variable<SimulationControl>& boundary_quadrature_node_variable,
       VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const {
     boundary_quadrature_node_variable_gradient.primitive_ = left_quadrature_node_variable_gradient.primitive_;
   }
-
-  inline void calculateBoundaryLeftVariableImpl(
-      [[maybe_unused]] Variable<SimulationControl>& left_quadrature_node_variable,
-      [[maybe_unused]] const Variable<SimulationControl>& boundary_quadrature_node_variable) const {}
 };
 
 template <typename SimulationControl>
 struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsothermalNoslipWall>
     : BoundaryConditionCRTP<SimulationControl,
                             BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsothermalNoslipWall>> {
-  inline void calculateBoundaryVariableImpl(
-      const ThermalModel<SimulationControl>& thermal_model,
-      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl>& left_quadrature_node_variable,
-      Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+  inline void calculateBoundaryVariable(const ThermalModel<SimulationControl>& thermal_model,
+                                        const Variable<SimulationControl>& left_quadrature_node_variable,
+                                        Variable<SimulationControl>& boundary_quadrature_node_variable) const {
     const Real boundary_density =
         left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>();
     boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Density>(boundary_density);
@@ -256,16 +313,37 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsothermalNos
     boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(boundary_pressure);
   }
 
-  inline void calculateBoundaryGradientVariableImpl(
-      const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
-      VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const {
-    boundary_quadrature_node_variable_gradient.primitive_ = left_quadrature_node_variable_gradient.primitive_;
+  inline void calculateBoundaryVariableImpl(
+      const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+    this->calculateBoundaryVariableLocally(thermal_model, left_quadrature_node_variable,
+                                           boundary_quadrature_node_variable);
   }
 
-  inline void calculateBoundaryLeftVariableImpl(
+  inline void calculateBoundaryGradientVariableImpl(
+      const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable) const {
+    Variable<SimulationControl> boundary_quadrature_node_variable;
+    this->calculateBoundaryVariableLocally(thermal_model, left_quadrature_node_variable,
+                                           boundary_quadrature_node_variable);
+    boundary_quadrature_node_variable.calculateConservedFromComputational();
+    boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
+    boundary_quadrature_node_interface_gradient_variable.conserved_ =
+        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_;
+  }
+
+  inline void calculateBoundaryVariableGradientImpl(
       Variable<SimulationControl>& left_quadrature_node_variable,
-      const Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+      const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
+      const Variable<SimulationControl>& boundary_quadrature_node_variable,
+      VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const {
     left_quadrature_node_variable.computational_ = boundary_quadrature_node_variable.computational_;
+    boundary_quadrature_node_variable_gradient.primitive_ = left_quadrature_node_variable_gradient.primitive_;
   }
 };
 
@@ -273,10 +351,9 @@ template <typename SimulationControl>
 struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>
     : BoundaryConditionCRTP<SimulationControl,
                             BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>> {
-  inline void calculateBoundaryVariableImpl([[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
-                                            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                            const Variable<SimulationControl>& left_quadrature_node_variable,
-                                            Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+  inline void calculateBoundaryVariableLocally(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                               const Variable<SimulationControl>& left_quadrature_node_variable,
+                                               Variable<SimulationControl>& boundary_quadrature_node_variable) const {
     boundary_quadrature_node_variable.computational_ = left_quadrature_node_variable.computational_;
     const Eigen::Vector<Real, SimulationControl::kDimension> boundary_velocity =
         left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>() -
@@ -286,16 +363,38 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticSlip
     boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(boundary_velocity);
   }
 
-  inline void calculateBoundaryGradientVariableImpl(
-      const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
-      VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const {
-    boundary_quadrature_node_variable_gradient.primitive_ = left_quadrature_node_variable_gradient.primitive_;
+  inline void calculateBoundaryVariableImpl([[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+                                            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                            const Variable<SimulationControl>& left_quadrature_node_variable,
+                                            Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+    this->calculateBoundaryVariableLocally(normal_vector, left_quadrature_node_variable,
+                                           boundary_quadrature_node_variable);
   }
 
-  inline void calculateBoundaryLeftVariableImpl(
+  inline void calculateBoundaryGradientVariableImpl(
+      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable) const {
+    Variable<SimulationControl> boundary_quadrature_node_variable;
+    this->calculateBoundaryVariableLocally(normal_vector, left_quadrature_node_variable,
+                                           boundary_quadrature_node_variable);
+    boundary_quadrature_node_variable.calculateConservedFromComputational();
+    boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
+    boundary_quadrature_node_interface_gradient_variable.conserved_ =
+        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_;
+  }
+
+  inline void calculateBoundaryVariableGradientImpl(
       Variable<SimulationControl>& left_quadrature_node_variable,
-      const Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+      const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
+      const Variable<SimulationControl>& boundary_quadrature_node_variable,
+      VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const {
     left_quadrature_node_variable.computational_ = boundary_quadrature_node_variable.computational_;
+    boundary_quadrature_node_variable_gradient.primitive_ = left_quadrature_node_variable_gradient.primitive_;
+    boundary_quadrature_node_variable_gradient.template setVector<PrimitiveVariableEnum::Temperature>(
+        Eigen::Vector<Real, SimulationControl::kDimension>::Zero());
   }
 };
 
@@ -303,28 +402,44 @@ template <typename SimulationControl>
 struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticNoSlipWall>
     : BoundaryConditionCRTP<SimulationControl,
                             BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticNoSlipWall>> {
-  inline void calculateBoundaryVariableImpl(
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
-      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl>& left_quadrature_node_variable,
-      Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+  inline void calculateBoundaryVariableLocally(const Variable<SimulationControl>& left_quadrature_node_variable,
+                                               Variable<SimulationControl>& boundary_quadrature_node_variable) const {
     boundary_quadrature_node_variable.computational_ = left_quadrature_node_variable.computational_;
     boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(
         Eigen::Vector<Real, SimulationControl::kDimension>::Zero());
   }
 
+  inline void calculateBoundaryVariableImpl(
+      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+    this->calculateBoundaryVariableLocally(left_quadrature_node_variable, boundary_quadrature_node_variable);
+  }
+
   inline void calculateBoundaryGradientVariableImpl(
+      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable) const {
+    Variable<SimulationControl> boundary_quadrature_node_variable;
+    this->calculateBoundaryVariableLocally(left_quadrature_node_variable, boundary_quadrature_node_variable);
+    boundary_quadrature_node_variable.calculateConservedFromComputational();
+    boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
+    boundary_quadrature_node_interface_gradient_variable.conserved_ =
+        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_;
+  }
+
+  inline void calculateBoundaryVariableGradientImpl(
+      Variable<SimulationControl>& left_quadrature_node_variable,
       const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
+      const Variable<SimulationControl>& boundary_quadrature_node_variable,
       VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient) const {
+    left_quadrature_node_variable.computational_ = boundary_quadrature_node_variable.computational_;
     boundary_quadrature_node_variable_gradient.primitive_ = left_quadrature_node_variable_gradient.primitive_;
     boundary_quadrature_node_variable_gradient.template setVector<PrimitiveVariableEnum::Temperature>(
         Eigen::Vector<Real, SimulationControl::kDimension>::Zero());
-  }
-
-  inline void calculateBoundaryLeftVariableImpl(
-      Variable<SimulationControl>& left_quadrature_node_variable,
-      const Variable<SimulationControl>& boundary_quadrature_node_variable) const {
-    left_quadrature_node_variable.computational_ = boundary_quadrature_node_variable.computational_;
   }
 };
 

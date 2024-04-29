@@ -32,13 +32,10 @@
 namespace SubrosaDG {
 
 struct TimeIntegrationBase {
-  bool is_steady_;
   int iteration_number_;
   Real courant_friedrichs_lewy_number_;
+  Real delta_time_{kRealMax};
 };
-
-template <TimeIntegrationEnum TimeIntegrationType>
-struct TimeIntegrationData : TimeIntegrationBase {};
 
 template <>
 struct TimeIntegrationData<TimeIntegrationEnum::ForwardEuler> : TimeIntegrationBase {
@@ -88,73 +85,54 @@ inline void Solver<SimulationControl>::copyBasisFunctionCoefficient() {
 }
 
 template <typename ElementTrait, typename SimulationControl>
-inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElementDeltaTime(
+inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElementDeltaTime(
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
-    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+    const Real courant_friedrichs_lewy_number) {
   Variable<SimulationControl> quadrature_node_variable;
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
+  Real min_delta_time{kRealMax};
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(element_mesh, thermal_model, time_integration) private(quadrature_node_variable, delta_time)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                                  \
+    shared(element_mesh, thermal_model, courant_friedrichs_lewy_number) private(quadrature_node_variable, delta_time) \
+    reduction(min : min_delta_time)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      quadrature_node_variable.template getFromSelf<ElementTrait>(i, j, element_mesh, *this);
+      quadrature_node_variable.template getFromSelf<ElementTrait>(element_mesh, *this, i, j);
       quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
       const Real spectral_radius =
           std::sqrt(quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>()) +
           thermal_model.calculateSoundSpeedFromInternalEnergy(
               quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>());
-      delta_time(j) =
-          time_integration.courant_friedrichs_lewy_number_ * element_mesh.element_(i).size_ / spectral_radius;
+      delta_time(j) = courant_friedrichs_lewy_number * element_mesh.element_(i).size_ / spectral_radius;
     }
-    this->delta_time_(i) = delta_time.minCoeff();
+    min_delta_time = std::min(min_delta_time, delta_time.minCoeff());
   }
+  return min_delta_time;
 }
 
 template <typename SimulationControl>
-inline Real Solver<SimulationControl>::setDeltaTime(
-    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
-  Real delta_time = kRealMax;
-  if constexpr (SimulationControl::kDimension == 1) {
-    delta_time = std::min(delta_time, this->line_.delta_time_.minCoeff());
-    if (!time_integration.is_steady_) {
-      this->line_.delta_time_.setConstant(delta_time);
-    }
-  } else if constexpr (SimulationControl::kDimension == 2) {
-    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      delta_time = std::min(delta_time, this->triangle_.delta_time_.minCoeff());
-    }
-    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      delta_time = std::min(delta_time, this->quadrangle_.delta_time_.minCoeff());
-    }
-    if (!time_integration.is_steady_) {
-      if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-        this->triangle_.delta_time_.setConstant(delta_time);
-      }
-      if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-        this->quadrangle_.delta_time_.setConstant(delta_time);
-      }
-    }
-  }
-  return delta_time;
-}
-
-template <typename SimulationControl>
-inline Real Solver<SimulationControl>::calculateDeltaTime(
+inline void Solver<SimulationControl>::calculateDeltaTime(
     const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+    TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.calculateElementDeltaTime(mesh.line_, thermal_model, time_integration);
+    time_integration.delta_time_ = std::min(
+        time_integration.delta_time_, this->line_.calculateElementDeltaTime(
+                                          mesh.line_, thermal_model, time_integration.courant_friedrichs_lewy_number_));
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.calculateElementDeltaTime(mesh.triangle_, thermal_model, time_integration);
+      time_integration.delta_time_ =
+          std::min(time_integration.delta_time_,
+                   this->triangle_.calculateElementDeltaTime(mesh.triangle_, thermal_model,
+                                                             time_integration.courant_friedrichs_lewy_number_));
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.calculateElementDeltaTime(mesh.quadrangle_, thermal_model, time_integration);
+      time_integration.delta_time_ =
+          std::min(time_integration.delta_time_,
+                   this->quadrangle_.calculateElementDeltaTime(mesh.quadrangle_, thermal_model,
+                                                               time_integration.courant_friedrichs_lewy_number_));
     }
   }
-  return this->setDeltaTime(time_integration);
 }
 
 template <typename ElementTrait, typename SimulationControl>
@@ -173,7 +151,7 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::updateElementBas
         time_integration.kStepCoefficients[static_cast<Usize>(step)][0] *
         this->element_(i).variable_basis_function_coefficient_(0);
     this->element_(i).variable_basis_function_coefficient_(1).noalias() +=
-        time_integration.kStepCoefficients[static_cast<Usize>(step)][2] * this->delta_time_(i) *
+        time_integration.kStepCoefficients[static_cast<Usize>(step)][2] * time_integration.delta_time_ *
         this->element_(i).variable_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
   }
 }

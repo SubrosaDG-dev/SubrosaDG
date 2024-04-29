@@ -15,10 +15,10 @@
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out/rae2822_2d_ns"};
 
 using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
-    2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
+    2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::TransportModelEnum::Constant, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
-    SubrosaDG::TimeIntegrationEnum::ForwardEuler, SubrosaDG::ViewModelEnum::Vtu>;
+    SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
 
 inline std::array<double, 63> rae2822_point_x_array{
     0.000602, 0.002408, 0.005412, 0.009607, 0.014984, 0.021530, 0.029228, 0.038060, 0.048005, 0.059039, 0.071136,
@@ -153,19 +153,20 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system{};
+  SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "rae2822_2d.msh", generateMesh);
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        0.65, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0};
+        1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0};
   });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::CharacteristicInflow>(
-      "bc-1", {0.65, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0});
+      "bc-1", {1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>(
-      "bc-2", {0.65, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0});
+      "bc-2", {1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-3");
+  system.setTransportModel(1.4 * 0.4 / 6.5e6);
   system.synchronize();
-  system.setTimeIntegration(false, 1, 1.0);
+  system.setTimeIntegration(1, 1.0);
   system.setViewConfig(-1, kExampleDirectory, "rae2822_2d", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,

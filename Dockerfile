@@ -1,22 +1,12 @@
 FROM fedora:rawhide
 
 RUN dnf update -y && \
-dnf install -y git cmake ccache ninja-build clang-devel llvm-devel gdb lldb lld libcxx-devel clang-tools-extra gcovr gperftools flamegraph python3-numpy eigen3-devel cgnslib-devel zip patchelf && \
+dnf install -y git cmake vcpkg ccache ninja-build clang-devel llvm-devel gdb lldb lld libcxx-devel clang-tools-extra iwyu gcovr gperftools flamegraph python3-numpy eigen3-devel cgnslib-devel zip patchelf && \
 dnf clean all
 
 ENV CC=/usr/bin/clang
 ENV CXX=/usr/bin/clang++
 ENV CMAKE_GENERATOR=Ninja
-
-RUN cd /root && \
-git clone --depth 1 --branch "clang_17" https://github.com/include-what-you-use/include-what-you-use.git && \
-cd include-what-you-use && \
-mkdir build && \
-cd build && \
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="/usr" .. && \
-ninja install && \
-cd /root && \
-rm -rf include-what-you-use
 
 ENV VCPKG_FORCE_SYSTEM_BINARIES=1
 RUN cd /root && \

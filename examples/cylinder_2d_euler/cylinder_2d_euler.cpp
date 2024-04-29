@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.1, 0.0, 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-2");
   system.synchronize();
-  system.setTimeIntegration(false, 1, 1.0);
+  system.setTimeIntegration(1, 1.0);
   system.setViewConfig(-1, kExampleDirectory, "cylinder_2d", SubrosaDG::ViewConfigEnum::Default);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,

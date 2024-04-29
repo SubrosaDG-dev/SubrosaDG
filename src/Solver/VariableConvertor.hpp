@@ -311,16 +311,16 @@ struct Variable {
   }
 
   template <typename ElementTrait>
-  inline void getFromSelf(const Isize element_index, const Isize element_quadrature_node_sequence,
-                          const ElementMesh<ElementTrait>& element_mesh,
-                          const ElementSolverBase<ElementTrait, SimulationControl>& element_solver) {
+  inline void getFromSelf(const ElementMesh<ElementTrait>& element_mesh,
+                          const ElementSolverBase<ElementTrait, SimulationControl>& element_solver,
+                          const Isize element_index, const Isize element_quadrature_node_sequence) {
     this->conserved_.noalias() = element_solver.element_(element_index).variable_basis_function_coefficient_(1) *
                                  element_mesh.basis_function_.value_.row(element_quadrature_node_sequence).transpose();
   }
 
-  inline void getFromParent(const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
-                            const Isize adjacency_quadrature_node_sequence_in_parent,
-                            const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver) {
+  inline void getFromParent(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
+                            const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
+                            const Isize adjacency_quadrature_node_sequence_in_parent) {
     if constexpr (SimulationControl::kDimension == 1) {
       this->conserved_.noalias() =
           solver.line_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
@@ -431,9 +431,9 @@ struct VariableGradient {
   }
 
   template <typename ElementTrait>
-  inline void getFromSelf(const Isize element_index, const Isize element_quadrature_node_sequence,
-                          const ElementMesh<ElementTrait>& element_mesh,
-                          const ElementSolverBase<ElementTrait, SimulationControl>& element_solver) {
+  inline void getFromSelf(const ElementMesh<ElementTrait>& element_mesh,
+                          const ElementSolverBase<ElementTrait, SimulationControl>& element_solver,
+                          const Isize element_index, const Isize element_quadrature_node_sequence) {
     this->conserved_.noalias() =
         (element_solver.element_(element_index).variable_gradient_basis_function_coefficient_ *
          element_mesh.basis_function_.value_.row(element_quadrature_node_sequence).transpose())
@@ -441,22 +441,23 @@ struct VariableGradient {
   }
 
   template <ViscousFluxEnum ViscousFluxType>
-  inline void getFromParent(Isize parent_gmsh_type_number, Isize parent_index_each_type,
-                            Isize adjacency_sequence_in_parent, Isize adjacency_quadrature_node_sequence_in_parent,
-                            const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver);
+  inline void getFromParent(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
+                            Isize parent_gmsh_type_number, Isize parent_index_each_type,
+                            Isize adjacency_sequence_in_parent, Isize adjacency_quadrature_node_sequence_in_parent);
 
   template <>
-  inline void getFromParent<ViscousFluxEnum::BR1>(const Isize parent_gmsh_type_number,
+  inline void getFromParent<ViscousFluxEnum::BR1>(const Mesh<SimulationControl>& mesh,
+                                                  const Solver<SimulationControl>& solver,
+                                                  const Isize parent_gmsh_type_number,
                                                   const Isize parent_index_each_type,
                                                   [[maybe_unused]] const Isize adjacency_sequence_in_parent,
-                                                  const Isize adjacency_quadrature_node_sequence_in_parent,
-                                                  const Mesh<SimulationControl>& mesh,
-                                                  const Solver<SimulationControl>& solver) {
+                                                  const Isize adjacency_quadrature_node_sequence_in_parent) {
     if constexpr (SimulationControl::kDimension == 2) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->conserved_.noalias() =
             (solver.triangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
-             mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent).transpose())
+             mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                 .transpose())
                 .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
       } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->conserved_.noalias() =
@@ -469,12 +470,12 @@ struct VariableGradient {
   }
 
   template <>
-  inline void getFromParent<ViscousFluxEnum::BR2>(const Isize parent_gmsh_type_number,
+  inline void getFromParent<ViscousFluxEnum::BR2>(const Mesh<SimulationControl>& mesh,
+                                                  const Solver<SimulationControl>& solver,
+                                                  const Isize parent_gmsh_type_number,
                                                   const Isize parent_index_each_type,
                                                   const Isize adjacency_sequence_in_parent,
-                                                  const Isize adjacency_quadrature_node_sequence_in_parent,
-                                                  const Mesh<SimulationControl>& mesh,
-                                                  const Solver<SimulationControl>& solver) {
+                                                  const Isize adjacency_quadrature_node_sequence_in_parent) {
     if constexpr (SimulationControl::kDimension == 2) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->conserved_.noalias() =

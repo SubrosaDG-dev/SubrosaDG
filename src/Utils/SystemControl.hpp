@@ -107,11 +107,14 @@ struct System {
     this->initial_condition_[initial_condition_index].function_ = initial_condition_function;
   }
 
-  inline void setTimeIntegration(const bool is_steady, const int iteration_number,
-                                 const Real courant_friedrichs_lewy_number) {
-    this->time_integration_.is_steady_ = is_steady;
+  inline void setTimeIntegration(const int iteration_number, const Real courant_friedrichs_lewy_number) {
     this->time_integration_.iteration_number_ = iteration_number;
     this->time_integration_.courant_friedrichs_lewy_number_ = courant_friedrichs_lewy_number;
+  }
+
+  inline void setTransportModel(const Real dynamic_viscosity) {
+    this->thermal_model_.transport_model_.dynamic_viscosity = dynamic_viscosity;
+    this->thermal_model_.calculateThermalConductivityFromDynamicViscosity();
   }
 
   inline void setViewConfig(const int io_interval, const std::filesystem::path& output_directory,
@@ -164,12 +167,11 @@ struct System {
     this->command_line_.initializeSolver(this->time_integration_.iteration_number_);
     this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
                                    this->initial_condition_);
-    Real delta_time{0.0};
+    this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
     this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
-    this->view_.error_finout_ << this->command_line_.getLineInformation(delta_time, this->solver_.relative_error_) << '\n';
+    this->view_.error_finout_ << this->command_line_.getLineInformation(0.0, this->solver_.relative_error_) << '\n';
     for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
       this->solver_.copyBasisFunctionCoefficient();
-      delta_time = this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
       for (int j = 0; j < this->time_integration_.kStep; j++) {
         this->solver_.stepSolver(j, this->mesh_, this->thermal_model_, this->boundary_condition_,
                                  this->time_integration_);
@@ -178,7 +180,8 @@ struct System {
         this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
       }
       this->solver_.calculateRelativeError(this->mesh_);
-      this->command_line_.updateSolver(i, delta_time, this->solver_.relative_error_, this->view_.error_finout_);
+      this->command_line_.updateSolver(i, this->time_integration_.delta_time_, this->solver_.relative_error_,
+                                       this->view_.error_finout_);
     }
   }
 

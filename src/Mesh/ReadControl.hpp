@@ -15,7 +15,6 @@
 
 #include <gmsh.h>
 
-#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <array>
 #include <cstddef>

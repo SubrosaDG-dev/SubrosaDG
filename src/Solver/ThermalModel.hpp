@@ -107,18 +107,18 @@ template <>
 struct TransportModel<TransportModelEnum::Constant> {
   // NOTE: Reference Temperature = 273.15, Reference Dynamic Viscosity = 1.716e-5,
   // Reference Reynolds Number = 1.293 * 331.45 / 1.716e-5 =  2.497e7 ~ 2.5e7
-  inline static constexpr Real kDynamicViscosity = 1.0;
-  inline static constexpr Real kThermalConductivity = 250.0 / 72.0;
+  inline static Real dynamic_viscosity;
+  inline static Real thermal_conductivity;
 
-  [[nodiscard]] inline Real calculateDynamicViscosity() const { return this->kDynamicViscosity; }
+  [[nodiscard]] inline Real calculateDynamicViscosity() const { return this->dynamic_viscosity; }
 
-  [[nodiscard]] inline Real calculateThermalConductivity() const { return this->kThermalConductivity; }
+  [[nodiscard]] inline Real calculateThermalConductivity() const { return this->thermal_conductivity; }
 };
 
 template <>
 struct TransportModel<TransportModelEnum::Sutherland> {
-  inline static constexpr Real kDynamicViscosity = 1.0;
-  inline static constexpr Real kThermalConductivity = 250.0 / 72.0;
+  inline static Real dynamic_viscosity;
+  inline static Real thermal_conductivity;
 
   inline static constexpr Real kReferenceTemperature = 273.15;
   inline static constexpr Real kSutherlandTemperature = 110.4;
@@ -129,11 +129,11 @@ struct TransportModel<TransportModelEnum::Sutherland> {
   }
 
   [[nodiscard]] inline Real calculateDynamicViscosity(const Real temperature) const {
-    return this->kDynamicViscosity * this->calculateSutherlandRatio(temperature);
+    return this->dynamic_viscosity * this->calculateSutherlandRatio(temperature);
   }
 
   [[nodiscard]] inline Real calculateThermalConductivity(const Real temperature) const {
-    return this->kThermalConductivity * this->calculateSutherlandRatio(temperature);
+    return this->thermal_conductivity * this->calculateSutherlandRatio(temperature);
   }
 };
 
@@ -238,6 +238,20 @@ struct ThermalModel : ThermalModelData<SimulationControl, SimulationControl::kEq
                                                                       const Real internal_energy) const {
     if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
       return this->equation_of_state_.calculateDensityFromEntropyInternalEnergy(entropy, internal_energy);
+    }
+  }
+
+  inline void calculateThermalConductivityFromDynamicViscosity() {
+    if constexpr (SimulationControl::kThermodynamicModel == ThermodynamicModelEnum::ConstantE) {
+      if constexpr (SimulationControl::kEquationOfState == EquationOfStateEnum::IdealGas) {
+        this->transport_model_.thermal_conductivity =
+            (this->thermodynamic_model_.kSpecificHeatConstantVolume + this->equation_of_state_.kSpecificHeatRatio) *
+            this->transport_model_.dynamic_viscosity / 0.71;
+      }
+    }
+    if constexpr (SimulationControl::kThermodynamicModel == ThermodynamicModelEnum::ConstantH) {
+      this->transport_model_.thermal_conductivity =
+          this->thermodynamic_model_.kSpecificHeatConstantPressure * this->transport_model_.dynamic_viscosity / 0.71;
     }
   }
 

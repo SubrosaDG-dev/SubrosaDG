@@ -43,7 +43,6 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElemen
     const std::unordered_map<Isize, InitialCondition<SimulationControl>>& initial_condition) {
   this->number_ = element_mesh.number_;
   this->element_.resize(this->number_);
-  this->delta_time_.resize(this->number_);
   Variable<SimulationControl> variable;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>
       quadrature_node_conserved_variable;
@@ -72,7 +71,7 @@ template <typename ElementTrait, typename SimulationControl>
 inline void
 ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::initializeElementGardientSolver() {
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
