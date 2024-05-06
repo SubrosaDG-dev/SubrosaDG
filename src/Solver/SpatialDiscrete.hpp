@@ -168,7 +168,7 @@ inline void Solver<SimulationControl>::calculateGardientQuadrature(const Mesh<Si
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
-template <bool IsLeft>
+template <AdjacencyEnum AdjacencyType>
 [[nodiscard]] inline Isize AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl>::
     getAdjacencyParentElementQuadratureNodeSequenceInParent([[maybe_unused]] const Isize parent_gmsh_type_number,
                                                             const Isize adjacency_sequence_in_parent,
@@ -177,10 +177,11 @@ template <bool IsLeft>
     constexpr std::array<int, LineTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
         kElementAccumulateAdjacencyQuadratureNumber{
             getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Line, SimulationControl::kPolynomialOrder>()};
-    if constexpr (IsLeft) {
+    if constexpr (AdjacencyType == AdjacencyEnum::Left) {
       return kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)] +
              qudrature_sequence_in_adjacency;
-    } else {
+    }
+    if constexpr (AdjacencyType == AdjacencyEnum::Right) {
       return kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
              (qudrature_sequence_in_adjacency + 1);
     }
@@ -189,10 +190,11 @@ template <bool IsLeft>
         kElementAccumulateAdjacencyQuadratureNumber{
             getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Triangle,
                                                           SimulationControl::kPolynomialOrder>()};
-    if constexpr (IsLeft) {
+    if constexpr (AdjacencyType == AdjacencyEnum::Left) {
       return kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)] +
              qudrature_sequence_in_adjacency;
-    } else {
+    }
+    if constexpr (AdjacencyType == AdjacencyEnum::Right) {
       return kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
              (qudrature_sequence_in_adjacency + 1);
     }
@@ -201,10 +203,11 @@ template <bool IsLeft>
         kElementAccumulateAdjacencyQuadratureNumber{
             getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Quadrangle,
                                                           SimulationControl::kPolynomialOrder>()};
-    if constexpr (IsLeft) {
+    if constexpr (AdjacencyType == AdjacencyEnum::Left) {
       return kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)] +
              qudrature_sequence_in_adjacency;
-    } else {
+    }
+    if constexpr (AdjacencyType == AdjacencyEnum::Right) {
       return kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
              (qudrature_sequence_in_adjacency + 1);
     }
@@ -305,10 +308,10 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       const Eigen::Vector<Isize, 2>& parent_gmsh_type_number =
           adjacency_element_mesh.element_(i).parent_gmsh_type_number_;
       adjacency_quadrature_node_sequence_in_parent(0) =
-          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<true>(
+          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<AdjacencyEnum::Left>(
               parent_gmsh_type_number(0), adjacency_sequence_in_parent(0), j);
       adjacency_quadrature_node_sequence_in_parent(1) =
-          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<false>(
+          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<AdjacencyEnum::Right>(
               parent_gmsh_type_number(1), adjacency_sequence_in_parent(1), j);
       left_quadrature_node_variable.getFromParent(mesh, solver, parent_gmsh_type_number(0), parent_index_each_type(0),
                                                   adjacency_quadrature_node_sequence_in_parent(0));
@@ -362,10 +365,10 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       const Eigen::Vector<Isize, 2>& parent_gmsh_type_number =
           adjacency_element_mesh.element_(i).parent_gmsh_type_number_;
       adjacency_quadrature_node_sequence_in_parent(0) =
-          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<true>(
+          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<AdjacencyEnum::Left>(
               parent_gmsh_type_number(0), adjacency_sequence_in_parent(0), j);
       adjacency_quadrature_node_sequence_in_parent(1) =
-          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<false>(
+          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<AdjacencyEnum::Right>(
               parent_gmsh_type_number(1), adjacency_sequence_in_parent(1), j);
       left_quadrature_node_variable.getFromParent(mesh, solver, parent_gmsh_type_number(0), parent_index_each_type(0),
                                                   adjacency_quadrature_node_sequence_in_parent(0));
@@ -428,10 +431,10 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       const Eigen::Vector<Isize, 2>& parent_gmsh_type_number =
           adjacency_element_mesh.element_(i).parent_gmsh_type_number_;
       adjacency_quadrature_node_sequence_in_parent(0) =
-          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<true>(
+          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<AdjacencyEnum::Left>(
               parent_gmsh_type_number(0), adjacency_sequence_in_parent(0), j);
       adjacency_quadrature_node_sequence_in_parent(1) =
-          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<false>(
+          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<AdjacencyEnum::Right>(
               parent_gmsh_type_number(1), adjacency_sequence_in_parent(1), j);
       left_quadrature_node_variable.getFromParent(mesh, solver, parent_gmsh_type_number(0), parent_index_each_type(0),
                                                   adjacency_quadrature_node_sequence_in_parent(0));
@@ -492,8 +495,8 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       const Isize adjacency_sequence_in_parent = adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_(0);
       const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
       const Isize adjacency_quadrature_node_sequence_in_parent =
-          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<true>(parent_gmsh_type_number,
-                                                                                       adjacency_sequence_in_parent, j);
+          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<AdjacencyEnum::Left>(
+              parent_gmsh_type_number, adjacency_sequence_in_parent, j);
       left_quadrature_node_variable.getFromParent(mesh, solver, parent_gmsh_type_number, parent_index_each_type,
                                                   adjacency_quadrature_node_sequence_in_parent);
       left_quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
@@ -541,8 +544,8 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       const Isize adjacency_sequence_in_parent = adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_(0);
       const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
       const Isize adjacency_quadrature_node_sequence_in_parent =
-          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<true>(parent_gmsh_type_number,
-                                                                                       adjacency_sequence_in_parent, j);
+          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<AdjacencyEnum::Left>(
+              parent_gmsh_type_number, adjacency_sequence_in_parent, j);
       left_quadrature_node_variable.getFromParent(mesh, solver, parent_gmsh_type_number, parent_index_each_type,
                                                   adjacency_quadrature_node_sequence_in_parent);
       left_quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
@@ -601,8 +604,8 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       const Isize adjacency_sequence_in_parent = adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_(0);
       const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
       const Isize adjacency_quadrature_node_sequence_in_parent =
-          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<true>(parent_gmsh_type_number,
-                                                                                       adjacency_sequence_in_parent, j);
+          this->template getAdjacencyParentElementQuadratureNodeSequenceInParent<AdjacencyEnum::Left>(
+              parent_gmsh_type_number, adjacency_sequence_in_parent, j);
       left_quadrature_node_variable.getFromParent(mesh, solver, parent_gmsh_type_number, parent_index_each_type,
                                                   adjacency_quadrature_node_sequence_in_parent);
       left_quadrature_node_variable.calculateComputationalFromConserved(thermal_model);

@@ -65,7 +65,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 2, 1> rae2822_line_tag;
   Eigen::Array<int, 4, 1> connection_line_tag;
   Eigen::Array<int, 4, 1> curve_loop_tag;
-  Eigen::Array<int, 4, 1> plane_surface_tag;
+  Eigen::Array<int, 3, 1> plane_surface_tag;
   std::array<std::vector<int>, 4> physical_group_tag;
   gmsh::model::add("rae2822");
   const int rae2822_leading_edge_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
@@ -129,22 +129,18 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i));
   }
   gmsh::model::geo::synchronize();
-  physical_group_tag[0].emplace_back(farfield_line_tag(0));
-  physical_group_tag[0].emplace_back(farfield_line_tag(1));
-  physical_group_tag[0].emplace_back(farfield_line_tag(2));
-  physical_group_tag[1].emplace_back(farfield_line_tag(3));
-  physical_group_tag[1].emplace_back(farfield_line_tag(4));
-  physical_group_tag[0].emplace_back(farfield_line_tag(5));
+  for (std::ptrdiff_t i = 0; i < 6; i++) {
+    physical_group_tag[0].emplace_back(farfield_line_tag(i));
+  }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
-    physical_group_tag[2].emplace_back(rae2822_line_tag(i));
+    physical_group_tag[1].emplace_back(rae2822_line_tag(i));
   }
   for (std::ptrdiff_t i = 0; i < 4; i++) {
-    physical_group_tag[3].emplace_back(plane_surface_tag(i));
+    physical_group_tag[2].emplace_back(plane_surface_tag(i));
   }
   gmsh::model::addPhysicalGroup(1, physical_group_tag[0], -1, "bc-1");
   gmsh::model::addPhysicalGroup(1, physical_group_tag[1], -1, "bc-2");
-  gmsh::model::addPhysicalGroup(1, physical_group_tag[2], -1, "bc-3");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[3], -1, "vc-1");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
   gmsh::write(mesh_file_path);
@@ -159,11 +155,9 @@ int main(int argc, char* argv[]) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
         1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0};
   });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::CharacteristicInflow>(
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1", {1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>(
-      "bc-2", {1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-3");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
   system.setTransportModel(1.4 * 0.4 / 6.5e6);
   system.synchronize();
   system.setTimeIntegration(1, 1.0);

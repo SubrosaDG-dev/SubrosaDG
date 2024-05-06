@@ -480,16 +480,16 @@ struct VariableGradient {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->conserved_.noalias() =
             ((solver.triangle_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
-              3.0 * solver.triangle_.element_(parent_index_each_type)
-                        .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+              solver.triangle_.element_(parent_index_each_type)
+                  .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
              mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
                  .transpose())
                 .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
       } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->conserved_.noalias() =
             ((solver.quadrangle_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
-              4.0 * solver.quadrangle_.element_(parent_index_each_type)
-                        .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+              solver.quadrangle_.element_(parent_index_each_type)
+                  .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
              mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
                  .transpose())
                 .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);

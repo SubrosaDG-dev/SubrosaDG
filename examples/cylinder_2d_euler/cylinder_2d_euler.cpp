@@ -16,7 +16,7 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
                                                      "build/out/cylinder_2d_euler"};
 
 using SimulationControl = SubrosaDG::SimulationControlEuler<
-    2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
+    2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
 
@@ -103,9 +103,9 @@ int main(int argc, char* argv[]) {
   SubrosaDG::System<SimulationControl> system{};
   system.setMesh(kExampleDirectory / "cylinder_2d.msh", generateMesh);
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.1, 0.0, 1.0};
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.38, 0.0, 1.0};
   });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.1, 0.0, 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.38, 0.0, 1.0});
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-2");
   system.synchronize();
   system.setTimeIntegration(1, 1.0);

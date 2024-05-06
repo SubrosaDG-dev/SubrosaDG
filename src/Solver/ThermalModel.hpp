@@ -105,8 +105,6 @@ struct TransportModel;
 
 template <>
 struct TransportModel<TransportModelEnum::Constant> {
-  // NOTE: Reference Temperature = 273.15, Reference Dynamic Viscosity = 1.716e-5,
-  // Reference Reynolds Number = 1.293 * 331.45 / 1.716e-5 =  2.497e7 ~ 2.5e7
   inline static Real dynamic_viscosity;
   inline static Real thermal_conductivity;
 
@@ -124,7 +122,8 @@ struct TransportModel<TransportModelEnum::Sutherland> {
   inline static constexpr Real kSutherlandTemperature = 110.4;
 
   [[nodiscard]] inline Real calculateSutherlandRatio(const Real temperature) const {
-    return std::pow(temperature, 1.5) * (this->kReferenceTemperature + this->kSutherlandTemperature) /
+    return std::sqrt(temperature * temperature * temperature) *
+           (this->kReferenceTemperature + this->kSutherlandTemperature) /
            (temperature * this->kReferenceTemperature + this->kSutherlandTemperature);
   }
 

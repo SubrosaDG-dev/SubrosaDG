@@ -269,8 +269,8 @@ set(SUBROSA_DG_CXX_RELEASE_FLAGS)
 # set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
 
 # add cxx compilation option
-string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++ -Wno-narrowing")
-string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation")
+string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++")
+string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation -Wno-narrowing")
 # string(APPEND SUBROSA_DG_CXX_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
 string(APPEND SUBROSA_DG_CXX_DEBUG_FLAGS "${SUBROSA_DG_CXX_WARNING_FLAGS} ${SUBROSA_DG_CXX_COVER_FLAGS}")
 string(APPEND SUBROSA_DG_CXX_RELWITHDEBINFO_FLAGS "-mfma $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native> \

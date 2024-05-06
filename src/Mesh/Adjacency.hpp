@@ -201,7 +201,7 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
       this->element_(i).gmsh_tag_ = node_tag_element_map.at(node_tag);
     } catch (const std::out_of_range& error) {
       std::cout << fmt::format("Cannot find adjacency element with node tag: {}", fmt::join(node_tag, ", ")) << '\n';
-      std::cout << "Check your physical group definition." << '\n';
+      std::cout << "Check your physical group definition or computational mesh type." << '\n';
     }
     this->element_(i).gmsh_physical_index_ =
         information.gmsh_tag_to_element_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_index_;

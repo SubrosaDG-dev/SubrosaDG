@@ -39,6 +39,11 @@ enum class MeshModelEnum {
   TetrahedronPyramidHexahedron,
 };
 
+enum class AdjacencyEnum {
+  Left = 1,
+  Right,
+};
+
 enum class PolynomialOrderEnum {
   P1 = 1,
   P2,
@@ -55,8 +60,6 @@ enum class EquationModelEnum {
 
 enum class BoundaryConditionEnum {
   RiemannFarfield = 1,
-  CharacteristicInflow,
-  PressureOutflow,
   IsothermalNoslipWall,
   AdiabaticSlipWall,
   AdiabaticNoSlipWall,

@@ -18,5 +18,7 @@ The project is still in early development stage.
 - [ ] Documentation for variable storage
 - [x] Curved elements
 - [ ] 2D Navier-Stokes equation(BR1/BR2 scheme)
+- [ ] Compressed RawBinary output(use zlib and async io)
+- [ ] Cuda gemm acceleration(use cublas)
 
   ...

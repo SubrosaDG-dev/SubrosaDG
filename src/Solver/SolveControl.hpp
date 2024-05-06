@@ -148,7 +148,7 @@ struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierS
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 struct AdjacencyElementSolverBase {
-  template <bool IsLeft>
+  template <AdjacencyEnum AdjacencyType>
   [[nodiscard]] inline Isize getAdjacencyParentElementQuadratureNodeSequenceInParent(
       Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent, Isize qudrature_sequence_in_adjacency) const;
 

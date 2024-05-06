@@ -54,9 +54,7 @@ struct System {
   }
 
   template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
-             BoundaryConditionType == BoundaryConditionEnum::CharacteristicInflow ||
-             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow)
+    requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield)
   inline void addBoundaryCondition(
       const std::string& boundary_condition_name,
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {

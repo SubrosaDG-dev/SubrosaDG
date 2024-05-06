@@ -98,7 +98,7 @@ struct CommandLine {
     if (this->is_open_) {
       std::cout << '\n';
       this->view_progress_bar_.restart();
-      this->view_progress_bar_.initialize(iteration_number, this->line_number_ + 2);
+      this->view_progress_bar_.initialize(iteration_number, 1);
     }
   }
 

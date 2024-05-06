@@ -30,8 +30,8 @@ struct Environment {
 inline Environment::Environment() {
   gmsh::initialize();
 #ifndef SUBROSA_DG_DEVELOP
-  omp_set_num_threads(omp_get_max_threads());
-  gmsh::option::setNumber("General.NumThreads", omp_get_max_threads());
+  omp_set_num_threads(kNumberOfPhysicalCores);
+  gmsh::option::setNumber("General.NumThreads", kNumberOfPhysicalCores);
 #endif  // SUBROSA_DG_DEVELOP
 }
 

@@ -78,8 +78,8 @@ inline void calculateConvectiveLaxFriedrichsFlux(
     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
     const Variable<SimulationControl>& left_quadrature_node_variable,
     const Variable<SimulationControl>& right_quadrature_node_variable, Flux<SimulationControl>& convective_flux) {
-  calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_flux_);
-  calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_flux_);
+  calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_);
+  calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_);
   const Real left_normal_velocity =
       left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>().transpose() *
       normal_vector;
