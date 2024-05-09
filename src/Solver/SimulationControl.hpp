@@ -697,7 +697,7 @@ using QuadrangleTrait = ElementTrait<ElementEnum::Quadrangle, P>;
 
 template <int Dimension, PolynomialOrderEnum P, EquationModelEnum EquationModelType,
           ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
-          TimeIntegrationEnum TimeIntegrationType>
+          TimeIntegrationEnum TimeIntegrationType, PolynomialOrderEnum InitialP>
 struct SolveControl {
   inline static constexpr int kDimension{Dimension};
   inline static constexpr PolynomialOrderEnum kPolynomialOrder{P};
@@ -705,6 +705,7 @@ struct SolveControl {
   inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
   inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
   inline static constexpr TimeIntegrationEnum kTimeIntegration{TimeIntegrationType};
+  inline static constexpr PolynomialOrderEnum kInitialPolynomialOrder{InitialP};
 };
 
 template <EquationModelEnum EquationModelType>
@@ -752,37 +753,39 @@ struct RANSVariable : EquationVariable<EquationModelEnum::RANS> {
 
 template <int Dimension, PolynomialOrderEnum P, MeshModelEnum MeshModelType, EquationModelEnum EquationModelType,
           ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
-          TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
-struct SimulationControl
-    : SolveControl<Dimension, P, EquationModelType, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType> {
+          TimeIntegrationEnum TimeIntegrationType, PolynomialOrderEnum InitialP, ViewModelEnum ViewModelType>
+struct SimulationControl : SolveControl<Dimension, P, EquationModelType, ThermodynamicModelType, EquationOfStateType,
+                                        TimeIntegrationType, InitialP> {
   inline static constexpr MeshModelEnum kMeshModel{MeshModelType};
   inline static constexpr ViewModelEnum kViewModel{ViewModelType};
 };
 
 template <int Dimension, PolynomialOrderEnum P, MeshModelEnum MeshModelType,
           ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
-          ConvectiveFluxEnum ConvectiveFluxType, TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
+          ConvectiveFluxEnum ConvectiveFluxType, TimeIntegrationEnum TimeIntegrationType, PolynomialOrderEnum InitialP,
+          ViewModelEnum ViewModelType>
 struct SimulationControlEuler
     : SimulationControl<Dimension, P, MeshModelType, EquationModelEnum::Euler, ThermodynamicModelType,
-                        EquationOfStateType, TimeIntegrationType, ViewModelType>,
+                        EquationOfStateType, TimeIntegrationType, InitialP, ViewModelType>,
       EulerVariable<Dimension, ConvectiveFluxType> {};
 
 template <int Dimension, PolynomialOrderEnum P, MeshModelEnum MeshModelType,
           ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
           TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
-          TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
+          TimeIntegrationEnum TimeIntegrationType, PolynomialOrderEnum InitialP, ViewModelEnum ViewModelType>
 struct SimulationControlNavierStokes
     : SimulationControl<Dimension, P, MeshModelType, EquationModelEnum::NavierStokes, ThermodynamicModelType,
-                        EquationOfStateType, TimeIntegrationType, ViewModelType>,
+                        EquationOfStateType, TimeIntegrationType, InitialP, ViewModelType>,
       NavierStokesVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType> {};
 
 template <int Dimension, PolynomialOrderEnum P, MeshModelEnum MeshModelType,
           ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
           TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
-          TurbulenceModelEnum TurbulenceModelType, TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
+          TurbulenceModelEnum TurbulenceModelType, TimeIntegrationEnum TimeIntegrationType,
+          PolynomialOrderEnum InitialP, ViewModelEnum ViewModelType>
 struct SimulationControlRANS
     : SimulationControl<Dimension, P, MeshModelType, EquationModelEnum::NavierStokes, ThermodynamicModelType,
-                        EquationOfStateType, TimeIntegrationType, ViewModelType>,
+                        EquationOfStateType, TimeIntegrationType, InitialP, ViewModelType>,
       RANSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType, TurbulenceModelType> {};
 
 }  // namespace SubrosaDG

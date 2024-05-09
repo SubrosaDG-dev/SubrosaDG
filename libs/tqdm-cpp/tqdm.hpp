@@ -66,10 +66,11 @@ class Chronometer {
 
 class ProgressBar {
  public:
-  void initialize(int cycle_num, int delete_line) {
-    progress_ = 0;
-    cycle_num_ = static_cast<index>(cycle_num);
-    num_order_ = log10(cycle_num_) + 1;
+  void initialize(int cycle_start, int cycle_end, int delete_line) {
+    progress_ = static_cast<index>(cycle_start);
+    cycle_start_ = static_cast<index>(cycle_start);
+    cycle_end_ = static_cast<index>(cycle_end);
+    num_order_ = log10(cycle_end_) + 1;
     delete_line_ = delete_line;
 
     for (int i = 0; i < delete_line_; i++) {
@@ -85,7 +86,7 @@ class ProgressBar {
   }
 
   void update() {
-    double proc = static_cast<double>(++progress_) / static_cast<double>(cycle_num_);
+    double proc = static_cast<double>(++progress_ - cycle_start_) / static_cast<double>(cycle_end_ - cycle_start_);
 
     if (time_since_refresh() > min_time_per_update_ || proc == 0 || proc == 1) {
       reset_refresh_timer();
@@ -115,7 +116,8 @@ class ProgressBar {
 
     std::stringstream bar;
 
-    bar << "\e[2K" << "\e[" << delete_line_ << 'A';
+    bar << "\e[2K"
+        << "\e[" << delete_line_ << 'A';
 
     bar << "Step: " << std::setw(num_order_) << progress_;
 
@@ -146,7 +148,8 @@ class ProgressBar {
 
   index progress_;
   int delete_line_;
-  index cycle_num_;
+  index cycle_start_;
+  index cycle_end_;
   int num_order_;
 
   double min_time_per_update_{0.10};  // found experimentally

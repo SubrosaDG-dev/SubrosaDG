@@ -12,14 +12,14 @@
 
 #include "SubrosaDG"
 
-inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory /
-                                                     "build/out/periodic_1d_euler"};
+inline const std::string kExampleName{"periodic_1d_euler"};
 
-using SimulationControl =
-    SubrosaDG::SimulationControlEuler<1, SubrosaDG::PolynomialOrderEnum::P2, SubrosaDG::MeshModelEnum::Line,
-                                      SubrosaDG::ThermodynamicModelEnum::ConstantE,
-                                      SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
-                                      SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
+inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
+
+using SimulationControl = SubrosaDG::SimulationControlEuler<
+    1, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Line, SubrosaDG::ThermodynamicModelEnum::ConstantE,
+    SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
+    SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::ViewModelEnum::Vtu>;
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::add("periodic_1d");
@@ -38,16 +38,15 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system{};
-  system.setMesh(kExampleDirectory / "periodic_1d.msh", generateMesh);
+  system.setMesh(kExampleDirectory / "periodic_1d_euler.msh", generateMesh);
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
         1.0 + 0.2 * std::sin(SubrosaDG::kPi * coordinate.x()), 1.0,
         1.4 / (1.0 + 0.2 * std::sin(SubrosaDG::kPi * coordinate.x()))};
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
-  system.synchronize();
-  system.setTimeIntegration(1, 1.0);
-  system.setViewConfig(-1, kExampleDirectory, "periodic_1d", SubrosaDG::ViewConfigEnum::Default);
+  system.setTimeIntegration(1.0);
+  system.setViewConfig(kExampleDirectory, kExampleName);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});
   system.solve();

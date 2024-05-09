@@ -39,7 +39,7 @@ namespace SubrosaDG {
 template <typename SimulationControl>
 struct CommandLine {
   bool is_open_{true};
-  Real time_value_{0.0};
+  Real time_value_;
   std::deque<Real> time_value_deque_;
   const int line_number_{10};
   Tqdm::ProgressBar solver_progress_bar_;
@@ -64,18 +64,18 @@ struct CommandLine {
     }
   }
 
-  inline void initializeSolver(const int iteration_number) {
+  inline void initializeSolver(const int iteration_start, const int iteration_end) {
     if (this->is_open_) {
       std::cout << '\n';
       this->solver_progress_bar_.restart();
-      this->solver_progress_bar_.initialize(iteration_number, this->line_number_ + 2);
+      this->solver_progress_bar_.initialize(iteration_start, iteration_end, this->line_number_ + 2);
     }
   }
 
   inline void updateSolver(const int step, const Real delta_time,
                            const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& new_error,
                            std::fstream& error_finout) {
-    this->time_value_ += delta_time;
+    this->time_value_ = static_cast<Real>(step) * delta_time;
     error_finout << this->getLineInformation(this->time_value_, new_error) << '\n';
     std::string error_string;
     error_string += this->getVariableList() + '\n';
@@ -98,7 +98,7 @@ struct CommandLine {
     if (this->is_open_) {
       std::cout << '\n';
       this->view_progress_bar_.restart();
-      this->view_progress_bar_.initialize(iteration_number, 1);
+      this->view_progress_bar_.initialize(0, iteration_number, 1);
     }
   }
 
@@ -108,8 +108,10 @@ struct CommandLine {
     }
   }
 
-  inline void initializeCommandLine(std::fstream& error_finout) {
-    error_finout << this->getVariableList() << '\n';
+  inline void initializeCommandLine(const int iteration_start, std::fstream& error_finout) {
+    if (iteration_start == 0) {
+      error_finout << this->getVariableList() << '\n';
+    }
     for (int i = 0; i < this->line_number_; i++) {
       this->time_value_deque_.emplace_back(0.0);
       this->error_deque_.emplace_back(Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero());

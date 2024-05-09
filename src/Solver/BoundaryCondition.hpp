@@ -175,16 +175,12 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfie
   }
 
   inline void calculateBoundaryGradientVariableImpl(
-      const ThermalModel<SimulationControl>& thermal_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
       Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable) const {
-    Variable<SimulationControl> boundary_quadrature_node_variable;
-    calculateRiemannSolver(thermal_model, normal_vector, left_quadrature_node_variable, this->boundary_dummy_variable_,
-                           boundary_quadrature_node_variable);
-    boundary_quadrature_node_variable.calculateConservedFromComputational();
-    boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
+    boundary_quadrature_node_volume_gradient_variable.conserved_ = left_quadrature_node_variable.conserved_;
     boundary_quadrature_node_interface_gradient_variable.conserved_.setZero();
   }
 

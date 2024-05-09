@@ -15,9 +15,12 @@
 
 #include <Eigen/Core>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <functional>
+#include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -43,7 +46,7 @@ struct System {
   Mesh<SimulationControl> mesh_;
   ThermalModel<SimulationControl> thermal_model_;
   std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>> boundary_condition_;
-  std::unordered_map<Isize, InitialCondition<SimulationControl>> initial_condition_;
+  InitialCondition<SimulationControl> initial_condition_;
   TimeIntegration<SimulationControl> time_integration_;
   Solver<SimulationControl> solver_;
   View<SimulationControl> view_;
@@ -97,16 +100,28 @@ struct System {
   }
 
   inline void addInitialCondition(
-      const std::string& initial_condition_name,
+      [[maybe_unused]] const std::string& initial_condition_name,
       const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
           const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>& initial_condition_function) {
-    const auto initial_condition_index =
-        static_cast<Isize>(this->mesh_.information_.physical_.find_index(initial_condition_name));
-    this->initial_condition_[initial_condition_index].function_ = initial_condition_function;
+    this->initial_condition_.function_ = initial_condition_function;
+    this->initial_condition_.type_ = InitialConditionEnum::Function;
   }
 
-  inline void setTimeIntegration(const int iteration_number, const Real courant_friedrichs_lewy_number) {
-    this->time_integration_.iteration_number_ = iteration_number;
+  inline void addInitialCondition([[maybe_unused]] const std::string& initial_condition_name,
+                                  const std::filesystem::path& initial_condition_file) {
+    this->initial_condition_.file_path_ = initial_condition_file;
+    this->initial_condition_.type_ = InitialConditionEnum::SpecificFile;
+  }
+
+  inline void setTimeIntegration(const Real courant_friedrichs_lewy_number, const int iteration_start = 0,
+                                 const int iteration_end = 0) {
+    if (iteration_start == 0 && iteration_end == 0) {
+      std::cout << "\nSet time integration start and number: ";
+      std::cin >> this->time_integration_.iteration_start_ >> this->time_integration_.iteration_end_;
+    } else {
+      this->time_integration_.iteration_start_ = iteration_start;
+      this->time_integration_.iteration_end_ = iteration_end;
+    }
     this->time_integration_.courant_friedrichs_lewy_number_ = courant_friedrichs_lewy_number;
   }
 
@@ -115,19 +130,24 @@ struct System {
     this->thermal_model_.calculateThermalConductivityFromDynamicViscosity();
   }
 
-  inline void setViewConfig(const int io_interval, const std::filesystem::path& output_directory,
-                            const std::string_view output_file_name_prefix, const ViewConfigEnum view_config) {
-    if (io_interval <= 0) {
-      this->view_.io_interval_ = this->time_integration_.iteration_number_;
+  inline void setViewConfig(const std::filesystem::path& output_directory,
+                            const std::string_view output_file_name_prefix, const int io_interval = 0) {
+    if (io_interval == 0) {
+      std::cout << "Set view interval: ";
+      std::cin >> this->view_.io_interval_;
+      if (this->view_.io_interval_ == -1) {
+        this->view_.io_interval_ = this->time_integration_.iteration_end_;
+      }
+    } else if (io_interval == -1) {
+      this->view_.io_interval_ = this->time_integration_.iteration_end_;
     } else {
       this->view_.io_interval_ = io_interval;
     }
-    this->view_.iteration_order_ = static_cast<int>(log10(this->time_integration_.iteration_number_) + 1);
+    this->view_.iteration_order_ = static_cast<int>(log10(this->time_integration_.iteration_end_) + 1);
     this->view_.output_directory_ = output_directory;
     this->view_.output_file_name_prefix_ = output_file_name_prefix;
-    this->view_.config_enum_ = view_config;
-    this->view_.initializeViewRawBinary(this->view_.config_enum_);
-    this->command_line_.initializeCommandLine(this->view_.error_finout_);
+    this->view_.initializeViewFinout(this->time_integration_.iteration_start_);
+    this->command_line_.initializeCommandLine(this->time_integration_.iteration_start_, this->view_.error_finout_);
   }
 
   inline void setViewVariable(const std::vector<ViewVariableEnum>& view_variable) {
@@ -159,23 +179,47 @@ struct System {
     }
   }
 
-  inline void synchronize() { this->mesh_.readMeshElement(); }
+  inline void checkInitialCondition() {
+    if (this->time_integration_.iteration_start_ != 0) {
+      this->initial_condition_.file_path_ =
+          this->view_.output_directory_ /
+          std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, this->time_integration_.iteration_start_);
+      this->initial_condition_.type_ = InitialConditionEnum::LastFile;
+      this->view_.error_finout_.seekg(0, std::ios::beg);
+      std::string line;
+      for (int i = 0; i < 3; i++) {
+        std::getline(this->view_.error_finout_, line);
+      }
+      std::stringstream ss(line);
+      ss.ignore(2) >> this->time_integration_.delta_time_;
+      this->view_.error_finout_.seekg(0, std::ios::end);
+    }
+  }
 
   inline void solve() {
-    this->command_line_.initializeSolver(this->time_integration_.iteration_number_);
+    this->mesh_.readMeshElement();
+    this->command_line_.initializeSolver(this->time_integration_.iteration_start_,
+                                         this->time_integration_.iteration_end_);
+    this->checkInitialCondition();
     this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
                                    this->initial_condition_);
-    this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
-    this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
-    this->view_.error_finout_ << this->command_line_.getLineInformation(0.0, this->solver_.relative_error_) << '\n';
-    for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
+    if (this->time_integration_.iteration_start_ == 0) {
+      this->view_.setViewRawBinaryFinout(0, std::ios::out);
+      this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
+      this->view_.finalizeViewRawBinaryFinout();
+      this->view_.error_finout_ << this->command_line_.getLineInformation(0.0, this->solver_.relative_error_) << '\n';
+      this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
+    }
+    for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
       this->solver_.copyBasisFunctionCoefficient();
       for (int j = 0; j < this->time_integration_.kStep; j++) {
         this->solver_.stepSolver(j, this->mesh_, this->thermal_model_, this->boundary_condition_,
                                  this->time_integration_);
       }
       if (i % this->view_.io_interval_ == 0) {
+        this->view_.setViewRawBinaryFinout(i, std::ios::out);
         this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
+        this->view_.finalizeViewRawBinaryFinout();
       }
       this->solver_.calculateRelativeError(this->mesh_);
       this->command_line_.updateSolver(i, this->time_integration_.delta_time_, this->solver_.relative_error_,
@@ -184,12 +228,20 @@ struct System {
   }
 
   inline void view(const bool delete_dir = true) {
-    this->command_line_.initializeView(this->time_integration_.iteration_number_ / this->view_.io_interval_);
-    this->view_.initializeView(delete_dir, this->time_integration_.iteration_number_ + 1, this->mesh_);
-    this->view_.stepView(0, this->mesh_, this->thermal_model_);
-    for (int i = 1; i <= this->time_integration_.iteration_number_; i++) {
+    this->command_line_.initializeView(this->time_integration_.iteration_end_ / this->view_.io_interval_ -
+                                       this->time_integration_.iteration_start_ / this->view_.io_interval_);
+    this->view_.initializeView(delete_dir, this->time_integration_.iteration_start_,
+                               this->time_integration_.iteration_end_ + 1, this->mesh_);
+    if (this->time_integration_.iteration_start_ == 0) {
+      this->view_.setViewRawBinaryFinout(0, std::ios::in);
+      this->view_.stepView(0, this->mesh_, this->thermal_model_);
+      this->view_.finalizeViewRawBinaryFinout();
+    }
+    for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
       if (i % this->view_.io_interval_ == 0) {
+        this->view_.setViewRawBinaryFinout(i, std::ios::in);
         this->view_.stepView(i, this->mesh_, this->thermal_model_);
+        this->view_.finalizeViewRawBinaryFinout();
         this->command_line_.updateView();
       }
     }

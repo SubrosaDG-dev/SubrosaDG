@@ -1,9 +1,9 @@
 /**
- * @file naca0012_2d_euler.cpp
- * @brief The source file for SubrosaDG example naca0012_2d_euler.
+ * @file naca0012_2d_ns.cpp
+ * @brief The source file for SubrosaDG example naca0012_2d_ns.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
- * @date 2022-11-02
+ * @date 2024-05-08
  *
  * @version 0.1.0
  * @copyright Copyright (c) 2022 - 2024 by SubrosaDG developers. All rights reserved.
@@ -12,16 +12,15 @@
 
 #include "SubrosaDG"
 
-inline const std::string kExampleName{"naca0012_2d_euler"};
+inline const std::string kExampleName{"naca0012_2d_ns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
-                                      SubrosaDG::ThermodynamicModelEnum::ConstantE,
-                                      SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
-                                      SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P3,
-                                      SubrosaDG::ViewModelEnum::Vtu>;
+using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
+    2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
+    SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
+    SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
+    SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::ViewModelEnum::Vtu>;
 
 inline std::array<double, 64> naca0012_point_x_array{
     0.000584, 0.002334, 0.005247, 0.009315, 0.014529, 0.020877, 0.028344, 0.036913, 0.046563, 0.057272, 0.069015,
@@ -109,12 +108,12 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(i), 40);
   }
   gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 20);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 20, "Progression", -1.25);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 20, "Progression", 1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 20, "Progression", -1.4);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 20, "Progression", 1.4);
   gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 20);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 20, "Progression", -1.25);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 20, "Progression", -1.2);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 20, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 20, "Progression", -1.4);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 20, "Progression", -1.35);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 20, "Progression", -1.4);
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 20);
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
@@ -142,19 +141,20 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system{};
-  system.setMesh(kExampleDirectory / "naca0012_2d_euler.msh", generateMesh);
+  system.setMesh(kExampleDirectory / "naca0012_2d_ns.msh", generateMesh);
   system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0};
+        1.4, 0.5 * std::cos(SubrosaDG::toRadian(1.0)), 0.5 * std::sin(SubrosaDG::toRadian(1.0)), 1.0};
   });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-2");
+      "bc-1", {1.4, 0.5 * std::cos(SubrosaDG::toRadian(1.0)), 0.5 * std::sin(SubrosaDG::toRadian(1.0)), 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
+  system.setTransportModel(1.4 * 0.5 / 5000);
   system.setTimeIntegration(1.0);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
-                          SubrosaDG::ViewVariableEnum::MachNumber});
+                          SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::Vorticity});
   system.solve();
   system.view();
   return EXIT_SUCCESS;

@@ -15,8 +15,8 @@
 
 #include <Eigen/Core>
 #include <filesystem>
+#include <format>
 #include <fstream>
-#include <magic_enum.hpp>
 #include <string>
 #include <vector>
 #include <vtu11-cpp17.hpp>
@@ -193,9 +193,9 @@ struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimens
                                     const ThermalModel<SimulationControl>& thermal_model,
                                     std::fstream& raw_binary_finout);
 
-  inline void readTimeValue(int iteration_number, std::fstream& error_finout);
+  inline void readTimeValue(int iteration_end, std::fstream& error_finout);
 
-  inline void initializeViewSolver(int iteration_number, const Mesh<SimulationControl>& mesh);
+  inline void initializeViewSolver(int iteration_end, const Mesh<SimulationControl>& mesh);
 };
 
 template <typename SimulationControl>
@@ -206,7 +206,6 @@ struct ViewData {
   std::string output_file_name_prefix_;
   std::fstream error_finout_;
   std::fstream raw_binary_finout_;
-  ViewConfigEnum config_enum_;
   std::vector<ViewVariableEnum> variable_type_;
   ViewSolver<SimulationControl> solver_;
 };
@@ -310,43 +309,64 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
 
 template <typename SimulationControl>
 struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
-  inline void initializeViewRawBinary(const ViewConfigEnum view_config) {
+  inline void initializeViewFinout(const int iteration_start) {
+    const std::filesystem::path raw_output_directory = this->output_directory_ / "raw";
     std::ios::openmode open_mode = std::ios::in | std::ios::out;
-    if ((view_config & ViewConfigEnum::DoNotTruncate) == ViewConfigEnum::Default) {
+    if (iteration_start == 0) {
+      if (std::filesystem::exists(raw_output_directory)) {
+        std::filesystem::remove_all(raw_output_directory);
+      }
+      std::filesystem::create_directories(raw_output_directory);
       open_mode |= std::ios::trunc;
+    } else {
+      if (!std::filesystem::exists(raw_output_directory)) {
+        std::filesystem::create_directories(raw_output_directory);
+      }
+      open_mode |= std::ios::app;
     }
-#ifndef SUBROSA_DG_DEVELOP
-    open_mode |= std::ios::binary;
-#endif
-    this->raw_binary_finout_.open((this->output_directory_ / "raw.binary").string(), open_mode);
-    this->raw_binary_finout_.setf(std::ios::left, std::ios::adjustfield);
-    this->raw_binary_finout_.setf(std::ios::scientific, std::ios::floatfield);
-    this->error_finout_.open((this->output_directory_ / "error.txt").string(),
-                             std::ios::in | std::ios::out | std::ios::trunc);
+    this->error_finout_.open((this->output_directory_ / "error.txt").string(), open_mode);
     this->error_finout_.setf(std::ios::left, std::ios::adjustfield);
     this->error_finout_.setf(std::ios::scientific, std::ios::floatfield);
   }
 
-  inline void initializeView(const bool delete_dir, const int iteration_number, const Mesh<SimulationControl>& mesh) {
+  inline void initializeView(const bool delete_dir, const int iteration_start, const int iteration_end,
+                             const Mesh<SimulationControl>& mesh) {
     std::filesystem::path view_output_directory;
     if constexpr (SimulationControl::kViewModel == ViewModelEnum::Vtu) {
       view_output_directory = this->output_directory_ / "vtu";
     } else if constexpr (SimulationControl::kViewModel == ViewModelEnum::Dat) {
       view_output_directory = this->output_directory_ / "dat";
     }
-    if (delete_dir) {
+    if (delete_dir && iteration_start == 0) {
       if (std::filesystem::exists(view_output_directory)) {
         std::filesystem::remove_all(view_output_directory);
       }
       std::filesystem::create_directories(view_output_directory);
-    } else if (!std::filesystem::exists(view_output_directory)) {
-      std::filesystem::create_directories(view_output_directory);
+    } else {
+      if (!std::filesystem::exists(view_output_directory)) {
+        std::filesystem::create_directories(view_output_directory);
+      }
     }
-    this->raw_binary_finout_.seekg(0, std::ios::beg);
     this->error_finout_.seekg(0, std::ios::beg);
-    this->solver_.initializeViewSolver(iteration_number, mesh);
-    this->solver_.readTimeValue(iteration_number, this->error_finout_);
+    this->solver_.initializeViewSolver(iteration_end, mesh);
+    this->solver_.readTimeValue(iteration_end, this->error_finout_);
   }
+
+  inline void setViewRawBinaryFinout(const int step, std::ios::openmode open_mode) {
+    if (open_mode == std::ios::out) {
+      open_mode |= std::ios::trunc;
+    }
+#ifndef SUBROSA_DG_DEVELOP
+    open_mode |= std::ios::binary;
+#endif
+    this->raw_binary_finout_.open(
+        (this->output_directory_ / std::format("raw/{}_{}.raw", this->output_file_name_prefix_, step)).string(),
+        open_mode);
+    this->raw_binary_finout_.setf(std::ios::left, std::ios::adjustfield);
+    this->raw_binary_finout_.setf(std::ios::scientific, std::ios::floatfield);
+  }
+
+  inline void finalizeViewRawBinaryFinout() { this->raw_binary_finout_.close(); }
 
   inline void finalizeView() {
     this->error_finout_.close();

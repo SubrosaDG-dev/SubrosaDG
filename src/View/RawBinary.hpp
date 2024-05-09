@@ -165,10 +165,10 @@ inline void ViewSolver<SimulationControl>::calcluateViewVariable(const Mesh<Simu
 }
 
 template <typename SimulationControl>
-inline void ViewSolver<SimulationControl>::readTimeValue(const int iteration_number, std::fstream& error_finout) {
+inline void ViewSolver<SimulationControl>::readTimeValue(const int iteration_end, std::fstream& error_finout) {
   std::string line;
   std::getline(error_finout, line);
-  for (int i = 0; i < iteration_number; i++) {
+  for (int i = 0; i < iteration_end; i++) {
     std::getline(error_finout, line);
     std::stringstream ss(line);
     ss.ignore(2) >> this->time_value_(i);
@@ -176,7 +176,7 @@ inline void ViewSolver<SimulationControl>::readTimeValue(const int iteration_num
 }
 
 template <typename SimulationControl>
-inline void ViewSolver<SimulationControl>::initializeViewSolver(const int iteration_number,
+inline void ViewSolver<SimulationControl>::initializeViewSolver(const int iteration_end,
                                                                 const Mesh<SimulationControl>& mesh) {
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.view_variable_.resize(Eigen::NoChange, mesh.line_.number_);
@@ -188,7 +188,7 @@ inline void ViewSolver<SimulationControl>::initializeViewSolver(const int iterat
       this->quadrangle_.view_variable_.resize(Eigen::NoChange, mesh.quadrangle_.number_);
     }
   }
-  this->time_value_.resize(iteration_number);
+  this->time_value_.resize(iteration_end);
 }
 
 }  // namespace SubrosaDG

@@ -96,9 +96,9 @@ struct ElementSolverBase {
   Eigen::Array<PerElementSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel>, Eigen::Dynamic, 1>
       element_;
 
-  inline void initializeElementSolver(
-      const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
-      const std::unordered_map<Isize, InitialCondition<SimulationControl>>& initial_condition);
+  inline void initializeElementSolver(const ElementMesh<ElementTrait>& element_mesh,
+                                      const ThermalModel<SimulationControl>& thermal_model,
+                                      InitialCondition<SimulationControl>& initial_condition);
 
   inline void copyElementBasisFunctionCoefficient();
 
@@ -273,7 +273,7 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
   inline void initializeSolver(
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
       std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-      const std::unordered_map<Isize, InitialCondition<SimulationControl>>& initial_condition);
+      InitialCondition<SimulationControl>& initial_condition);
 
   inline void copyBasisFunctionCoefficient();
 

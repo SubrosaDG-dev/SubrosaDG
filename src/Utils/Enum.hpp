@@ -58,6 +58,12 @@ enum class EquationModelEnum {
   RANS,
 };
 
+enum class InitialConditionEnum {
+  Function = 1,
+  SpecificFile,
+  LastFile,
+};
+
 enum class BoundaryConditionEnum {
   RiemannFarfield = 1,
   IsothermalNoslipWall,
@@ -133,11 +139,6 @@ enum class VariableGradientEnum {
 enum class ViewModelEnum {
   Vtu = 1,
   Dat,
-};
-
-enum class ViewConfigEnum {
-  Default = 0,
-  DoNotTruncate = 1 << 0,
 };
 
 enum class ViewVariableEnum {

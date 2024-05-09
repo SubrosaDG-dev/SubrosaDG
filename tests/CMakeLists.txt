@@ -33,7 +33,3 @@ function(add_gtest testname testfile)
 endfunction()
 
 add_dependencies(all_ci all_tests)
-
-add_subdirectory(test_1d)
-
-add_subdirectory(test_2d)

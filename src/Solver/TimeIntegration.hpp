@@ -32,7 +32,8 @@
 namespace SubrosaDG {
 
 struct TimeIntegrationBase {
-  int iteration_number_;
+  int iteration_start_;
+  int iteration_end_;
   Real courant_friedrichs_lewy_number_;
   Real delta_time_{kRealMax};
 };
