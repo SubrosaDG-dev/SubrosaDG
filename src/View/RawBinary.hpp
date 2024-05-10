@@ -13,10 +13,15 @@
 #ifndef SUBROSA_DG_RAW_BINARY_HPP_
 #define SUBROSA_DG_RAW_BINARY_HPP_
 
+#include <zconf.h>
+#include <zlib.h>
+
 #include <Eigen/Core>
+#include <cstddef>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "Mesh/ReadControl.hpp"
 #include "Solver/SolveControl.hpp"
@@ -28,39 +33,56 @@
 
 namespace SubrosaDG {
 
+inline void writeCompressRawBinary(const std::stringstream& ss, std::fstream& raw_binary_fout) {
+  uLongf dest_len = compressBound(static_cast<uLong>(ss.str().size()));
+  std::vector<Bytef> dest(dest_len);
+  compress(dest.data(), &dest_len, reinterpret_cast<const Bytef*>(ss.str().c_str()),
+           static_cast<uLong>(ss.str().size()));
+  raw_binary_fout.write(reinterpret_cast<const char*>(dest.data()), static_cast<std::streamsize>(dest_len));
+}
+
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>::writeElementRawBinary(
     std::fstream& raw_binary_fout) const {
+#ifndef SUBROSA_DG_DEVELOP
+  std::stringstream ss;
+#endif
   for (Isize i = 0; i < this->number_; i++) {
 #ifdef SUBROSA_DG_DEVELOP
     raw_binary_fout << this->element_(i).variable_basis_function_coefficient_(1) << '\n';
 #else
-    raw_binary_fout.write(
-        reinterpret_cast<const char*>(this->element_(i).variable_basis_function_coefficient_(1).data()),
-        SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
-            static_cast<std::streamsize>(sizeof(Real)));
+    ss.write(reinterpret_cast<const char*>(this->element_(i).variable_basis_function_coefficient_(1).data()),
+             SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
+                 static_cast<std::streamsize>(sizeof(Real)));
 #endif
   }
+#ifndef SUBROSA_DG_DEVELOP
+  writeCompressRawBinary(ss, raw_binary_fout);
+#endif
 }
 
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::writeElementRawBinary(
     std::fstream& raw_binary_fout) const {
+#ifndef SUBROSA_DG_DEVELOP
+  std::stringstream ss;
+#endif
   for (Isize i = 0; i < this->number_; i++) {
 #ifdef SUBROSA_DG_DEVELOP
     raw_binary_fout << this->element_(i).variable_basis_function_coefficient_(1) << '\n'
                     << this->element_(i).variable_gradient_basis_function_coefficient_ << '\n';
 #else
-    raw_binary_fout.write(
-        reinterpret_cast<const char*>(this->element_(i).variable_basis_function_coefficient_(1).data()),
-        SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
-            static_cast<std::streamsize>(sizeof(Real)));
-    raw_binary_fout.write(
-        reinterpret_cast<const char*>(this->element_(i).variable_gradient_basis_function_coefficient_.data()),
-        SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-            ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
+    ss.write(reinterpret_cast<const char*>(this->element_(i).variable_basis_function_coefficient_(1).data()),
+             SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
+                 static_cast<std::streamsize>(sizeof(Real)));
+    ss.write(reinterpret_cast<const char*>(this->element_(i).variable_gradient_basis_function_coefficient_.data()),
+             SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
+                 ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
 #endif
   }
+#ifndef SUBROSA_DG_DEVELOP
+  writeCompressRawBinary(ss, raw_binary_fout);
+#endif
 }
 
 template <typename SimulationControl>
@@ -77,6 +99,18 @@ inline void Solver<SimulationControl>::writeRawBinary() {
   }
 }
 
+inline void readCompressedRawBinary(std::stringstream& ss, std::fstream& raw_binary_fin) {
+  raw_binary_fin.seekg(0, std::ios::end);
+  auto size = raw_binary_fin.tellg();
+  raw_binary_fin.seekg(0, std::ios::beg);
+  std::vector<Bytef> source(static_cast<std::size_t>(size));
+  raw_binary_fin.read(reinterpret_cast<char*>(source.data()), size);
+  uLongf dest_len = compressBound(static_cast<uLong>(size));
+  std::vector<Bytef> dest(dest_len);
+  uncompress(dest.data(), &dest_len, source.data(), static_cast<uLong>(size));
+  ss << std::string(reinterpret_cast<const char*>(dest.data()), dest_len);
+}
+
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>::calcluateElementViewVariable(
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
@@ -84,6 +118,10 @@ inline void ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
       variable_basis_function_coefficient;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllNodeNumber> variable;
+#ifndef SUBROSA_DG_DEVELOP
+  std::stringstream ss;
+  readCompressedRawBinary(ss, raw_binary_fin);
+#endif
   for (Isize i = 0; i < element_mesh.number_; i++) {
 #ifdef SUBROSA_DG_DEVELOP
     for (Isize j = 0; j < SimulationControl::kConservedVariableNumber; j++) {
@@ -92,9 +130,9 @@ inline void ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum
       }
     }
 #else
-    raw_binary_fin.read(reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
-                        SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
-                            static_cast<std::streamsize>(sizeof(Real)));
+    ss.read(reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
+            SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
+                static_cast<std::streamsize>(sizeof(Real)));
 #endif
     variable.noalias() = variable_basis_function_coefficient * this->basis_function_value_;
     for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
@@ -118,6 +156,10 @@ ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStok
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 ElementTrait::kAllNodeNumber>
       variable_gradient;
+#ifndef SUBROSA_DG_DEVELOP
+  std::stringstream ss;
+  readCompressedRawBinary(ss, raw_binary_fin);
+#endif
   for (Isize i = 0; i < element_mesh.number_; i++) {
 #ifdef SUBROSA_DG_DEVELOP
     for (Isize j = 0; j < SimulationControl::kConservedVariableNumber; j++) {
@@ -131,12 +173,12 @@ ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStok
       }
     }
 #else
-    raw_binary_fin.read(reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
-                        SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
-                            static_cast<std::streamsize>(sizeof(Real)));
-    raw_binary_fin.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
-                        SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                            ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
+    ss.read(reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
+            SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
+                static_cast<std::streamsize>(sizeof(Real)));
+    ss.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
+            SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
+                ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
 #endif
     variable.noalias() = variable_basis_function_coefficient * this->basis_function_value_;
     variable_gradient.noalias() = variable_gradient_basis_function_coefficient * this->basis_function_value_;

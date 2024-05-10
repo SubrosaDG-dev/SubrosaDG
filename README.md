@@ -20,7 +20,7 @@ The project is still in early development stage.
 - [x] 2D Navier-Stokes equation(BR1/BR2 scheme)
 - [x] Auto RawBinary File initialization
 - [x] Parallel Post-processing Acceleration
-- [ ] Compressed RawBinary output(use zlib)
+- [x] Compress RawBinary output(use zlib)
 - [ ] Cuda gemm acceleration(use cublas)
 
   ...

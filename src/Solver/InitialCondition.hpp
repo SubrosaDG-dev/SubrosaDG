@@ -164,7 +164,8 @@ struct InitialCondition {
               variable_gradient_basis_function_coefficient;
           this->fin_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                           SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                              ComputationalElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
+                              ComputationalElementTrait::kBasisFunctionNumber *
+                              static_cast<std::streamsize>(sizeof(Real)));
         }
 #endif
       }

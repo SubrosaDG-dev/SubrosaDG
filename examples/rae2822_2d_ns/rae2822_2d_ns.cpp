@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
                           SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::Vorticity});
-    system.synchronize();
+  system.synchronize();
   system.solve();
   system.view();
   return EXIT_SUCCESS;

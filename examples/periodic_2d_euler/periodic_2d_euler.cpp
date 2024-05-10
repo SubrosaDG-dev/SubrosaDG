@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});
-                            system.synchronize();
+  system.synchronize();
   system.solve();
   system.view();
 }

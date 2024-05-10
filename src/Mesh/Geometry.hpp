@@ -17,7 +17,6 @@
 
 #include <Eigen/Core>
 #include <Eigen/LU>  // IWYU pragma: keep
-#include <cmath>
 #include <cstddef>
 #include <vector>
 
