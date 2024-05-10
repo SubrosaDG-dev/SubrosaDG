@@ -234,7 +234,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsothermalNos
     boundary_quadrature_node_variable.calculateConservedFromComputational();
     boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
     boundary_quadrature_node_interface_gradient_variable.conserved_ =
-        (boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_) / 2.0;
+        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_;
   }
 
   inline void calculateBoundaryVariableGradientImpl(
@@ -283,7 +283,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticSlip
     boundary_quadrature_node_variable.calculateConservedFromComputational();
     boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
     boundary_quadrature_node_interface_gradient_variable.conserved_ =
-        (boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_) / 2.0;
+        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_;
   }
 
   inline void calculateBoundaryVariableGradientImpl(
@@ -328,7 +328,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticNoSl
     boundary_quadrature_node_variable.calculateConservedFromComputational();
     boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
     boundary_quadrature_node_interface_gradient_variable.conserved_ =
-        (boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_) / 2.0;
+        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_;
   }
 
   inline void calculateBoundaryVariableGradientImpl(

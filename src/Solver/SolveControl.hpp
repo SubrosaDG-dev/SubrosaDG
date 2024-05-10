@@ -210,18 +210,24 @@ struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equation
 };
 
 template <typename SimulationControl>
-struct SolverData<SimulationControl, 1> {
-  AdjacencyElementSolver<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                         SimulationControl::kEquationModel>
-      point_;
-  ElementSolver<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl, SimulationControl::kEquationModel>
-      line_;
+struct SolverBase {
+  std::fstream raw_binary_fout_;
+  std::fstream error_fout_;
 
   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
 };
 
 template <typename SimulationControl>
-struct SolverData<SimulationControl, 2> {
+struct SolverData<SimulationControl, 1> : SolverBase<SimulationControl> {
+  AdjacencyElementSolver<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
+                         SimulationControl::kEquationModel>
+      point_;
+  ElementSolver<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl, SimulationControl::kEquationModel>
+      line_;
+};
+
+template <typename SimulationControl>
+struct SolverData<SimulationControl, 2> : SolverBase<SimulationControl> {
   AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
                          SimulationControl::kEquationModel>
       line_;
@@ -231,8 +237,6 @@ struct SolverData<SimulationControl, 2> {
   ElementSolver<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
                 SimulationControl::kEquationModel>
       quadrangle_;
-
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
 };
 
 template <typename SimulationControl>
@@ -311,7 +315,7 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void calculateRelativeError(const Mesh<SimulationControl>& mesh);
 
-  inline void writeRawBinary(std::fstream& fout) const;
+  inline void writeRawBinary();
 };
 
 }  // namespace SubrosaDG

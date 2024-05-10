@@ -110,22 +110,22 @@ struct InitialCondition {
           }
         }
 #else
-        initial_condition.fin_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
-                                    SimulationControl::kConservedVariableNumber * kBasisFunctionNumber *
-                                        static_cast<std::streamsize>(sizeof(Real)));
+        this->fin_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
+                        SimulationControl::kConservedVariableNumber * kBasisFunctionNumber *
+                            static_cast<std::streamsize>(sizeof(Real)));
         if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
           Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                         kBasisFunctionNumber>
               variable_gradient_basis_function_coefficient;
-          initial_condition.fin_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
-                                      SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                                          kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
+          this->fin_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
+                          SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
+                              kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
         }
 #endif
       }
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                \
-    shared(Eigen::Dynamic, quadrature_node_conserved_variable, variable_basis_function_coefficient) \
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                              \
+    shared(Eigen::Dynamic, element_mesh, quadrature_node_conserved_variable, variable_basis_function_coefficient) \
     firstprivate(basis_function_value)
 #endif  // SUBROSA_DG_DEVELOP
       for (Isize i = 0; i < element_mesh.number_; i++) {
@@ -155,23 +155,22 @@ struct InitialCondition {
           }
         }
 #else
-        initial_condition.fin_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
-                                    SimulationControl::kConservedVariableNumber * kBasisFunctionNumber *
-                                        static_cast<std::streamsize>(sizeof(Real)));
+        this->fin_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
+                        SimulationControl::kConservedVariableNumber * ComputationalElementTrait::kBasisFunctionNumber *
+                            static_cast<std::streamsize>(sizeof(Real)));
         if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
           Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                        kBasisFunctionNumber>
+                        ComputationalElementTrait::kBasisFunctionNumber>
               variable_gradient_basis_function_coefficient;
-          initial_condition.fin_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
-                                      SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                                          kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
+          this->fin_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
+                          SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
+                              ComputationalElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
         }
 #endif
       }
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                \
-    shared(Eigen::Dynamic, quadrature_node_conserved_variable, variable_basis_function_coefficient) \
-    firstprivate(basis_function_value)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
+    shared(Eigen::Dynamic, element_mesh, quadrature_node_conserved_variable, variable_basis_function_coefficient)
 #endif  // SUBROSA_DG_DEVELOP
       for (Isize i = 0; i < element_mesh.number_; i++) {
         quadrature_node_conserved_variable(i) =
@@ -196,7 +195,7 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElemen
       basis_function_value_llt(element_mesh.basis_function_.value_.transpose() * element_mesh.basis_function_.value_);
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, quadrature_node_conserved_variable) firstprivate(basis_function_value_llt)
+    shared(Eigen::Dynamic, element_mesh, quadrature_node_conserved_variable) firstprivate(basis_function_value_llt)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).variable_basis_function_coefficient_(1).noalias() =

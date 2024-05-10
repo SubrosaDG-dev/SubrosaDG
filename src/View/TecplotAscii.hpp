@@ -85,7 +85,7 @@ template <typename AdjacencyElementTrait>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeAdjacencyElement(
     const Isize physical_index, const MeshInformation& mesh_information,
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const ThermalModel<SimulationControl>& thermal_model,
+    const ThermalModel<SimulationControl>& thermal_model, const ViewData<SimulationControl>& view_data,
     Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
     Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
     Eigen::Matrix<Isize, AdjacencyElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
@@ -110,17 +110,17 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeAdjacencyEleme
   for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       const Isize adjacency_parent_element_view_basis_function_sequence_in_parent =
-          this->solver_.line_.getAdjacencyParentElementViewBasisFunctionSequenceInParent(
+          view_data.solver_.line_.getAdjacencyParentElementViewBasisFunctionSequenceInParent(
               parent_gmsh_type_number, adjacency_sequence_in_parent, j);
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        const ViewVariable<SimulationControl>& view_variable = this->solver_.triangle_.view_variable_(
+        const ViewVariable<SimulationControl>& view_variable = view_data.solver_.triangle_.view_variable_(
             adjacency_parent_element_view_basis_function_sequence_in_parent, parent_index_each_type);
         for (Isize k = 0; k < static_cast<Isize>(this->variable_type_.size()); k++) {
           node_variable(k, column + j) =
               view_variable.getView(thermal_model, this->variable_type_[static_cast<Usize>(k)]);
         }
       } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        const ViewVariable<SimulationControl>& view_variable = this->solver_.quadrangle_.view_variable_(
+        const ViewVariable<SimulationControl>& view_variable = view_data.solver_.quadrangle_.view_variable_(
             adjacency_parent_element_view_basis_function_sequence_in_parent, parent_index_each_type);
         for (Isize k = 0; k < static_cast<Isize>(this->variable_type_.size()); k++) {
           node_variable(k, column + j) =
@@ -139,13 +139,13 @@ template <typename SimulationControl>
 template <typename ElementTrait>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeElement(
     const Isize physical_index, const MeshInformation& mesh_information, const ElementMesh<ElementTrait>& element_mesh,
-    const ThermalModel<SimulationControl>& thermal_model,
+    const ThermalModel<SimulationControl>& thermal_model, const ViewData<SimulationControl>& view_data,
     Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
     Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
     Eigen::Matrix<Isize, ElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
     const Isize element_index, Isize& column) {
   const ElementViewSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel>& element_view_solver =
-      this->solver_.*(decltype(this->solver_)::template getElement<ElementTrait>());
+      view_data.solver_.*(decltype(view_data.solver_)::template getElement<ElementTrait>());
   const Isize element_gmsh_tag =
       mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
@@ -171,7 +171,7 @@ template <typename SimulationControl>
 template <int Dimension, bool IsAdjacency>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeField(
     const Isize physical_index, const Mesh<SimulationControl>& mesh,
-    const ThermalModel<SimulationControl>& thermal_model,
+    const ThermalModel<SimulationControl>& thermal_model, const ViewData<SimulationControl>& view_data,
     Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
     Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
     Eigen::Matrix<Isize, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic>& element_connectivity) {
@@ -182,11 +182,11 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeField(
     if constexpr (Dimension == 1) {
       if constexpr (IsAdjacency) {
         this->writeAdjacencyElement<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
-            physical_index, mesh.information_, mesh.line_, thermal_model, node_coordinate, node_variable,
+            physical_index, mesh.information_, mesh.line_, thermal_model, view_data, node_coordinate, node_variable,
             element_connectivity, i, column);
       } else {
         this->writeElement<LineTrait<SimulationControl::kPolynomialOrder>>(
-            physical_index, mesh.information_, mesh.line_, thermal_model, node_coordinate, node_variable,
+            physical_index, mesh.information_, mesh.line_, thermal_model, view_data, node_coordinate, node_variable,
             element_connectivity, i, column);
       }
     } else if constexpr (Dimension == 2) {
@@ -194,12 +194,12 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeField(
       } else {
         if (element_gmsh_type == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeElement<TriangleTrait<SimulationControl::kPolynomialOrder>>(
-              physical_index, mesh.information_, mesh.triangle_, thermal_model, node_coordinate, node_variable,
-              element_connectivity, i, column);
+              physical_index, mesh.information_, mesh.triangle_, thermal_model, view_data, node_coordinate,
+              node_variable, element_connectivity, i, column);
         } else if (element_gmsh_type == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeElement<QuadrangleTrait<SimulationControl::kPolynomialOrder>>(
-              physical_index, mesh.information_, mesh.quadrangle_, thermal_model, node_coordinate, node_variable,
-              element_connectivity, i, column);
+              physical_index, mesh.information_, mesh.quadrangle_, thermal_model, view_data, node_coordinate,
+              node_variable, element_connectivity, i, column);
         }
       }
     }
@@ -210,7 +210,8 @@ template <typename SimulationControl>
 template <int Dimension, bool IsAdjacency>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeView(
     const int step, const Isize physical_index, const Mesh<SimulationControl>& mesh,
-    const ThermalModel<SimulationControl>& thermal_model, std::ofstream& fout) {
+    const ThermalModel<SimulationControl>& thermal_model, const ViewData<SimulationControl>& view_data,
+    std::ofstream& fout) {
   Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> node_coordinate;
   Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic> node_variable;
   Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic> node_all_variable;
@@ -223,10 +224,10 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeView(
   node_all_variable.resize(SimulationControl::kDimension + static_cast<Isize>(this->variable_type_.size()),
                            node_number);
   element_connectivity.resize(Eigen::NoChange, element_number * element_sub_number);
-  this->writeField<Dimension, IsAdjacency>(physical_index, mesh, thermal_model, node_coordinate, node_variable,
-                                           element_connectivity);
+  this->writeField<Dimension, IsAdjacency>(physical_index, mesh, thermal_model, view_data, node_coordinate,
+                                           node_variable, element_connectivity);
   node_all_variable << node_coordinate, node_variable;
-  this->writeAsciiHeader<Dimension>(this->solver_.time_value_(step),
+  this->writeAsciiHeader<Dimension>(this->time_value_(step),
                                     mesh.information_.physical_[static_cast<Usize>(physical_index)], node_number,
                                     element_number * element_sub_number, fout);
   fout << node_all_variable.transpose() << '\n';
@@ -235,9 +236,10 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::writeView(
 
 template <typename SimulationControl>
 inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::stepView(
-    const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model) {
+    const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+    ViewData<SimulationControl>& view_data) {
   std::ofstream fout;
-  this->solver_.calcluateViewVariable(mesh, thermal_model, this->raw_binary_finout_);
+  view_data.solver_.calcluateViewVariable(mesh, thermal_model, view_data.raw_binary_fin_);
   this->setViewFout(step, fout);
   this->writeAsciiVariableList(fout);
   for (Isize i = 0; i < static_cast<Isize>(mesh.information_.physical_.size()); i++) {
@@ -246,14 +248,14 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::stepView(
     }
     if constexpr (SimulationControl::kDimension == 1) {
       if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 1) {
-        this->writeView<1, false>(step, i, mesh, thermal_model, fout);
+        this->writeView<1, false>(step, i, mesh, thermal_model, view_data, fout);
       }
     } else if constexpr (SimulationControl::kDimension == 2) {
       if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 1) {
         // NOTE: The ParaView can not read the Tecplot ASCII file with FELINESG.
-        this->writeView<1, true>(step, i, mesh, thermal_model, fout);
+        this->writeView<1, true>(step, i, mesh, thermal_model, view_data, fout);
       } else if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 2) {
-        this->writeView<2, false>(step, i, mesh, thermal_model, fout);
+        this->writeView<2, false>(step, i, mesh, thermal_model, view_data, fout);
       }
     }
   }

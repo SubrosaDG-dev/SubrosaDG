@@ -19,7 +19,7 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
 using SimulationControl = SubrosaDG::SimulationControlEuler<
     1, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Line, SubrosaDG::ThermodynamicModelEnum::ConstantE,
     SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
-    SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::ViewModelEnum::Vtu>;
+    SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::ViewModelEnum::Vtu>;
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::add("periodic_1d");
@@ -49,6 +49,7 @@ int main(int argc, char* argv[]) {
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});
+                            system.synchronize();
   system.solve();
   system.view();
   return EXIT_SUCCESS;

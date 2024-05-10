@@ -22,7 +22,7 @@ using SimulationControl =
     SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
                                       SubrosaDG::ThermodynamicModelEnum::ConstantE,
                                       SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
-                                      SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P3,
+                                      SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P1,
                                       SubrosaDG::ViewModelEnum::Vtu>;
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
@@ -70,6 +70,7 @@ int main(int argc, char* argv[]) {
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});
+                            system.synchronize();
   system.solve();
   system.view();
 }

@@ -17,9 +17,10 @@ The project is still in early development stage.
 - [x] Ascii/Binary VTU output
 - [ ] Documentation for variable storage
 - [x] Curved elements
-- [ ] 2D Navier-Stokes equation(BR1/BR2 scheme)
+- [x] 2D Navier-Stokes equation(BR1/BR2 scheme)
 - [x] Auto RawBinary File initialization
-- [ ] Compressed RawBinary output(use zlib and async io)
+- [x] Parallel Post-processing Acceleration
+- [ ] Compressed RawBinary output(use zlib)
 - [ ] Cuda gemm acceleration(use cublas)
 
   ...

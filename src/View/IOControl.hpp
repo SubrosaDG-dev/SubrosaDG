@@ -112,7 +112,7 @@ struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Eul
 
   inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
                                            const ThermalModel<SimulationControl>& thermal_model,
-                                           std::fstream& raw_binary_finout);
+                                           std::fstream& raw_binary_fin);
 
   inline ElementViewSolver() : ElementViewBasisFunction<ElementTrait>(){};
 };
@@ -124,7 +124,7 @@ struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Nav
 
   inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
                                            const ThermalModel<SimulationControl>& thermal_model,
-                                           std::fstream& raw_binary_finout);
+                                           std::fstream& raw_binary_fin);
 
   inline ElementViewSolver() : ElementViewBasisFunction<ElementTrait>(){};
 };
@@ -138,8 +138,6 @@ struct ViewSolverData<SimulationControl, 1> {
   ElementViewSolver<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
                     SimulationControl::kEquationModel>
       line_;
-
-  Eigen::Vector<Real, Eigen::Dynamic> time_value_;
 };
 
 template <typename SimulationControl>
@@ -151,8 +149,6 @@ struct ViewSolverData<SimulationControl, 2> {
   ElementViewSolver<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
                     SimulationControl::kEquationModel>
       quadrangle_;
-
-  Eigen::Vector<Real, Eigen::Dynamic> time_value_;
 };
 
 template <typename SimulationControl>
@@ -190,31 +186,39 @@ struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimens
   }
 
   inline void calcluateViewVariable(const Mesh<SimulationControl>& mesh,
-                                    const ThermalModel<SimulationControl>& thermal_model,
-                                    std::fstream& raw_binary_finout);
+                                    const ThermalModel<SimulationControl>& thermal_model, std::fstream& raw_binary_fin);
 
-  inline void readTimeValue(int iteration_end, std::fstream& error_finout);
+  inline void initialViewSolver(const Mesh<SimulationControl>& mesh);
 
-  inline void initializeViewSolver(int iteration_end, const Mesh<SimulationControl>& mesh);
+  inline void initialViewSolver(const ViewSolver<SimulationControl>& view_solver);
 };
 
 template <typename SimulationControl>
-struct ViewData {
+struct ViewConfig {
   int io_interval_;
   int iteration_order_;
   std::filesystem::path output_directory_;
   std::string output_file_name_prefix_;
-  std::fstream error_finout_;
-  std::fstream raw_binary_finout_;
+  std::fstream error_fin_;
   std::vector<ViewVariableEnum> variable_type_;
+  Eigen::Vector<Real, Eigen::Dynamic> time_value_;
+};
+
+template <typename SimulationControl>
+struct ViewData {
+  std::fstream raw_binary_fin_;
   ViewSolver<SimulationControl> solver_;
+
+  ViewData(const Mesh<SimulationControl>& mesh) { this->solver_.initialViewSolver(mesh); }
+
+  ViewData(const ViewData<SimulationControl>& view_data) { this->solver_.initialViewSolver(view_data.solver_); }
 };
 
 template <typename SimulationControl, ViewModelEnum ViewModelType>
 struct ViewBase;
 
 template <typename SimulationControl>
-struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewData<SimulationControl> {
+struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewConfig<SimulationControl> {
   inline std::string getBaseName(int step, std::string_view physical_name);
 
   inline void getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information);
@@ -228,6 +232,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewData<SimulationCont
   inline void writeAdjacencyElement(Isize physical_index, const MeshInformation& mesh_information,
                                     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
                                     const ThermalModel<SimulationControl>& thermal_model,
+                                    const ViewData<SimulationControl>& view_data,
                                     Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
                                     Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
                                     Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
@@ -239,6 +244,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewData<SimulationCont
   inline void writeElement(Isize physical_index, const MeshInformation& mesh_information,
                            const ElementMesh<ElementTrait>& element_mesh,
                            const ThermalModel<SimulationControl>& thermal_model,
+                           const ViewData<SimulationControl>& view_data,
                            Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
                            Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
                            Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
@@ -249,6 +255,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewData<SimulationCont
   template <int Dimension, bool IsAdjacency>
   inline void writeField(Isize physical_index, const Mesh<SimulationControl>& mesh,
                          const ThermalModel<SimulationControl>& thermal_model,
+                         const ViewData<SimulationControl>& view_data,
                          Eigen::Matrix<Real, 3, Eigen::Dynamic>& node_coordinate,
                          Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
                          Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic>& element_connectivity,
@@ -257,14 +264,15 @@ struct ViewBase<SimulationControl, ViewModelEnum::Vtu> : ViewData<SimulationCont
 
   template <int Dimension, bool IsAdjacency>
   inline void writeView(int step, Isize physical_index, const Mesh<SimulationControl>& mesh,
-                        const ThermalModel<SimulationControl>& thermal_model, const std::string& base_name);
+                        const ThermalModel<SimulationControl>& thermal_model,
+                        const ViewData<SimulationControl>& view_data, const std::string& base_name);
 
   inline void stepView(int step, const Mesh<SimulationControl>& mesh,
-                       const ThermalModel<SimulationControl>& thermal_model);
+                       const ThermalModel<SimulationControl>& thermal_model, ViewData<SimulationControl>& view_data);
 };
 
 template <typename SimulationControl>
-struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationControl> {
+struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewConfig<SimulationControl> {
   inline void setViewFout(int step, std::ofstream& fout);
 
   inline void writeAsciiVariableList(std::ofstream& fout);
@@ -277,7 +285,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
   inline void writeAdjacencyElement(
       Isize physical_index, const MeshInformation& mesh_information,
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const ThermalModel<SimulationControl>& thermal_model,
+      const ThermalModel<SimulationControl>& thermal_model, const ViewData<SimulationControl>& view_data,
       Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
       Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
       Eigen::Matrix<Isize, AdjacencyElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
@@ -286,7 +294,7 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
   template <typename ElementTrait>
   inline void writeElement(
       Isize physical_index, const MeshInformation& mesh_information, const ElementMesh<ElementTrait>& element_mesh,
-      const ThermalModel<SimulationControl>& thermal_model,
+      const ThermalModel<SimulationControl>& thermal_model, const ViewData<SimulationControl>& view_data,
       Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
       Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
       Eigen::Matrix<Isize, ElementTrait::kTecplotBasicNodeNumber, Eigen::Dynamic>& element_connectivity,
@@ -295,24 +303,26 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewData<SimulationCont
   template <int Dimension, bool IsAdjacency>
   inline void writeField(
       Isize physical_index, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const ViewData<SimulationControl>& view_data,
       Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic>& node_coordinate,
       Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>& node_variable,
       Eigen::Matrix<Isize, getElementTecplotBasicNodeNumber<Dimension>(), Eigen::Dynamic>& element_connectivity);
 
   template <int Dimension, bool IsAdjacency>
   inline void writeView(int step, Isize physical_index, const Mesh<SimulationControl>& mesh,
-                        const ThermalModel<SimulationControl>& thermal_model, std::ofstream& fout);
+                        const ThermalModel<SimulationControl>& thermal_model,
+                        const ViewData<SimulationControl>& view_data, std::ofstream& fout);
 
   inline void stepView(int step, const Mesh<SimulationControl>& mesh,
-                       const ThermalModel<SimulationControl>& thermal_model);
+                       const ThermalModel<SimulationControl>& thermal_model, ViewData<SimulationControl>& view_data);
 };
 
 template <typename SimulationControl>
 struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
-  inline void initializeViewFinout(const int iteration_start) {
+  inline void initializeSolverFout(const bool delete_dir, const int iteration_start, std::fstream& error_fout) {
     const std::filesystem::path raw_output_directory = this->output_directory_ / "raw";
-    std::ios::openmode open_mode = std::ios::in | std::ios::out;
-    if (iteration_start == 0) {
+    std::ios::openmode open_mode = std::ios::out;
+    if (delete_dir && iteration_start == 0) {
       if (std::filesystem::exists(raw_output_directory)) {
         std::filesystem::remove_all(raw_output_directory);
       }
@@ -324,13 +334,14 @@ struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
       }
       open_mode |= std::ios::app;
     }
-    this->error_finout_.open((this->output_directory_ / "error.txt").string(), open_mode);
-    this->error_finout_.setf(std::ios::left, std::ios::adjustfield);
-    this->error_finout_.setf(std::ios::scientific, std::ios::floatfield);
+    error_fout.open((this->output_directory_ / "error.txt").string(), open_mode);
+    error_fout.setf(std::ios::left, std::ios::adjustfield);
+    error_fout.setf(std::ios::scientific, std::ios::floatfield);
   }
 
-  inline void initializeView(const bool delete_dir, const int iteration_start, const int iteration_end,
-                             const Mesh<SimulationControl>& mesh) {
+  inline void finalizeSolverFout(std::fstream& error_fout) { error_fout.close(); }
+
+  inline void initializeViewFin(const bool delete_dir, const int iteration_start, const int iteration_end) {
     std::filesystem::path view_output_directory;
     if constexpr (SimulationControl::kViewModel == ViewModelEnum::Vtu) {
       view_output_directory = this->output_directory_ / "vtu";
@@ -347,31 +358,50 @@ struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
         std::filesystem::create_directories(view_output_directory);
       }
     }
-    this->error_finout_.seekg(0, std::ios::beg);
-    this->solver_.initializeViewSolver(iteration_end, mesh);
-    this->solver_.readTimeValue(iteration_end, this->error_finout_);
+    this->error_fin_.open((this->output_directory_ / "error.txt").string(), std::ios::in);
+    this->readTimeValue(iteration_end);
   }
 
-  inline void setViewRawBinaryFinout(const int step, std::ios::openmode open_mode) {
-    if (open_mode == std::ios::out) {
-      open_mode |= std::ios::trunc;
+  inline void readTimeValue(const int iteration_end) {
+    this->time_value_.resize(iteration_end);
+    std::string line;
+    std::getline(this->error_fin_, line);
+    for (int i = 0; i < iteration_end; i++) {
+      std::getline(this->error_fin_, line);
+      std::stringstream ss(line);
+      ss.ignore(2) >> this->time_value_(i);
     }
+  }
+
+  inline void setSolverRawBinaryFout(const int step, std::fstream& raw_binary_fout) {
+    std::ios::openmode open_mode = std::ios::out;
 #ifndef SUBROSA_DG_DEVELOP
     open_mode |= std::ios::binary;
 #endif
-    this->raw_binary_finout_.open(
+    raw_binary_fout.open(
+        (this->output_directory_ / std::format("raw/{}_{}.raw", this->output_file_name_prefix_, step)).string(),
+        open_mode | std::ios::trunc);
+    raw_binary_fout.setf(std::ios::left, std::ios::adjustfield);
+    raw_binary_fout.setf(std::ios::scientific, std::ios::floatfield);
+  }
+
+  inline void setViewRawBinaryFin(const int step, std::fstream& raw_binary_fin) {
+    std::ios::openmode open_mode = std::ios::in;
+#ifndef SUBROSA_DG_DEVELOP
+    open_mode |= std::ios::binary;
+#endif
+    raw_binary_fin.open(
         (this->output_directory_ / std::format("raw/{}_{}.raw", this->output_file_name_prefix_, step)).string(),
         open_mode);
-    this->raw_binary_finout_.setf(std::ios::left, std::ios::adjustfield);
-    this->raw_binary_finout_.setf(std::ios::scientific, std::ios::floatfield);
+    raw_binary_fin.setf(std::ios::left, std::ios::adjustfield);
+    raw_binary_fin.setf(std::ios::scientific, std::ios::floatfield);
   }
 
-  inline void finalizeViewRawBinaryFinout() { this->raw_binary_finout_.close(); }
+  inline void finalizeSolverRawBinaryFout(std::fstream& raw_binary_fout) { raw_binary_fout.close(); }
 
-  inline void finalizeView() {
-    this->error_finout_.close();
-    this->raw_binary_finout_.close();
-  }
+  inline void finalizeViewRawBinaryFin(std::fstream& raw_binary_fin) { raw_binary_fin.close(); }
+
+  inline void finalizeViewFin() { this->error_fin_.close(); }
 };
 
 }  // namespace SubrosaDG

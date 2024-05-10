@@ -113,6 +113,11 @@ struct System {
     this->initial_condition_.type_ = InitialConditionEnum::SpecificFile;
   }
 
+  inline void setTransportModel(const Real dynamic_viscosity) {
+    this->thermal_model_.transport_model_.dynamic_viscosity = dynamic_viscosity;
+    this->thermal_model_.calculateThermalConductivityFromDynamicViscosity();
+  }
+
   inline void setTimeIntegration(const Real courant_friedrichs_lewy_number, const int iteration_start = 0,
                                  const int iteration_end = 0) {
     if (iteration_start == 0 && iteration_end == 0) {
@@ -123,11 +128,6 @@ struct System {
       this->time_integration_.iteration_end_ = iteration_end;
     }
     this->time_integration_.courant_friedrichs_lewy_number_ = courant_friedrichs_lewy_number;
-  }
-
-  inline void setTransportModel(const Real dynamic_viscosity) {
-    this->thermal_model_.transport_model_.dynamic_viscosity = dynamic_viscosity;
-    this->thermal_model_.calculateThermalConductivityFromDynamicViscosity();
   }
 
   inline void setViewConfig(const std::filesystem::path& output_directory,
@@ -146,8 +146,6 @@ struct System {
     this->view_.iteration_order_ = static_cast<int>(log10(this->time_integration_.iteration_end_) + 1);
     this->view_.output_directory_ = output_directory;
     this->view_.output_file_name_prefix_ = output_file_name_prefix;
-    this->view_.initializeViewFinout(this->time_integration_.iteration_start_);
-    this->command_line_.initializeCommandLine(this->time_integration_.iteration_start_, this->view_.error_finout_);
   }
 
   inline void setViewVariable(const std::vector<ViewVariableEnum>& view_variable) {
@@ -179,35 +177,36 @@ struct System {
     }
   }
 
-  inline void checkInitialCondition() {
+  inline void synchronize() {
+    this->mesh_.readMeshElement();
     if (this->time_integration_.iteration_start_ != 0) {
       this->initial_condition_.file_path_ =
           this->view_.output_directory_ /
           std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, this->time_integration_.iteration_start_);
       this->initial_condition_.type_ = InitialConditionEnum::LastFile;
-      this->view_.error_finout_.seekg(0, std::ios::beg);
+      this->solver_.error_fout_.seekg(0, std::ios::beg);
       std::string line;
       for (int i = 0; i < 3; i++) {
-        std::getline(this->view_.error_finout_, line);
+        std::getline(this->solver_.error_fout_, line);
       }
       std::stringstream ss(line);
       ss.ignore(2) >> this->time_integration_.delta_time_;
-      this->view_.error_finout_.seekg(0, std::ios::end);
+      this->solver_.error_fout_.seekg(0, std::ios::end);
     }
   }
 
-  inline void solve() {
-    this->mesh_.readMeshElement();
+  inline void solve(const bool delete_dir = true) {
+    this->view_.initializeSolverFout(delete_dir, this->time_integration_.iteration_start_, this->solver_.error_fout_);
     this->command_line_.initializeSolver(this->time_integration_.iteration_start_,
                                          this->time_integration_.iteration_end_);
-    this->checkInitialCondition();
     this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
                                    this->initial_condition_);
     if (this->time_integration_.iteration_start_ == 0) {
-      this->view_.setViewRawBinaryFinout(0, std::ios::out);
-      this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
-      this->view_.finalizeViewRawBinaryFinout();
-      this->view_.error_finout_ << this->command_line_.getLineInformation(0.0, this->solver_.relative_error_) << '\n';
+      this->view_.setSolverRawBinaryFout(0, this->solver_.raw_binary_fout_);
+      this->solver_.writeRawBinary();
+      this->view_.finalizeSolverRawBinaryFout(this->solver_.raw_binary_fout_);
+      this->solver_.error_fout_ << this->command_line_.getVariableList() << '\n'
+                                << this->command_line_.getLineInformation(0.0, this->solver_.relative_error_) << '\n';
       this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
     }
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
@@ -217,35 +216,44 @@ struct System {
                                  this->time_integration_);
       }
       if (i % this->view_.io_interval_ == 0) {
-        this->view_.setViewRawBinaryFinout(i, std::ios::out);
-        this->solver_.writeRawBinary(this->view_.raw_binary_finout_);
-        this->view_.finalizeViewRawBinaryFinout();
+        this->view_.setSolverRawBinaryFout(i, this->solver_.raw_binary_fout_);
+        this->solver_.writeRawBinary();
+        this->view_.finalizeSolverRawBinaryFout(this->solver_.raw_binary_fout_);
       }
       this->solver_.calculateRelativeError(this->mesh_);
       this->command_line_.updateSolver(i, this->time_integration_.delta_time_, this->solver_.relative_error_,
-                                       this->view_.error_finout_);
+                                       this->solver_.error_fout_);
     }
+    this->view_.finalizeSolverFout(this->solver_.error_fout_);
   }
 
   inline void view(const bool delete_dir = true) {
     this->command_line_.initializeView(this->time_integration_.iteration_end_ / this->view_.io_interval_ -
                                        this->time_integration_.iteration_start_ / this->view_.io_interval_);
-    this->view_.initializeView(delete_dir, this->time_integration_.iteration_start_,
-                               this->time_integration_.iteration_end_ + 1, this->mesh_);
+    this->view_.initializeViewFin(delete_dir, this->time_integration_.iteration_start_,
+                                  this->time_integration_.iteration_end_ + 1);
+    ViewData<SimulationControl> view_data(this->mesh_);
     if (this->time_integration_.iteration_start_ == 0) {
-      this->view_.setViewRawBinaryFinout(0, std::ios::in);
-      this->view_.stepView(0, this->mesh_, this->thermal_model_);
-      this->view_.finalizeViewRawBinaryFinout();
+      this->view_.setViewRawBinaryFin(0, view_data.raw_binary_fin_);
+      this->view_.stepView(0, this->mesh_, this->thermal_model_, view_data);
+      this->view_.finalizeViewRawBinaryFin(view_data.raw_binary_fin_);
     }
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) firstprivate(view_data)
+#endif  // SUBROSA_DG_DEVELOP
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
       if (i % this->view_.io_interval_ == 0) {
-        this->view_.setViewRawBinaryFinout(i, std::ios::in);
-        this->view_.stepView(i, this->mesh_, this->thermal_model_);
-        this->view_.finalizeViewRawBinaryFinout();
-        this->command_line_.updateView();
+        this->view_.setViewRawBinaryFin(i, view_data.raw_binary_fin_);
+        this->view_.stepView(i, this->mesh_, this->thermal_model_, view_data);
+        this->view_.finalizeViewRawBinaryFin(view_data.raw_binary_fin_);
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp critical
+#endif  // SUBROSA_DG_DEVELOP
+        { this->command_line_.updateView(); }
       }
     }
-    this->view_.finalizeView();
+
+    this->view_.finalizeViewFin();
   }
 
   explicit inline System() : command_line_(true) {}

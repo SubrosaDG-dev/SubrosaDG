@@ -421,8 +421,10 @@ struct VariableGradient {
     const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> velocity_gradient =
         (this->getMatrix<ConservedVariableEnum::Momentum>() - density_gradient * velocity.transpose()) / density;
     this->setMatrix<PrimitiveVariableEnum::Velocity>(velocity_gradient);
+    const Real total_energy = variable.template getScalar<ConservedVariableEnum::DensityTotalEnergy>() / density;
     const Eigen::Vector<Real, SimulationControl::kDimension> internal_energy_gradient =
-        this->getVector<ConservedVariableEnum::DensityTotalEnergy>() / density - velocity_gradient * velocity;
+        (this->getVector<ConservedVariableEnum::DensityTotalEnergy>() - density_gradient * total_energy) / density -
+        velocity_gradient * velocity;
     Eigen::Vector<Real, SimulationControl::kDimension> temperature_gradient;
     for (Isize i = 0; i < SimulationControl::kDimension; i++) {
       temperature_gradient(i) = thermal_model.calculateTemperatureFromInternalEnergy(internal_energy_gradient(i));
@@ -505,34 +507,28 @@ struct ViewVariable {
 
   [[nodiscard]] inline Real getView(const ThermalModel<SimulationControl>& thermal_model,
                                     const ViewVariableEnum variable_type) const {
-    if (variable_type == ViewVariableEnum::Density) {
+    switch (variable_type) {
+    case ViewVariableEnum::Density:
       return this->variable_.template getScalar<ComputationalVariableEnum::Density>();
-    }
-    if (variable_type == ViewVariableEnum::Velocity) {
+    case ViewVariableEnum::Velocity:
       return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>());
-    }
-    if (variable_type == ViewVariableEnum::Temperature) {
+    case ViewVariableEnum::Temperature:
       return thermal_model.calculateTemperatureFromInternalEnergy(
           this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (variable_type == ViewVariableEnum::Pressure) {
+    case ViewVariableEnum::Pressure:
       return this->variable_.template getScalar<ComputationalVariableEnum::Pressure>();
-    }
-    if (variable_type == ViewVariableEnum::SoundSpeed) {
+    case ViewVariableEnum::SoundSpeed:
       return thermal_model.calculateSoundSpeedFromInternalEnergy(
           this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (variable_type == ViewVariableEnum::MachNumber) {
+    case ViewVariableEnum::MachNumber:
       return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>()) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
                  this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (variable_type == ViewVariableEnum::Entropy) {
+    case ViewVariableEnum::Entropy:
       return thermal_model.calculateEntropyFromDensityPressure(
           this->variable_.template getScalar<ComputationalVariableEnum::Density>(),
           this->variable_.template getScalar<ComputationalVariableEnum::Pressure>());
-    }
-    if (variable_type == ViewVariableEnum::Vorticity) {
+    case ViewVariableEnum::Vorticity:
       if constexpr (SimulationControl::kDimension == 2) {
         return this->variable_gradient_
                    .template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>() -
@@ -556,44 +552,36 @@ struct ViewVariable {
                              .template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(),
                      2));
       }
-    }
-    if (variable_type == ViewVariableEnum::MachNumberX) {
+    case ViewVariableEnum::MachNumberX:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>() /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
                  this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (variable_type == ViewVariableEnum::MachNumberY) {
+    case ViewVariableEnum::MachNumberY:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>() /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
                  this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (variable_type == ViewVariableEnum::MachNumberZ) {
+    case ViewVariableEnum::MachNumberZ:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>() /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
                  this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
-    }
-    if (variable_type == ViewVariableEnum::VelocityX) {
+    case ViewVariableEnum::VelocityX:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>();
-    }
-    if (variable_type == ViewVariableEnum::VelocityY) {
+    case ViewVariableEnum::VelocityY:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>();
-    }
-    if (variable_type == ViewVariableEnum::VelocityZ) {
+    case ViewVariableEnum::VelocityZ:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>();
-    }
-    if (variable_type == ViewVariableEnum::VorticityX) {
+    case ViewVariableEnum::VorticityX:
       return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>() -
              this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>();
-    }
-    if (variable_type == ViewVariableEnum::VorticityY) {
+    case ViewVariableEnum::VorticityY:
       return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>() -
              this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>();
-    }
-    if (variable_type == ViewVariableEnum::VorticityZ) {
+    case ViewVariableEnum::VorticityZ:
       return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>() -
              this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>();
+    default:
+      return 0.0;
     }
-    return 0.0;
   }
 };
 

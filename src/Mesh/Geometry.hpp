@@ -89,8 +89,7 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
                         point.quadrature_.weight_;
     }
     this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_);
-    this->element_(i).size_ /=
-        (adjacency_size * std::pow((static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0), 2.0));
+    this->element_(i).size_ /= (adjacency_size * (2.0 * static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
   }
 }
 
@@ -107,8 +106,7 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
                         line.quadrature_.weight_;
     }
     this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_);
-    this->element_(i).size_ /=
-        (adjacency_size * std::pow((static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0), 2.0));
+    this->element_(i).size_ /= (adjacency_size * (2.0 * static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
   }
 }
 

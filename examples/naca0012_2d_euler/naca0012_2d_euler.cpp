@@ -20,7 +20,7 @@ using SimulationControl =
     SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
                                       SubrosaDG::ThermodynamicModelEnum::ConstantE,
                                       SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
-                                      SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P3,
+                                      SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P1,
                                       SubrosaDG::ViewModelEnum::Vtu>;
 
 inline std::array<double, 64> naca0012_point_x_array{
@@ -155,6 +155,7 @@ int main(int argc, char* argv[]) {
   system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
                           SubrosaDG::ViewVariableEnum::MachNumber});
+                            system.synchronize();
   system.solve();
   system.view();
   return EXIT_SUCCESS;

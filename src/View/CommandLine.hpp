@@ -74,9 +74,9 @@ struct CommandLine {
 
   inline void updateSolver(const int step, const Real delta_time,
                            const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& new_error,
-                           std::fstream& error_finout) {
+                           std::fstream& error_fout) {
     this->time_value_ = static_cast<Real>(step) * delta_time;
-    error_finout << this->getLineInformation(this->time_value_, new_error) << '\n';
+    error_fout << this->getLineInformation(this->time_value_, new_error) << '\n';
     std::string error_string;
     error_string += this->getVariableList() + '\n';
     if (step % this->line_number_ == 0) {
@@ -108,16 +108,6 @@ struct CommandLine {
     }
   }
 
-  inline void initializeCommandLine(const int iteration_start, std::fstream& error_finout) {
-    if (iteration_start == 0) {
-      error_finout << this->getVariableList() << '\n';
-    }
-    for (int i = 0; i < this->line_number_; i++) {
-      this->time_value_deque_.emplace_back(0.0);
-      this->error_deque_.emplace_back(Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero());
-    }
-  }
-
   inline CommandLine(const bool open_command_line) {
     this->is_open_ = open_command_line;
     if (this->is_open_) {
@@ -143,6 +133,10 @@ struct CommandLine {
       std::cout << information.str() << '\n';
     } else {
       gmsh::option::setNumber("General.Terminal", 0);
+    }
+    for (int i = 0; i < this->line_number_; i++) {
+      this->time_value_deque_.emplace_back(0.0);
+      this->error_deque_.emplace_back(Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero());
     }
   }
 };

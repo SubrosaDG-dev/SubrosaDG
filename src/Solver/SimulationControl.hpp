@@ -479,7 +479,7 @@ inline consteval std::array<int, getElementNodeNumber<ElementType, P>()> getElem
       return {0, 1, 2, 3, 4, 5};
     }
     if constexpr (P == PolynomialOrderEnum::P3) {
-      return {0, 1, 2, 3, 4, 5, 6, 7, 8};
+      return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     }
     if constexpr (P == PolynomialOrderEnum::P4) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};

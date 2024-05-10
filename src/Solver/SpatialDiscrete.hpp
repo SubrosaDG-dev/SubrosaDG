@@ -464,7 +464,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
           solver);
       this->storeAdjacencyElementNodeInterfaceGardientQuadrature(
           parent_gmsh_type_number(1), parent_index_each_type(1), adjacency_sequence_in_parent(1),
-          adjacency_quadrature_node_sequence_in_parent(1), -adjacency_element_quadrature_node_temporary_variable,
+          adjacency_quadrature_node_sequence_in_parent(1), adjacency_element_quadrature_node_temporary_variable,
           solver);
     }
   }
