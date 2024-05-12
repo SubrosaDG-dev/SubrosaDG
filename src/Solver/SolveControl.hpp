@@ -14,8 +14,11 @@
 #define SUBROSA_DG_SOLVE_CONTROL_HPP_
 
 #include <Eigen/Core>
+#include <filesystem>
 #include <fstream>
+#include <future>
 #include <memory>
+#include <sstream>
 #include <unordered_map>
 
 #include "Mesh/ReadControl.hpp"
@@ -126,7 +129,7 @@ struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>
   inline void calculateElementQuadrature(const ElementMesh<ElementTrait>& element_mesh,
                                          const ThermalModel<SimulationControl>& thermal_model);
 
-  inline void writeElementRawBinary(std::fstream& fout) const;
+  inline void writeElementRawBinary(std::stringstream& raw_binary_ss) const;
 };
 
 template <typename ElementTrait, typename SimulationControl>
@@ -143,7 +146,7 @@ struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierS
 
   inline void updateElementGardientBasisFunctionCoefficient(const ElementMesh<ElementTrait>& element_mesh);
 
-  inline void writeElementRawBinary(std::fstream& fout) const;
+  inline void writeElementRawBinary(std::stringstream& raw_binary_ss) const;
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -211,8 +214,9 @@ struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equation
 
 template <typename SimulationControl>
 struct SolverBase {
-  std::fstream raw_binary_fout_;
-  std::fstream error_fout_;
+  std::stringstream raw_binary_ss_;
+  std::fstream error_finout_;
+  std::future<void> write_raw_binary_future_;
 
   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
 };
@@ -315,7 +319,7 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void calculateRelativeError(const Mesh<SimulationControl>& mesh);
 
-  inline void writeRawBinary();
+  inline void writeRawBinary(const std::filesystem::path& raw_binary_path);
 };
 
 }  // namespace SubrosaDG

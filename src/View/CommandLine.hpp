@@ -38,7 +38,7 @@ namespace SubrosaDG {
 
 template <typename SimulationControl>
 struct CommandLine {
-  bool is_open_{true};
+  bool is_open_;
   Real time_value_;
   std::deque<Real> time_value_deque_;
   const int line_number_{10};
@@ -64,19 +64,31 @@ struct CommandLine {
     }
   }
 
-  inline void initializeSolver(const int iteration_start, const int iteration_end) {
+  inline void initializeSolver(const int iteration_start, const int iteration_end, std::fstream& error_finout) {
     if (this->is_open_) {
       std::cout << '\n';
       this->solver_progress_bar_.restart();
       this->solver_progress_bar_.initialize(iteration_start, iteration_end, this->line_number_ + 2);
     }
+    if (iteration_start == 0) {
+      error_finout << this->getVariableList() << '\n'
+                   << this->getLineInformation(0.0,
+                                               Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero())
+                   << '\n';
+    } else {
+      error_finout.seekg(0, std::ios::beg);
+      std::string line;
+      for (int i = 0; i < iteration_start + 2 && std::getline(error_finout, line); i++) {
+        ;
+      }
+    }
   }
 
   inline void updateSolver(const int step, const Real delta_time,
                            const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& new_error,
-                           std::fstream& error_fout) {
+                           std::fstream& error_finout) {
     this->time_value_ = static_cast<Real>(step) * delta_time;
-    error_fout << this->getLineInformation(this->time_value_, new_error) << '\n';
+    error_finout << this->getLineInformation(this->time_value_, new_error) << '\n';
     std::string error_string;
     error_string += this->getVariableList() + '\n';
     if (step % this->line_number_ == 0) {
@@ -115,11 +127,7 @@ struct CommandLine {
       information << "SubrosaDG Info:" << '\n';
       information << std::format("Version: {}", kSubrosaDGVersionString) << '\n';
       information << std::format("Build type: {}", kSubrosaDGBuildType) << '\n';
-#ifndef SUBROSA_DG_DEVELOP
-      information << std::format("Number of total threads: {}", omp_get_max_threads()) << '\n';
-#else   // SUBROSA_DG_WITH_OPENMP && !SUBROSA_DG_DEVELOP
-      information << "Number of total threads: 1" << '\n';
-#endif  // SUBROSA_DG_DEVELOP
+      information << std::format("Number of physical cores: {}", kNumberOfPhysicalCores) << "\n";
       information << std::format("Eigen SIMD Instructions: {}", Eigen::SimdInstructionSetsInUse()) << "\n\n";
       information << "Gmsh Info:" << '\n';
       std::string gmsh_info;

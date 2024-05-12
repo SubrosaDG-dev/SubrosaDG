@@ -18,9 +18,9 @@
 #include <format>
 #include <fstream>
 #include <functional>
+#include <future>
 #include <iostream>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -180,35 +180,28 @@ struct System {
   inline void synchronize() {
     this->mesh_.readMeshElement();
     if (this->time_integration_.iteration_start_ != 0) {
-      this->initial_condition_.file_path_ =
+      this->initial_condition_.raw_binary_path_ =
           this->view_.output_directory_ /
           std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, this->time_integration_.iteration_start_);
       this->initial_condition_.type_ = InitialConditionEnum::LastFile;
-      this->solver_.error_fout_.seekg(0, std::ios::beg);
-      std::string line;
-      for (int i = 0; i < 3; i++) {
-        std::getline(this->solver_.error_fout_, line);
-      }
-      std::stringstream ss(line);
-      ss.ignore(2) >> this->time_integration_.delta_time_;
-      this->solver_.error_fout_.seekg(0, std::ios::end);
     }
   }
 
   inline void solve(const bool delete_dir = true) {
-    this->view_.initializeSolverFout(delete_dir, this->time_integration_.iteration_start_, this->solver_.error_fout_);
-    this->command_line_.initializeSolver(this->time_integration_.iteration_start_,
-                                         this->time_integration_.iteration_end_);
+    this->view_.initializeSolverFinout(delete_dir, this->time_integration_.iteration_start_,
+                                       this->solver_.error_finout_);
     this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
                                    this->initial_condition_);
+    this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
     if (this->time_integration_.iteration_start_ == 0) {
-      this->view_.setSolverRawBinaryFout(0, this->solver_.raw_binary_fout_);
-      this->solver_.writeRawBinary();
-      this->view_.finalizeSolverRawBinaryFout(this->solver_.raw_binary_fout_);
-      this->solver_.error_fout_ << this->command_line_.getVariableList() << '\n'
-                                << this->command_line_.getLineInformation(0.0, this->solver_.relative_error_) << '\n';
-      this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
+      this->solver_.writeRawBinary(
+          this->view_.output_directory_ /
+          std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, this->time_integration_.iteration_start_));
+    } else {
+      this->solver_.write_raw_binary_future_ = std::async(std::launch::async, []() {});
     }
+    this->command_line_.initializeSolver(this->time_integration_.iteration_start_,
+                                         this->time_integration_.iteration_end_, this->solver_.error_finout_);
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
       this->solver_.copyBasisFunctionCoefficient();
       for (int j = 0; j < this->time_integration_.kStep; j++) {
@@ -216,15 +209,16 @@ struct System {
                                  this->time_integration_);
       }
       if (i % this->view_.io_interval_ == 0) {
-        this->view_.setSolverRawBinaryFout(i, this->solver_.raw_binary_fout_);
-        this->solver_.writeRawBinary();
-        this->view_.finalizeSolverRawBinaryFout(this->solver_.raw_binary_fout_);
+        this->solver_.write_raw_binary_future_.get();
+        this->solver_.writeRawBinary(this->view_.output_directory_ /
+                                     std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i));
       }
       this->solver_.calculateRelativeError(this->mesh_);
       this->command_line_.updateSolver(i, this->time_integration_.delta_time_, this->solver_.relative_error_,
-                                       this->solver_.error_fout_);
+                                       this->solver_.error_finout_);
     }
-    this->view_.finalizeSolverFout(this->solver_.error_fout_);
+    this->solver_.write_raw_binary_future_.get();
+    this->view_.finalizeSolverFinout(this->solver_.error_finout_);
   }
 
   inline void view(const bool delete_dir = true) {
@@ -234,25 +228,24 @@ struct System {
                                   this->time_integration_.iteration_end_ + 1);
     ViewData<SimulationControl> view_data(this->mesh_);
     if (this->time_integration_.iteration_start_ == 0) {
-      this->view_.setViewRawBinaryFin(0, view_data.raw_binary_fin_);
+      view_data.raw_binary_path_ =
+          this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, 0);
       this->view_.stepView(0, this->mesh_, this->thermal_model_, view_data);
-      this->view_.finalizeViewRawBinaryFin(view_data.raw_binary_fin_);
     }
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) firstprivate(view_data)
 #endif  // SUBROSA_DG_DEVELOP
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
       if (i % this->view_.io_interval_ == 0) {
-        this->view_.setViewRawBinaryFin(i, view_data.raw_binary_fin_);
+        view_data.raw_binary_path_ =
+            this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i);
         this->view_.stepView(i, this->mesh_, this->thermal_model_, view_data);
-        this->view_.finalizeViewRawBinaryFin(view_data.raw_binary_fin_);
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp critical
 #endif  // SUBROSA_DG_DEVELOP
         { this->command_line_.updateView(); }
       }
     }
-
     this->view_.finalizeViewFin();
   }
 

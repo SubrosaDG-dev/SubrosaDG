@@ -15,7 +15,6 @@
 
 #include <Eigen/Core>
 #include <filesystem>
-#include <format>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -113,7 +112,7 @@ struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Eul
 
   inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
                                            const ThermalModel<SimulationControl>& thermal_model,
-                                           std::fstream& raw_binary_fin);
+                                           std::stringstream& raw_binary_ss);
 
   inline ElementViewSolver() : ElementViewBasisFunction<ElementTrait>(){};
 };
@@ -125,7 +124,7 @@ struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Nav
 
   inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
                                            const ThermalModel<SimulationControl>& thermal_model,
-                                           std::fstream& raw_binary_fin);
+                                           std::stringstream& raw_binary_ss);
 
   inline ElementViewSolver() : ElementViewBasisFunction<ElementTrait>(){};
 };
@@ -187,7 +186,8 @@ struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimens
   }
 
   inline void calcluateViewVariable(const Mesh<SimulationControl>& mesh,
-                                    const ThermalModel<SimulationControl>& thermal_model, std::fstream& raw_binary_fin);
+                                    const ThermalModel<SimulationControl>& thermal_model,
+                                    const std::filesystem::path& raw_binary_path, std::stringstream& raw_binary_ss);
 
   inline void initialViewSolver(const Mesh<SimulationControl>& mesh);
 
@@ -207,7 +207,8 @@ struct ViewConfig {
 
 template <typename SimulationControl>
 struct ViewData {
-  std::fstream raw_binary_fin_;
+  std::filesystem::path raw_binary_path_;
+  std::stringstream raw_binary_ss_;
   ViewSolver<SimulationControl> solver_;
 
   ViewData(const Mesh<SimulationControl>& mesh) { this->solver_.initialViewSolver(mesh); }
@@ -320,9 +321,9 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewConfig<SimulationCo
 
 template <typename SimulationControl>
 struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
-  inline void initializeSolverFout(const bool delete_dir, const int iteration_start, std::fstream& error_fout) {
+  inline void initializeSolverFinout(const bool delete_dir, const int iteration_start, std::fstream& error_finout) {
     const std::filesystem::path raw_output_directory = this->output_directory_ / "raw";
-    std::ios::openmode open_mode = std::ios::out;
+    std::ios::openmode open_mode = std::ios::in | std::ios::out;
     if (delete_dir && iteration_start == 0) {
       if (std::filesystem::exists(raw_output_directory)) {
         std::filesystem::remove_all(raw_output_directory);
@@ -335,12 +336,12 @@ struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
       }
       open_mode |= std::ios::app;
     }
-    error_fout.open((this->output_directory_ / "error.txt").string(), open_mode);
-    error_fout.setf(std::ios::left, std::ios::adjustfield);
-    error_fout.setf(std::ios::scientific, std::ios::floatfield);
+    error_finout.open((this->output_directory_ / "error.txt").string(), open_mode);
+    error_finout.setf(std::ios::left, std::ios::adjustfield);
+    error_finout.setf(std::ios::scientific, std::ios::floatfield);
   }
 
-  inline void finalizeSolverFout(std::fstream& error_fout) { error_fout.close(); }
+  inline void finalizeSolverFinout(std::fstream& error_finout) { error_finout.close(); }
 
   inline void initializeViewFin(const bool delete_dir, const int iteration_start, const int iteration_end) {
     std::filesystem::path view_output_directory;
@@ -373,34 +374,6 @@ struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
       ss.ignore(2) >> this->time_value_(i);
     }
   }
-
-  inline void setSolverRawBinaryFout(const int step, std::fstream& raw_binary_fout) {
-    std::ios::openmode open_mode = std::ios::out;
-#ifndef SUBROSA_DG_DEVELOP
-    open_mode |= std::ios::binary;
-#endif
-    raw_binary_fout.open(
-        (this->output_directory_ / std::format("raw/{}_{}.raw", this->output_file_name_prefix_, step)).string(),
-        open_mode | std::ios::trunc);
-    raw_binary_fout.setf(std::ios::left, std::ios::adjustfield);
-    raw_binary_fout.setf(std::ios::scientific, std::ios::floatfield);
-  }
-
-  inline void setViewRawBinaryFin(const int step, std::fstream& raw_binary_fin) {
-    std::ios::openmode open_mode = std::ios::in;
-#ifndef SUBROSA_DG_DEVELOP
-    open_mode |= std::ios::binary;
-#endif
-    raw_binary_fin.open(
-        (this->output_directory_ / std::format("raw/{}_{}.raw", this->output_file_name_prefix_, step)).string(),
-        open_mode);
-    raw_binary_fin.setf(std::ios::left, std::ios::adjustfield);
-    raw_binary_fin.setf(std::ios::scientific, std::ios::floatfield);
-  }
-
-  inline void finalizeSolverRawBinaryFout(std::fstream& raw_binary_fout) { raw_binary_fout.close(); }
-
-  inline void finalizeViewRawBinaryFin(std::fstream& raw_binary_fin) { raw_binary_fin.close(); }
 
   inline void finalizeViewFin() { this->error_fin_.close(); }
 };

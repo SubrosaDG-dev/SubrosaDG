@@ -17,8 +17,6 @@
 
 #ifndef SUBROSA_DG_DEVELOP
 #define DBG_MACRO_DISABLE
-#else
-int idebug{0};
 #endif  // SUBROSA_DG_DEVELOP
 
 #define VTU11_ENABLE_ZLIB

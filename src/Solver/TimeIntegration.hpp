@@ -16,7 +16,10 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
+#include <fstream>
 #include <memory>
+#include <sstream>
+#include <string>
 #include <unordered_map>
 
 #include "Mesh/ReadControl.hpp"
@@ -116,23 +119,34 @@ template <typename SimulationControl>
 inline void Solver<SimulationControl>::calculateDeltaTime(
     const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
     TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
-  if constexpr (SimulationControl::kDimension == 1) {
-    time_integration.delta_time_ = std::min(
-        time_integration.delta_time_, this->line_.calculateElementDeltaTime(
-                                          mesh.line_, thermal_model, time_integration.courant_friedrichs_lewy_number_));
-  } else if constexpr (SimulationControl::kDimension == 2) {
-    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+  if (time_integration.iteration_start_ == 0) {
+    if constexpr (SimulationControl::kDimension == 1) {
       time_integration.delta_time_ =
           std::min(time_integration.delta_time_,
-                   this->triangle_.calculateElementDeltaTime(mesh.triangle_, thermal_model,
-                                                             time_integration.courant_friedrichs_lewy_number_));
-    }
-    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      time_integration.delta_time_ =
-          std::min(time_integration.delta_time_,
-                   this->quadrangle_.calculateElementDeltaTime(mesh.quadrangle_, thermal_model,
+                   this->line_.calculateElementDeltaTime(mesh.line_, thermal_model,
+                                                         time_integration.courant_friedrichs_lewy_number_));
+    } else if constexpr (SimulationControl::kDimension == 2) {
+      if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+        time_integration.delta_time_ =
+            std::min(time_integration.delta_time_,
+                     this->triangle_.calculateElementDeltaTime(mesh.triangle_, thermal_model,
                                                                time_integration.courant_friedrichs_lewy_number_));
+      }
+      if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+        time_integration.delta_time_ =
+            std::min(time_integration.delta_time_,
+                     this->quadrangle_.calculateElementDeltaTime(mesh.quadrangle_, thermal_model,
+                                                                 time_integration.courant_friedrichs_lewy_number_));
+      }
     }
+  } else {
+    this->error_finout_.seekg(0, std::ios::beg);
+    std::string line;
+    for (int i = 0; i < 3; i++) {
+      std::getline(this->error_finout_, line);
+    }
+    std::stringstream ss(line);
+    ss.ignore(2) >> time_integration.delta_time_;
   }
 }
 

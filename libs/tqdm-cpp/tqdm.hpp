@@ -27,7 +27,7 @@
 
 #include <chrono>
 #include <cmath>
-#include <iomanip>
+#include <format>
 #include <iostream>
 #include <sstream>
 
@@ -114,18 +114,24 @@ class ProgressBar {
     double t = chronometer_.peek();
     double eta = t / proc - t;
 
+    std::chrono::hh_mm_ss t_ss{seconds(t)};
+    std::chrono::hh_mm_ss eta_ss{seconds(eta)};
+
     std::stringstream bar;
 
     bar << "\e[2K"
         << "\e[" << delete_line_ << 'A';
 
-    bar << "Step: " << std::setw(num_order_) << progress_;
-
-    bar << " {" << std::fixed << std::setprecision(1) << std::setw(5) << 100 * proc << "%} ";
+    bar << std::format("Step: {:>{}} ", progress_, num_order_) << std::format("{{{:5.1f}%}} ", 100 * proc);
 
     print_bar(bar, proc);
 
-    bar << " (" << t << "s < " << eta << "s) ";
+    // NOTE: the format of std::chrono::hh_mm_ss is not implemented in libc++ yet P2372R3
+    // bar << std::format("({:%T} < {:%T}) ", t_ss, eta_ss);
+
+    bar << std::format("({:02}:{:02}:{:02} < {:02}:{:02}:{:02})", t_ss.hours().count(), t_ss.minutes().count(),
+                       t_ss.seconds().count(), eta_ss.hours().count(), eta_ss.minutes().count(),
+                       eta_ss.seconds().count());
 
     std::string sbar = bar.str();
     std::string suffix = suffix_.str();
@@ -137,7 +143,7 @@ class ProgressBar {
 
   void print_bar(std::stringstream& ss, double filled) const {
     auto num_filled = static_cast<index>(std::round(filled * static_cast<double>(bar_size_)));
-    ss << '[' << std::string(num_filled, '#') << std::string(bar_size_ - num_filled, ' ') << ']';
+    ss << std::format("[{:>{}}{:>{}}] ", std::string(num_filled, '#'), num_filled, "", bar_size_ - num_filled);
   }
 
   double time_since_refresh() const { return refresh_.peek(); }
@@ -156,7 +162,7 @@ class ProgressBar {
 
   std::ostream* os_{&std::cerr};
 
-  index bar_size_{50};
+  index bar_size_{60};
 
   std::stringstream suffix_{};
 };

@@ -19,6 +19,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <sstream>
 #include <unordered_map>
 #include <vector>
 
@@ -33,6 +34,7 @@
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
 #include "Utils/Enum.hpp"
+#include "View/RawBinary.hpp"
 
 namespace SubrosaDG {
 
@@ -42,18 +44,8 @@ struct InitialCondition {
   std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
       const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>
       function_;
-  std::filesystem::path file_path_;
-  std::fstream fin_;
-
-  void setInitialFileFin() {
-    std::ios::openmode open_mode = std::ios::in;
-#ifndef SUBROSA_DG_DEVELOP
-    open_mode |= std::ios::binary;
-#endif
-    this->fin_.open(this->file_path_, open_mode);
-  }
-
-  void finalizeInitialFileFin() { this->fin_.close(); }
+  std::filesystem::path raw_binary_path_;
+  std::stringstream raw_binary_ss_;
 
   template <typename ComputationalElementTrait>
   void getVariableBasisFunctionCoefficient(const ElementMesh<ComputationalElementTrait>& element_mesh,
@@ -93,35 +85,17 @@ struct InitialCondition {
         }
       }
       for (Isize i = 0; i < element_mesh.number_; i++) {
-#ifdef SUBROSA_DG_DEVELOP
-        for (Isize j = 0; j < SimulationControl::kConservedVariableNumber; j++) {
-          for (Isize k = 0; k < kBasisFunctionNumber; k++) {
-            this->fin_ >> variable_basis_function_coefficient(i)(j, k);
-          }
-        }
+        this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
+                                  SimulationControl::kConservedVariableNumber * kBasisFunctionNumber *
+                                      static_cast<std::streamsize>(sizeof(Real)));
         if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
           Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                         kBasisFunctionNumber>
               variable_gradient_basis_function_coefficient;
-          for (Isize j = 0; j < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; j++) {
-            for (Isize k = 0; k < kBasisFunctionNumber; k++) {
-              this->fin_ >> variable_gradient_basis_function_coefficient(j, k);
-            }
-          }
+          this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
+                                    SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
+                                        kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
         }
-#else
-        this->fin_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
-                        SimulationControl::kConservedVariableNumber * kBasisFunctionNumber *
-                            static_cast<std::streamsize>(sizeof(Real)));
-        if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
-          Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                        kBasisFunctionNumber>
-              variable_gradient_basis_function_coefficient;
-          this->fin_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
-                          SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                              kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
-        }
-#endif
       }
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                              \
@@ -138,36 +112,19 @@ struct InitialCondition {
                    Eigen::Dynamic, 1>
           variable_basis_function_coefficient(element_mesh.number_);
       for (Isize i = 0; i < element_mesh.number_; i++) {
-#ifdef SUBROSA_DG_DEVELOP
-        for (Isize j = 0; j < SimulationControl::kConservedVariableNumber; j++) {
-          for (Isize k = 0; k < ComputationalElementTrait::kBasisFunctionNumber; k++) {
-            this->fin_ >> variable_basis_function_coefficient(i)(j, k);
-          }
-        }
+        this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
+                                  SimulationControl::kConservedVariableNumber *
+                                      ComputationalElementTrait::kBasisFunctionNumber *
+                                      static_cast<std::streamsize>(sizeof(Real)));
         if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
           Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                         ComputationalElementTrait::kBasisFunctionNumber>
               variable_gradient_basis_function_coefficient;
-          for (Isize j = 0; j < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; j++) {
-            for (Isize k = 0; k < ComputationalElementTrait::kBasisFunctionNumber; k++) {
-              this->fin_ >> variable_gradient_basis_function_coefficient(j, k);
-            }
-          }
+          this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
+                                    SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
+                                        ComputationalElementTrait::kBasisFunctionNumber *
+                                        static_cast<std::streamsize>(sizeof(Real)));
         }
-#else
-        this->fin_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
-                        SimulationControl::kConservedVariableNumber * ComputationalElementTrait::kBasisFunctionNumber *
-                            static_cast<std::streamsize>(sizeof(Real)));
-        if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
-          Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                        ComputationalElementTrait::kBasisFunctionNumber>
-              variable_gradient_basis_function_coefficient;
-          this->fin_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
-                          SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                              ComputationalElementTrait::kBasisFunctionNumber *
-                              static_cast<std::streamsize>(sizeof(Real)));
-        }
-#endif
       }
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
@@ -229,7 +186,7 @@ inline void Solver<SimulationControl>::initializeSolver(
     variable->boundary_dummy_variable_.calculateComputationalFromPrimitive(thermal_model);
   }
   if (initial_condition.type_ != InitialConditionEnum::Function) {
-    initial_condition.setInitialFileFin();
+    RawBinaryCompress::read(initial_condition.raw_binary_path_, initial_condition.raw_binary_ss_);
   }
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.initializeElementSolver(mesh.line_, thermal_model, initial_condition);
@@ -246,9 +203,6 @@ inline void Solver<SimulationControl>::initializeSolver(
         this->quadrangle_.initializeElementGardientSolver();
       }
     }
-  }
-  if (initial_condition.type_ != InitialConditionEnum::Function) {
-    initial_condition.finalizeInitialFileFin();
   }
   this->relative_error_.setZero();
 }

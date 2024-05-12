@@ -239,7 +239,7 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Dat>::stepView(
     const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
     ViewData<SimulationControl>& view_data) {
   std::ofstream fout;
-  view_data.solver_.calcluateViewVariable(mesh, thermal_model, view_data.raw_binary_fin_);
+  view_data.solver_.calcluateViewVariable(mesh, thermal_model, view_data.raw_binary_path_, view_data.raw_binary_ss_);
   this->setViewFout(step, fout);
   this->writeAsciiVariableList(fout);
   for (Isize i = 0; i < static_cast<Isize>(mesh.information_.physical_.size()); i++) {

@@ -246,11 +246,6 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
       {element_connectivity.data(), element_connectivity.data() + element_connectivity.size()},
       {element_offset.data(), element_offset.data() + element_offset.size()},
       {element_type.data(), element_type.data() + element_type.size()}};
-#ifdef SUBROSA_DG_DEVELOP
-  const std::string write_mode = "ascii";
-#else
-  const std::string write_mode = "rawbinarycompressed";
-#endif
   data_set_data[0].emplace_back(step);
   data_set_data[1].emplace_back(this->time_value_(step));
   for (Isize i = 0; i < static_cast<Isize>(this->variable_type_.size()); i++) {
@@ -258,14 +253,14 @@ inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::writeView(
                                                     node_variable(i).data() + node_variable(i).size());
   }
   vtu11::writeVtu((this->output_directory_ / "vtu" / base_name).string(), mesh_data, data_set_information,
-                  data_set_data, write_mode);
+                  data_set_data, "rawbinarycompressed");
 }
 
 template <typename SimulationControl>
 inline void ViewBase<SimulationControl, ViewModelEnum::Vtu>::stepView(
     const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
     ViewData<SimulationControl>& view_data) {
-  view_data.solver_.calcluateViewVariable(mesh, thermal_model, view_data.raw_binary_fin_);
+  view_data.solver_.calcluateViewVariable(mesh, thermal_model, view_data.raw_binary_path_, view_data.raw_binary_ss_);
   for (Isize i = 0; i < static_cast<Isize>(mesh.information_.physical_.size()); i++) {
     if (mesh.information_.periodic_physical_.contains(i)) {
       continue;
