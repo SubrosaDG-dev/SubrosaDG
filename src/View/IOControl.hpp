@@ -31,11 +31,11 @@
 
 namespace SubrosaDG {
 
-template <typename AdjacencyElementTrait, PolynomialOrderEnum P>
+template <typename AdjacencyElementTrait, int PolynomialOrder>
 struct AdjacencyElementViewBasisFunction;
 
-template <PolynomialOrderEnum P>
-struct AdjacencyElementViewBasisFunction<AdjacencyPointTrait<P>, P> {
+template <int PolynomialOrder>
+struct AdjacencyElementViewBasisFunction<AdjacencyPointTrait<PolynomialOrder>, PolynomialOrder> {
   [[nodiscard]] inline Isize getAdjacencyParentElementViewBasisFunctionSequenceInParent(
       [[maybe_unused]] Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent,
       [[maybe_unused]] Isize node_sequence_in_adjacency) const {
@@ -43,33 +43,35 @@ struct AdjacencyElementViewBasisFunction<AdjacencyPointTrait<P>, P> {
   }
 };
 
-template <PolynomialOrderEnum P>
-struct AdjacencyElementViewBasisFunction<AdjacencyLineTrait<P>, P> {
+template <int PolynomialOrder>
+struct AdjacencyElementViewBasisFunction<AdjacencyLineTrait<PolynomialOrder>, PolynomialOrder> {
   [[nodiscard]] inline Isize getAdjacencyParentElementViewBasisFunctionSequenceInParent(
       Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent, Isize node_sequence_in_adjacency) const {
-    if (parent_gmsh_type_number == TriangleTrait<P>::kGmshTypeNumber) {
-      if (adjacency_sequence_in_parent == TriangleTrait<P>::kAdjacencyNumber - 1 && node_sequence_in_adjacency == 1) {
+    if (parent_gmsh_type_number == TriangleTrait<PolynomialOrder>::kGmshTypeNumber) {
+      if (adjacency_sequence_in_parent == TriangleTrait<PolynomialOrder>::kAdjacencyNumber - 1 &&
+          node_sequence_in_adjacency == 1) {
         return 0;
       }
-      if (node_sequence_in_adjacency < AdjacencyLineTrait<P>::kBasicNodeNumber) {
+      if (node_sequence_in_adjacency < AdjacencyLineTrait<PolynomialOrder>::kBasicNodeNumber) {
         return adjacency_sequence_in_parent + node_sequence_in_adjacency;
       }
-      return TriangleTrait<P>::kBasicNodeNumber +
-             adjacency_sequence_in_parent *
-                 (AdjacencyLineTrait<P>::kAllNodeNumber - AdjacencyLineTrait<P>::kBasicNodeNumber) +
-             node_sequence_in_adjacency - AdjacencyLineTrait<P>::kBasicNodeNumber;
+      return TriangleTrait<PolynomialOrder>::kBasicNodeNumber +
+             adjacency_sequence_in_parent * (AdjacencyLineTrait<PolynomialOrder>::kAllNodeNumber -
+                                             AdjacencyLineTrait<PolynomialOrder>::kBasicNodeNumber) +
+             node_sequence_in_adjacency - AdjacencyLineTrait<PolynomialOrder>::kBasicNodeNumber;
     }
-    if (parent_gmsh_type_number == QuadrangleTrait<P>::kGmshTypeNumber) {
-      if (adjacency_sequence_in_parent == QuadrangleTrait<P>::kAdjacencyNumber - 1 && node_sequence_in_adjacency == 1) {
+    if (parent_gmsh_type_number == QuadrangleTrait<PolynomialOrder>::kGmshTypeNumber) {
+      if (adjacency_sequence_in_parent == QuadrangleTrait<PolynomialOrder>::kAdjacencyNumber - 1 &&
+          node_sequence_in_adjacency == 1) {
         return 0;
       }
-      if (node_sequence_in_adjacency < AdjacencyLineTrait<P>::kBasicNodeNumber) {
+      if (node_sequence_in_adjacency < AdjacencyLineTrait<PolynomialOrder>::kBasicNodeNumber) {
         return adjacency_sequence_in_parent + node_sequence_in_adjacency;
       }
-      return QuadrangleTrait<P>::kBasicNodeNumber +
-             adjacency_sequence_in_parent *
-                 (AdjacencyLineTrait<P>::kAllNodeNumber - AdjacencyLineTrait<P>::kBasicNodeNumber) +
-             node_sequence_in_adjacency - AdjacencyLineTrait<P>::kBasicNodeNumber;
+      return QuadrangleTrait<PolynomialOrder>::kBasicNodeNumber +
+             adjacency_sequence_in_parent * (AdjacencyLineTrait<PolynomialOrder>::kAllNodeNumber -
+                                             AdjacencyLineTrait<PolynomialOrder>::kBasicNodeNumber) +
+             node_sequence_in_adjacency - AdjacencyLineTrait<PolynomialOrder>::kBasicNodeNumber;
     }
     return -1;
   }
@@ -321,10 +323,10 @@ struct ViewBase<SimulationControl, ViewModelEnum::Dat> : ViewConfig<SimulationCo
 
 template <typename SimulationControl>
 struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
-  inline void initializeSolverFinout(const bool delete_dir, const int iteration_start, std::fstream& error_finout) {
+  inline void initializeSolverFinout(const bool delete_dir, std::fstream& error_finout) {
     const std::filesystem::path raw_output_directory = this->output_directory_ / "raw";
     std::ios::openmode open_mode = std::ios::in | std::ios::out;
-    if (delete_dir && iteration_start == 0) {
+    if (delete_dir && SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       if (std::filesystem::exists(raw_output_directory)) {
         std::filesystem::remove_all(raw_output_directory);
       }
@@ -343,14 +345,14 @@ struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
 
   inline void finalizeSolverFinout(std::fstream& error_finout) { error_finout.close(); }
 
-  inline void initializeViewFin(const bool delete_dir, const int iteration_start, const int iteration_end) {
+  inline void initializeViewFin(const bool delete_dir, const int iteration_end) {
     std::filesystem::path view_output_directory;
     if constexpr (SimulationControl::kViewModel == ViewModelEnum::Vtu) {
       view_output_directory = this->output_directory_ / "vtu";
     } else if constexpr (SimulationControl::kViewModel == ViewModelEnum::Dat) {
       view_output_directory = this->output_directory_ / "dat";
     }
-    if (delete_dir && iteration_start == 0) {
+    if (delete_dir && SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       if (std::filesystem::exists(view_output_directory)) {
         std::filesystem::remove_all(view_output_directory);
       }
@@ -365,10 +367,10 @@ struct View : ViewBase<SimulationControl, SimulationControl::kViewModel> {
   }
 
   inline void readTimeValue(const int iteration_end) {
-    this->time_value_.resize(iteration_end);
+    this->time_value_.resize(iteration_end + 1);
     std::string line;
     std::getline(this->error_fin_, line);
-    for (int i = 0; i < iteration_end; i++) {
+    for (int i = 0; i <= iteration_end; i++) {
       std::getline(this->error_fin_, line);
       std::stringstream ss(line);
       ss.ignore(2) >> this->time_value_(i);

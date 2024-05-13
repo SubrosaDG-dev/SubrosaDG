@@ -19,6 +19,12 @@ using namespace magic_enum::bitwise_operators;
 
 namespace SubrosaDG {
 
+enum class DimensionEnum {
+  D1 = 1,
+  D2,
+  D3,
+};
+
 enum class ElementEnum {
   Point = 1,
   Line,
@@ -58,10 +64,15 @@ enum class EquationModelEnum {
   RANS,
 };
 
+enum class EquationSourceEnum {
+  None = 1,
+  Gravity,
+};
+
 enum class InitialConditionEnum {
   Function = 1,
   SpecificFile,
-  LastFile,
+  LastStep,
 };
 
 enum class BoundaryConditionEnum {

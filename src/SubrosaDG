@@ -23,6 +23,8 @@
 
 #define EIGEN_DONT_PARALLELIZE
 
+#include <filesystem>
+
 // clang-format off
 
 // IWYU pragma: begin_exports
@@ -61,5 +63,7 @@
 // IWYU pragma: end_exports
 
 // clang-format on
+
+void generateMesh(const std::filesystem::path& mesh_file_path);
 
 #endif  // SUBROSA_DG_HPP_

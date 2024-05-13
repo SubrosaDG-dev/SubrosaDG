@@ -35,7 +35,7 @@
 namespace SubrosaDG {
 
 struct TimeIntegrationBase {
-  int iteration_start_;
+  int iteration_start_{0};
   int iteration_end_;
   Real courant_friedrichs_lewy_number_;
   Real delta_time_{kRealMax};
@@ -119,7 +119,7 @@ template <typename SimulationControl>
 inline void Solver<SimulationControl>::calculateDeltaTime(
     const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
     TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
-  if (time_integration.iteration_start_ == 0) {
+  if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
     if constexpr (SimulationControl::kDimension == 1) {
       time_integration.delta_time_ =
           std::min(time_integration.delta_time_,

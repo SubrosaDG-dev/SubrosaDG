@@ -18,12 +18,32 @@ inline const std::string kExampleName{"periodic_2d_euler"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
-                                      SubrosaDG::ThermodynamicModelEnum::ConstantE,
-                                      SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
-                                      SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P1,
-                                      SubrosaDG::ViewModelEnum::Vtu>;
+using SimulationControl = SubrosaDG::SimulationControlEuler<
+    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
+    SubrosaDG::EquationSourceEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
+    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
+
+int main(int argc, char* argv[]) {
+  static_cast<void>(argc);
+  static_cast<void>(argv);
+  SubrosaDG::System<SimulationControl> system{};
+  system.setMesh(kExampleDirectory / "periodic_2d_euler.msh", generateMesh);
+  system.addInitialCondition([](const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+        1.0 + 0.2 * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())), 0.7, 0.3,
+        1.4 / (1.0 + 0.2 * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())))};
+  });
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-2");
+  system.setTimeIntegration(1.0);
+  system.setViewConfig(kExampleDirectory, kExampleName);
+  system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
+                          SubrosaDG::ViewVariableEnum::Pressure});
+  system.synchronize();
+  system.solve();
+  system.view();
+}
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::add("periodic_2d");
@@ -52,25 +72,4 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
   gmsh::write(mesh_file_path);
-}
-
-int main(int argc, char* argv[]) {
-  static_cast<void>(argc);
-  static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system{};
-  system.setMesh(kExampleDirectory / "periodic_2d_euler.msh", generateMesh);
-  system.addInitialCondition("vc-1", [](const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        1.0 + 0.2 * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())), 0.7, 0.3,
-        1.4 / (1.0 + 0.2 * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())))};
-  });
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-2");
-  system.setTimeIntegration(1.0);
-  system.setViewConfig(kExampleDirectory, kExampleName);
-  system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-                          SubrosaDG::ViewVariableEnum::Pressure});
-  system.synchronize();
-  system.solve();
-  system.view();
 }

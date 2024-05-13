@@ -16,12 +16,34 @@ inline const std::string kExampleName{"naca0012_2d_euler"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-using SimulationControl =
-    SubrosaDG::SimulationControlEuler<2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
-                                      SubrosaDG::ThermodynamicModelEnum::ConstantE,
-                                      SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC,
-                                      SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P1,
-                                      SubrosaDG::ViewModelEnum::Vtu>;
+using SimulationControl = SubrosaDG::SimulationControlEuler<
+    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
+    SubrosaDG::EquationSourceEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
+    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
+
+int main(int argc, char* argv[]) {
+  static_cast<void>(argc);
+  static_cast<void>(argv);
+  SubrosaDG::System<SimulationControl> system{};
+  system.setMesh(kExampleDirectory / "naca0012_2d_euler.msh", generateMesh);
+  system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+        1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0};
+  });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
+      "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-2");
+  system.setTimeIntegration(1.0);
+  system.setViewConfig(kExampleDirectory, kExampleName);
+  system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
+                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
+                          SubrosaDG::ViewVariableEnum::MachNumber});
+  system.synchronize();
+  system.solve();
+  system.view();
+  return EXIT_SUCCESS;
+}
 
 inline std::array<double, 64> naca0012_point_x_array{
     0.000584, 0.002334, 0.005247, 0.009315, 0.014529, 0.020877, 0.028344, 0.036913, 0.046563, 0.057272, 0.069015,
@@ -136,27 +158,4 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
   gmsh::write(mesh_file_path);
-}
-
-int main(int argc, char* argv[]) {
-  static_cast<void>(argc);
-  static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system{};
-  system.setMesh(kExampleDirectory / "naca0012_2d_euler.msh", generateMesh);
-  system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0};
-  });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1", {1.4, 0.63 * std::cos(SubrosaDG::toRadian(2.0)), 0.63 * std::sin(SubrosaDG::toRadian(2.0)), 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-2");
-  system.setTimeIntegration(1.0);
-  system.setViewConfig(kExampleDirectory, kExampleName);
-  system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
-                          SubrosaDG::ViewVariableEnum::MachNumber});
-  system.synchronize();
-  system.solve();
-  system.view();
-  return EXIT_SUCCESS;
 }

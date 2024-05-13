@@ -17,10 +17,31 @@ inline const std::string kExampleName{"cylinder_2d_euler"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControlEuler<
-    2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
+    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
+    SubrosaDG::EquationSourceEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
-    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::PolynomialOrderEnum::P1,
-    SubrosaDG::ViewModelEnum::Vtu>;
+    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
+
+int main(int argc, char* argv[]) {
+  static_cast<void>(argc);
+  static_cast<void>(argv);
+  SubrosaDG::System<SimulationControl> system{};
+  system.setMesh(kExampleDirectory / "cylinder_2d_euler.msh", generateMesh);
+  system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.1, 0.0, 1.0};
+  });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.1, 0.0, 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-2");
+  system.setTimeIntegration(1.0);
+  system.setViewConfig(kExampleDirectory, kExampleName);
+  system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
+                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
+                          SubrosaDG::ViewVariableEnum::MachNumber});
+  system.synchronize();
+  system.solve();
+  system.view();
+  return EXIT_SUCCESS;
+}
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> farfield_point_coordinate;
@@ -97,25 +118,4 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
   gmsh::write(mesh_file_path);
-}
-
-int main(int argc, char* argv[]) {
-  static_cast<void>(argc);
-  static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system{};
-  system.setMesh(kExampleDirectory / "cylinder_2d_euler.msh", generateMesh);
-  system.addInitialCondition("vc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.1, 0.0, 1.0};
-  });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.1, 0.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-2");
-  system.setTimeIntegration(1.0);
-  system.setViewConfig(kExampleDirectory, kExampleName);
-  system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
-                          SubrosaDG::ViewVariableEnum::MachNumber});
-  system.synchronize();
-  system.solve();
-  system.view();
-  return EXIT_SUCCESS;
 }

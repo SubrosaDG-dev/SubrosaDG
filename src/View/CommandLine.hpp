@@ -33,6 +33,7 @@
 
 #include "Cmake.hpp"
 #include "Utils/BasicDataType.hpp"
+#include "Utils/Enum.hpp"
 
 namespace SubrosaDG {
 
@@ -70,7 +71,7 @@ struct CommandLine {
       this->solver_progress_bar_.restart();
       this->solver_progress_bar_.initialize(iteration_start, iteration_end, this->line_number_ + 2);
     }
-    if (iteration_start == 0) {
+    if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       error_finout << this->getVariableList() << '\n'
                    << this->getLineInformation(0.0,
                                                Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero())

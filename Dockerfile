@@ -16,7 +16,7 @@ cd vcpkg && \
 ENV VCPKG_ROOT=/root/vcpkg
 
 RUN cd /root && \
-git clone --depth 1 --branch "gmsh_4_12_2" https://gitlab.onelab.info/gmsh/gmsh.git && \
+git clone --depth 1 --branch "gmsh_4_13_0" https://gitlab.onelab.info/gmsh/gmsh.git && \
 cd gmsh && \
 sed -i 's|set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")|set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib64")|' CMakeLists.txt && \
 mkdir build && \

@@ -36,6 +36,7 @@
 #include "Utils/Environment.hpp"
 #include "View/CommandLine.hpp"
 #include "View/IOControl.hpp"
+#include "View/RawBinary.hpp"
 
 namespace SubrosaDG {
 
@@ -100,17 +101,17 @@ struct System {
   }
 
   inline void addInitialCondition(
-      [[maybe_unused]] const std::string& initial_condition_name,
       const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
           const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>& initial_condition_function) {
     this->initial_condition_.function_ = initial_condition_function;
-    this->initial_condition_.type_ = InitialConditionEnum::Function;
   }
 
-  inline void addInitialCondition([[maybe_unused]] const std::string& initial_condition_name,
-                                  const std::filesystem::path& initial_condition_file) {
-    this->initial_condition_.file_path_ = initial_condition_file;
-    this->initial_condition_.type_ = InitialConditionEnum::SpecificFile;
+  inline void addInitialCondition(const std::filesystem::path& initial_condition_file) {
+    this->initial_condition_.raw_binary_path_ = initial_condition_file;
+  }
+
+  inline void addInitialCondition(const int initial_condition_step) {
+    this->time_integration_.iteration_start_ = initial_condition_step;
   }
 
   inline void setTransportModel(const Real dynamic_viscosity) {
@@ -121,8 +122,8 @@ struct System {
   inline void setTimeIntegration(const Real courant_friedrichs_lewy_number, const int iteration_start = 0,
                                  const int iteration_end = 0) {
     if (iteration_start == 0 && iteration_end == 0) {
-      std::cout << "\nSet time integration start and number: ";
-      std::cin >> this->time_integration_.iteration_start_ >> this->time_integration_.iteration_end_;
+      std::cout << "\nSet time integration end number: ";
+      std::cin >> this->time_integration_.iteration_end_;
     } else {
       this->time_integration_.iteration_start_ = iteration_start;
       this->time_integration_.iteration_end_ = iteration_end;
@@ -179,24 +180,24 @@ struct System {
 
   inline void synchronize() {
     this->mesh_.readMeshElement();
-    if (this->time_integration_.iteration_start_ != 0) {
+    if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::SpecificFile) {
+      RawBinaryCompress::read(this->initial_condition_.raw_binary_path_, this->initial_condition_.raw_binary_ss_);
+    } else if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LastStep) {
       this->initial_condition_.raw_binary_path_ =
           this->view_.output_directory_ /
           std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, this->time_integration_.iteration_start_);
-      this->initial_condition_.type_ = InitialConditionEnum::LastFile;
+      RawBinaryCompress::read(this->initial_condition_.raw_binary_path_, this->initial_condition_.raw_binary_ss_);
     }
   }
 
   inline void solve(const bool delete_dir = true) {
-    this->view_.initializeSolverFinout(delete_dir, this->time_integration_.iteration_start_,
-                                       this->solver_.error_finout_);
+    this->view_.initializeSolverFinout(delete_dir, this->solver_.error_finout_);
     this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
                                    this->initial_condition_);
     this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
-    if (this->time_integration_.iteration_start_ == 0) {
-      this->solver_.writeRawBinary(
-          this->view_.output_directory_ /
-          std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, this->time_integration_.iteration_start_));
+    if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
+      this->solver_.writeRawBinary(this->view_.output_directory_ /
+                                   std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, 0));
     } else {
       this->solver_.write_raw_binary_future_ = std::async(std::launch::async, []() {});
     }
@@ -224,10 +225,9 @@ struct System {
   inline void view(const bool delete_dir = true) {
     this->command_line_.initializeView(this->time_integration_.iteration_end_ / this->view_.io_interval_ -
                                        this->time_integration_.iteration_start_ / this->view_.io_interval_);
-    this->view_.initializeViewFin(delete_dir, this->time_integration_.iteration_start_,
-                                  this->time_integration_.iteration_end_ + 1);
+    this->view_.initializeViewFin(delete_dir, this->time_integration_.iteration_end_);
     ViewData<SimulationControl> view_data(this->mesh_);
-    if (this->time_integration_.iteration_start_ == 0) {
+    if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       view_data.raw_binary_path_ =
           this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, 0);
       this->view_.stepView(0, this->mesh_, this->thermal_model_, view_data);

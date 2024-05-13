@@ -49,7 +49,7 @@ inline std::vector<double> getElementPerAdjacencyBasisFunction(
   gmsh::model::mesh::getBasisFunctions(AdjacencyElementTrait::kGmshTypeNumber, local_coord, "Lagrange1", num_components,
                                        basis_functions, num_orientations);
   constexpr int kAdjacencyElementP1BasisFunctionNumber =
-      getElementBasisFunctionNumber<AdjacencyElementTrait::kElementType, PolynomialOrderEnum::P1>();
+      getElementBasisFunctionNumber<AdjacencyElementTrait::kElementType, 1>();
   Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, kAdjacencyElementP1BasisFunctionNumber>
       basis_function_value;
   for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
@@ -117,7 +117,7 @@ struct ElementBasisFunction {
           kElementPerAdjacencyQuadratureNumber{
               getElementPerAdjacencyQuadratureNumber<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>()};
       const Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kBasicNodeNumber> basic_node_coordinate{
-          getElementNodeCoordinate<ElementTrait::kElementType, PolynomialOrderEnum::P1>().data()};
+          getElementNodeCoordinate<ElementTrait::kElementType, 1>().data()};
       Eigen::Matrix<Real, ElementTrait::kDimension, kElementPerAdjacencyNodeNumber[static_cast<Usize>(I)]>
           adjacency_basic_node_coordinate;
       for (Isize j = 0; j < kElementPerAdjacencyNodeNumber[static_cast<Usize>(I)]; j++) {
