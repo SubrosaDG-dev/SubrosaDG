@@ -64,7 +64,7 @@ enum class EquationModelEnum {
   RANS,
 };
 
-enum class EquationSourceEnum {
+enum class SourceTermEnum {
   None = 1,
   Gravity,
 };

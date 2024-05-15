@@ -30,18 +30,36 @@
 namespace SubrosaDG {
 
 template <typename SimulationControl>
+struct SourceTerm;
+template <typename SimulationControl>
 struct BoundaryConditionBase;
 template <typename SimulationControl>
 struct InitialCondition;
-template <TimeIntegrationEnum TimeIntegrationType>
-struct TimeIntegrationData;
+template <typename SimulationControl>
+struct TimeIntegration;
 template <typename SimulationControl, int Dimension>
 struct SolverData;
 template <typename SimulationControl>
 struct Solver;
 
+template <typename ElementTrait, typename SimulationControl, SourceTermEnum SourceTermType>
+struct PerElementSolverSource;
+
 template <typename ElementTrait, typename SimulationControl>
-struct PerElementSolverBase {
+struct PerElementSolverSource<ElementTrait, SimulationControl, SourceTermEnum::None> {};
+
+template <typename ElementTrait, typename SimulationControl>
+struct PerElementSolverSource<ElementTrait, SimulationControl, SourceTermEnum::Gravity> {
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>
+      variable_source_quadrature_;
+};
+
+template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+struct PerElementSolver;
+
+template <typename ElementTrait, typename SimulationControl>
+struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>
+    : PerElementSolverSource<ElementTrait, SimulationControl, SimulationControl::kSourceTerm> {
   Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>, 2,
                1>
       variable_basis_function_coefficient_;
@@ -54,16 +72,19 @@ struct PerElementSolverBase {
       variable_residual_;
 };
 
-template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-struct PerElementSolver;
-
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>
-    : PerElementSolverBase<ElementTrait, SimulationControl> {};
-
 template <typename ElementTrait, typename SimulationControl>
 struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>
-    : PerElementSolverBase<ElementTrait, SimulationControl> {
+    : PerElementSolverSource<ElementTrait, SimulationControl, SimulationControl::kSourceTerm> {
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>, 2,
+               1>
+      variable_basis_function_coefficient_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                ElementTrait::kQuadratureNumber * SimulationControl::kDimension>
+      variable_quadrature_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllAdjacencyQuadratureNumber>
+      variable_adjacency_quadrature_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
+      variable_residual_;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 ElementTrait::kBasisFunctionNumber>
       variable_gradient_basis_function_coefficient_;
@@ -111,9 +132,8 @@ struct ElementSolverBase {
 
   inline void calculateElementResidual(const ElementMesh<ElementTrait>& element_mesh);
 
-  inline void updateElementBasisFunctionCoefficient(
-      int step, const ElementMesh<ElementTrait>& element_mesh,
-      const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+  inline void updateElementBasisFunctionCoefficient(int step, const ElementMesh<ElementTrait>& element_mesh,
+                                                    const TimeIntegration<SimulationControl>& time_integration);
 
   inline void calculateElementRelativeError(
       const ElementMesh<ElementTrait>& element_mesh,
@@ -127,6 +147,7 @@ template <typename ElementTrait, typename SimulationControl>
 struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>
     : ElementSolverBase<ElementTrait, SimulationControl> {
   inline void calculateElementQuadrature(const ElementMesh<ElementTrait>& element_mesh,
+                                         [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
                                          const ThermalModel<SimulationControl>& thermal_model);
 
   inline void writeElementRawBinary(std::stringstream& raw_binary_ss) const;
@@ -138,6 +159,7 @@ struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierS
   inline void initializeElementGardientSolver();
 
   inline void calculateElementQuadrature(const ElementMesh<ElementTrait>& element_mesh,
+                                         [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
                                          const ThermalModel<SimulationControl>& thermal_model);
 
   inline void calculateElementGardientQuadrature(const ElementMesh<ElementTrait>& element_mesh);
@@ -287,9 +309,10 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void calculateDeltaTime(const Mesh<SimulationControl>& mesh,
                                  const ThermalModel<SimulationControl>& thermal_model,
-                                 TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+                                 TimeIntegration<SimulationControl>& time_integration);
 
   inline void calculateQuadrature(const Mesh<SimulationControl>& mesh,
+                                  [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
                                   const ThermalModel<SimulationControl>& thermal_model);
 
   inline void calculateGardientQuadrature(const Mesh<SimulationControl>& mesh);
@@ -306,16 +329,16 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void calculateGardientResidual(const Mesh<SimulationControl>& mesh);
 
-  inline void updateBasisFunctionCoefficient(
-      int step, const Mesh<SimulationControl>& mesh,
-      const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+  inline void updateBasisFunctionCoefficient(int step, const Mesh<SimulationControl>& mesh,
+                                             const TimeIntegration<SimulationControl>& time_integration);
 
   inline void updateGardientBasisFunctionCoefficient(const Mesh<SimulationControl>& mesh);
 
   inline void stepSolver(
-      int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      int step, const Mesh<SimulationControl>& mesh, [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
+      const ThermalModel<SimulationControl>& thermal_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-      const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration);
+      const TimeIntegration<SimulationControl>& time_integration);
 
   inline void calculateRelativeError(const Mesh<SimulationControl>& mesh);
 

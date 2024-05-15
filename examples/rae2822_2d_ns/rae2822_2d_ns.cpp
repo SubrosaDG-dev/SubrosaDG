@@ -17,8 +17,8 @@ inline const std::string kExampleName{"rae2822_2d_ns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
-    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
-    SubrosaDG::EquationSourceEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
+    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
     SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
@@ -92,8 +92,8 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 2, 1> rae2822_line_tag;
   Eigen::Array<int, 4, 1> connection_line_tag;
   Eigen::Array<int, 4, 1> curve_loop_tag;
-  Eigen::Array<int, 3, 1> plane_surface_tag;
-  std::array<std::vector<int>, 4> physical_group_tag;
+  Eigen::Array<int, 4, 1> plane_surface_tag;
+  std::array<std::vector<int>, 3> physical_group_tag;
   gmsh::model::add("rae2822");
   const int rae2822_leading_edge_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   const int rae2822_trailing_edge_point_tag = gmsh::model::geo::addPoint(1.0, 0.0, 0.0);
@@ -144,12 +144,12 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(i), 40);
   }
   gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 20);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 20, "Progression", -1.4);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 20, "Progression", 1.4);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 20, "Progression", -1.7);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 20, "Progression", 1.7);
   gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 20);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 20, "Progression", -1.4);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 20, "Progression", -1.35);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 20, "Progression", -1.4);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 20, "Progression", -1.7);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 20, "Progression", -1.65);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 20, "Progression", -1.7);
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 20);
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
@@ -170,5 +170,6 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
+  gmsh::model::mesh::optimize("HighOrderFastCurving");
   gmsh::write(mesh_file_path);
 }

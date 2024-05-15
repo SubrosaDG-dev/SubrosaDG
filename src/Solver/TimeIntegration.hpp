@@ -25,6 +25,7 @@
 #include "Mesh/ReadControl.hpp"
 #include "Solver/BoundaryCondition.hpp"
 #include "Solver/SolveControl.hpp"
+#include "Solver/SourceTerm.hpp"
 #include "Solver/ThermalModel.hpp"
 #include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
@@ -40,6 +41,9 @@ struct TimeIntegrationBase {
   Real courant_friedrichs_lewy_number_;
   Real delta_time_{kRealMax};
 };
+
+template <TimeIntegrationEnum TimeIntegrationType>
+struct TimeIntegrationData;
 
 template <>
 struct TimeIntegrationData<TimeIntegrationEnum::ForwardEuler> : TimeIntegrationBase {
@@ -116,9 +120,9 @@ inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl>::calculateDeltaTime(
-    const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-    TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+inline void Solver<SimulationControl>::calculateDeltaTime(const Mesh<SimulationControl>& mesh,
+                                                          const ThermalModel<SimulationControl>& thermal_model,
+                                                          TimeIntegration<SimulationControl>& time_integration) {
   if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
     if constexpr (SimulationControl::kDimension == 1) {
       time_integration.delta_time_ =
@@ -153,7 +157,7 @@ inline void Solver<SimulationControl>::calculateDeltaTime(
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolverBase<ElementTrait, SimulationControl>::updateElementBasisFunctionCoefficient(
     const int step, const ElementMesh<ElementTrait>& element_mesh,
-    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+    const TimeIntegration<SimulationControl>& time_integration) {
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
     shared(Eigen::Dynamic, step, element_mesh, time_integration)
@@ -194,8 +198,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Na
 
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::updateBasisFunctionCoefficient(
-    int step, const Mesh<SimulationControl>& mesh,
-    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+    int step, const Mesh<SimulationControl>& mesh, const TimeIntegration<SimulationControl>& time_integration) {
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.updateElementBasisFunctionCoefficient(step, mesh.line_, time_integration);
   } else if constexpr (SimulationControl::kDimension == 2) {
@@ -263,16 +266,18 @@ inline void Solver<SimulationControl>::calculateRelativeError(const Mesh<Simulat
 
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::stepSolver(
-    const int step, const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+    const int step, const Mesh<SimulationControl>& mesh,
+    [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
+    const ThermalModel<SimulationControl>& thermal_model,
     const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-    const TimeIntegrationData<SimulationControl::kTimeIntegration>& time_integration) {
+    const TimeIntegration<SimulationControl>& time_integration) {
   if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
     this->calculateGardientQuadrature(mesh);
     this->calculateAdjacencyGardientQuadrature(mesh, thermal_model, boundary_condition);
     this->calculateGardientResidual(mesh);
     this->updateGardientBasisFunctionCoefficient(mesh);
   }
-  this->calculateQuadrature(mesh, thermal_model);
+  this->calculateQuadrature(mesh, source_term, thermal_model);
   this->calculateAdjacencyQuadrature(mesh, thermal_model, boundary_condition);
   this->calculateResidual(mesh);
   this->updateBasisFunctionCoefficient(step, mesh, time_integration);

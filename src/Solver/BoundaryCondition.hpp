@@ -197,9 +197,9 @@ template <typename SimulationControl>
 struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsothermalNoslipWall>
     : BoundaryConditionCRTP<SimulationControl,
                             BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsothermalNoslipWall>> {
-  inline void calculateBoundaryVariable(const ThermalModel<SimulationControl>& thermal_model,
-                                        const Variable<SimulationControl>& left_quadrature_node_variable,
-                                        Variable<SimulationControl>& boundary_quadrature_node_variable) const {
+  inline void calculateBoundaryVariableLocally(const ThermalModel<SimulationControl>& thermal_model,
+                                               const Variable<SimulationControl>& left_quadrature_node_variable,
+                                               Variable<SimulationControl>& boundary_quadrature_node_variable) const {
     const Real boundary_density =
         left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>();
     boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Density>(boundary_density);

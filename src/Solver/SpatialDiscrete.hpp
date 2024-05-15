@@ -24,6 +24,7 @@
 #include "Solver/ConvectiveFlux.hpp"
 #include "Solver/SimulationControl.hpp"
 #include "Solver/SolveControl.hpp"
+#include "Solver/SourceTerm.hpp"
 #include "Solver/ThermalModel.hpp"
 #include "Solver/VariableConvertor.hpp"
 #include "Solver/ViscousFlux.hpp"
@@ -35,18 +36,23 @@ namespace SubrosaDG {
 
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>::calculateElementQuadrature(
-    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model) {
+    const ElementMesh<ElementTrait>& element_mesh, [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
+    const ThermalModel<SimulationControl>& thermal_model) {
   Variable<SimulationControl> quadrature_node_variable;
   FluxVariable<SimulationControl> convective_raw_flux;
+  [[maybe_unused]] FluxNormalVariable<SimulationControl> source_flux;
   Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kDimension> quadrature_node_jacobian_transpose_inverse;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
       element_quadrature_node_temporary_variable;
+  [[maybe_unused]] Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
+      element_source_quadrature_node_temporary_variable;
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                            \
-    shared(Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, \
-               thermal_model) private(quadrature_node_variable, convective_raw_flux,            \
-                                          quadrature_node_jacobian_transpose_inverse,           \
-                                          element_quadrature_node_temporary_variable)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                         \
+    shared(Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, source_term, \
+               thermal_model) private(quadrature_node_variable, convective_raw_flux, source_flux,            \
+                                          quadrature_node_jacobian_transpose_inverse,                        \
+                                          element_quadrature_node_temporary_variable,                        \
+                                          element_source_quadrature_node_temporary_variable)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
@@ -62,26 +68,38 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Eu
       this->element_(i).variable_quadrature_(
           Eigen::all, Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
           element_quadrature_node_temporary_variable;
+      if constexpr (SimulationControl::kSourceTerm != SourceTermEnum::None) {
+        source_term.calculateSourceTerm(quadrature_node_variable, source_flux);
+        element_source_quadrature_node_temporary_variable.noalias() =
+            source_flux.normal_variable_ * element_mesh.element_(i).jacobian_determinant_(j) *
+            element_mesh.quadrature_.weight_(j);
+        this->element_(i).variable_source_quadrature_.col(j) = element_source_quadrature_node_temporary_variable;
+      }
     }
   }
 }
 
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::calculateElementQuadrature(
-    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model) {
+    const ElementMesh<ElementTrait>& element_mesh, [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
+    const ThermalModel<SimulationControl>& thermal_model) {
   Variable<SimulationControl> quadrature_node_variable;
   VariableGradient<SimulationControl> quadrature_node_variable_gradient;
   FluxVariable<SimulationControl> convective_raw_flux;
   FluxVariable<SimulationControl> viscous_raw_flux;
+  [[maybe_unused]] FluxNormalVariable<SimulationControl> source_flux;
   Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kDimension> quadrature_node_jacobian_transpose_inverse;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>
       element_quadrature_node_temporary_variable;
+  [[maybe_unused]] Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
+      element_source_quadrature_node_temporary_variable;
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(                                         \
-        Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh,                         \
+        Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, source_term,            \
             thermal_model) private(quadrature_node_variable, quadrature_node_variable_gradient, convective_raw_flux, \
-                                       viscous_raw_flux, quadrature_node_jacobian_transpose_inverse,                 \
-                                       element_quadrature_node_temporary_variable)
+                                       viscous_raw_flux, source_flux, quadrature_node_jacobian_transpose_inverse,    \
+                                       element_quadrature_node_temporary_variable,                                   \
+                                       element_source_quadrature_node_temporary_variable)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
@@ -102,6 +120,13 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Na
       this->element_(i).variable_quadrature_(
           Eigen::all, Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
           element_quadrature_node_temporary_variable;
+      if constexpr (SimulationControl::kSourceTerm != SourceTermEnum::None) {
+        source_term.calculateSourceTerm(quadrature_node_variable, source_flux);
+        element_source_quadrature_node_temporary_variable.noalias() =
+            source_flux.normal_variable_ * element_mesh.element_(i).jacobian_determinant_(j) *
+            element_mesh.quadrature_.weight_(j);
+        this->element_(i).variable_source_quadrature_.col(j) = element_source_quadrature_node_temporary_variable;
+      }
     }
   }
 }
@@ -141,16 +166,17 @@ ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>:
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl>::calculateQuadrature(const Mesh<SimulationControl>& mesh,
-                                                           const ThermalModel<SimulationControl>& thermal_model) {
+inline void Solver<SimulationControl>::calculateQuadrature(
+    const Mesh<SimulationControl>& mesh, [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
+    const ThermalModel<SimulationControl>& thermal_model) {
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.calculateElementQuadrature(mesh.line_, thermal_model);
+    this->line_.calculateElementQuadrature(mesh.line_, source_term, thermal_model);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.calculateElementQuadrature(mesh.triangle_, thermal_model);
+      this->triangle_.calculateElementQuadrature(mesh.triangle_, source_term, thermal_model);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.calculateElementQuadrature(mesh.quadrangle_, thermal_model);
+      this->quadrangle_.calculateElementQuadrature(mesh.quadrangle_, source_term, thermal_model);
     }
   }
 }
@@ -670,6 +696,10 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
         this->element_(i).variable_quadrature_ * element_mesh.basis_function_.gradient_value_;
     this->element_(i).variable_residual_.noalias() -=
         this->element_(i).variable_adjacency_quadrature_ * element_mesh.basis_function_.adjacency_value_;
+    if constexpr (SimulationControl::kSourceTerm != SourceTermEnum::None) {
+      this->element_(i).variable_residual_.noalias() +=
+          this->element_(i).variable_source_quadrature_ * element_mesh.basis_function_.value_;
+    }
   }
 }
 

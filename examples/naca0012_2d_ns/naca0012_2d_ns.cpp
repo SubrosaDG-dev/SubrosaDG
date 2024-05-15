@@ -18,7 +18,7 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
 
 using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
     SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
-    SubrosaDG::EquationSourceEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
     SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
@@ -159,5 +159,6 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
+  gmsh::model::mesh::optimize("HighOrderFastCurving");
   gmsh::write(mesh_file_path);
 }

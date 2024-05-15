@@ -273,9 +273,9 @@ string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++")
 string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation -Wno-narrowing")
 # string(APPEND SUBROSA_DG_CXX_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
 string(APPEND SUBROSA_DG_CXX_DEBUG_FLAGS "${SUBROSA_DG_CXX_WARNING_FLAGS} ${SUBROSA_DG_CXX_COVER_FLAGS}")
-string(APPEND SUBROSA_DG_CXX_RELWITHDEBINFO_FLAGS "-mfma $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native> \
+string(APPEND SUBROSA_DG_CXX_RELWITHDEBINFO_FLAGS "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native> \
     $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},arm64>:-mcpu=native>")
-string(APPEND SUBROSA_DG_CXX_RELEASE_FLAGS "-mfma $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native> \
+string(APPEND SUBROSA_DG_CXX_RELEASE_FLAGS "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native> \
     $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},arm64>:-mcpu=native>")
 
 # set different compile option

@@ -700,13 +700,13 @@ template <int PolynomialOrder>
 using QuadrangleTrait = ElementTrait<ElementEnum::Quadrangle, PolynomialOrder>;
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, EquationModelEnum EquationModelType,
-          EquationSourceEnum EquationSourceType, InitialConditionEnum InitialConditionType,
+          SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
           PolynomialOrderEnum InitialPolynomialOrder, ThermodynamicModelEnum ThermodynamicModelType,
           EquationOfStateEnum EquationOfStateType, TimeIntegrationEnum TimeIntegrationType>
 struct SolveControl {
   inline static constexpr int kDimension{magic_enum::enum_integer(Dimension)};
   inline static constexpr int kPolynomialOrder{magic_enum::enum_integer(PolynomialOrder)};
-  inline static constexpr EquationSourceEnum kEquationSource{EquationSourceType};
+  inline static constexpr SourceTermEnum kSourceTerm{SourceTermType};
   inline static constexpr EquationModelEnum kEquationModel{EquationModelType};
   inline static constexpr InitialConditionEnum kInitialCondition{InitialConditionType};
   inline static constexpr int kInitialPolynomialOrder{magic_enum::enum_integer(InitialPolynomialOrder)};
@@ -760,48 +760,47 @@ struct RANSVariable : EquationVariable<EquationModelEnum::RANS> {
 };
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
-          EquationModelEnum EquationModelType, EquationSourceEnum EquationSourceType,
-          InitialConditionEnum InitialConditionType, PolynomialOrderEnum InitialPolynomialOrder,
-          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
-          TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
+          EquationModelEnum EquationModelType, SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
+          PolynomialOrderEnum InitialPolynomialOrder, ThermodynamicModelEnum ThermodynamicModelType,
+          EquationOfStateEnum EquationOfStateType, TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
 struct SimulationControl
-    : SolveControl<Dimension, PolynomialOrder, EquationModelType, EquationSourceType, InitialConditionType,
+    : SolveControl<Dimension, PolynomialOrder, EquationModelType, SourceTermType, InitialConditionType,
                    InitialPolynomialOrder, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType> {
   inline static constexpr MeshModelEnum kMeshModel{MeshModelType};
   inline static constexpr ViewModelEnum kViewModel{ViewModelType};
 };
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
-          EquationSourceEnum EquationSourceType, InitialConditionEnum InitialConditionType,
+          SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
           PolynomialOrderEnum InitialPolynomialOrder, ThermodynamicModelEnum ThermodynamicModelType,
           EquationOfStateEnum EquationOfStateType, ConvectiveFluxEnum ConvectiveFluxType,
           TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
 struct SimulationControlEuler
-    : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::Euler, EquationSourceType,
+    : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::Euler, SourceTermType,
                         InitialConditionType, InitialPolynomialOrder, ThermodynamicModelType, EquationOfStateType,
                         TimeIntegrationType, ViewModelType>,
       EulerVariable<Dimension, ConvectiveFluxType> {};
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
-          EquationSourceEnum EquationSourceType, InitialConditionEnum InitialConditionType,
+          SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
           PolynomialOrderEnum InitialPolynomialOrder, ThermodynamicModelEnum ThermodynamicModelType,
           EquationOfStateEnum EquationOfStateType, TransportModelEnum TransportModelType,
           ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
           TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
 struct SimulationControlNavierStokes
-    : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::NavierStokes, EquationSourceType,
+    : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::NavierStokes, SourceTermType,
                         InitialConditionType, InitialPolynomialOrder, ThermodynamicModelType, EquationOfStateType,
                         TimeIntegrationType, ViewModelType>,
       NavierStokesVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType> {};
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
-          EquationSourceEnum EquationSourceType, InitialConditionEnum InitialConditionType,
+          SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
           PolynomialOrderEnum InitialPolynomialOrder, ThermodynamicModelEnum ThermodynamicModelType,
           EquationOfStateEnum EquationOfStateType, TransportModelEnum TransportModelType,
           ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
           TurbulenceModelEnum TurbulenceModelType, TimeIntegrationEnum TimeIntegrationType, ViewModelEnum ViewModelType>
 struct SimulationControlRANS
-    : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::NavierStokes, EquationSourceType,
+    : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::NavierStokes, SourceTermType,
                         InitialConditionType, InitialPolynomialOrder, ThermodynamicModelType, EquationOfStateType,
                         TimeIntegrationType, ViewModelType>,
       RANSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType, TurbulenceModelType> {};

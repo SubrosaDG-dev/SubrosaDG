@@ -29,6 +29,7 @@
 #include "Solver/BoundaryCondition.hpp"
 #include "Solver/InitialCondition.hpp"
 #include "Solver/SolveControl.hpp"
+#include "Solver/SourceTerm.hpp"
 #include "Solver/ThermalModel.hpp"
 #include "Solver/TimeIntegration.hpp"
 #include "Utils/BasicDataType.hpp"
@@ -45,6 +46,7 @@ struct System {
   Environment environment_;
   CommandLine<SimulationControl> command_line_;
   Mesh<SimulationControl> mesh_;
+  SourceTerm<SimulationControl> source_term_;
   ThermalModel<SimulationControl> thermal_model_;
   std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>> boundary_condition_;
   InitialCondition<SimulationControl> initial_condition_;
@@ -55,6 +57,11 @@ struct System {
   inline void setMesh(const std::filesystem::path& mesh_file_path,
                       const std::function<void(const std::filesystem::path& mesh_file_path)>& generate_mesh_function) {
     this->mesh_.initializeMesh(mesh_file_path, generate_mesh_function);
+  }
+
+  inline void setSourceTerm(const Real reference_density, const Real gravity) {
+    this->source_term_.reference_density = reference_density;
+    this->source_term_.gravity = gravity;
   }
 
   template <BoundaryConditionEnum BoundaryConditionType>
@@ -206,7 +213,7 @@ struct System {
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
       this->solver_.copyBasisFunctionCoefficient();
       for (int j = 0; j < this->time_integration_.kStep; j++) {
-        this->solver_.stepSolver(j, this->mesh_, this->thermal_model_, this->boundary_condition_,
+        this->solver_.stepSolver(j, this->mesh_, this->source_term_, this->thermal_model_, this->boundary_condition_,
                                  this->time_integration_);
       }
       if (i % this->view_.io_interval_ == 0) {

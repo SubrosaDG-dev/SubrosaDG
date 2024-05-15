@@ -148,7 +148,7 @@ struct ElementMesh {
   Eigen::Array<PerElementMesh<ElementTrait>, Eigen::Dynamic, 1> element_;
 
   inline void getElementMesh(const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
-                             MeshInformation& information, Eigen::Vector<Isize, Eigen::Dynamic>& node_element_number);
+                             MeshInformation& information);
 
   inline void getElementJacobian();
 
@@ -168,8 +168,6 @@ struct ElementMesh {
 template <typename SimulationControl>
 struct MeshDataBase {
   Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> node_coordinate_;
-
-  Eigen::Vector<Isize, Eigen::Dynamic> node_element_number_;
 
   Isize node_number_{0};
   Isize element_number_{0};
@@ -233,8 +231,6 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
     std::vector<double> parametric_coord;
     gmsh::model::mesh::getNodes(node_tags, coord, parametric_coord);
     this->node_coordinate_.resize(Eigen::NoChange, static_cast<Isize>(node_tags.size()));
-    this->node_element_number_.resize(static_cast<Isize>(node_tags.size()));
-    this->node_element_number_.setZero();
     for (const auto node_tag : node_tags) {
       for (Isize i = 0; i < SimulationControl::kDimension; i++) {
         this->node_coordinate_(i, static_cast<Isize>(node_tag) - 1) =
@@ -287,7 +283,7 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
 
   inline void readMeshElement() {
     if constexpr (SimulationControl::kDimension == 1) {
-      this->line_.getElementMesh(this->node_coordinate_, this->information_, this->node_element_number_);
+      this->line_.getElementMesh(this->node_coordinate_, this->information_);
       this->element_number_ += this->line_.number_;
       this->point_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
                                                                                    this->information_);
@@ -295,10 +291,10 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
       this->line_.calculateElementMeshSize(this->information_, this->point_);
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-        this->triangle_.getElementMesh(this->node_coordinate_, this->information_, this->node_element_number_);
+        this->triangle_.getElementMesh(this->node_coordinate_, this->information_);
       }
       if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-        this->quadrangle_.getElementMesh(this->node_coordinate_, this->information_, this->node_element_number_);
+        this->quadrangle_.getElementMesh(this->node_coordinate_, this->information_);
       }
       this->element_number_ += this->triangle_.number_ + this->quadrangle_.number_;
       this->line_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,

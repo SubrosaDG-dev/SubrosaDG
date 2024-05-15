@@ -21,6 +21,7 @@
 
 #define VTU11_ENABLE_ZLIB
 
+#define EIGEN_STACK_ALLOCATION_LIMIT 0
 #define EIGEN_DONT_PARALLELIZE
 
 #include <filesystem>
@@ -41,6 +42,7 @@
 #include "Solver/InitialCondition.hpp"
 #include "Solver/SimulationControl.hpp"
 #include "Solver/SolveControl.hpp"
+#include "Solver/SourceTerm.hpp"
 #include "Solver/SpatialDiscrete.hpp"
 #include "Solver/ThermalModel.hpp"
 #include "Solver/TimeIntegration.hpp"

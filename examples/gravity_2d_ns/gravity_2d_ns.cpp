@@ -1,9 +1,9 @@
 /**
- * @file vortex_2d_ns.cpp
- * @brief The main file of SubrosaDG vortex_2d_ns.
+ * @file gravity_2d_ns.cpp
+ * @brief The main file of SubrosaDG gravity_2d_ns.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
- * @date 2024-04-29
+ * @date 2024-05-13
  *
  * @version 0.1.0
  * @copyright Copyright (c) 2022 - 2024 by SubrosaDG developers. All rights reserved.
@@ -12,13 +12,13 @@
 
 #include "SubrosaDG"
 
-inline const std::string kExampleName{"vortex_2d_ns"};
+inline const std::string kExampleName{"gravity_2d_ns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
     SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
-    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SourceTermEnum::Gravity, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
     SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
@@ -28,11 +28,12 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / std::format("{}.msh", kExampleName), generateMesh);
+  system.setSourceTerm(1.4, 0.2);
   system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.2, 0.0, 1.0};
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.0, 0.0, 1.0};
   });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.2, 0.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.0, 0.0, 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsothermalNoslipWall>("bc-2", 1.1);
   system.setTransportModel(1.4 * 0.2 / 200);
   system.setTimeIntegration(1.0);
   system.setViewConfig(kExampleDirectory, kExampleName);
@@ -51,12 +52,12 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> cylinder_point_coordinate;
   Eigen::Matrix<double, 6, 1> farfield_point_size;
   // clang-format off
-  farfield_point_coordinate << -5.0,   0.0, 0.0,
-                               -5.0,  -5.0, 0.0,
-                                15.0, -5.0, 0.0,
-                                15.0,  0.0, 0.0,
-                                15.0,  5.0, 0.0,
-                               -5.0,   5.0, 0.0;
+  farfield_point_coordinate << -5.0, -2.0, 0.0,
+                                0.0, -2.0, 0.0,
+                                5.0, -2.0, 0.0,
+                                5.0,  8.0, 0.0,
+                                0.0,  8.0, 0.0,
+                               -5.0,  8.0, 0.0;
   separation_point_coordinate << -1.0,  0.0, 0.0,
                                   0.0, -1.0, 0.0,
                                   1.0,  0.0, 0.0,
@@ -65,7 +66,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
                                 0.0, -0.5, 0.0,
                                 0.5,  0.0, 0.0,
                                 0.0,  0.5, 0.0;
-  farfield_point_size << 0.5, 1.0, 1.0, 0.5, 1.0, 1.0;
+  farfield_point_size << 1.0, 0.5, 1.0, 1.0, 0.5, 1.0;
   // clang-format on
   Eigen::Array<int, 6, 1> farfield_point_tag;
   Eigen::Array<int, 4, 2, Eigen::RowMajor> cylinder_point_tag;
@@ -91,8 +92,8 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 6; i++) {
     farfield_line_tag(i, 0) = gmsh::model::geo::addLine(farfield_point_tag(i), farfield_point_tag((i + 1) % 6));
   }
-  connection_line_tag(0) = gmsh::model::geo::addLine(farfield_point_tag(0), cylinder_point_tag(0, 0));
-  connection_line_tag(1) = gmsh::model::geo::addLine(farfield_point_tag(3), cylinder_point_tag(2, 0));
+  connection_line_tag(0) = gmsh::model::geo::addLine(farfield_point_tag(1), cylinder_point_tag(1, 0));
+  connection_line_tag(1) = gmsh::model::geo::addLine(farfield_point_tag(4), cylinder_point_tag(3, 0));
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     cylinder_line_tag(i, 0) =
         gmsh::model::geo::addCircleArc(cylinder_point_tag(i, 0), center_point_tag, cylinder_point_tag((i + 1) % 4, 0));
@@ -100,12 +101,12 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         gmsh::model::geo::addCircleArc(cylinder_point_tag(i, 1), center_point_tag, cylinder_point_tag((i + 1) % 4, 1));
     cylinder_line_tag(i, 2) = gmsh::model::geo::addLine(cylinder_point_tag(i, 0), cylinder_point_tag(i, 1));
   }
-  curve_loop_tag(0) = gmsh::model::geo::addCurveLoop({farfield_line_tag(0), farfield_line_tag(1), farfield_line_tag(2),
-                                                      connection_line_tag(1), -cylinder_line_tag(1, 0),
-                                                      -cylinder_line_tag(0, 0), -connection_line_tag(0)});
-  curve_loop_tag(1) = gmsh::model::geo::addCurveLoop(
-      {farfield_line_tag(5), connection_line_tag(0), -cylinder_line_tag(3, 0), -cylinder_line_tag(2, 0),
-       -connection_line_tag(1), farfield_line_tag(3), farfield_line_tag(4)});
+  curve_loop_tag(0) = gmsh::model::geo::addCurveLoop(
+      {farfield_line_tag(0), connection_line_tag(0), -cylinder_line_tag(0, 0), -cylinder_line_tag(3, 0),
+       -connection_line_tag(1), farfield_line_tag(4), farfield_line_tag(5)});
+  curve_loop_tag(1) = gmsh::model::geo::addCurveLoop({farfield_line_tag(1), farfield_line_tag(2), farfield_line_tag(3),
+                                                      connection_line_tag(1), -cylinder_line_tag(2, 0),
+                                                      -cylinder_line_tag(1, 0), -connection_line_tag(0)});
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     curve_loop_tag(i + 2, 0) =
         gmsh::model::geo::addCurveLoop({-cylinder_line_tag(i, 2), cylinder_line_tag(i, 0),

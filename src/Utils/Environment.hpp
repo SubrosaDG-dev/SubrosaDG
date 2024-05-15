@@ -35,7 +35,6 @@ inline Environment::Environment() {
   omp_set_num_threads(kNumberOfPhysicalCores - 1);
   gmsh::option::setNumber("General.NumThreads", kNumberOfPhysicalCores - 1);
 #endif  // SUBROSA_DG_DEVELOP
-  gmsh::option::setNumber("Mesh.Binary", 1);
 }
 
 inline Environment::~Environment() { gmsh::finalize(); }

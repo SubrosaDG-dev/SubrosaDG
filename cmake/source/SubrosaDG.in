@@ -21,6 +21,7 @@
 
 #define VTU11_ENABLE_ZLIB
 
+#define EIGEN_STACK_ALLOCATION_LIMIT 0
 #define EIGEN_DONT_PARALLELIZE
 
 #include <filesystem>
