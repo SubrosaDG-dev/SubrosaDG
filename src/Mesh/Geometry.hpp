@@ -23,6 +23,7 @@
 #include "Mesh/ReadControl.hpp"
 #include "Solver/SimulationControl.hpp"
 #include "Utils/BasicDataType.hpp"
+#include "Utils/Concept.hpp"
 #include "Utils/Enum.hpp"
 
 namespace SubrosaDG {
@@ -84,11 +85,14 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
     Real adjacency_size = 0.0;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
-      adjacency_size += point.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
-                        point.quadrature_.weight_;
+      adjacency_size += (point.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
+                         point.quadrature_.weight_)
+                            .sum() *
+                        getElementMeasure<ElementEnum::Point>();
     }
-    this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_);
-    this->element_(i).size_ /= (adjacency_size * (2.0 * static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
+    this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_).sum() *
+                              getElementMeasure<ElementTrait::kElementType>() /
+                              (adjacency_size * (2.0 * static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
   }
 }
 
@@ -101,18 +105,51 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
     Real adjacency_size = 0.0;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
-      adjacency_size += line.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
-                        line.quadrature_.weight_;
+      adjacency_size += (line.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
+                         line.quadrature_.weight_)
+                            .sum() *
+                        getElementMeasure<ElementEnum::Line>();
     }
-    this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_);
-    this->element_(i).size_ /= (adjacency_size * (2.0 * static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
+    this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_).sum() *
+                              getElementMeasure<ElementTrait::kElementType>() /
+                              (adjacency_size * (2.0 * static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
+  }
+}
+
+template <typename ElementTrait>
+inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
+    const MeshInformation& information,
+    const AdjacencyElementMesh<AdjacencyTriangleTrait<ElementTrait::kPolynomialOrder>>& triangle,
+    const AdjacencyElementMesh<AdjacencyQuadrangleTrait<ElementTrait::kPolynomialOrder>>& quadrangle) {
+  for (Isize i = 0; i < this->number_; i++) {
+    const std::vector<PerAdjacencyElementInformation>& sub_index_and_type =
+        information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
+    Real adjacency_size = 0.0;
+    for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
+      if (sub_index_and_type[j].gmsh_type_number_ == TriangleTrait<ElementTrait::kPolynomialOrder>::kGmshTypeNumber) {
+        adjacency_size += (triangle.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
+                           triangle.quadrature_.weight_)
+                              .sum() *
+                          getElementMeasure<ElementEnum::Triangle>();
+      } else if (sub_index_and_type[j].gmsh_type_number_ ==
+                 QuadrangleTrait<ElementTrait::kPolynomialOrder>::kGmshTypeNumber) {
+        adjacency_size += (quadrangle.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
+                           quadrangle.quadrature_.weight_)
+                              .sum() *
+                          getElementMeasure<ElementEnum::Quadrangle>();
+      }
+    }
+    this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_).sum() *
+                              getElementMeasure<ElementTrait::kElementType>() /
+                              (adjacency_size * (2.0 * static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
   }
 }
 
 template <typename AdjacencyElementTrait>
-  requires(AdjacencyElementTrait::kElementType == ElementEnum::Point)
+  requires Is0dElement<AdjacencyElementTrait::kElementType>
 inline void calculateNormalVector(const Isize adjacency_sequence_in_parent,
-                                  Eigen::Matrix<Real, 1, AdjacencyElementTrait::kQuadratureNumber>& normal_vector) {
+                                  Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1,
+                                                AdjacencyElementTrait::kQuadratureNumber>& normal_vector) {
   if (adjacency_sequence_in_parent == 0) {
     normal_vector(0, 0) = -1.0;
   } else if (adjacency_sequence_in_parent == 1) {
@@ -121,26 +158,51 @@ inline void calculateNormalVector(const Isize adjacency_sequence_in_parent,
 }
 
 template <typename AdjacencyElementTrait>
-  requires(AdjacencyElementTrait::kElementType == ElementEnum::Line)
+  requires Is1dElement<AdjacencyElementTrait::kElementType>
 inline void calculateNormalVector(
-    const Eigen::Matrix<Real, 2, AdjacencyElementTrait::kAllNodeNumber>& node_coordinate,
-    const Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber * AdjacencyElementTrait::kDimension,
-                        AdjacencyElementTrait::kBasisFunctionNumber>& gradient_value,
-    Eigen::Matrix<Real, 2, AdjacencyElementTrait::kQuadratureNumber>& normal_vector) {
+    const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>&
+        node_coordinate,
+    const Eigen::Array<
+        Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, AdjacencyElementTrait::kBasisFunctionNumber>,
+        AdjacencyElementTrait::kDimension, 1>& gradient_value,
+    Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>&
+        normal_vector) {
   for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
-    normal_vector(0, i) = gradient_value.row(i) * node_coordinate.row(1).transpose();
-    normal_vector(1, i) = -gradient_value.row(i) * node_coordinate.row(0).transpose();
+    normal_vector(0, i) = gradient_value(0).row(i) * node_coordinate.row(1).transpose();
+    normal_vector(1, i) = -gradient_value(0).row(i) * node_coordinate.row(0).transpose();
     normal_vector.col(i).normalize();
+  }
+}
+
+template <typename AdjacencyElementTrait>
+  requires Is2dElement<AdjacencyElementTrait::kElementType>
+inline void calculateNormalVector(
+    const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>&
+        node_coordinate,
+    const Eigen::Array<
+        Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, AdjacencyElementTrait::kBasisFunctionNumber>,
+        AdjacencyElementTrait::kDimension, 1>& gradient_value,
+    Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>&
+        normal_vector) {
+  Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> partial_xi_vector;
+  Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> partial_eta_vector;
+  for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
+    partial_xi_vector = gradient_value(0).row(i) * node_coordinate.transpose();
+    partial_eta_vector = gradient_value(1).row(i) * node_coordinate.transpose();
+    normal_vector.col(i) = partial_xi_vector.cross(partial_eta_vector).normalized();
   }
 }
 
 template <typename AdjacencyElementTrait>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::calculateAdjacencyElementNormalVector() {
   for (Isize i = 0; i < this->interior_number_ + this->boundary_number_; i++) {
-    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+    if constexpr (Is0dElement<AdjacencyElementTrait::kElementType>) {
       calculateNormalVector<AdjacencyElementTrait>(this->element_(i).adjacency_sequence_in_parent_(0),
                                                    this->element_(i).normal_vector_);
-    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+    } else if constexpr (Is1dElement<AdjacencyElementTrait::kElementType>) {
+      calculateNormalVector<AdjacencyElementTrait>(
+          this->element_(i).node_coordinate_, this->basis_function_.gradient_value_, this->element_(i).normal_vector_);
+    } else if constexpr (Is2dElement<AdjacencyElementTrait::kElementType>) {
       calculateNormalVector<AdjacencyElementTrait>(
           this->element_(i).node_coordinate_, this->basis_function_.gradient_value_, this->element_(i).normal_vector_);
     }

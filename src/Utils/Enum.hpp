@@ -147,11 +147,6 @@ enum class VariableGradientEnum {
   Z,
 };
 
-enum class ViewModelEnum {
-  Vtu = 1,
-  Dat,
-};
-
 enum class ViewVariableEnum {
   Density = 1,
   Velocity,

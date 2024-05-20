@@ -21,7 +21,7 @@ using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
     SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
-    SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
+    SubrosaDG::TimeIntegrationEnum::SSPRK3>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
@@ -37,10 +37,10 @@ int main(int argc, char* argv[]) {
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
   system.setTransportModel(1.4 * 0.4 / 6.5e6);
   system.setTimeIntegration(1.0);
-  system.setViewConfig(kExampleDirectory, kExampleName);
-  system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
-                          SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::Vorticity});
+  system.setViewConfig(kExampleDirectory, kExampleName,
+                       {SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
+                        SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
+                        SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::Vorticity});
   system.synchronize();
   system.solve();
   system.view();
@@ -169,7 +169,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::addPhysicalGroup(1, physical_group_tag[1], -1, "bc-2");
   gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
-  gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
+  gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrderFastCurving");
   gmsh::write(mesh_file_path);
 }

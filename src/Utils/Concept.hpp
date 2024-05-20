@@ -44,6 +44,14 @@ template <MeshModelEnum MeshModelType>
 concept HasHexahedron =
     MeshModelType == MeshModelEnum::Hexahedron || MeshModelType == MeshModelEnum::TetrahedronPyramidHexahedron;
 
+template <MeshModelEnum MeshModelType>
+concept HasAdjacencyTriangle =
+    MeshModelType == MeshModelEnum::Tetrahedron || MeshModelType == MeshModelEnum::TetrahedronPyramidHexahedron;
+
+template <MeshModelEnum MeshModelType>
+concept HasAdjacencyQuadrangle =
+    MeshModelType == MeshModelEnum::Hexahedron || MeshModelType == MeshModelEnum::TetrahedronPyramidHexahedron;
+
 template <ElementEnum ElementType>
 concept Is0dElement = ElementType == ElementEnum::Point;
 

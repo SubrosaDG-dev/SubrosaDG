@@ -40,7 +40,7 @@ struct ElementQuadrature {
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> weight_;
 
   inline ElementQuadrature() {
-    const auto [local_coord, weights] = getElementQuadrature<ElementTrait>();
+    const auto& [local_coord, weights] = getElementQuadrature<ElementTrait>();
     this->local_coord_ = local_coord;
     for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kDimension; j++) {

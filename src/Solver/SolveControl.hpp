@@ -175,7 +175,8 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
 struct AdjacencyElementSolverBase {
   template <AdjacencyEnum AdjacencyType>
   [[nodiscard]] inline Isize getAdjacencyParentElementQuadratureNodeSequenceInParent(
-      Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent, Isize qudrature_sequence_in_adjacency) const;
+      [[maybe_unused]] Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent,
+      [[maybe_unused]] Isize adjacency_right_rotation, Isize qudrature_sequence_in_adjacency) const;
 
   inline void storeAdjacencyElementNodeQuadrature(
       Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_quadrature_node_sequence_in_parent,
@@ -266,6 +267,24 @@ struct SolverData<SimulationControl, 2> : SolverBase<SimulationControl> {
 };
 
 template <typename SimulationControl>
+struct SolverData<SimulationControl, 3> : SolverBase<SimulationControl> {
+  AdjacencyElementSolver<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
+                         SimulationControl::kEquationModel>
+      triangle_;
+  AdjacencyElementSolver<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
+                         SimulationControl::kEquationModel>
+      quadrangle_;
+  ElementSolver<TetrahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
+                SimulationControl::kEquationModel>
+      tetrahedron_;
+  ElementSolver<PyramidTrait<SimulationControl::kPolynomialOrder>, SimulationControl, SimulationControl::kEquationModel>
+      pyramid_;
+  ElementSolver<HexahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
+                SimulationControl::kEquationModel>
+      hexahedron_;
+};
+
+template <typename SimulationControl>
 struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
   template <typename ElementTrait>
   inline static ElementSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel> Solver::*
@@ -281,6 +300,16 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
       if constexpr (ElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &Solver<SimulationControl>::quadrangle_;
       }
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (ElementTrait::kElementType == ElementEnum::Tetrahedron) {
+        return &Solver<SimulationControl>::tetrahedron_;
+      }
+      if constexpr (ElementTrait::kElementType == ElementEnum::Pyramid) {
+        return &Solver<SimulationControl>::pyramid_;
+      }
+      if constexpr (ElementTrait::kElementType == ElementEnum::Hexahedron) {
+        return &Solver<SimulationControl>::hexahedron_;
+      }
     }
     return nullptr;
   }
@@ -295,6 +324,13 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
         return &Solver<SimulationControl>::line_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+        return &Solver<SimulationControl>::triangle_;
+      }
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+        return &Solver<SimulationControl>::quadrangle_;
       }
     }
     return nullptr;

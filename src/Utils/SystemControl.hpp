@@ -23,6 +23,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "Mesh/ReadControl.hpp"
@@ -126,20 +127,21 @@ struct System {
     this->thermal_model_.calculateThermalConductivityFromDynamicViscosity();
   }
 
-  inline void setTimeIntegration(const Real courant_friedrichs_lewy_number, const int iteration_start = 0,
-                                 const int iteration_end = 0) {
-    if (iteration_start == 0 && iteration_end == 0) {
+  inline void setTimeIntegration(const Real courant_friedrichs_lewy_number,
+                                 const std::pair<int, int> iteration_range = {0, 0}) {
+    if (iteration_range.first == 0 && iteration_range.second == 0) {
       std::cout << "\nSet time integration end number: ";
       std::cin >> this->time_integration_.iteration_end_;
     } else {
-      this->time_integration_.iteration_start_ = iteration_start;
-      this->time_integration_.iteration_end_ = iteration_end;
+      this->time_integration_.iteration_start_ = iteration_range.first;
+      this->time_integration_.iteration_end_ = iteration_range.second;
     }
     this->time_integration_.courant_friedrichs_lewy_number_ = courant_friedrichs_lewy_number;
   }
 
   inline void setViewConfig(const std::filesystem::path& output_directory,
-                            const std::string_view output_file_name_prefix, const int io_interval = 0) {
+                            const std::string_view output_file_name_prefix,
+                            const std::vector<ViewVariableEnum>& view_variable, const int io_interval = 0) {
     if (io_interval == 0) {
       std::cout << "Set view interval: ";
       std::cin >> this->view_.io_interval_;
@@ -154,35 +156,7 @@ struct System {
     this->view_.iteration_order_ = static_cast<int>(log10(this->time_integration_.iteration_end_) + 1);
     this->view_.output_directory_ = output_directory;
     this->view_.output_file_name_prefix_ = output_file_name_prefix;
-  }
-
-  inline void setViewVariable(const std::vector<ViewVariableEnum>& view_variable) {
-    this->view_.variable_type_.clear();
-    if constexpr (SimulationControl::kViewModel == ViewModelEnum::Dat) {
-      auto handle_variable = [this](ViewVariableEnum variable_x, ViewVariableEnum variable_y,
-                                    ViewVariableEnum variable_z) {
-        this->view_.variable_type_.emplace_back(variable_x);
-        if constexpr (SimulationControl::kDimension >= 2) {
-          this->view_.variable_type_.emplace_back(variable_y);
-        }
-        if constexpr (SimulationControl::kDimension >= 3) {
-          this->view_.variable_type_.emplace_back(variable_z);
-        }
-      };
-      for (const auto variable : view_variable) {
-        if (variable == ViewVariableEnum::Velocity) {
-          handle_variable(ViewVariableEnum::VelocityX, ViewVariableEnum::VelocityY, ViewVariableEnum::VelocityZ);
-        } else if (variable == ViewVariableEnum::MachNumber) {
-          handle_variable(ViewVariableEnum::MachNumberX, ViewVariableEnum::MachNumberY, ViewVariableEnum::MachNumberZ);
-        } else if (variable == ViewVariableEnum::Vorticity && SimulationControl::kDimension == 3) {
-          handle_variable(ViewVariableEnum::VorticityX, ViewVariableEnum::VorticityY, ViewVariableEnum::VorticityZ);
-        } else {
-          this->view_.variable_type_.emplace_back(variable);
-        }
-      }
-    } else if constexpr (SimulationControl::kViewModel == ViewModelEnum::Vtu) {
-      this->view_.variable_type_ = view_variable;
-    }
+    this->view_.variable_type_ = view_variable;
   }
 
   inline void synchronize() {
@@ -240,7 +214,7 @@ struct System {
       this->view_.stepView(0, this->mesh_, this->thermal_model_, view_data);
     }
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) firstprivate(view_data)
+#pragma omp parallel for num_threads(8) default(none) schedule(nonmonotonic : auto) firstprivate(view_data)
 #endif  // SUBROSA_DG_DEVELOP
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
       if (i % this->view_.io_interval_ == 0) {

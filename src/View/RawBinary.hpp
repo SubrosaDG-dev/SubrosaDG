@@ -103,6 +103,16 @@ inline void Solver<SimulationControl>::writeRawBinary(const std::filesystem::pat
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.writeElementRawBinary(this->raw_binary_ss_);
     }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      this->tetrahedron_.writeElementRawBinary(this->raw_binary_ss_);
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      this->pyramid_.writeElementRawBinary(this->raw_binary_ss_);
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      this->hexahedron_.writeElementRawBinary(this->raw_binary_ss_);
+    }
   }
   this->write_raw_binary_future_ =
       std::async(std::launch::async, RawBinaryCompress::write, raw_binary_path, std::ref(this->raw_binary_ss_));
@@ -176,6 +186,16 @@ inline void ViewSolver<SimulationControl>::calcluateViewVariable(const Mesh<Simu
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.calcluateElementViewVariable(mesh.quadrangle_, thermal_model, raw_binary_ss);
     }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      this->tetrahedron_.calcluateElementViewVariable(mesh.tetrahedron_, thermal_model, raw_binary_ss);
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      this->pyramid_.calcluateElementViewVariable(mesh.pyramid_, thermal_model, raw_binary_ss);
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      this->hexahedron_.calcluateElementViewVariable(mesh.hexahedron_, thermal_model, raw_binary_ss);
+    }
   }
 }
 
@@ -190,6 +210,16 @@ inline void ViewSolver<SimulationControl>::initialViewSolver(const Mesh<Simulati
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.view_variable_.resize(Eigen::NoChange, mesh.quadrangle_.number_);
     }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      this->tetrahedron_.view_variable_.resize(Eigen::NoChange, mesh.tetrahedron_.number_);
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      this->pyramid_.view_variable_.resize(Eigen::NoChange, mesh.pyramid_.number_);
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      this->hexahedron_.view_variable_.resize(Eigen::NoChange, mesh.hexahedron_.number_);
+    }
   }
 }
 
@@ -203,6 +233,16 @@ inline void ViewSolver<SimulationControl>::initialViewSolver(const ViewSolver<Si
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.view_variable_.resize(Eigen::NoChange, view_solver.quadrangle_.view_variable_.cols());
+    }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      this->tetrahedron_.view_variable_.resize(Eigen::NoChange, view_solver.tetrahedron_.view_variable_.cols());
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      this->pyramid_.view_variable_.resize(Eigen::NoChange, view_solver.pyramid_.view_variable_.cols());
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      this->hexahedron_.view_variable_.resize(Eigen::NoChange, view_solver.hexahedron_.view_variable_.cols());
     }
   }
 }

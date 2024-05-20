@@ -10,8 +10,6 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#include <Eigen/Geometry>
-
 #include "SubrosaDG"
 
 inline const std::string kExampleName{"periodic_2d_euler"};
@@ -22,7 +20,7 @@ using SimulationControl = SubrosaDG::SimulationControlEuler<
     SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
     SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
-    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3, SubrosaDG::ViewModelEnum::Vtu>;
+    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
@@ -37,9 +35,9 @@ int main(int argc, char* argv[]) {
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-2");
   system.setTimeIntegration(1.0);
-  system.setViewConfig(kExampleDirectory, kExampleName);
-  system.setViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-                          SubrosaDG::ViewVariableEnum::Pressure});
+  system.setViewConfig(kExampleDirectory, kExampleName,
+                       {SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
+                        SubrosaDG::ViewVariableEnum::Pressure});
   system.synchronize();
   system.solve();
   system.view();
@@ -58,19 +56,19 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::addCurveLoop({1, 2, -3, -4});
   gmsh::model::geo::addPlaneSurface({1});
   gmsh::model::geo::synchronize();
-  gmsh::model::addPhysicalGroup(1, {2, 4}, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(1, {1, 3}, -1, "bc-2");
-  gmsh::model::addPhysicalGroup(2, {1}, -1, "vc-1");
+  gmsh::model::mesh::setTransfiniteAutomatic();
+  gmsh::model::mesh::setRecombine(2, 1);
   Eigen::Matrix<double, 4, 4, Eigen::RowMajor> transform_x =
       (Eigen::Transform<double, 3, Eigen::Affine>::Identity() * Eigen::Translation<double, 3>(2, 0, 0)).matrix();
   Eigen::Matrix<double, 4, 4, Eigen::RowMajor> transform_y =
       (Eigen::Transform<double, 3, Eigen::Affine>::Identity() * Eigen::Translation<double, 3>(0, 2, 0)).matrix();
   gmsh::model::mesh::setPeriodic(1, {2}, {4}, {transform_x.data(), transform_x.data() + transform_x.size()});
   gmsh::model::mesh::setPeriodic(1, {3}, {1}, {transform_y.data(), transform_y.data() + transform_y.size()});
-  gmsh::model::mesh::setTransfiniteAutomatic();
-  gmsh::model::mesh::setRecombine(2, 1);
+  gmsh::model::addPhysicalGroup(1, {2, 4}, -1, "bc-1");
+  gmsh::model::addPhysicalGroup(1, {1, 3}, -1, "bc-2");
+  gmsh::model::addPhysicalGroup(2, {1}, -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
-  gmsh::model::mesh::setOrder(static_cast<int>(SimulationControl::kPolynomialOrder));
+  gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrderFastCurving");
   gmsh::write(mesh_file_path);
 }

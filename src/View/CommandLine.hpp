@@ -52,6 +52,9 @@ struct CommandLine {
       return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*E");
     } else if constexpr (SimulationControl::kDimension == 2) {
       return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*v", "rho*E");
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*v", "rho*w",
+                         "rho*E");
     }
   }
 
@@ -62,6 +65,9 @@ struct CommandLine {
     } else if constexpr (SimulationControl::kDimension == 2) {
       return std::format(R"(|{:^13.5e}|{:^13.5e}|{:^13.5e}|{:^13.5e}|{:^13.5e}|)", time_value, error(0), error(1),
                          error(2), error(3));
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      return std::format(R"(|{:^13.5e}|{:^13.5e}|{:^13.5e}|{:^13.5e}|{:^13.5e}|{:^13.5e}|)", time_value, error(0),
+                         error(1), error(2), error(3), error(4));
     }
   }
 

@@ -318,14 +318,15 @@ struct Variable {
                                  element_mesh.basis_function_.value_.row(element_quadrature_node_sequence).transpose();
   }
 
+  template <typename AdjacencyElementTrait>
   inline void getFromParent(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
                             const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
                             const Isize adjacency_quadrature_node_sequence_in_parent) {
-    if constexpr (SimulationControl::kDimension == 1) {
+    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
       this->conserved_.noalias() =
           solver.line_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
           mesh.line_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent).transpose();
-    } else if constexpr (SimulationControl::kDimension == 2) {
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->conserved_.noalias() =
             solver.triangle_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
@@ -335,6 +336,30 @@ struct Variable {
         this->conserved_.noalias() =
             solver.quadrangle_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
             mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                .transpose();
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+      if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        this->conserved_.noalias() =
+            solver.tetrahedron_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
+            mesh.tetrahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                .transpose();
+      } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        this->conserved_.noalias() =
+            solver.pyramid_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
+            mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                .transpose();
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        this->conserved_.noalias() =
+            solver.pyramid_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
+            mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                .transpose();
+      } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        this->conserved_.noalias() =
+            solver.hexahedron_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
+            mesh.hexahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
                 .transpose();
       }
     }
@@ -442,59 +467,113 @@ struct VariableGradient {
             .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
   }
 
-  template <ViscousFluxEnum ViscousFluxType>
+  template <typename AdjacencyElementTrait, ViscousFluxEnum ViscousFluxType>
   inline void getFromParent(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
                             Isize parent_gmsh_type_number, Isize parent_index_each_type,
-                            Isize adjacency_sequence_in_parent, Isize adjacency_quadrature_node_sequence_in_parent);
-
-  template <>
-  inline void getFromParent<ViscousFluxEnum::BR1>(const Mesh<SimulationControl>& mesh,
-                                                  const Solver<SimulationControl>& solver,
-                                                  const Isize parent_gmsh_type_number,
-                                                  const Isize parent_index_each_type,
-                                                  [[maybe_unused]] const Isize adjacency_sequence_in_parent,
-                                                  const Isize adjacency_quadrature_node_sequence_in_parent) {
-    if constexpr (SimulationControl::kDimension == 2) {
-      if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->conserved_.noalias() =
-            (solver.triangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
-             mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                 .transpose())
-                .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-      } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->conserved_.noalias() =
-            (solver.quadrangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
-             mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                 .transpose())
-                .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+                            [[maybe_unused]] Isize adjacency_sequence_in_parent,
+                            Isize adjacency_quadrature_node_sequence_in_parent) {
+    if constexpr (ViscousFluxType == ViscousFluxEnum::BR1) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+        if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              (solver.triangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+               mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              (solver.quadrangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+               mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        }
+      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+        if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              (solver.tetrahedron_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+               mesh.tetrahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              (solver.pyramid_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+               mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        }
+      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+        if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              (solver.pyramid_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+               mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              (solver.hexahedron_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+               mesh.hexahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        }
       }
-    }
-  }
-
-  template <>
-  inline void getFromParent<ViscousFluxEnum::BR2>(const Mesh<SimulationControl>& mesh,
-                                                  const Solver<SimulationControl>& solver,
-                                                  const Isize parent_gmsh_type_number,
-                                                  const Isize parent_index_each_type,
-                                                  const Isize adjacency_sequence_in_parent,
-                                                  const Isize adjacency_quadrature_node_sequence_in_parent) {
-    if constexpr (SimulationControl::kDimension == 2) {
-      if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->conserved_.noalias() =
-            ((solver.triangle_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
-              solver.triangle_.element_(parent_index_each_type)
-                  .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
-             mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                 .transpose())
-                .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-      } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->conserved_.noalias() =
-            ((solver.quadrangle_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
-              solver.quadrangle_.element_(parent_index_each_type)
-                  .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
-             mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                 .transpose())
-                .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+    } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR2) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+        if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              ((solver.triangle_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
+                solver.triangle_.element_(parent_index_each_type)
+                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+               mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              ((solver.quadrangle_.element_(parent_index_each_type)
+                    .variable_gradient_volume_basis_function_coefficient_ +
+                solver.quadrangle_.element_(parent_index_each_type)
+                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+               mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        }
+      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+        if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              ((solver.tetrahedron_.element_(parent_index_each_type)
+                    .variable_gradient_volume_basis_function_coefficient_ +
+                solver.tetrahedron_.element_(parent_index_each_type)
+                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+               mesh.tetrahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              ((solver.pyramid_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
+                solver.pyramid_.element_(parent_index_each_type)
+                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+               mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        }
+      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+        if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              ((solver.pyramid_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
+                solver.pyramid_.element_(parent_index_each_type)
+                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+               mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+          this->conserved_.noalias() =
+              ((solver.hexahedron_.element_(parent_index_each_type)
+                    .variable_gradient_volume_basis_function_coefficient_ +
+                solver.hexahedron_.element_(parent_index_each_type)
+                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+               mesh.hexahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+                   .transpose())
+                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+        }
       }
     }
   }

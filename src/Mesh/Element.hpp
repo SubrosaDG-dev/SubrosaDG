@@ -49,12 +49,16 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
     const std::string gmsh_physical_name =
         information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_)];
     information.physical_information_[this->element_(i).gmsh_physical_index_].element_number_++;
+    information.physical_information_[this->element_(i).gmsh_physical_index_].vtk_element_number_ +=
+        ElementTrait::kVtkElementNumber;
     information.physical_information_[this->element_(i).gmsh_physical_index_].element_gmsh_type_.emplace_back(
         ElementTrait::kGmshTypeNumber);
     information.physical_information_[this->element_(i).gmsh_physical_index_].element_gmsh_tag_.emplace_back(
         this->element_(i).gmsh_tag_);
     information.physical_information_[this->element_(i).gmsh_physical_index_].node_number_ +=
         ElementTrait::kAllNodeNumber;
+    information.physical_information_[this->element_(i).gmsh_physical_index_].vtk_node_number_ +=
+        ElementTrait::kVtkAllNodeNumber;
     information.gmsh_tag_to_element_information_[this->element_(i).gmsh_tag_].element_index_ = i;
     for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
       const auto node_tag = static_cast<Isize>(node_tags[static_cast<Usize>(i * ElementTrait::kAllNodeNumber + j)]);

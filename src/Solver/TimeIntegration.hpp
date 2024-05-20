@@ -89,6 +89,16 @@ inline void Solver<SimulationControl>::copyBasisFunctionCoefficient() {
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.copyElementBasisFunctionCoefficient();
     }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      this->tetrahedron_.copyElementBasisFunctionCoefficient();
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      this->pyramid_.copyElementBasisFunctionCoefficient();
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      this->hexahedron_.copyElementBasisFunctionCoefficient();
+    }
   }
 }
 
@@ -140,6 +150,25 @@ inline void Solver<SimulationControl>::calculateDeltaTime(const Mesh<SimulationC
         time_integration.delta_time_ =
             std::min(time_integration.delta_time_,
                      this->quadrangle_.calculateElementDeltaTime(mesh.quadrangle_, thermal_model,
+                                                                 time_integration.courant_friedrichs_lewy_number_));
+      }
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+        time_integration.delta_time_ =
+            std::min(time_integration.delta_time_,
+                     this->tetrahedron_.calculateElementDeltaTime(mesh.tetrahedron_, thermal_model,
+                                                                  time_integration.courant_friedrichs_lewy_number_));
+      }
+      if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+        time_integration.delta_time_ =
+            std::min(time_integration.delta_time_,
+                     this->pyramid_.calculateElementDeltaTime(mesh.pyramid_, thermal_model,
+                                                              time_integration.courant_friedrichs_lewy_number_));
+      }
+      if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+        time_integration.delta_time_ =
+            std::min(time_integration.delta_time_,
+                     this->hexahedron_.calculateElementDeltaTime(mesh.hexahedron_, thermal_model,
                                                                  time_integration.courant_friedrichs_lewy_number_));
       }
     }
@@ -208,6 +237,16 @@ inline void Solver<SimulationControl>::updateBasisFunctionCoefficient(
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.updateElementBasisFunctionCoefficient(step, mesh.quadrangle_, time_integration);
     }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      this->tetrahedron_.updateElementBasisFunctionCoefficient(step, mesh.tetrahedron_, time_integration);
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      this->pyramid_.updateElementBasisFunctionCoefficient(step, mesh.pyramid_, time_integration);
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      this->hexahedron_.updateElementBasisFunctionCoefficient(step, mesh.hexahedron_, time_integration);
+    }
   }
 }
 
@@ -219,6 +258,16 @@ inline void Solver<SimulationControl>::updateGardientBasisFunctionCoefficient(co
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.updateElementGardientBasisFunctionCoefficient(mesh.quadrangle_);
+    }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      this->tetrahedron_.updateElementGardientBasisFunctionCoefficient(mesh.tetrahedron_);
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      this->pyramid_.updateElementGardientBasisFunctionCoefficient(mesh.pyramid_);
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      this->hexahedron_.updateElementGardientBasisFunctionCoefficient(mesh.hexahedron_);
     }
   }
 }
@@ -259,6 +308,16 @@ inline void Solver<SimulationControl>::calculateRelativeError(const Mesh<Simulat
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.calculateElementRelativeError(mesh.quadrangle_, this->relative_error_);
+    }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      this->tetrahedron_.calculateElementRelativeError(mesh.tetrahedron_, this->relative_error_);
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      this->pyramid_.calculateElementRelativeError(mesh.pyramid_, this->relative_error_);
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      this->hexahedron_.calculateElementRelativeError(mesh.hexahedron_, this->relative_error_);
     }
   }
   this->relative_error_ = (this->relative_error_ / static_cast<Real>(mesh.element_number_)).array().sqrt();

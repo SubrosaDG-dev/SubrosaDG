@@ -71,23 +71,22 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::SpecificFil
   std::filesystem::path raw_binary_path_;
   std::stringstream raw_binary_ss_;
 
-  template <typename ComputationalElementTrait>
-  void getVariableBasisFunctionCoefficient(const ElementMesh<ComputationalElementTrait>& element_mesh,
-                                           [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
-                                           Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                                                                      ComputationalElementTrait::kQuadratureNumber>,
-                                                        Eigen::Dynamic, 1>& quadrature_node_conserved_variable) {
-    constexpr int kBasisFunctionNumber{getElementBasisFunctionNumber<ComputationalElementTrait::kElementType,
-                                                                     SimulationControl::kInitialPolynomialOrder>()};
+  template <typename ElementTrait>
+  void getVariableBasisFunctionCoefficient(
+      const ElementMesh<ElementTrait>& element_mesh,
+      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>,
+                   Eigen::Dynamic, 1>& quadrature_node_conserved_variable) {
+    constexpr int kBasisFunctionNumber{
+        getElementBasisFunctionNumber<ElementTrait::kElementType, SimulationControl::kInitialPolynomialOrder>()};
     Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, kBasisFunctionNumber>, Eigen::Dynamic,
                  1>
         variable_basis_function_coefficient(element_mesh.number_);
-    Eigen::Matrix<Real, ComputationalElementTrait::kQuadratureNumber, kBasisFunctionNumber, Eigen::RowMajor>
-        basis_function_value;
-    const auto [local_coord, weights] = getElementQuadrature<ComputationalElementTrait>();
-    std::vector<double> basis_functions = getElementBasisFunction<
-        ElementTrait<ComputationalElementTrait::kElementType, SimulationControl::kInitialPolynomialOrder>>(local_coord);
-    for (Isize i = 0; i < ComputationalElementTrait::kQuadratureNumber; i++) {
+    Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, kBasisFunctionNumber, Eigen::RowMajor> basis_function_value;
+    const auto& [local_coord, weights] = getElementQuadrature<ElementTrait>();
+    std::vector<double> basis_functions =
+        getElementBasisFunction<ElementTrait::kElementType, SimulationControl::kInitialPolynomialOrder>(local_coord);
+    for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
       for (Isize j = 0; j < kBasisFunctionNumber; j++) {
         basis_function_value(i, j) =
             static_cast<Real>(basis_functions[static_cast<Usize>(i * kBasisFunctionNumber + j)]);
@@ -221,6 +220,25 @@ inline void Solver<SimulationControl>::initializeSolver(
       this->quadrangle_.initializeElementSolver(mesh.quadrangle_, thermal_model, initial_condition);
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
         this->quadrangle_.initializeElementGardientSolver();
+      }
+    }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      this->tetrahedron_.initializeElementSolver(mesh.tetrahedron_, thermal_model, initial_condition);
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
+        this->tetrahedron_.initializeElementGardientSolver();
+      }
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      this->pyramid_.initializeElementSolver(mesh.pyramid_, thermal_model, initial_condition);
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
+        this->pyramid_.initializeElementGardientSolver();
+      }
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      this->hexahedron_.initializeElementSolver(mesh.hexahedron_, thermal_model, initial_condition);
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
+        this->hexahedron_.initializeElementGardientSolver();
       }
     }
   }

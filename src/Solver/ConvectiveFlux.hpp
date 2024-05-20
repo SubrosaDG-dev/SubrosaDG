@@ -16,6 +16,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <functional>
 
 #include "Solver/ThermalModel.hpp"

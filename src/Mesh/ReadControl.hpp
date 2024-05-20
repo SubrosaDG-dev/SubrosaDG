@@ -38,9 +38,11 @@ namespace SubrosaDG {
 struct PhysicalInformation {
   int gmsh_tag_;
   Isize element_number_{0};
+  Isize vtk_element_number_{0};
   std::vector<int> element_gmsh_type_;
   std::vector<Isize> element_gmsh_tag_;
   Isize node_number_{0};
+  Isize vtk_node_number_{0};
 };
 
 struct PerElementPhysicalInformation {
@@ -49,11 +51,11 @@ struct PerElementPhysicalInformation {
 };
 
 struct PerAdjacencyElementInformation {
-  int gmsh_type_;
+  int gmsh_type_number_;
   Isize element_index_;
 
-  inline PerAdjacencyElementInformation(int gmsh_type, Isize element_index)
-      : gmsh_type_(gmsh_type), element_index_(element_index){};
+  inline PerAdjacencyElementInformation(int gmsh_type_number, Isize element_index)
+      : gmsh_type_number_(gmsh_type_number), element_index_(element_index){};
 };
 
 struct PerElementInformation {
@@ -71,15 +73,16 @@ struct MeshInformation {
   std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>> gmsh_tag_to_sub_index_and_type_;
 };
 
-template <typename ElementTraitBase>
+template <typename ElementTrait>
 struct PerElementMeshBase : PerElementInformation {
-  Eigen::Vector<Isize, ElementTraitBase::kAllNodeNumber> node_tag_;
-  Eigen::Vector<Real, ElementTraitBase::kQuadratureNumber> jacobian_determinant_;
+  Eigen::Vector<Isize, ElementTrait::kAllNodeNumber> node_tag_;
+  Eigen::Vector<Real, ElementTrait::kQuadratureNumber> jacobian_determinant_;
 };
 
 template <typename AdjacencyElementTrait>
 struct PerAdjacencyElementMesh : PerElementMeshBase<AdjacencyElementTrait> {
   Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber> node_coordinate_;
+  Isize adjacency_right_rotation_{0};
   Eigen::Vector<Isize, 2> parent_index_each_type_;
   Eigen::Vector<Isize, 2> adjacency_sequence_in_parent_;
   Eigen::Vector<Isize, 2> parent_gmsh_type_number_;
@@ -101,6 +104,8 @@ template <typename AdjacencyElementTrait>
 struct AdjacencyElementMeshSupplemental {
   bool is_recorded_{false};
   std::array<Isize, AdjacencyElementTrait::kAllNodeNumber> node_tag_;
+  std::array<Isize, AdjacencyElementTrait::kBasicNodeNumber> left_basic_node_tag_;
+  std::array<Isize, AdjacencyElementTrait::kBasicNodeNumber> right_basic_node_tag_;
   std::vector<Isize> parent_gmsh_tag_;
   std::vector<Isize> adjacency_sequence_in_parent_;
   std::vector<Isize> parent_gmsh_type_number_;
@@ -162,6 +167,11 @@ struct ElementMesh {
       const MeshInformation& information,
       const AdjacencyElementMesh<AdjacencyLineTrait<ElementTrait::kPolynomialOrder>>& line);
 
+  inline void calculateElementMeshSize(
+      const MeshInformation& information,
+      const AdjacencyElementMesh<AdjacencyTriangleTrait<ElementTrait::kPolynomialOrder>>& triangle,
+      const AdjacencyElementMesh<AdjacencyQuadrangleTrait<ElementTrait::kPolynomialOrder>>& quadrangle);
+
   inline ElementMesh() : quadrature_(), basis_function_(){};
 };
 
@@ -193,6 +203,15 @@ struct MeshData<SimulationControl, 2> : MeshDataBase<SimulationControl> {
 };
 
 template <typename SimulationControl>
+struct MeshData<SimulationControl, 3> : MeshDataBase<SimulationControl> {
+  AdjacencyElementMesh<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
+  AdjacencyElementMesh<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
+  ElementMesh<TetrahedronTrait<SimulationControl::kPolynomialOrder>> tetrahedron_;
+  ElementMesh<PyramidTrait<SimulationControl::kPolynomialOrder>> pyramid_;
+  ElementMesh<HexahedronTrait<SimulationControl::kPolynomialOrder>> hexahedron_;
+};
+
+template <typename SimulationControl>
 struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
   template <typename ElementTrait>
   inline static ElementMesh<ElementTrait> Mesh::*getElement() {
@@ -207,6 +226,16 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
       if constexpr (ElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &Mesh::quadrangle_;
       }
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (ElementTrait::kElementType == ElementEnum::Tetrahedron) {
+        return &Mesh::tetrahedron_;
+      }
+      if constexpr (ElementTrait::kElementType == ElementEnum::Pyramid) {
+        return &Mesh::pyramid_;
+      }
+      if constexpr (ElementTrait::kElementType == ElementEnum::Hexahedron) {
+        return &Mesh::hexahedron_;
+      }
     }
     return nullptr;
   }
@@ -220,6 +249,13 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
         return &Mesh::line_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+        return &Mesh::triangle_;
+      }
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+        return &Mesh::quadrangle_;
       }
     }
     return nullptr;
@@ -297,6 +333,7 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
         this->quadrangle_.getElementMesh(this->node_coordinate_, this->information_);
       }
       this->element_number_ += this->triangle_.number_ + this->quadrangle_.number_;
+      gmsh::model::mesh::createEdges();
       this->line_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
                                                                                   this->information_);
       this->adjacency_element_number_ += this->line_.interior_number_ + this->line_.boundary_number_;
@@ -305,6 +342,37 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
       }
       if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
         this->quadrangle_.calculateElementMeshSize(this->information_, this->line_);
+      }
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+        this->tetrahedron_.getElementMesh(this->node_coordinate_, this->information_);
+      }
+      if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+        this->pyramid_.getElementMesh(this->node_coordinate_, this->information_);
+      }
+      if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+        this->hexahedron_.getElementMesh(this->node_coordinate_, this->information_);
+      }
+      this->element_number_ += this->tetrahedron_.number_ + this->pyramid_.number_ + this->hexahedron_.number_;
+      gmsh::model::mesh::createFaces();
+      if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
+        this->triangle_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
+                                                                                        this->information_);
+      }
+      if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
+        this->quadrangle_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
+                                                                                          this->information_);
+      }
+      this->adjacency_element_number_ += this->triangle_.interior_number_ + this->triangle_.boundary_number_ +
+                                         this->quadrangle_.interior_number_ + this->quadrangle_.boundary_number_;
+      if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+        this->tetrahedron_.calculateElementMeshSize(this->information_, this->triangle_, this->quadrangle_);
+      }
+      if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+        this->pyramid_.calculateElementMeshSize(this->information_, this->triangle_, this->quadrangle_);
+      }
+      if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+        this->hexahedron_.calculateElementMeshSize(this->information_, this->triangle_, this->quadrangle_);
       }
     }
   }
