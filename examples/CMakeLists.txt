@@ -18,7 +18,11 @@ set(CMAKE_EXAMPLES_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$
 
 add_custom_target(all_examples)
 
+add_subdirectory(blasius_3d_ns)
+
 add_subdirectory(cylinder_2d_euler)
+
+add_subdirectory(cylinder_3d_ns)
 
 add_subdirectory(gravity_2d_ns)
 
@@ -29,6 +33,8 @@ add_subdirectory(naca0012_2d_ns)
 add_subdirectory(periodic_1d_euler)
 
 add_subdirectory(periodic_2d_euler)
+
+add_subdirectory(protuberance_3d_euler)
 
 add_subdirectory(rae2822_2d_ns)
 

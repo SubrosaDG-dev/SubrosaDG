@@ -18,14 +18,13 @@
 #include <dbg.h>
 
 #include <iostream>
+#include <variant>
 
 // IWYU pragma: end_keep
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <functional>
-#include <memory>
 #include <unordered_map>
 #include <vector>
 

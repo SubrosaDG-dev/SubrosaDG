@@ -16,9 +16,9 @@
 #include <Eigen/Core>
 #include <array>
 #include <format>
-#include <fstream>
 #include <magic_enum.hpp>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 #include <vtu11-cpp17.hpp>
@@ -28,6 +28,7 @@
 #include "Solver/ThermalModel.hpp"
 #include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
+#include "Utils/Concept.hpp"
 #include "Utils/Enum.hpp"
 #include "View/IOControl.hpp"
 
@@ -39,14 +40,13 @@ inline std::string View<SimulationControl>::getBaseName(const int step, const st
 }
 
 template <typename SimulationControl>
-inline void View<SimulationControl>::getDataSetInfomatoin(const int dimension,
-                                                          std::vector<vtu11::DataSetInfo>& data_set_information) {
+inline void View<SimulationControl>::getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information) {
   data_set_information.emplace_back("TMSTEP", vtu11::DataSetType::FieldData, 1, 1);
   data_set_information.emplace_back("TimeValue", vtu11::DataSetType::FieldData, 1, 1);
   for (const auto variable : this->variable_type_) {
     if ((SimulationControl::kDimension >= 2) &&
         (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
-         (variable == ViewVariableEnum::Vorticity && dimension == 3))) {
+         (variable == ViewVariableEnum::Vorticity && SimulationControl::kDimension == 3))) {
       data_set_information.emplace_back(magic_enum::enum_name(variable), vtu11::DataSetType::PointData, 3, 0);
     } else {
       data_set_information.emplace_back(magic_enum::enum_name(variable), vtu11::DataSetType::PointData, 1, 0);
@@ -277,9 +277,9 @@ inline void View<SimulationControl>::writeView(const int step, const Isize physi
                                                const std::string& base_name) {
   std::vector<vtu11::DataSetInfo> data_set_information;
   std::vector<vtu11::DataSetData> data_set_data;
-  this->getDataSetInfomatoin(Dimension, data_set_information);
+  this->getDataSetInfomatoin(data_set_information);
   data_set_data.resize(this->variable_type_.size() + 2);
-  ViewSupplemental<SimulationControl> view_supplemental(Dimension, physical_index, mesh, this->variable_type_);
+  ViewSupplemental<SimulationControl> view_supplemental(physical_index, mesh, this->variable_type_);
   this->writeField<Dimension, IsAdjacency>(physical_index, mesh, thermal_model, view_data, view_supplemental);
   vtu11::Vtu11UnstructuredMesh mesh_data{
       {view_supplemental.node_coordinate_.data(),
@@ -297,10 +297,8 @@ inline void View<SimulationControl>::writeView(const int step, const Isize physi
         view_supplemental.node_variable_(i).data(),
         view_supplemental.node_variable_(i).data() + view_supplemental.node_variable_(i).size());
   }
-  // vtu11::writeVtu((this->output_directory_ / "vtu" / base_name).string(), mesh_data, data_set_information,
-  //                 data_set_data, "rawbinarycompressed");
   vtu11::writeVtu((this->output_directory_ / "vtu" / base_name).string(), mesh_data, data_set_information,
-                  data_set_data, "ascii");
+                  data_set_data, "rawbinarycompressed");
 }
 
 template <typename SimulationControl>
@@ -309,7 +307,8 @@ inline void View<SimulationControl>::stepView(const int step, const Mesh<Simulat
                                               ViewData<SimulationControl>& view_data) {
   view_data.solver_.calcluateViewVariable(mesh, thermal_model, view_data.raw_binary_path_, view_data.raw_binary_ss_);
   for (Isize i = 0; i < static_cast<Isize>(mesh.information_.physical_.size()); i++) {
-    if (mesh.information_.periodic_physical_.contains(i)) {
+    if (mesh.information_.boundary_condition_type_.contains(i) &&
+        !isWall(mesh.information_.boundary_condition_type_.at(i))) {
       continue;
     }
     const std::string base_name = this->getBaseName(step, mesh.information_.physical_[static_cast<Usize>(i)]);

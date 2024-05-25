@@ -16,7 +16,6 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
 #include <functional>
 
 #include "Solver/ThermalModel.hpp"
@@ -91,8 +90,8 @@ inline void calculateConvectiveLaxFriedrichsFlux(
       left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>());
   const Real right_sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
       right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>());
-  const Real spectral_radius = std::ranges::max(std::abs(left_normal_velocity) + left_sound_speed,
-                                                std::abs(right_normal_velocity) + right_sound_speed);
+  const Real spectral_radius = std::ranges::max(std::fabs(left_normal_velocity) + left_sound_speed,
+                                                std::fabs(right_normal_velocity) + right_sound_speed);
   convective_flux.result_.normal_variable_.noalias() =
       ((convective_flux.left_.normal_variable_ + convective_flux.right_.normal_variable_) -
        spectral_radius * (right_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_)) /
@@ -248,12 +247,12 @@ inline void calculateConvectiveRoeFlux(const ThermalModel<SimulationControl>& th
       delta_variable.template getVector<ComputationalVariableEnum::Velocity>().transpose() * normal_vector;
   const Real harten_delta = roe_sound_speed / 20.0;
   const Real lambda_velocity_subtract_sound_speed =
-      std::abs(roe_normal_velocity - roe_sound_speed) > harten_delta
-          ? std::abs(roe_normal_velocity - roe_sound_speed)
+      std::fabs(roe_normal_velocity - roe_sound_speed) > harten_delta
+          ? std::fabs(roe_normal_velocity - roe_sound_speed)
           : (std::pow(roe_normal_velocity - roe_sound_speed, 2) + harten_delta * harten_delta) / (2.0 * harten_delta);
   const Real lambda_velocity_add_sound_speed =
-      std::abs(roe_normal_velocity + roe_sound_speed) > harten_delta
-          ? std::abs(roe_normal_velocity + roe_sound_speed)
+      std::fabs(roe_normal_velocity + roe_sound_speed) > harten_delta
+          ? std::fabs(roe_normal_velocity + roe_sound_speed)
           : (std::pow(roe_normal_velocity + roe_sound_speed, 2) + harten_delta * harten_delta) / (2.0 * harten_delta);
   roe_matrix.col(0) << 1.0,
       roe_variable.template getVector<ComputationalVariableEnum::Velocity>() - roe_sound_speed * normal_vector,
@@ -266,7 +265,7 @@ inline void calculateConvectiveRoeFlux(const ThermalModel<SimulationControl>& th
   roe_matrix.col(1) << 1.0, roe_variable.template getVector<ComputationalVariableEnum::Velocity>(),
       roe_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
   roe_matrix.col(1) *=
-      std::abs(roe_normal_velocity) *
+      std::fabs(roe_normal_velocity) *
       (delta_variable.template getScalar<ComputationalVariableEnum::Density>() -
        delta_variable.template getScalar<ComputationalVariableEnum::Pressure>() / (roe_sound_speed * roe_sound_speed));
   if constexpr (SimulationControl::kDimension == 2 || SimulationControl::kDimension == 3) {

@@ -27,7 +27,6 @@
 #include <regex>
 #include <sstream>
 #include <string>
-#include <string_view>
 #include <tqdm.hpp>
 #include <vector>
 
@@ -40,7 +39,7 @@ namespace SubrosaDG {
 template <typename SimulationControl>
 struct CommandLine {
   bool is_open_;
-  Real time_value_;
+  Real delta_time_;
   std::deque<Real> time_value_deque_;
   const int line_number_{10};
   Tqdm::ProgressBar solver_progress_bar_;
@@ -71,7 +70,9 @@ struct CommandLine {
     }
   }
 
-  inline void initializeSolver(const int iteration_start, const int iteration_end, std::fstream& error_finout) {
+  inline void initializeSolver(const Real delta_time, const int iteration_start, const int iteration_end,
+                               std::fstream& error_finout) {
+    this->delta_time_ = delta_time;
     if (this->is_open_) {
       std::cout << '\n';
       this->solver_progress_bar_.restart();
@@ -91,17 +92,17 @@ struct CommandLine {
     }
   }
 
-  inline void updateSolver(const int step, const Real delta_time,
+  inline void updateSolver(const int step,
                            const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& new_error,
                            std::fstream& error_finout) {
-    this->time_value_ = static_cast<Real>(step) * delta_time;
-    error_finout << this->getLineInformation(this->time_value_, new_error) << '\n';
+    Real time_value = static_cast<Real>(step) * this->delta_time_;
+    error_finout << this->getLineInformation(time_value, new_error) << '\n';
     std::string error_string;
     error_string += this->getVariableList() + '\n';
     if (step % this->line_number_ == 0) {
       this->time_value_deque_.pop_front();
       this->error_deque_.pop_front();
-      this->time_value_deque_.emplace_back(this->time_value_);
+      this->time_value_deque_.emplace_back(time_value);
       this->error_deque_.emplace_back(new_error);
     }
     for (Usize i = 0; i < static_cast<Usize>(this->line_number_); i++) {

@@ -32,8 +32,7 @@ int main(int argc, char* argv[]) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.2, 0.0, 1.0};
   });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.2, 0.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-2");
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-3");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
   system.setTransportModel(1.4 * 0.2 / 200);
   system.setTimeIntegration(1.0);
   system.setViewConfig(kExampleDirectory, kExampleName,
@@ -52,12 +51,12 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> cylinder_point_coordinate;
   Eigen::Matrix<double, 6, 1> farfield_point_size;
   // clang-format off
-  farfield_point_coordinate << -5.0,   0.0, 0.0,
-                               -5.0,  -5.0, 0.0,
-                                15.0, -5.0, 0.0,
-                                15.0,  0.0, 0.0,
-                                15.0,  5.0, 0.0,
-                               -5.0,   5.0, 0.0;
+  farfield_point_coordinate << -5.0,   0.0,  0.0,
+                               -5.0,  -10.0, 0.0,
+                                20.0, -10.0, 0.0,
+                                20.0,  0.0,  0.0,
+                                20.0,  10.0, 0.0,
+                               -5.0,   10.0, 0.0;
   separation_point_coordinate << -1.0,  0.0, 0.0,
                                   0.0, -1.0, 0.0,
                                   1.0,  0.0, 0.0,
@@ -66,7 +65,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
                                 0.0, -0.5, 0.0,
                                 0.5,  0.0, 0.0,
                                 0.0,  0.5, 0.0;
-  farfield_point_size << 0.5, 1.0, 1.0, 0.5, 1.0, 1.0;
+  farfield_point_size << 0.5, 2.0, 2.0, 0.5, 2.0, 2.0;
   // clang-format on
   Eigen::Array<int, 6, 1> farfield_point_tag;
   Eigen::Array<int, 4, 2, Eigen::RowMajor> cylinder_point_tag;
@@ -75,7 +74,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 4, 3, Eigen::RowMajor> cylinder_line_tag;
   Eigen::Array<int, 6, 1> curve_loop_tag;
   Eigen::Array<int, 6, 1> plane_surface_tag;
-  std::array<std::vector<int>, 4> physical_group_tag;
+  std::array<std::vector<int>, 3> physical_group_tag;
   gmsh::model::add("vortex_2d");
   const int center_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   for (std::ptrdiff_t i = 0; i < 6; i++) {
@@ -89,11 +88,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         cylinder_point_coordinate(i, 0), cylinder_point_coordinate(i, 1), cylinder_point_coordinate(i, 2));
   }
   for (std::ptrdiff_t i = 0; i < 6; i++) {
-    if (i == 4) {
-      farfield_line_tag(i) = gmsh::model::geo::addLine(farfield_point_tag((i + 1) % 6), farfield_point_tag(i));
-    } else {
-      farfield_line_tag(i) = gmsh::model::geo::addLine(farfield_point_tag(i), farfield_point_tag((i + 1) % 6));
-    }
+    farfield_line_tag(i) = gmsh::model::geo::addLine(farfield_point_tag(i), farfield_point_tag((i + 1) % 6));
   }
   connection_line_tag(0) = gmsh::model::geo::addLine(farfield_point_tag(0), cylinder_point_tag(0, 0));
   connection_line_tag(1) = gmsh::model::geo::addLine(farfield_point_tag(3), cylinder_point_tag(2, 0));
@@ -109,7 +104,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
                                                       -cylinder_line_tag(0, 0), -connection_line_tag(0)});
   curve_loop_tag(1) = gmsh::model::geo::addCurveLoop(
       {farfield_line_tag(5), connection_line_tag(0), -cylinder_line_tag(3, 0), -cylinder_line_tag(2, 0),
-       -connection_line_tag(1), farfield_line_tag(3), -farfield_line_tag(4)});
+       -connection_line_tag(1), farfield_line_tag(3), farfield_line_tag(4)});
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     curve_loop_tag(i + 2, 0) =
         gmsh::model::geo::addCurveLoop({-cylinder_line_tag(i, 2), cylinder_line_tag(i, 0),
@@ -121,33 +116,25 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     gmsh::model::geo::mesh::setTransfiniteCurve(cylinder_line_tag(i, 0), 16);
     gmsh::model::geo::mesh::setTransfiniteCurve(cylinder_line_tag(i, 1), 16);
-    gmsh::model::geo::mesh::setTransfiniteCurve(cylinder_line_tag(i, 2), 12, "Progression", -1.2);
+    gmsh::model::geo::mesh::setTransfiniteCurve(cylinder_line_tag(i, 2), 12, "Progression", -1.15);
   }
   for (std::ptrdiff_t i = 2; i < 6; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
     gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i));
   }
   gmsh::model::geo::synchronize();
-  Eigen::Matrix<double, 4, 4, Eigen::RowMajor> transform_y =
-      (Eigen::Transform<double, 3, Eigen::Affine>::Identity() * Eigen::Translation<double, 3>(0, 10, 0)).matrix();
-  gmsh::model::mesh::setPeriodic(1, {farfield_line_tag(4)}, {farfield_line_tag(1)},
-                                 {transform_y.data(), transform_y.data() + transform_y.size()});
-  physical_group_tag[0].emplace_back(farfield_line_tag(0));
-  physical_group_tag[1].emplace_back(farfield_line_tag(1));
-  physical_group_tag[0].emplace_back(farfield_line_tag(2));
-  physical_group_tag[0].emplace_back(farfield_line_tag(3));
-  physical_group_tag[1].emplace_back(farfield_line_tag(4));
-  physical_group_tag[0].emplace_back(farfield_line_tag(5));
+  for (std::ptrdiff_t i = 0; i < 6; i++) {
+    physical_group_tag[0].emplace_back(farfield_line_tag(i));
+  }
   for (std::ptrdiff_t i = 0; i < 4; i++) {
-    physical_group_tag[2].emplace_back(cylinder_line_tag(i, 1));
+    physical_group_tag[1].emplace_back(cylinder_line_tag(i, 1));
   }
   for (std::ptrdiff_t i = 0; i < 6; i++) {
-    physical_group_tag[3].emplace_back(plane_surface_tag(i));
+    physical_group_tag[2].emplace_back(plane_surface_tag(i));
   }
   gmsh::model::addPhysicalGroup(1, physical_group_tag[0], -1, "bc-1");
   gmsh::model::addPhysicalGroup(1, physical_group_tag[1], -1, "bc-2");
-  gmsh::model::addPhysicalGroup(1, physical_group_tag[2], -1, "bc-3");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[3], -1, "vc-1");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrderFastCurving");

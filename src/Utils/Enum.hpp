@@ -77,6 +77,8 @@ enum class InitialConditionEnum {
 
 enum class BoundaryConditionEnum {
   RiemannFarfield = 1,
+  CharacteristicInflow,
+  PressureOutflow,
   IsothermalNoslipWall,
   AdiabaticSlipWall,
   AdiabaticNoSlipWall,

@@ -16,12 +16,12 @@
 #include <Eigen/Core>
 #include <filesystem>
 #include <format>
-#include <fstream>
 #include <functional>
 #include <future>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -66,12 +66,15 @@ struct System {
   }
 
   template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield)
+    requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
+             BoundaryConditionType == BoundaryConditionEnum::CharacteristicInflow ||
+             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow)
   inline void addBoundaryCondition(
       const std::string& boundary_condition_name,
       const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
     const auto boundary_condition_index =
         static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
+    this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
     this->boundary_condition_[boundary_condition_index] =
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
     this->boundary_condition_[boundary_condition_index]->boundary_dummy_variable_.primitive_ =
@@ -84,6 +87,7 @@ struct System {
                                    const Real boundary_condition_temperature) {
     const auto boundary_condition_index =
         static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
+    this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
     this->boundary_condition_[boundary_condition_index] =
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
     this->boundary_condition_[boundary_condition_index]->boundary_dummy_variable_.primitive_.setZero();
@@ -98,6 +102,7 @@ struct System {
   inline void addBoundaryCondition(const std::string& boundary_condition_name) {
     const auto boundary_condition_index =
         static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
+    this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
     this->boundary_condition_[boundary_condition_index] =
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
   }
@@ -105,7 +110,9 @@ struct System {
   template <BoundaryConditionEnum BoundaryConditionType>
     requires(BoundaryConditionType == BoundaryConditionEnum::Periodic)
   inline void addBoundaryCondition(const std::string& boundary_condition_name) {
-    this->mesh_.addPeriodicBoundary(boundary_condition_name);
+    const auto boundary_condition_index =
+        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
+    this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
   }
 
   inline void addInitialCondition(
@@ -153,7 +160,7 @@ struct System {
     } else {
       this->view_.io_interval_ = io_interval;
     }
-    this->view_.iteration_order_ = static_cast<int>(log10(this->time_integration_.iteration_end_) + 1);
+    this->view_.iteration_order_ = static_cast<int>(std::log10(this->time_integration_.iteration_end_) + 1);
     this->view_.output_directory_ = output_directory;
     this->view_.output_file_name_prefix_ = output_file_name_prefix;
     this->view_.variable_type_ = view_variable;
@@ -182,7 +189,7 @@ struct System {
     } else {
       this->solver_.write_raw_binary_future_ = std::async(std::launch::async, []() {});
     }
-    this->command_line_.initializeSolver(this->time_integration_.iteration_start_,
+    this->command_line_.initializeSolver(this->time_integration_.delta_time_, this->time_integration_.iteration_start_,
                                          this->time_integration_.iteration_end_, this->solver_.error_finout_);
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
       this->solver_.copyBasisFunctionCoefficient();
@@ -196,8 +203,7 @@ struct System {
                                      std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i));
       }
       this->solver_.calculateRelativeError(this->mesh_);
-      this->command_line_.updateSolver(i, this->time_integration_.delta_time_, this->solver_.relative_error_,
-                                       this->solver_.error_finout_);
+      this->command_line_.updateSolver(i, this->solver_.relative_error_, this->solver_.error_finout_);
     }
     this->solver_.write_raw_binary_future_.get();
     this->view_.finalizeSolverFinout(this->solver_.error_finout_);

@@ -18,6 +18,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <vtu11-cpp17.hpp>
 
@@ -176,7 +177,7 @@ struct ViewSupplemental {
   Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic> element_offset_;
   Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic> element_type_;
 
-  ViewSupplemental(int dimension, Isize physical_index, const Mesh<SimulationControl>& mesh,
+  ViewSupplemental(Isize physical_index, const Mesh<SimulationControl>& mesh,
                    const std::vector<ViewVariableEnum>& variable_type) {
     const Isize node_number = mesh.information_.physical_information_.at(physical_index).node_number_;
     const Isize vtk_node_number = mesh.information_.physical_information_.at(physical_index).vtk_node_number_;
@@ -187,7 +188,7 @@ struct ViewSupplemental {
     for (Isize i = 0; const auto variable : variable_type) {
       if ((SimulationControl::kDimension >= 2) &&
           (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
-           (variable == ViewVariableEnum::Vorticity && dimension == 3))) {
+           (variable == ViewVariableEnum::Vorticity && SimulationControl::kDimension == 3))) {
         this->node_variable_(i++).resize(3 * node_number);
       } else {
         this->node_variable_(i++).resize(node_number);
@@ -211,7 +212,7 @@ struct View {
 
   inline std::string getBaseName(int step, std::string_view physical_name);
 
-  inline void getDataSetInfomatoin(int dimension, std::vector<vtu11::DataSetInfo>& data_set_information);
+  inline void getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information);
 
   inline void calculateViewVariable(const ThermalModel<SimulationControl>& thermal_model,
                                     const ViewVariable<SimulationControl>& view_variable,

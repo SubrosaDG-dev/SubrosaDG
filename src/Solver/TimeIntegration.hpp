@@ -14,9 +14,7 @@
 #define SUBROSA_DG_TIME_INTEGRATION_HPP_
 
 #include <Eigen/Core>
-#include <algorithm>
 #include <array>
-#include <fstream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -288,8 +286,7 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
     local_error.array() +=
         ((this->element_(i).variable_residual_ * element_mesh.basis_function_.value_.transpose()).array() /
          ((this->element_(i).variable_basis_function_coefficient_(1) * element_mesh.basis_function_.value_.transpose())
-              .array() +
-          1e-8))
+              .array()))
             .square()
             .rowwise()
             .mean();

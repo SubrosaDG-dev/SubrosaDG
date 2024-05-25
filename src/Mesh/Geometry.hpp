@@ -30,6 +30,9 @@ namespace SubrosaDG {
 
 template <typename ElementTrait>
 inline void ElementMesh<ElementTrait>::getElementJacobian() {
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     std::vector<double> jacobians;
     std::vector<double> determinants;
@@ -52,11 +55,14 @@ inline void ElementMesh<ElementTrait>::getElementJacobian() {
 
 template <typename AdjacencyElementTrait>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementJacobian() {
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->interior_number_ + this->boundary_number_; i++) {
     std::vector<double> jacobians;
     std::vector<double> determinants;
     std::vector<double> coord;
-    gmsh::model::mesh::getJacobian(static_cast<std::size_t>(this->element_(i).gmsh_tag_),
+    gmsh::model::mesh::getJacobian(static_cast<std::size_t>(this->element_(i).gmsh_jacobian_tag_),
                                    this->quadrature_.local_coord_, jacobians, determinants, coord);
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
       this->element_(i).jacobian_determinant_(j) = static_cast<Real>(determinants[static_cast<Usize>(j)]);
@@ -66,6 +72,9 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementJaco
 
 template <typename ElementTrait>
 inline void ElementMesh<ElementTrait>::calculateElementLocalMassMatrixInverse() {
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).local_mass_matrix_inverse_.noalias() =
         (this->basis_function_.value_.transpose() *
@@ -80,6 +89,9 @@ template <typename ElementTrait>
 inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
     const MeshInformation& information,
     const AdjacencyElementMesh<AdjacencyPointTrait<ElementTrait::kPolynomialOrder>>& point) {
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, information, point)
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     const std::vector<PerAdjacencyElementInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
@@ -100,6 +112,9 @@ template <typename ElementTrait>
 inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
     const MeshInformation& information,
     const AdjacencyElementMesh<AdjacencyLineTrait<ElementTrait::kPolynomialOrder>>& line) {
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, information, line)
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     const std::vector<PerAdjacencyElementInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
@@ -121,6 +136,10 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
     const MeshInformation& information,
     const AdjacencyElementMesh<AdjacencyTriangleTrait<ElementTrait::kPolynomialOrder>>& triangle,
     const AdjacencyElementMesh<AdjacencyQuadrangleTrait<ElementTrait::kPolynomialOrder>>& quadrangle) {
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
+    shared(Eigen::Dynamic, information, triangle, quadrangle)
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     const std::vector<PerAdjacencyElementInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
@@ -195,6 +214,9 @@ inline void calculateNormalVector(
 
 template <typename AdjacencyElementTrait>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::calculateAdjacencyElementNormalVector() {
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->interior_number_ + this->boundary_number_; i++) {
     if constexpr (Is0dElement<AdjacencyElementTrait::kElementType>) {
       calculateNormalVector<AdjacencyElementTrait>(this->element_(i).adjacency_sequence_in_parent_(0),

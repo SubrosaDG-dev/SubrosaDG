@@ -22,7 +22,6 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -67,7 +66,7 @@ struct PerElementInformation {
 struct MeshInformation {
   ordered_set<std::string> physical_;
   std::vector<Isize> physical_dimension_;
-  std::unordered_set<Isize> periodic_physical_;
+  std::unordered_map<Isize, BoundaryConditionEnum> boundary_condition_type_;
   std::unordered_map<Isize, PhysicalInformation> physical_information_;
   std::unordered_map<Isize, PerElementPhysicalInformation> gmsh_tag_to_element_information_;
   std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>> gmsh_tag_to_sub_index_and_type_;
@@ -82,7 +81,8 @@ struct PerElementMeshBase : PerElementInformation {
 template <typename AdjacencyElementTrait>
 struct PerAdjacencyElementMesh : PerElementMeshBase<AdjacencyElementTrait> {
   Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber> node_coordinate_;
-  Isize adjacency_right_rotation_{0};
+  Isize gmsh_jacobian_tag_;
+  Isize adjacency_right_rotation_;
   Eigen::Vector<Isize, 2> parent_index_each_type_;
   Eigen::Vector<Isize, 2> adjacency_sequence_in_parent_;
   Eigen::Vector<Isize, 2> parent_gmsh_type_number_;
@@ -103,9 +103,8 @@ struct PerElementMesh : PerElementMeshBase<ElementTrait> {
 template <typename AdjacencyElementTrait>
 struct AdjacencyElementMeshSupplemental {
   bool is_recorded_{false};
+  Isize right_rotation_{0};
   std::array<Isize, AdjacencyElementTrait::kAllNodeNumber> node_tag_;
-  std::array<Isize, AdjacencyElementTrait::kBasicNodeNumber> left_basic_node_tag_;
-  std::array<Isize, AdjacencyElementTrait::kBasicNodeNumber> right_basic_node_tag_;
   std::vector<Isize> parent_gmsh_tag_;
   std::vector<Isize> adjacency_sequence_in_parent_;
   std::vector<Isize> parent_gmsh_type_number_;
@@ -300,11 +299,6 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
         }
       }
     }
-  }
-
-  inline void addPeriodicBoundary(const std::string& physical_name) {
-    const auto gmsh_physical_index = static_cast<Isize>(this->information_.physical_.find_index(physical_name));
-    this->information_.periodic_physical_.emplace(gmsh_physical_index);
   }
 
   inline void initializeMesh(

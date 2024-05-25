@@ -34,6 +34,9 @@ set(SUBROSA_DG_VERSION_STRING "${SUBROSA_DG_VERSION} - ${SHORT_SHA1} - ${GIT_CHA
 # set option for develop build
 option(SUBROSA_DG_DEVELOP "Build SubrosaDG in Develop" OFF)
 
+# set option for libc++
+option(SUBROSA_DG_LIBCXX "Build SubrosaDG with libc++" OFF)
+
 # set option for cuda
 option(SUBROSA_DG_CUDA "Build SubrosaDG with CUDA" OFF)
 
@@ -76,11 +79,16 @@ if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     message(FATAL_ERROR "This project is build with clang.")
 endif()
 
+# link to libc++
+if (SUBROSA_DG_LIBCXX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+endif()
+
 # use clang lld to link
 find_program(LLD NAMES ld.lld)
 if(LLD)
     set(CMAKE_LINKER "${LLD}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld -stdlib=libc++")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
 else()
     message(FATAL_ERROR "lld not found. Please install lld.")
 endif()
@@ -122,12 +130,6 @@ include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag(-std=c++20 cxx_std_20_support)
 if(NOT cxx_std_20_support)
     message(FATAL_ERROR "SubrosaDG requires C++20 to compile.")
-endif()
-
-#check libc++ support
-check_cxx_compiler_flag(-stdlib=libc++ libcxx_support)
-if(NOT libcxx_support)
-    message(FATAL_ERROR "SubrosaDG requires libc++ to compile.")
 endif()
 
 # set c and cxx standard for all target
@@ -269,7 +271,9 @@ set(SUBROSA_DG_CXX_RELEASE_FLAGS)
 # set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
 
 # add cxx compilation option
-string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++")
+if (SUBROSA_DG_LIBCXX)
+    string(APPEND SUBROSA_DG_CXX_FLAGS "-stdlib=libc++")
+endif()
 string(APPEND SUBROSA_DG_CXX_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation -Wno-narrowing")
 # string(APPEND SUBROSA_DG_CXX_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
 string(APPEND SUBROSA_DG_CXX_DEBUG_FLAGS "${SUBROSA_DG_CXX_WARNING_FLAGS} ${SUBROSA_DG_CXX_COVER_FLAGS}")
@@ -326,7 +330,7 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES Eigen3::Eigen)
 # find gmsh
 find_program(GMSH NAMES gmsh PATHS $ENV{GMSH_ROOT} PATH_SUFFIXES bin NO_DEFAULT_PATH)
 find_path(GMSH_DIR NAMES gmsh.h PATHS $ENV{GMSH_ROOT} PATH_SUFFIXES include NO_DEFAULT_PATH)
-find_library(GMSH_LIBRARY NAMES libgmsh${CMAKE_SHARED_LIBRARY_SUFFIX} PATHS $ENV{GMSH_ROOT} PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
+find_library(GMSH_LIBRARY NAMES libgmsh${CMAKE_SHARED_LIBRARY_SUFFIX} PATHS $ENV{GMSH_ROOT} PATH_SUFFIXES lib NO_DEFAULT_PATH)
 if(GMSH AND GMSH_DIR AND GMSH_LIBRARY)
     message_tool_version(Gmsh "${GMSH}")
 else()
@@ -342,6 +346,7 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
 # set compilation definitions
 foreach(SUBROSA_DG_OPTION IN ITEMS
         SUBROSA_DG_DEVELOP
+        SUBROSA_DG_LIBCXX
         SUBROSA_DG_CUDA)
     if(${SUBROSA_DG_OPTION})
         list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS ${SUBROSA_DG_OPTION})
