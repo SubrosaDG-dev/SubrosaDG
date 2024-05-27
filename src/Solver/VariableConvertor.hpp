@@ -14,6 +14,7 @@
 #define SUBROSA_DG_VARIABLE_CONVERTOR_HPP_
 
 #include <Eigen/Core>
+#include <array>
 
 #include "Mesh/ReadControl.hpp"
 #include "Solver/SimulationControl.hpp"
@@ -116,7 +117,7 @@ struct FluxNormalVariable {
   template <>
   inline void setVector<ConservedVariableEnum::Momentum>(
       const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
-    this->normal_variable_(Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
+    this->normal_variable_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>)) = value;
   }
 };
 
@@ -135,7 +136,7 @@ struct FluxVariable {
   template <>
   inline void setMatrix<ConservedVariableEnum::Momentum>(
       const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value) {
-    this->variable_(Eigen::all, Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
+    this->variable_(Eigen::all, Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>)) = value;
   }
 };
 
@@ -155,211 +156,305 @@ struct FluxGradient {
 
 template <typename SimulationControl>
 struct Variable {
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> conserved_;
-  Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> computational_;
-  Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber> primitive_;
+  Isize column_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic> conserved_;
+  Eigen::Matrix<Real, SimulationControl::kComputationalVariableNumber, Eigen::Dynamic> computational_;
+  Eigen::Matrix<Real, SimulationControl::kPrimitiveVariableNumber, Eigen::Dynamic> primitive_;
 
-  template <ConservedVariableEnum ConservedVariableType>
-  [[nodiscard]] inline Real getScalar() const {
-    return this->conserved_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>());
+  Variable() {
+    this->column_ = 1;
+    this->conserved_.resize(Eigen::NoChange, 1);
+    this->computational_.resize(Eigen::NoChange, 1);
+    this->primitive_.resize(Eigen::NoChange, 1);
+  }
+
+  Variable(const Isize column) {
+    this->column_ = column;
+    this->conserved_.resize(Eigen::NoChange, column);
+    this->computational_.resize(Eigen::NoChange, column);
+    this->primitive_.resize(Eigen::NoChange, column);
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector() const;
+  [[nodiscard]] inline Real getScalar(const Isize column) const {
+    return this->conserved_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>(), column);
+  }
+
+  template <ConservedVariableEnum ConservedVariableType>
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(Isize) const;
 
   template <>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector<ConservedVariableEnum::Momentum>()
-      const {
-    return this->conserved_(Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>()));
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector<ConservedVariableEnum::Momentum>(
+      const Isize column) const {
+    return this->conserved_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column);
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
-  [[nodiscard]] inline Real getScalar() const {
+  [[nodiscard]] inline Real getScalar(const Isize column) const {
     return this->computational_(
-        getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>());
+        getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>(), column);
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector() const;
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(Isize) const;
 
   template <>
   [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension>
-  getVector<ComputationalVariableEnum::Velocity>() const {
-    return this->computational_(Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>()));
+  getVector<ComputationalVariableEnum::Velocity>(const Isize column) const {
+    return this->computational_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column);
   }
 
   template <>
-  [[nodiscard]] inline Real getScalar<ComputationalVariableEnum::VelocitySquareSummation>() const {
-    return this->getVector<ComputationalVariableEnum::Velocity>().squaredNorm();
+  [[nodiscard]] inline Real getScalar<ComputationalVariableEnum::VelocitySquareSummation>(const Isize column) const {
+    return this->getVector<ComputationalVariableEnum::Velocity>(column).squaredNorm();
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  [[nodiscard]] inline Real getScalar() const {
-    return this->primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>());
+  [[nodiscard]] inline Real getScalar(const Isize column) const {
+    return this->primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>(), column);
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector() const;
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(Isize) const;
 
   template <>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector<PrimitiveVariableEnum::Velocity>()
-      const {
-    return this->primitive_(Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>()));
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector<PrimitiveVariableEnum::Velocity>(
+      const Isize column) const {
+    return this->primitive_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column);
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  inline void setScalar(const Real value) {
-    this->conserved_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()) = value;
+  inline void setScalar(const Real value, const Isize column) {
+    this->conserved_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>(), column) = value;
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>&);
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>&, Isize);
 
   template <>
   inline void setVector<ConservedVariableEnum::Momentum>(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
-    this->conserved_(Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
-  }
-
-  template <ConservedVariableEnum ConservedVariableType>
-  inline void setScalar(const Variable<SimulationControl>& variable) {
-    this->conserved_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()) =
-        variable.conserved_(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>());
+      const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
+    this->conserved_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column) = value;
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
-  inline void setScalar(const Real value) {
-    this->computational_(getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>()) =
-        value;
+  inline void setScalar(const Real value, const Isize column) {
+    this->computational_(getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>(),
+                         column) = value;
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
-  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>&);
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>&, Isize);
 
   template <>
   inline void setVector<ComputationalVariableEnum::Velocity>(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
-    this->computational_(Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
-  }
-
-  template <ComputationalVariableEnum ComputationalVariableType>
-  inline void setScalar(const Variable<SimulationControl>& variable) {
-    this->computational_(getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>()) =
-        variable.computational_(
-            getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>());
+      const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
+    this->computational_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column) = value;
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  inline void setScalar(const Real value) {
-    this->primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>()) = value;
+  inline void setScalar(const Real value, const Isize column) {
+    this->primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>(), column) = value;
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>&);
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>&, Isize);
 
   template <>
   inline void setVector<PrimitiveVariableEnum::Velocity>(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
-    this->primitive_(Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
-  }
-
-  template <PrimitiveVariableEnum PrimitiveVariableType>
-  inline void setScalar(const Variable<SimulationControl>& variable) {
-    this->primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>()) =
-        variable.primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>());
+      const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
+    this->primitive_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column) = value;
   }
 
   inline void calculateConservedFromComputational() {
-    const Real density = this->getScalar<ComputationalVariableEnum::Density>();
-    this->setScalar<ConservedVariableEnum::Density>(density);
-    this->setVector<ConservedVariableEnum::Momentum>(density * this->getVector<ComputationalVariableEnum::Velocity>());
-    const Real total_energy = this->getScalar<ComputationalVariableEnum::InternalEnergy>() +
-                              this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
-    this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy);
+    for (Isize i = 0; i < this->column_; i++) {
+      const Real density = this->getScalar<ComputationalVariableEnum::Density>(i);
+      this->setScalar<ConservedVariableEnum::Density>(density, i);
+      this->setVector<ConservedVariableEnum::Momentum>(
+          density * this->getVector<ComputationalVariableEnum::Velocity>(i), i);
+      const Real total_energy = this->getScalar<ComputationalVariableEnum::InternalEnergy>(i) +
+                                this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0;
+      this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy, i);
+    }
   }
 
   inline void calculateComputationalFromConserved(const ThermalModel<SimulationControl>& thermal_model) {
-    const Real density = this->getScalar<ConservedVariableEnum::Density>();
-    this->setScalar<ComputationalVariableEnum::Density>(density);
-    this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<ConservedVariableEnum::Momentum>() / density);
-    const Real internal_energy = this->getScalar<ConservedVariableEnum::DensityTotalEnergy>() / density -
-                                 this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
-    this->setScalar<ComputationalVariableEnum::InternalEnergy>(internal_energy);
-    this->setScalar<ComputationalVariableEnum::Pressure>(
-        thermal_model.calculatePressureFormDensityInternalEnergy(density, internal_energy));
+    for (Isize i = 0; i < this->column_; i++) {
+      const Real density = this->getScalar<ConservedVariableEnum::Density>(i);
+      this->setScalar<ComputationalVariableEnum::Density>(density, i);
+      this->setVector<ComputationalVariableEnum::Velocity>(
+          this->getVector<ConservedVariableEnum::Momentum>(i) / density, i);
+      const Real internal_energy = this->getScalar<ConservedVariableEnum::DensityTotalEnergy>(i) / density -
+                                   this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0;
+      this->setScalar<ComputationalVariableEnum::InternalEnergy>(internal_energy, i);
+      this->setScalar<ComputationalVariableEnum::Pressure>(
+          thermal_model.calculatePressureFormDensityInternalEnergy(density, internal_energy), i);
+    }
   }
 
   inline void calculateConservedFromPrimitive(const ThermalModel<SimulationControl>& thermal_model) {
-    const Real density = this->getScalar<PrimitiveVariableEnum::Density>();
-    this->setScalar<ConservedVariableEnum::Density>(density);
-    this->setVector<ConservedVariableEnum::Momentum>(density * this->getVector<PrimitiveVariableEnum::Velocity>());
-    this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<PrimitiveVariableEnum::Velocity>());
-    const Real total_energy =
-        thermal_model.calculateInternalEnergyFromTemperature(this->getScalar<PrimitiveVariableEnum::Temperature>()) +
-        this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>() / 2.0;
-    this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy);
+    for (Isize i = 0; i < this->column_; i++) {
+      const Real density = this->getScalar<PrimitiveVariableEnum::Density>(i);
+      this->setScalar<ConservedVariableEnum::Density>(density, i);
+      this->setVector<ConservedVariableEnum::Momentum>(density * this->getVector<PrimitiveVariableEnum::Velocity>(i),
+                                                       i);
+      this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<PrimitiveVariableEnum::Velocity>(i), i);
+      const Real total_energy =
+          thermal_model.calculateInternalEnergyFromTemperature(this->getScalar<PrimitiveVariableEnum::Temperature>(i)) +
+          this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0;
+      this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy, i);
+    }
   }
 
   inline void calculateComputationalFromPrimitive(const ThermalModel<SimulationControl>& thermal_model) {
-    this->setScalar<ComputationalVariableEnum::Density>(this->getScalar<PrimitiveVariableEnum::Density>());
-    this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<PrimitiveVariableEnum::Velocity>());
-    this->setScalar<ComputationalVariableEnum::InternalEnergy>(
-        thermal_model.calculateInternalEnergyFromTemperature(this->getScalar<PrimitiveVariableEnum::Temperature>()));
-    this->setScalar<ComputationalVariableEnum::Pressure>(thermal_model.calculatePressureFormDensityInternalEnergy(
-        this->getScalar<ComputationalVariableEnum::Density>(),
-        this->getScalar<ComputationalVariableEnum::InternalEnergy>()));
+    for (Isize i = 0; i < this->column_; i++) {
+      this->setScalar<ComputationalVariableEnum::Density>(this->getScalar<PrimitiveVariableEnum::Density>(i), i);
+      this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<PrimitiveVariableEnum::Velocity>(i), i);
+      this->setScalar<ComputationalVariableEnum::InternalEnergy>(
+          thermal_model.calculateInternalEnergyFromTemperature(this->getScalar<PrimitiveVariableEnum::Temperature>(i)),
+          i);
+      this->setScalar<ComputationalVariableEnum::Pressure>(
+          thermal_model.calculatePressureFormDensityInternalEnergy(
+              this->getScalar<ComputationalVariableEnum::Density>(i),
+              this->getScalar<ComputationalVariableEnum::InternalEnergy>(i)),
+          i);
+    }
   }
+};
 
-  template <typename ElementTrait>
-  inline void getFromSelf(const ElementMesh<ElementTrait>& element_mesh,
-                          const ElementSolverBase<ElementTrait, SimulationControl>& element_solver,
-                          const Isize element_index, const Isize element_quadrature_node_sequence) {
+template <typename ElementTrait, typename SimulationControl>
+struct ElementVariable : Variable<SimulationControl> {
+  ElementVariable() : Variable<SimulationControl>(ElementTrait::kQuadratureNumber) {}
+
+  inline void get(const ElementMesh<ElementTrait>& element_mesh,
+                  const ElementSolverBase<ElementTrait, SimulationControl>& element_solver, const Isize element_index) {
     this->conserved_.noalias() = element_solver.element_(element_index).variable_basis_function_coefficient_(1) *
-                                 element_mesh.basis_function_.value_.row(element_quadrature_node_sequence).transpose();
+                                 element_mesh.basis_function_.value_.transpose();
   }
+};
 
-  template <typename AdjacencyElementTrait>
-  inline void getFromParent(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
-                            const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
-                            const Isize adjacency_quadrature_node_sequence_in_parent) {
+template <typename AdjacencyElementTrait, typename SimulationControl>
+struct AdjacencyElementVariable : Variable<SimulationControl> {
+  AdjacencyElementVariable() : Variable<SimulationControl>(AdjacencyElementTrait::kQuadratureNumber) {}
+
+  inline void get(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
+                  const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
+                  const Isize adjacency_sequence_in_parent) {
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+      constexpr std::array<int, LineTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+          kElementAccumulateAdjacencyQuadratureNumber{
+              getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Line, SimulationControl::kPolynomialOrder>()};
       this->conserved_.noalias() =
           solver.line_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
-          mesh.line_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent).transpose();
+          mesh.line_.basis_function_
+              .adjacency_value_(
+                  Eigen::seq(
+                      kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                      kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                  1] -
+                          1),
+                  Eigen::all)
+              .transpose();
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, TriangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Triangle,
+                                                              SimulationControl::kPolynomialOrder>()};
         this->conserved_.noalias() =
             solver.triangle_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
-            mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+            mesh.triangle_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
                 .transpose();
       } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, QuadrangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Quadrangle,
+                                                              SimulationControl::kPolynomialOrder>()};
         this->conserved_.noalias() =
             solver.quadrangle_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
-            mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+            mesh.quadrangle_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
                 .transpose();
       }
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
       if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, TetrahedronTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Tetrahedron,
+                                                              SimulationControl::kPolynomialOrder>()};
         this->conserved_.noalias() =
             solver.tetrahedron_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
-            mesh.tetrahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+            mesh.tetrahedron_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
                 .transpose();
       } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, PyramidTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Pyramid,
+                                                              SimulationControl::kPolynomialOrder>()};
         this->conserved_.noalias() =
             solver.pyramid_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
-            mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+            mesh.pyramid_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
                 .transpose();
       }
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
       if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, PyramidTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Pyramid,
+                                                              SimulationControl::kPolynomialOrder>()};
         this->conserved_.noalias() =
             solver.pyramid_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
-            mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+            mesh.pyramid_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
                 .transpose();
       } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, HexahedronTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Hexahedron,
+                                                              SimulationControl::kPolynomialOrder>()};
         this->conserved_.noalias() =
             solver.hexahedron_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
-            mesh.hexahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
+            mesh.hexahedron_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
                 .transpose();
       }
     }
@@ -368,296 +463,486 @@ struct Variable {
 
 template <typename SimulationControl>
 struct VariableGradient {
-  Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber> conserved_;
-  Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kPrimitiveVariableNumber> primitive_;
+  Isize column_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension, Eigen::Dynamic>
+      conserved_;
+  Eigen::Matrix<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension, Eigen::Dynamic>
+      primitive_;
 
-  template <ConservedVariableEnum ConservedVariableType>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector() const {
-    return this->conserved_.col(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>());
+  VariableGradient() {
+    this->column_ = 1;
+    this->conserved_.resize(Eigen::NoChange, 1);
+    this->primitive_.resize(Eigen::NoChange, 1);
+  }
+
+  VariableGradient(const Isize column) {
+    this->column_ = column;
+    this->conserved_.resize(Eigen::NoChange, column);
+    this->primitive_.resize(Eigen::NoChange, column);
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> getMatrix()
-      const;
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(const Isize column) const {
+    return this->conserved_(
+        Eigen::seqN(Eigen::fix<getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>() *
+                               SimulationControl::kDimension>,
+                    Eigen::fix<SimulationControl::kDimension>),
+        column);
+  }
+
+  template <ConservedVariableEnum ConservedVariableType>
+  [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> getMatrix(
+      Isize) const;
 
   template <>
   [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>
-  getMatrix<ConservedVariableEnum::Momentum>() const {
-    return this->conserved_(Eigen::all, Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>()));
+  getMatrix<ConservedVariableEnum::Momentum>(const Isize column) const {
+    return this
+        ->conserved_(Eigen::seqN(Eigen::fix<SimulationControl::kDimension>,
+                                 Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>),
+                     column)
+        .reshaped(SimulationControl::kDimension, SimulationControl::kDimension);
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType, VariableGradientEnum VariableGradientType>
-  [[nodiscard]] inline Real getScalar() const {
-    return this->primitive_(getVariableGradientIndex<VariableGradientType>(),
-                            getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>());
+  [[nodiscard]] inline Real getScalar(const Isize column) const {
+    return this->primitive_(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>() *
+                                    SimulationControl::kDimension +
+                                getVariableGradientIndex<VariableGradientType>(),
+                            column);
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector() const {
-    return this->primitive_.col(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>());
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(const Isize column) const {
+    return this->primitive_(
+        Eigen::seqN(Eigen::fix<getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>() *
+                               SimulationControl::kDimension>,
+                    Eigen::fix<SimulationControl::kDimension>),
+        column);
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> getMatrix()
-      const;
+  [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> getMatrix(
+      Isize) const;
 
   template <>
   [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>
-  getMatrix<PrimitiveVariableEnum::Velocity>() const {
-    return this->primitive_(Eigen::all, Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>()));
+  getMatrix<PrimitiveVariableEnum::Velocity>(const Isize column) const {
+    return this
+        ->primitive_(Eigen::seqN(Eigen::fix<SimulationControl::kDimension>,
+                                 Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>),
+                     column)
+        .reshaped(SimulationControl::kDimension, SimulationControl::kDimension);
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
-    this->conserved_.col(getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()) = value;
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
+    this->conserved_(
+        Eigen::seqN(Eigen::fix<getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>() *
+                               SimulationControl::kDimension>,
+                    Eigen::fix<SimulationControl::kDimension>),
+        column) = value;
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value);
+  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>&,
+                        Isize);
 
   template <>
   inline void setMatrix<ConservedVariableEnum::Momentum>(
-      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value) {
-    this->conserved_(Eigen::all, Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value,
+      const Isize column) {
+    this->conserved_(Eigen::seqN(Eigen::fix<SimulationControl::kDimension>,
+                                 Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>()),
+                     column) = value.reshaped();
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
-    this->primitive_.col(getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>()) = value;
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
+    this->primitive_(
+        Eigen::seqN(Eigen::fix<SimulationControl::kDimension *
+                               getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>()>,
+                    Eigen::fix<SimulationControl::kDimension>),
+        column) = value;
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value);
+  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>&,
+                        Isize);
 
   template <>
   inline void setMatrix<PrimitiveVariableEnum::Velocity>(
-      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value) {
-    this->primitive_(Eigen::all, Eigen::seqN(Eigen::fix<1>(), Eigen::fix<SimulationControl::kDimension>())) = value;
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value,
+      const Isize column) {
+    this->primitive_(Eigen::seqN(Eigen::fix<SimulationControl::kDimension>,
+                                 Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>),
+                     column) = value.reshaped();
   }
 
   inline void calculatePrimitiveFromConserved(const ThermalModel<SimulationControl>& thermal_model,
                                               const Variable<SimulationControl>& variable) {
-    const Real density = variable.template getScalar<ComputationalVariableEnum::Density>();
-    const Eigen::Vector<Real, SimulationControl::kDimension> density_gradient =
-        this->getVector<ConservedVariableEnum::Density>();
-    this->setVector<PrimitiveVariableEnum::Density>(density_gradient);
-    const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
-        variable.template getVector<ComputationalVariableEnum::Velocity>();
-    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> velocity_gradient =
-        (this->getMatrix<ConservedVariableEnum::Momentum>() - density_gradient * velocity.transpose()) / density;
-    this->setMatrix<PrimitiveVariableEnum::Velocity>(velocity_gradient);
-    const Real total_energy = variable.template getScalar<ConservedVariableEnum::DensityTotalEnergy>() / density;
-    const Eigen::Vector<Real, SimulationControl::kDimension> internal_energy_gradient =
-        (this->getVector<ConservedVariableEnum::DensityTotalEnergy>() - density_gradient * total_energy) / density -
-        velocity_gradient * velocity;
-    Eigen::Vector<Real, SimulationControl::kDimension> temperature_gradient;
-    for (Isize i = 0; i < SimulationControl::kDimension; i++) {
-      temperature_gradient(i) = thermal_model.calculateTemperatureFromInternalEnergy(internal_energy_gradient(i));
-    }
-    this->setVector<PrimitiveVariableEnum::Temperature>(temperature_gradient);
-  }
-
-  template <typename ElementTrait>
-  inline void getFromSelf(const ElementMesh<ElementTrait>& element_mesh,
-                          const ElementSolverBase<ElementTrait, SimulationControl>& element_solver,
-                          const Isize element_index, const Isize element_quadrature_node_sequence) {
-    this->conserved_.noalias() =
-        (element_solver.element_(element_index).variable_gradient_basis_function_coefficient_ *
-         element_mesh.basis_function_.value_.row(element_quadrature_node_sequence).transpose())
-            .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-  }
-
-  template <typename AdjacencyElementTrait, ViscousFluxEnum ViscousFluxType>
-  inline void getFromParent(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
-                            Isize parent_gmsh_type_number, Isize parent_index_each_type,
-                            [[maybe_unused]] Isize adjacency_sequence_in_parent,
-                            Isize adjacency_quadrature_node_sequence_in_parent) {
-    if constexpr (ViscousFluxType == ViscousFluxEnum::BR1) {
-      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-        if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              (solver.triangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
-               mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              (solver.quadrangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
-               mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        }
-      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
-        if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              (solver.tetrahedron_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
-               mesh.tetrahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              (solver.pyramid_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
-               mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        }
-      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
-        if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              (solver.pyramid_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
-               mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              (solver.hexahedron_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
-               mesh.hexahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        }
+    for (Isize i = 0; i < this->column_; i++) {
+      const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(i);
+      const Eigen::Vector<Real, SimulationControl::kDimension> density_gradient =
+          this->getVector<ConservedVariableEnum::Density>(i);
+      this->setVector<PrimitiveVariableEnum::Density>(density_gradient, i);
+      const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
+          variable.template getVector<ComputationalVariableEnum::Velocity>(i);
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> velocity_gradient =
+          (this->getMatrix<ConservedVariableEnum::Momentum>(i) - density_gradient * velocity.transpose()) / density;
+      this->setMatrix<PrimitiveVariableEnum::Velocity>(velocity_gradient, i);
+      const Real total_energy = variable.template getScalar<ConservedVariableEnum::DensityTotalEnergy>(i) / density;
+      const Eigen::Vector<Real, SimulationControl::kDimension> internal_energy_gradient =
+          (this->getVector<ConservedVariableEnum::DensityTotalEnergy>(i) - density_gradient * total_energy) / density -
+          velocity_gradient * velocity;
+      Eigen::Vector<Real, SimulationControl::kDimension> temperature_gradient;
+      for (Isize j = 0; j < SimulationControl::kDimension; j++) {
+        temperature_gradient(j) = thermal_model.calculateTemperatureFromInternalEnergy(internal_energy_gradient(j));
       }
-    } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR2) {
-      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-        if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              ((solver.triangle_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
-                solver.triangle_.element_(parent_index_each_type)
-                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
-               mesh.triangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              ((solver.quadrangle_.element_(parent_index_each_type)
-                    .variable_gradient_volume_basis_function_coefficient_ +
-                solver.quadrangle_.element_(parent_index_each_type)
-                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
-               mesh.quadrangle_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        }
-      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
-        if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              ((solver.tetrahedron_.element_(parent_index_each_type)
-                    .variable_gradient_volume_basis_function_coefficient_ +
-                solver.tetrahedron_.element_(parent_index_each_type)
-                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
-               mesh.tetrahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              ((solver.pyramid_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
-                solver.pyramid_.element_(parent_index_each_type)
-                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
-               mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        }
-      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
-        if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              ((solver.pyramid_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
-                solver.pyramid_.element_(parent_index_each_type)
-                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
-               mesh.pyramid_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-          this->conserved_.noalias() =
-              ((solver.hexahedron_.element_(parent_index_each_type)
-                    .variable_gradient_volume_basis_function_coefficient_ +
-                solver.hexahedron_.element_(parent_index_each_type)
-                    .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
-               mesh.hexahedron_.basis_function_.adjacency_value_.row(adjacency_quadrature_node_sequence_in_parent)
-                   .transpose())
-                  .reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-        }
+      this->setVector<PrimitiveVariableEnum::Temperature>(temperature_gradient, i);
+    }
+  }
+};
+
+template <typename ElementTrait, typename SimulationControl>
+struct ElementVariableGradient : VariableGradient<SimulationControl> {
+  ElementVariableGradient() : VariableGradient<SimulationControl>(ElementTrait::kQuadratureNumber) {}
+
+  inline void get(const ElementMesh<ElementTrait>& element_mesh,
+                  const ElementSolverBase<ElementTrait, SimulationControl>& element_solver, const Isize element_index) {
+    this->conserved_.noalias() = element_solver.element_(element_index).variable_gradient_basis_function_coefficient_ *
+                                 element_mesh.basis_function_.value_.transpose();
+  }
+};
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
+  AdjacencyElementVariableGradient() : VariableGradient<SimulationControl>(AdjacencyElementTrait::kQuadratureNumber) {}
+
+  template <ViscousFluxEnum ViscousFluxType>
+  inline void get(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
+                  Isize parent_gmsh_type_number, Isize parent_index_each_type, Isize adjacency_sequence_in_parent);
+
+  template <>
+  inline void get<ViscousFluxEnum::BR1>(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
+                                        Isize parent_gmsh_type_number, Isize parent_index_each_type,
+                                        Isize adjacency_sequence_in_parent) {
+    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+      if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, TriangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Triangle,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.triangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+            mesh.triangle_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, QuadrangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Quadrangle,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.quadrangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+            mesh.quadrangle_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+      if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, TetrahedronTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Tetrahedron,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.tetrahedron_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+            mesh.tetrahedron_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, PyramidTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Pyramid,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.pyramid_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+            mesh.pyramid_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, PyramidTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Pyramid,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.pyramid_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+            mesh.pyramid_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, HexahedronTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Hexahedron,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.hexahedron_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+            mesh.hexahedron_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      }
+    }
+  }
+
+  template <>
+  inline void get<ViscousFluxEnum::BR2>(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
+                                        Isize parent_gmsh_type_number, Isize parent_index_each_type,
+                                        Isize adjacency_sequence_in_parent) {
+    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+      if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, TriangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Triangle,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            (solver.triangle_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
+             solver.triangle_.element_(parent_index_each_type)
+                 .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+            mesh.triangle_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, QuadrangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Quadrangle,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            (solver.quadrangle_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
+             solver.quadrangle_.element_(parent_index_each_type)
+                 .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+            mesh.quadrangle_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+      if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, TetrahedronTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Tetrahedron,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            (solver.tetrahedron_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
+             solver.tetrahedron_.element_(parent_index_each_type)
+                 .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+            mesh.tetrahedron_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, PyramidTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Pyramid,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            (solver.pyramid_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
+             solver.pyramid_.element_(parent_index_each_type)
+                 .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+            mesh.pyramid_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, PyramidTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Pyramid,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            (solver.pyramid_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
+             solver.pyramid_.element_(parent_index_each_type)
+                 .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+            mesh.pyramid_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, HexahedronTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Hexahedron,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            (solver.hexahedron_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
+             solver.hexahedron_.element_(parent_index_each_type)
+                 .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+            mesh.hexahedron_.basis_function_
+                .adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
       }
     }
   }
 };
 
-template <typename SimulationControl>
+template <typename ElementTrait, typename SimulationControl>
 struct ViewVariable {
-  Variable<SimulationControl> variable_;
-  VariableGradient<SimulationControl> variable_gradient_;
+  Variable<SimulationControl> variable_{ElementTrait::kBasisFunctionNumber};
+  VariableGradient<SimulationControl> variable_gradient_{ElementTrait::kBasisFunctionNumber};
 
-  [[nodiscard]] inline Real getView(const ThermalModel<SimulationControl>& thermal_model,
-                                    const ViewVariableEnum variable_type) const {
+  [[nodiscard]] inline Real get(const ThermalModel<SimulationControl>& thermal_model,
+                                const ViewVariableEnum variable_type, const Isize column) const {
     switch (variable_type) {
     case ViewVariableEnum::Density:
-      return this->variable_.template getScalar<ComputationalVariableEnum::Density>();
+      return this->variable_.template getScalar<ComputationalVariableEnum::Density>(column);
     case ViewVariableEnum::Velocity:
-      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>());
+      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column));
     case ViewVariableEnum::Temperature:
       return thermal_model.calculateTemperatureFromInternalEnergy(
-          this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+          this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     case ViewVariableEnum::Pressure:
-      return this->variable_.template getScalar<ComputationalVariableEnum::Pressure>();
+      return this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column);
     case ViewVariableEnum::SoundSpeed:
       return thermal_model.calculateSoundSpeedFromInternalEnergy(
-          this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+          this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     case ViewVariableEnum::MachNumber:
-      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>()) /
+      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column)) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
-                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     case ViewVariableEnum::Entropy:
       return thermal_model.calculateEntropyFromDensityPressure(
-          this->variable_.template getScalar<ComputationalVariableEnum::Density>(),
-          this->variable_.template getScalar<ComputationalVariableEnum::Pressure>());
+          this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
+          this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::Vorticity:
       if constexpr (SimulationControl::kDimension == 2) {
-        return this->variable_gradient_
-                   .template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>() -
-               this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>();
+        return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>(
+                   column) -
+               this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(
+                   column);
       }
       if constexpr (SimulationControl::kDimension == 3) {
         return std::sqrt(
-            std::pow(this->variable_gradient_
-                             .template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>() -
-                         this->variable_gradient_
-                             .template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>(),
-                     2) +
-            std::pow(this->variable_gradient_
-                             .template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>() -
-                         this->variable_gradient_
-                             .template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>(),
-                     2) +
-            std::pow(this->variable_gradient_
-                             .template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>() -
-                         this->variable_gradient_
-                             .template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(),
-                     2));
+            std::pow(
+                this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>(
+                    column) -
+                    this->variable_gradient_
+                        .template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>(column),
+                2) +
+            std::pow(
+                this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>(
+                    column) -
+                    this->variable_gradient_
+                        .template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>(column),
+                2) +
+            std::pow(
+                this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>(
+                    column) -
+                    this->variable_gradient_
+                        .template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(column),
+                2));
       }
     case ViewVariableEnum::MachNumberX:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>() /
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
-                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     case ViewVariableEnum::MachNumberY:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>() /
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>(column) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
-                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     case ViewVariableEnum::MachNumberZ:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>() /
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
-                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     case ViewVariableEnum::VelocityX:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>();
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column);
     case ViewVariableEnum::VelocityY:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>();
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>(column);
     case ViewVariableEnum::VelocityZ:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>();
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column);
     case ViewVariableEnum::VorticityX:
-      return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>() -
-             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>();
+      return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>(
+                 column) -
+             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>(
+                 column);
     case ViewVariableEnum::VorticityY:
-      return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>() -
-             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>();
+      return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>(
+                 column) -
+             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>(
+                 column);
     case ViewVariableEnum::VorticityZ:
-      return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>() -
-             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>();
+      return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>(
+                 column) -
+             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(
+                 column);
     default:
       return 0.0;
     }

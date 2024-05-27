@@ -31,10 +31,11 @@ struct SourceTermBase<SimulationControl, SourceTermEnum::Gravity> {
   inline static Real gravity;
 
   inline void calculateSourceTerm(const Variable<SimulationControl>& quadrature_node_variable,
-                                  FluxNormalVariable<SimulationControl>& source_flux) const {
+                                  FluxNormalVariable<SimulationControl>& source_flux, const Isize column) const {
     source_flux.normal_variable_.setZero();
     source_flux.template setScalar<ConservedVariableEnum::MomentumY>(
-        -(quadrature_node_variable.template getScalar<ConservedVariableEnum::Density>() - this->reference_density) *
+        -(quadrature_node_variable.template getScalar<ConservedVariableEnum::Density>(column) -
+          this->reference_density) *
         this->gravity);
   }
 };

@@ -126,12 +126,7 @@ class ProgressBar {
 
     print_bar(bar, proc);
 
-    // NOTE: the format of std::chrono::hh_mm_ss is not implemented in libc++ yet P2372R3
-    // bar << std::format("({:%T} < {:%T}) ", t_ss, eta_ss);
-
-    bar << std::format("({:02}:{:02}:{:02} < {:02}:{:02}:{:02})", t_ss.hours().count(), t_ss.minutes().count(),
-                       t_ss.seconds().count(), eta_ss.hours().count(), eta_ss.minutes().count(),
-                       eta_ss.seconds().count());
+    bar << std::format("({:%T} < {:%T}) ", t_ss, eta_ss);
 
     std::string sbar = bar.str();
     std::string suffix = suffix_.str();

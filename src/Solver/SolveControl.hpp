@@ -72,9 +72,41 @@ struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Eule
       variable_residual_;
 };
 
+template <typename ElementTrait, typename SimulationControl, ViscousFluxEnum ViscousFluxType>
+struct PerElementSolverGradientInterface;
+
+template <typename ElementTrait, typename SimulationControl>
+struct PerElementSolverGradientInterface<ElementTrait, SimulationControl, ViscousFluxEnum::BR1> {
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kBasisFunctionNumber>
+      variable_gradient_interface_basis_function_coefficient_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kAllAdjacencyQuadratureNumber>
+      variable_gradient_interface_adjacency_quadrature_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kBasisFunctionNumber>
+      variable_gradient_interface_residual_;
+};
+
+template <typename ElementTrait, typename SimulationControl>
+struct PerElementSolverGradientInterface<ElementTrait, SimulationControl, ViscousFluxEnum::BR2> {
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             ElementTrait::kBasisFunctionNumber>,
+               ElementTrait::kAdjacencyNumber, 1>
+      variable_gradient_interface_basis_function_coefficient_;
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                ElementTrait::kAllAdjacencyQuadratureNumber>
+      variable_gradient_interface_adjacency_quadrature_;
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             ElementTrait::kBasisFunctionNumber>,
+               ElementTrait::kAdjacencyNumber, 1>
+      variable_gradient_interface_residual_;
+};
+
 template <typename ElementTrait, typename SimulationControl>
 struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>
-    : PerElementSolverSource<ElementTrait, SimulationControl, SimulationControl::kSourceTerm> {
+    : PerElementSolverSource<ElementTrait, SimulationControl, SimulationControl::kSourceTerm>,
+      PerElementSolverGradientInterface<ElementTrait, SimulationControl, SimulationControl::kViscousFlux> {
   Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>, 2,
                1>
       variable_basis_function_coefficient_;
@@ -91,27 +123,15 @@ struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Navi
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 ElementTrait::kBasisFunctionNumber>
       variable_gradient_volume_basis_function_coefficient_;
-  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             ElementTrait::kBasisFunctionNumber>,
-               ElementTrait::kAdjacencyNumber, 1>
-      variable_gradient_interface_basis_function_coefficient_;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 ElementTrait::kQuadratureNumber * SimulationControl::kDimension>
       variable_gradient_volume_quadrature_;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 ElementTrait::kAllAdjacencyQuadratureNumber>
       variable_gradient_volume_adjacency_quadrature_;
-  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             ElementTrait::kAllAdjacencyQuadratureNumber>,
-               ElementTrait::kAdjacencyNumber, 1>
-      variable_gradient_interface_adjacency_quadrature_;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 ElementTrait::kBasisFunctionNumber>
       variable_gradient_volume_residual_;
-  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             ElementTrait::kBasisFunctionNumber>,
-               ElementTrait::kAdjacencyNumber, 1>
-      variable_gradient_interface_residual_;
 };
 
 template <typename ElementTrait, typename SimulationControl>
@@ -156,8 +176,6 @@ struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>
 template <typename ElementTrait, typename SimulationControl>
 struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>
     : ElementSolverBase<ElementTrait, SimulationControl> {
-  inline void initializeElementGardientSolver();
-
   inline void calculateElementQuadrature(const ElementMesh<ElementTrait>& element_mesh,
                                          [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
                                          const ThermalModel<SimulationControl>& thermal_model);
@@ -173,10 +191,8 @@ struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierS
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 struct AdjacencyElementSolverBase {
-  template <AdjacencyEnum AdjacencyType>
-  [[nodiscard]] inline Isize getAdjacencyParentElementQuadratureNodeSequenceInParent(
-      [[maybe_unused]] Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent,
-      [[maybe_unused]] Isize adjacency_right_rotation, Isize qudrature_sequence_in_adjacency) const;
+  [[nodiscard]] inline Isize getAdjacencyParentElementAccumulateAdjacencyQuadratureNumber(
+      [[maybe_unused]] Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent);
 
   inline void storeAdjacencyElementNodeQuadrature(
       Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_quadrature_node_sequence_in_parent,
@@ -211,8 +227,7 @@ struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equation
       Solver<SimulationControl>& solver);
 
   inline void storeAdjacencyElementNodeInterfaceGardientQuadrature(
-      Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_sequence_in_parent,
-      Isize adjacency_quadrature_node_sequence_in_parent,
+      Isize parent_gmsh_type_number, Isize parent_index, Isize adjacency_quadrature_node_sequence_in_parent,
       const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>&
           adjacency_element_quadrature_node_temporary_variable,
       Solver<SimulationControl>& solver);

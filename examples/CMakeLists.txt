@@ -22,8 +22,6 @@ add_subdirectory(blasius_3d_ns)
 
 add_subdirectory(cylinder_2d_euler)
 
-add_subdirectory(cylinder_3d_ns)
-
 add_subdirectory(gravity_2d_ns)
 
 add_subdirectory(naca0012_2d_euler)
@@ -37,6 +35,8 @@ add_subdirectory(periodic_2d_euler)
 add_subdirectory(protuberance_3d_euler)
 
 add_subdirectory(rae2822_2d_ns)
+
+add_subdirectory(sphere_3d_ns)
 
 add_subdirectory(vortex_2d_ns)
 

@@ -50,17 +50,17 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::Function> {
       const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
       Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>,
                    Eigen::Dynamic, 1>& quadrature_node_conserved_variable) {
-    Variable<SimulationControl> variable;
+    ElementVariable<ElementTrait, SimulationControl> variable;
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
     shared(Eigen::Dynamic, element_mesh, thermal_model, quadrature_node_conserved_variable) private(variable)
 #endif  // SUBROSA_DG_DEVELOP
     for (Isize i = 0; i < element_mesh.number_; i++) {
       for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-        variable.primitive_ = this->function_(element_mesh.element_(i).quadrature_node_coordinate_.col(j));
+        variable.primitive_.col(j) = this->function_(element_mesh.element_(i).quadrature_node_coordinate_.col(j));
         variable.calculateConservedFromPrimitive(thermal_model);
-        quadrature_node_conserved_variable(i).col(j) = variable.conserved_;
       }
+      quadrature_node_conserved_variable(i) = variable.conserved_;
     }
   }
 };
@@ -184,19 +184,6 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElemen
   }
 }
 
-template <typename ElementTrait, typename SimulationControl>
-inline void
-ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::initializeElementGardientSolver() {
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
-#endif  // SUBROSA_DG_DEVELOP
-  for (Isize i = 0; i < this->number_; i++) {
-    for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
-      this->element_(i).variable_gradient_interface_adjacency_quadrature_(j).setZero();
-    }
-  }
-}
-
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::initializeSolver(
     const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
@@ -211,34 +198,19 @@ inline void Solver<SimulationControl>::initializeSolver(
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
       this->triangle_.initializeElementSolver(mesh.triangle_, thermal_model, initial_condition);
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
-        this->triangle_.initializeElementGardientSolver();
-      }
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.initializeElementSolver(mesh.quadrangle_, thermal_model, initial_condition);
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
-        this->quadrangle_.initializeElementGardientSolver();
-      }
     }
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
       this->tetrahedron_.initializeElementSolver(mesh.tetrahedron_, thermal_model, initial_condition);
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
-        this->tetrahedron_.initializeElementGardientSolver();
-      }
     }
     if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
       this->pyramid_.initializeElementSolver(mesh.pyramid_, thermal_model, initial_condition);
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
-        this->pyramid_.initializeElementGardientSolver();
-      }
     }
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
       this->hexahedron_.initializeElementSolver(mesh.hexahedron_, thermal_model, initial_condition);
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
-        this->hexahedron_.initializeElementGardientSolver();
-      }
     }
   }
   this->relative_error_.setZero();

@@ -26,19 +26,16 @@ using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system{};
+  SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "blasius_3d_ns.msh", generateMesh);
   system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 3>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.0, 0.5, 0.0, 1.0};
   });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.0, 0.5, 0.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::CharacteristicInflow>("bc-2",
-                                                                                      {1.4, 0.0, 0.5, 0.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>("bc-3", {1.4, 0.0, 0.5, 0.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-4");
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-5");
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-6");
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-7");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>("bc-2", {1.4, 0.0, 0.5, 0.0, 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-3");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-4");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-5");
   system.setTransportModel(1.4 * 0.5 / 100000);
   system.setTimeIntegration(1.0);
   system.setViewConfig(kExampleDirectory, kExampleName,
@@ -73,7 +70,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 11, 1> surface_filling_tag;
   Eigen::Array<int, 2, 1> surface_loop_tag;
   Eigen::Array<int, 2, 1> volume_tag;
-  std::array<std::vector<int>, 8> physical_group_tag;
+  std::array<std::vector<int>, 6> physical_group_tag;
   gmsh::model::add("blasius_3d");
   for (std::ptrdiff_t i = 0; i < 12; i++) {
     point_tag(i) = gmsh::model::geo::addPoint(hexahedron_point_coordinate(i, 0), hexahedron_point_coordinate(i, 1),
@@ -159,27 +156,25 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
                                  {transform_x.data(), transform_x.data() + transform_x.size()});
   gmsh::model::mesh::setPeriodic(2, {surface_filling_tag(10)}, {surface_filling_tag(8)},
                                  {transform_x.data(), transform_x.data() + transform_x.size()});
-  physical_group_tag[5].emplace_back(surface_filling_tag(0));
-  physical_group_tag[6].emplace_back(surface_filling_tag(1));
+  physical_group_tag[3].emplace_back(surface_filling_tag(0));
+  physical_group_tag[4].emplace_back(surface_filling_tag(1));
   physical_group_tag[0].emplace_back(surface_filling_tag(2));
   physical_group_tag[0].emplace_back(surface_filling_tag(3));
-  physical_group_tag[1].emplace_back(surface_filling_tag(4));
-  physical_group_tag[2].emplace_back(surface_filling_tag(6));
-  physical_group_tag[3].emplace_back(surface_filling_tag(7));
-  physical_group_tag[4].emplace_back(surface_filling_tag(8));
-  physical_group_tag[3].emplace_back(surface_filling_tag(9));
-  physical_group_tag[4].emplace_back(surface_filling_tag(10));
+  physical_group_tag[0].emplace_back(surface_filling_tag(4));
+  physical_group_tag[1].emplace_back(surface_filling_tag(6));
+  physical_group_tag[2].emplace_back(surface_filling_tag(7));
+  physical_group_tag[2].emplace_back(surface_filling_tag(8));
+  physical_group_tag[2].emplace_back(surface_filling_tag(9));
+  physical_group_tag[2].emplace_back(surface_filling_tag(10));
   for (std::ptrdiff_t i = 0; i < 2; i++) {
-    physical_group_tag[7].emplace_back(volume_tag(i));
+    physical_group_tag[5].emplace_back(volume_tag(i));
   }
   gmsh::model::addPhysicalGroup(2, physical_group_tag[0], -1, "bc-1");
   gmsh::model::addPhysicalGroup(2, physical_group_tag[1], -1, "bc-2");
   gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "bc-3");
   gmsh::model::addPhysicalGroup(2, physical_group_tag[3], -1, "bc-4");
   gmsh::model::addPhysicalGroup(2, physical_group_tag[4], -1, "bc-5");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[5], -1, "bc-6");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[6], -1, "bc-7");
-  gmsh::model::addPhysicalGroup(3, physical_group_tag[7], -1, "vc-1");
+  gmsh::model::addPhysicalGroup(3, physical_group_tag[5], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrderFastCurving");

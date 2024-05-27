@@ -1,6 +1,6 @@
 /**
- * @file cylinder_3d_ns.cpp
- * @brief The 3D cylinder flow example with Navier-Stokes equations.
+ * @file sphere_3d_ns.cpp
+ * @brief The 3D sphere flow example with Navier-Stokes equations.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2024-05-15
@@ -18,9 +18,11 @@
 
 // clang-format on
 
-inline const std::string kExampleName{"cylinder_3d_ns"};
+inline const std::string kExampleName{"sphere_3d_ns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
+
+// inline const std::filesystem::path kExampleDirectory{"/data/" + kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
     SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Hexahedron,
@@ -33,7 +35,7 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system{};
-  system.setMesh(kExampleDirectory / "cylinder_3d_ns.msh", generateMesh);
+  system.setMesh(kExampleDirectory / "sphere_3d_ns.msh", generateMesh);
   system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 3>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.0, 0.2, 0.0, 1.0};
   });
@@ -75,7 +77,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Tensor<int, 3> farfield_volume_tag(3, 3, 3);
   Eigen::Tensor<int, 2> sphere_volume_tag(2, 3);
   std::array<std::vector<int>, 3> physical_group_tag;
-  gmsh::model::add("cylinder_3d");
+  gmsh::model::add("sphere_3d");
   const int center_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     for (std::ptrdiff_t j = 0; j < 4; j++) {

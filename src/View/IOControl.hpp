@@ -62,7 +62,7 @@ struct ElementViewSolver;
 template <typename ElementTrait, typename SimulationControl>
 struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>
     : ElementViewBasisFunction<ElementTrait> {
-  Eigen::Array<ViewVariable<SimulationControl>, ElementTrait::kAllNodeNumber, Eigen::Dynamic> view_variable_;
+  Eigen::Array<ViewVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
 
   inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
                                            const ThermalModel<SimulationControl>& thermal_model,
@@ -74,7 +74,7 @@ struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Eul
 template <typename ElementTrait, typename SimulationControl>
 struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>
     : ElementViewBasisFunction<ElementTrait> {
-  Eigen::Array<ViewVariable<SimulationControl>, ElementTrait::kAllNodeNumber, Eigen::Dynamic> view_variable_;
+  Eigen::Array<ViewVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
 
   inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
                                            const ThermalModel<SimulationControl>& thermal_model,
@@ -214,10 +214,11 @@ struct View {
 
   inline void getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information);
 
+  template <typename ElementTrait>
   inline void calculateViewVariable(const ThermalModel<SimulationControl>& thermal_model,
-                                    const ViewVariable<SimulationControl>& view_variable,
+                                    const ViewVariable<ElementTrait, SimulationControl>& view_variable,
                                     Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
-                                    Isize node_index);
+                                    Isize column, Isize node_index);
 
   template <typename AdjacencyElementTrait>
   inline void writeAdjacencyElement(Isize physical_index, const MeshInformation& mesh_information,

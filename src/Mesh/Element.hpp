@@ -36,7 +36,7 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
   std::vector<std::size_t> node_tags;
   gmsh::model::mesh::getElementsByType(ElementTrait::kGmshTypeNumber, element_tags, node_tags);
   this->number_ = static_cast<Isize>(element_tags.size());
-  if (this->number_ == 0) {
+  if (this->number_ == 0) [[unlikely]] {
     throw std::runtime_error(
         std::format("{} element number is zero.", magic_enum::enum_name(ElementTrait::kElementType)));
   }

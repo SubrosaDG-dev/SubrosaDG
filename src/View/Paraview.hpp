@@ -55,22 +55,25 @@ inline void View<SimulationControl>::getDataSetInfomatoin(std::vector<vtu11::Dat
 }
 
 template <typename SimulationControl>
+template <typename ElementTrait>
 inline void View<SimulationControl>::calculateViewVariable(
-    const ThermalModel<SimulationControl>& thermal_model, const ViewVariable<SimulationControl>& view_variable,
-    Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable, const Isize node_index) {
-  auto handle_variable = [&view_variable, &thermal_model, &node_variable, node_index](
+    const ThermalModel<SimulationControl>& thermal_model,
+    const ViewVariable<ElementTrait, SimulationControl>& view_variable,
+    Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable, const Isize column,
+    const Isize node_index) {
+  auto handle_variable = [&view_variable, &thermal_model, &node_variable, node_index, column](
                              Isize i, ViewVariableEnum variable_x, ViewVariableEnum variable_y,
                              ViewVariableEnum variable_z) {
     if constexpr (SimulationControl::kDimension == 1) {
-      node_variable(i)(node_index) = view_variable.getView(thermal_model, variable_x);
+      node_variable(i)(node_index) = view_variable.get(thermal_model, variable_x, column);
     } else if constexpr (SimulationControl::kDimension == 2) {
-      node_variable(i)(node_index * 3) = view_variable.getView(thermal_model, variable_x);
-      node_variable(i)(node_index * 3 + 1) = view_variable.getView(thermal_model, variable_y);
+      node_variable(i)(node_index * 3) = view_variable.get(thermal_model, variable_x, column);
+      node_variable(i)(node_index * 3 + 1) = view_variable.get(thermal_model, variable_y, column);
       node_variable(i)(node_index * 3 + 2) = 0.0;
     } else if constexpr (SimulationControl::kDimension == 3) {
-      node_variable(i)(node_index * 3) = view_variable.getView(thermal_model, variable_x);
-      node_variable(i)(node_index * 3 + 1) = view_variable.getView(thermal_model, variable_y);
-      node_variable(i)(node_index * 3 + 2) = view_variable.getView(thermal_model, variable_z);
+      node_variable(i)(node_index * 3) = view_variable.get(thermal_model, variable_x, column);
+      node_variable(i)(node_index * 3 + 1) = view_variable.get(thermal_model, variable_y, column);
+      node_variable(i)(node_index * 3 + 2) = view_variable.get(thermal_model, variable_z, column);
     }
   };
   for (Isize i = 0; i < static_cast<Isize>(this->variable_type_.size()); i++) {
@@ -82,7 +85,8 @@ inline void View<SimulationControl>::calculateViewVariable(
                SimulationControl::kDimension == 3) {
       handle_variable(i, ViewVariableEnum::VorticityX, ViewVariableEnum::VorticityY, ViewVariableEnum::VorticityZ);
     } else {
-      node_variable(i)(node_index) = view_variable.getView(thermal_model, this->variable_type_[static_cast<Usize>(i)]);
+      node_variable(i)(node_index) =
+          view_variable.get(thermal_model, this->variable_type_[static_cast<Usize>(i)], column);
     }
   }
 }
@@ -122,45 +126,39 @@ inline void View<SimulationControl>::writeAdjacencyElement(
         adjacency_element_mesh.element_(element_index_per_type).node_coordinate_(Eigen::all, i);
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(
-            thermal_model,
-            view_data.solver_.triangle_.view_variable_(adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
-                                                       parent_index_each_type),
-            view_supplemental.node_variable_, view_supplemental.node_index_ + i);
+        this->calculateViewVariable(thermal_model, view_data.solver_.triangle_.view_variable_(parent_index_each_type),
+                                    view_supplemental.node_variable_,
+                                    adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
+                                    view_supplemental.node_index_ + i);
       } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(
-            thermal_model,
-            view_data.solver_.quadrangle_.view_variable_(
-                adjacency_element_basis_function_sequence[static_cast<Usize>(i)], parent_index_each_type),
-            view_supplemental.node_variable_, view_supplemental.node_index_ + i);
+        this->calculateViewVariable(thermal_model, view_data.solver_.quadrangle_.view_variable_(parent_index_each_type),
+                                    view_supplemental.node_variable_,
+                                    adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
+                                    view_supplemental.node_index_ + i);
       }
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
       if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->calculateViewVariable(
-            thermal_model,
-            view_data.solver_.tetrahedron_.view_variable_(
-                adjacency_element_basis_function_sequence[static_cast<Usize>(i)], parent_index_each_type),
-            view_supplemental.node_variable_, view_supplemental.node_index_ + i);
+            thermal_model, view_data.solver_.tetrahedron_.view_variable_(parent_index_each_type),
+            view_supplemental.node_variable_, adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
+            view_supplemental.node_index_ + i);
       } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(
-            thermal_model,
-            view_data.solver_.pyramid_.view_variable_(adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
-                                                      parent_index_each_type),
-            view_supplemental.node_variable_, view_supplemental.node_index_ + i);
+        this->calculateViewVariable(thermal_model, view_data.solver_.pyramid_.view_variable_(parent_index_each_type),
+                                    view_supplemental.node_variable_,
+                                    adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
+                                    view_supplemental.node_index_ + i);
       }
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
       if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(
-            thermal_model,
-            view_data.solver_.pyramid_.view_variable_(adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
-                                                      parent_index_each_type),
-            view_supplemental.node_variable_, view_supplemental.node_index_ + i);
+        this->calculateViewVariable(thermal_model, view_data.solver_.pyramid_.view_variable_(parent_index_each_type),
+                                    view_supplemental.node_variable_,
+                                    adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
+                                    view_supplemental.node_index_ + i);
       } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(
-            thermal_model,
-            view_data.solver_.hexahedron_.view_variable_(
-                adjacency_element_basis_function_sequence[static_cast<Usize>(i)], parent_index_each_type),
-            view_supplemental.node_variable_, view_supplemental.node_index_ + i);
+        this->calculateViewVariable(thermal_model, view_data.solver_.hexahedron_.view_variable_(parent_index_each_type),
+                                    view_supplemental.node_variable_,
+                                    adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
+                                    view_supplemental.node_index_ + i);
       }
     }
   }
@@ -201,8 +199,8 @@ inline void View<SimulationControl>::writeElement(const Isize physical_index, co
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
         element_mesh.element_(element_index_per_type).node_coordinate_(Eigen::all, i);
-    this->calculateViewVariable(thermal_model, element_view_solver.view_variable_(i, element_index_per_type),
-                                view_supplemental.node_variable_, view_supplemental.node_index_ + i);
+    this->calculateViewVariable(thermal_model, element_view_solver.view_variable_(element_index_per_type),
+                                view_supplemental.node_variable_, i, view_supplemental.node_index_ + i);
   }
   for (Isize i = 0; i < ElementTrait::kVtkAllNodeNumber; i++) {
     view_supplemental.element_connectivity_(view_supplemental.vtk_node_index_ + i) =

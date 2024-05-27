@@ -124,16 +124,13 @@ inline void ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum
     std::stringstream& raw_binary_ss) {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
       variable_basis_function_coefficient;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllNodeNumber> variable;
   for (Isize i = 0; i < element_mesh.number_; i++) {
     raw_binary_ss.read(reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
                        SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
                            static_cast<std::streamsize>(sizeof(Real)));
-    variable.noalias() = variable_basis_function_coefficient * this->basis_function_value_;
-    for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
-      this->view_variable_(j, i).variable_.conserved_ = variable.col(j);
-      this->view_variable_(j, i).variable_.calculateComputationalFromConserved(thermal_model);
-    }
+    this->view_variable_(i).variable_.conserved_.noalias() =
+        variable_basis_function_coefficient * this->basis_function_value_;
+    this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
   }
 }
 
@@ -144,13 +141,9 @@ ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStok
     std::stringstream& raw_binary_ss) {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
       variable_basis_function_coefficient;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllNodeNumber> variable;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 ElementTrait::kBasisFunctionNumber>
       variable_gradient_basis_function_coefficient;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kAllNodeNumber>
-      variable_gradient;
   for (Isize i = 0; i < element_mesh.number_; i++) {
     raw_binary_ss.read(reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
                        SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
@@ -158,16 +151,13 @@ ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStok
     raw_binary_ss.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                        SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
                            ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
-    variable.noalias() = variable_basis_function_coefficient * this->basis_function_value_;
-    variable_gradient.noalias() = variable_gradient_basis_function_coefficient * this->basis_function_value_;
-    for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
-      this->view_variable_(j, i).variable_.conserved_ = variable.col(j);
-      this->view_variable_(j, i).variable_.calculateComputationalFromConserved(thermal_model);
-      this->view_variable_(j, i).variable_gradient_.conserved_ =
-          variable_gradient.col(j).reshaped(SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-      this->view_variable_(j, i).variable_gradient_.calculatePrimitiveFromConserved(
-          thermal_model, this->view_variable_(j, i).variable_);
-    }
+    this->view_variable_(i).variable_.conserved_.noalias() =
+        variable_basis_function_coefficient * this->basis_function_value_;
+    this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
+    this->view_variable_(i).variable_gradient_.conserved_.noalias() =
+        variable_gradient_basis_function_coefficient * this->basis_function_value_;
+    this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(thermal_model,
+                                                                               this->view_variable_(i).variable_);
   }
 }
 
@@ -202,23 +192,23 @@ inline void ViewSolver<SimulationControl>::calcluateViewVariable(const Mesh<Simu
 template <typename SimulationControl>
 inline void ViewSolver<SimulationControl>::initialViewSolver(const Mesh<SimulationControl>& mesh) {
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.view_variable_.resize(Eigen::NoChange, mesh.line_.number_);
+    this->line_.view_variable_.resize(mesh.line_.number_);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.view_variable_.resize(Eigen::NoChange, mesh.triangle_.number_);
+      this->triangle_.view_variable_.resize(mesh.triangle_.number_);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.view_variable_.resize(Eigen::NoChange, mesh.quadrangle_.number_);
+      this->quadrangle_.view_variable_.resize(mesh.quadrangle_.number_);
     }
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-      this->tetrahedron_.view_variable_.resize(Eigen::NoChange, mesh.tetrahedron_.number_);
+      this->tetrahedron_.view_variable_.resize(mesh.tetrahedron_.number_);
     }
     if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-      this->pyramid_.view_variable_.resize(Eigen::NoChange, mesh.pyramid_.number_);
+      this->pyramid_.view_variable_.resize(mesh.pyramid_.number_);
     }
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-      this->hexahedron_.view_variable_.resize(Eigen::NoChange, mesh.hexahedron_.number_);
+      this->hexahedron_.view_variable_.resize(mesh.hexahedron_.number_);
     }
   }
 }
@@ -226,23 +216,23 @@ inline void ViewSolver<SimulationControl>::initialViewSolver(const Mesh<Simulati
 template <typename SimulationControl>
 inline void ViewSolver<SimulationControl>::initialViewSolver(const ViewSolver<SimulationControl>& view_solver) {
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.view_variable_.resize(Eigen::NoChange, view_solver.line_.view_variable_.cols());
+    this->line_.view_variable_.resize(view_solver.line_.view_variable_.size());
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.view_variable_.resize(Eigen::NoChange, view_solver.triangle_.view_variable_.cols());
+      this->triangle_.view_variable_.resize(view_solver.triangle_.view_variable_.size());
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.view_variable_.resize(Eigen::NoChange, view_solver.quadrangle_.view_variable_.cols());
+      this->quadrangle_.view_variable_.resize(view_solver.quadrangle_.view_variable_.size());
     }
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-      this->tetrahedron_.view_variable_.resize(Eigen::NoChange, view_solver.tetrahedron_.view_variable_.cols());
+      this->tetrahedron_.view_variable_.resize(view_solver.tetrahedron_.view_variable_.size());
     }
     if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-      this->pyramid_.view_variable_.resize(Eigen::NoChange, view_solver.pyramid_.view_variable_.cols());
+      this->pyramid_.view_variable_.resize(view_solver.pyramid_.view_variable_.size());
     }
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-      this->hexahedron_.view_variable_.resize(Eigen::NoChange, view_solver.hexahedron_.view_variable_.cols());
+      this->hexahedron_.view_variable_.resize(view_solver.hexahedron_.view_variable_.size());
     }
   }
 }

@@ -33,7 +33,6 @@ int main(int argc, char* argv[]) {
         1.4 / (1.0 + 0.2 * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())))};
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-2");
   system.setTimeIntegration(1.0);
   system.setViewConfig(kExampleDirectory, kExampleName,
                        {SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
@@ -64,8 +63,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       (Eigen::Transform<double, 3, Eigen::Affine>::Identity() * Eigen::Translation<double, 3>(0, 2, 0)).matrix();
   gmsh::model::mesh::setPeriodic(1, {2}, {4}, {transform_x.data(), transform_x.data() + transform_x.size()});
   gmsh::model::mesh::setPeriodic(1, {3}, {1}, {transform_y.data(), transform_y.data() + transform_y.size()});
-  gmsh::model::addPhysicalGroup(1, {2, 4}, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(1, {1, 3}, -1, "bc-2");
+  gmsh::model::addPhysicalGroup(1, {1, 2, 3, 4}, -1, "bc-1");
   gmsh::model::addPhysicalGroup(2, {1}, -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);

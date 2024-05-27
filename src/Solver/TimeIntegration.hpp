@@ -104,7 +104,7 @@ template <typename ElementTrait, typename SimulationControl>
 inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElementDeltaTime(
     const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
     const Real courant_friedrichs_lewy_number) {
-  Variable<SimulationControl> quadrature_node_variable;
+  ElementVariable<ElementTrait, SimulationControl> quadrature_node_variable;
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
   Real min_delta_time{kRealMax};
 #ifndef SUBROSA_DG_DEVELOP
@@ -113,13 +113,14 @@ inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
     reduction(min : min_delta_time)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
+    quadrature_node_variable.get(element_mesh, *this, i);
+    quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      quadrature_node_variable.template getFromSelf<ElementTrait>(element_mesh, *this, i, j);
-      quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
       const Real spectral_radius =
-          std::sqrt(quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>()) +
+          std::sqrt(
+              quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(j)) +
           thermal_model.calculateSoundSpeedFromInternalEnergy(
-              quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>());
+              quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(j));
       delta_time(j) = courant_friedrichs_lewy_number * element_mesh.element_(i).size_ / spectral_radius;
     }
     min_delta_time = std::min(min_delta_time, delta_time.minCoeff());
@@ -213,12 +214,19 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Na
         this->element_(i).variable_gradient_volume_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
     this->element_(i).variable_gradient_basis_function_coefficient_.noalias() =
         this->element_(i).variable_gradient_volume_basis_function_coefficient_;
-    for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
-      this->element_(i).variable_gradient_interface_basis_function_coefficient_(j).noalias() =
-          this->element_(i).variable_gradient_interface_residual_(j) *
-          element_mesh.element_(i).local_mass_matrix_inverse_;
+    if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
+      this->element_(i).variable_gradient_interface_basis_function_coefficient_.noalias() =
+          this->element_(i).variable_gradient_interface_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
       this->element_(i).variable_gradient_basis_function_coefficient_.noalias() +=
-          this->element_(i).variable_gradient_interface_basis_function_coefficient_(j);
+          this->element_(i).variable_gradient_interface_basis_function_coefficient_;
+    } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
+      for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
+        this->element_(i).variable_gradient_interface_basis_function_coefficient_(j).noalias() =
+            this->element_(i).variable_gradient_interface_residual_(j) *
+            element_mesh.element_(i).local_mass_matrix_inverse_;
+        this->element_(i).variable_gradient_basis_function_coefficient_.noalias() +=
+            this->element_(i).variable_gradient_interface_basis_function_coefficient_(j);
+      }
     }
   }
 }
