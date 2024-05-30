@@ -29,6 +29,8 @@
 
 namespace SubrosaDG {
 
+template <typename AdjacencyElementTrait, typename SimulationControl>
+struct AdjacencyElementVariable;
 template <typename SimulationControl>
 struct SourceTerm;
 template <typename SimulationControl>
@@ -191,6 +193,15 @@ struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierS
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 struct AdjacencyElementSolverBase {
+  Isize number_{0};
+  Eigen::Array<AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>, Eigen::Dynamic, 1>
+      boundary_dummy_variable_;
+
+  inline void initializeAdjacencyElementSolver(
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+      const ThermalModel<SimulationControl>& thermal_model,
+      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
+
   [[nodiscard]] inline Isize getAdjacencyParentElementAccumulateAdjacencyQuadratureNumber(
       [[maybe_unused]] Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent);
 
@@ -256,7 +267,7 @@ struct SolverBase {
   std::fstream error_finout_;
   std::future<void> write_raw_binary_future_;
 
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_{Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero()};
 };
 
 template <typename SimulationControl>
@@ -353,7 +364,7 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void initializeSolver(
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-      std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
+      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       InitialCondition<SimulationControl>& initial_condition);
 
   inline void copyBasisFunctionCoefficient();

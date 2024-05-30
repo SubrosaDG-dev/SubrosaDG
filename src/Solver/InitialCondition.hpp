@@ -48,19 +48,16 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::Function> {
   template <typename ElementTrait>
   void getVariableBasisFunctionCoefficient(
       const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
-      Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>,
-                   Eigen::Dynamic, 1>& quadrature_node_conserved_variable) {
-    ElementVariable<ElementTrait, SimulationControl> variable;
+      Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1>& variable) {
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, element_mesh, thermal_model, quadrature_node_conserved_variable) private(variable)
+    shared(Eigen::Dynamic, element_mesh, thermal_model, variable)
 #endif  // SUBROSA_DG_DEVELOP
     for (Isize i = 0; i < element_mesh.number_; i++) {
       for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-        variable.primitive_.col(j) = this->function_(element_mesh.element_(i).quadrature_node_coordinate_.col(j));
-        variable.calculateConservedFromPrimitive(thermal_model);
+        variable(i).primitive_.col(j) = this->function_(element_mesh.element_(i).quadrature_node_coordinate_.col(j));
       }
-      quadrature_node_conserved_variable(i) = variable.conserved_;
+      variable(i).calculateConservedFromPrimitive(thermal_model);
     }
   }
 };
@@ -74,8 +71,7 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::SpecificFil
   void getVariableBasisFunctionCoefficient(
       const ElementMesh<ElementTrait>& element_mesh,
       [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
-      Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>,
-                   Eigen::Dynamic, 1>& quadrature_node_conserved_variable) {
+      Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1>& variable) {
     constexpr int kBasisFunctionNumber{
         getElementBasisFunctionNumber<ElementTrait::kElementType, SimulationControl::kInitialPolynomialOrder>()};
     Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, kBasisFunctionNumber>, Eigen::Dynamic,
@@ -105,12 +101,12 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::SpecificFil
       }
     }
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                              \
-    shared(Eigen::Dynamic, element_mesh, quadrature_node_conserved_variable, variable_basis_function_coefficient) \
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                    \
+    shared(Eigen::Dynamic, element_mesh, variable, variable_basis_function_coefficient) \
     firstprivate(basis_function_value)
 #endif  // SUBROSA_DG_DEVELOP
     for (Isize i = 0; i < element_mesh.number_; i++) {
-      quadrature_node_conserved_variable(i) = variable_basis_function_coefficient(i) * basis_function_value.transpose();
+      variable(i).conserved_ = variable_basis_function_coefficient(i) * basis_function_value.transpose();
     }
   }
 };
@@ -120,38 +116,33 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::LastStep> {
   std::filesystem::path raw_binary_path_;
   std::stringstream raw_binary_ss_;
 
-  template <typename ComputationalElementTrait>
-  void getVariableBasisFunctionCoefficient(const ElementMesh<ComputationalElementTrait>& element_mesh,
-                                           [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
-                                           Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                                                                      ComputationalElementTrait::kQuadratureNumber>,
-                                                        Eigen::Dynamic, 1>& quadrature_node_conserved_variable) {
-    Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                               ComputationalElementTrait::kBasisFunctionNumber>,
+  template <typename ElementTrait>
+  void getVariableBasisFunctionCoefficient(
+      const ElementMesh<ElementTrait>& element_mesh,
+      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1>& variable) {
+    Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
                  Eigen::Dynamic, 1>
         variable_basis_function_coefficient(element_mesh.number_);
     for (Isize i = 0; i < element_mesh.number_; i++) {
       this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
-                                SimulationControl::kConservedVariableNumber *
-                                    ComputationalElementTrait::kBasisFunctionNumber *
+                                SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
                                     static_cast<std::streamsize>(sizeof(Real)));
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
         Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                      ComputationalElementTrait::kBasisFunctionNumber>
+                      ElementTrait::kBasisFunctionNumber>
             variable_gradient_basis_function_coefficient;
         this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                                   SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                                      ComputationalElementTrait::kBasisFunctionNumber *
-                                      static_cast<std::streamsize>(sizeof(Real)));
+                                      ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
       }
     }
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, element_mesh, quadrature_node_conserved_variable, variable_basis_function_coefficient)
+    shared(Eigen::Dynamic, element_mesh, variable, variable_basis_function_coefficient)
 #endif  // SUBROSA_DG_DEVELOP
     for (Isize i = 0; i < element_mesh.number_; i++) {
-      quadrature_node_conserved_variable(i) =
-          variable_basis_function_coefficient(i) * element_mesh.basis_function_.value_.transpose();
+      variable(i).conserved_ = variable_basis_function_coefficient(i) * element_mesh.basis_function_.value_.transpose();
     }
   }
 };
@@ -165,36 +156,49 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElemen
     InitialCondition<SimulationControl>& initial_condition) {
   this->number_ = element_mesh.number_;
   this->element_.resize(this->number_);
-  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>,
-               Eigen::Dynamic, 1>
-      quadrature_node_conserved_variable(this->number_);
-  initial_condition.getVariableBasisFunctionCoefficient(element_mesh, thermal_model,
-                                                        quadrature_node_conserved_variable);
+  Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> variable(this->number_);
+  initial_condition.getVariableBasisFunctionCoefficient(element_mesh, thermal_model, variable);
   Eigen::LLT<Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>>
       basis_function_value_llt(element_mesh.basis_function_.value_.transpose() * element_mesh.basis_function_.value_);
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, element_mesh, quadrature_node_conserved_variable) firstprivate(basis_function_value_llt)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh, variable) \
+    firstprivate(basis_function_value_llt)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).variable_basis_function_coefficient_(1).noalias() =
-        basis_function_value_llt
-            .solve((quadrature_node_conserved_variable(i) * element_mesh.basis_function_.value_).transpose())
+        basis_function_value_llt.solve((variable(i).conserved_ * element_mesh.basis_function_.value_).transpose())
             .transpose();
+  }
+}
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+inline void AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl>::initializeAdjacencyElementSolver(
+    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+    const ThermalModel<SimulationControl>& thermal_model,
+    const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition) {
+  this->number_ = adjacency_element_mesh.boundary_number_;
+  this->boundary_dummy_variable_.resize(this->number_);
+  for (Isize i = 0; i < adjacency_element_mesh.boundary_number_; i++) {
+    for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+      this->boundary_dummy_variable_(i).primitive_.col(j) =
+          boundary_condition
+              .at(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).gmsh_physical_index_)
+              ->function_(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_)
+                              .quadrature_node_coordinate_.col(j));
+    }
+    this->boundary_dummy_variable_(i).calculateConservedFromPrimitive(thermal_model);
+    this->boundary_dummy_variable_(i).calculateComputationalFromPrimitive(thermal_model);
   }
 }
 
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::initializeSolver(
     const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
-    std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
+    const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
     InitialCondition<SimulationControl>& initial_condition) {
-  for (auto& [name, variable] : boundary_condition) {
-    variable->boundary_dummy_variable_.calculateConservedFromPrimitive(thermal_model);
-    variable->boundary_dummy_variable_.calculateComputationalFromPrimitive(thermal_model);
-  }
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.initializeElementSolver(mesh.line_, thermal_model, initial_condition);
+    this->point_.initializeAdjacencyElementSolver(mesh.point_, thermal_model, boundary_condition);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
       this->triangle_.initializeElementSolver(mesh.triangle_, thermal_model, initial_condition);
@@ -202,6 +206,7 @@ inline void Solver<SimulationControl>::initializeSolver(
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.initializeElementSolver(mesh.quadrangle_, thermal_model, initial_condition);
     }
+    this->line_.initializeAdjacencyElementSolver(mesh.line_, thermal_model, boundary_condition);
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
       this->tetrahedron_.initializeElementSolver(mesh.tetrahedron_, thermal_model, initial_condition);
@@ -212,8 +217,13 @@ inline void Solver<SimulationControl>::initializeSolver(
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
       this->hexahedron_.initializeElementSolver(mesh.hexahedron_, thermal_model, initial_condition);
     }
+    if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.initializeAdjacencyElementSolver(mesh.triangle_, thermal_model, boundary_condition);
+    }
+    if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.initializeAdjacencyElementSolver(mesh.quadrangle_, thermal_model, boundary_condition);
+    }
   }
-  this->relative_error_.setZero();
 }
 
 }  // namespace SubrosaDG

@@ -65,6 +65,9 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementJaco
     gmsh::model::mesh::getJacobian(static_cast<std::size_t>(this->element_(i).gmsh_jacobian_tag_),
                                    this->quadrature_.local_coord_, jacobians, determinants, coord);
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+      for (Isize k = 0; k < AdjacencyElementTrait::kDimension + 1; k++) {
+        this->element_(i).quadrature_node_coordinate_(k, j) = static_cast<Real>(coord[static_cast<Usize>(j * 3 + k)]);
+      }
       this->element_(i).jacobian_determinant_(j) = static_cast<Real>(determinants[static_cast<Usize>(j)]);
     }
   }

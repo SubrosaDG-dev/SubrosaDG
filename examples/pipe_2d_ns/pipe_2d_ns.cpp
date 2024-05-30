@@ -1,9 +1,9 @@
 /**
- * @file vortex_2d_ns.cpp
- * @brief The main file of SubrosaDG vortex_2d_ns.
+ * @file pipe_2d_ns.cpp
+ * @brief The main file of SubrosaDG pipe_2d_ns.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
- * @date 2024-04-29
+ * @date 2024-05-28
  *
  * @version 0.1.0
  * @copyright Copyright (c) 2022 - 2024 by SubrosaDG developers. All rights reserved.
@@ -12,7 +12,7 @@
 
 #include "SubrosaDG"
 
-inline const std::string kExampleName{"vortex_2d_ns"};
+inline const std::string kExampleName{"pipe_2d_ns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
@@ -20,7 +20,7 @@ using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
     SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
     SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
-    SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
+    SubrosaDG::TransportModelEnum::Constant, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR1,
     SubrosaDG::TimeIntegrationEnum::SSPRK3>;
 
 int main(int argc, char* argv[]) {
@@ -30,14 +30,21 @@ int main(int argc, char* argv[]) {
   system.setMesh(kExampleDirectory / std::format("{}.msh", kExampleName), generateMesh);
   system.addInitialCondition(
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate) {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.2, 0.0, 1.0};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+            1.4, 4.0 * 0.3 * coordinate.y() * (0.4 - coordinate.y()) / (0.4 * 0.4), 0.0, 1.0};
       });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::VelocityInflow>(
       "bc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate) {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.2, 0.0, 1.0};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+            1.4, 4.0 * 0.3 * coordinate.y() * (0.4 - coordinate.y()) / (0.4 * 0.4), 0.0, 1.0};
       });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
-  system.setTransportModel(1.4 * 0.2 / 200);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>(
+      "bc-2", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate) {
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+            1.4, 4.0 * 0.3 * coordinate.y() * (0.4 - coordinate.y()) / (0.4 * 0.4), 0.0, 1.0};
+      });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-3");
+  system.setTransportModel(1.4 * 0.2 * 0.1 / 200);
   system.setTimeIntegration(1.0);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
@@ -50,13 +57,13 @@ int main(int argc, char* argv[]) {
 }
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
-  const double x = 0.5 / std::sqrt(2.0);
+  const double x = 0.05 / std::sqrt(2.0);
   Eigen::Matrix<double, 2, 4, Eigen::RowMajor> farfield_point_coordinate;
   Eigen::Vector<double, 2> cylinder_point_coordinate;
   // clang-format off
-  farfield_point_coordinate << -5.0,  - 2 * x, 2 * x, 20.0,
-                               -10.0, - 2 * x, 2 * x, 10.0;
-  cylinder_point_coordinate << - x, x;
+  farfield_point_coordinate << 0.0, 0.2 - 2 * x, 0.2 + 2 * x, 2.2,
+                               0.0, 0.2 - 2 * x, 0.2 + 2 * x, 0.4;
+  cylinder_point_coordinate << 0.2 - x, 0.2 + x;
   // clang-format on
   Eigen::Tensor<int, 2> farfield_point_tag(4, 4);
   Eigen::Tensor<int, 2> cylinder_point_tag(2, 2);
@@ -67,9 +74,9 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Tensor<int, 2> cylinder_curve_loop_tag(2, 2);
   Eigen::Tensor<int, 2> farfield_plane_surface_tag(3, 3);
   Eigen::Tensor<int, 2> cylinder_plane_surface_tag(2, 2);
-  std::array<std::vector<int>, 3> physical_group_tag;
-  gmsh::model::add("vortex_2d");
-  const int center_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
+  std::array<std::vector<int>, 4> physical_group_tag;
+  gmsh::model::add("pipe_2d");
+  const int center_point_tag = gmsh::model::geo::addPoint(0.2, 0.2, 0.0);
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     for (std::ptrdiff_t j = 0; j < 4; j++) {
       farfield_point_tag(j, i) =
@@ -143,16 +150,16 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     for (std::ptrdiff_t j = 0; j < 3; j++) {
       switch (j) {
       case 0:
-        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 0), 10, "Progression", -1.33);
-        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 1), 16, "Progression", -1.23);
+        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 0), 10);
+        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 1), 12, "Progression", 1.1);
         break;
       case 1:
-        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 0), 16);
-        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 1), 16);
+        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 0), 12);
+        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 1), 12);
         break;
       case 2:
-        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 0), 50, "Progression", 1.05);
-        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 1), 16, "Progression", 1.23);
+        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 0), 50, "Progression", 1.04);
+        gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(j, i, 1), 12, "Progression", -1.1);
         break;
       }
     }
@@ -160,13 +167,13 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     for (std::ptrdiff_t j = 0; j < 2; j++) {
       for (std::ptrdiff_t k = 0; k < 1; k++) {
-        gmsh::model::geo::mesh::setTransfiniteCurve(cylinder_line_tag(k, j, i), 16);
+        gmsh::model::geo::mesh::setTransfiniteCurve(cylinder_line_tag(k, j, i), 12);
       }
     }
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     for (std::ptrdiff_t j = 0; j < 2; j++) {
-      gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(j, i), 12, "Progression", 1.2);
+      gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(j, i), 6, "Progression", 1.1);
     }
   }
   for (std::ptrdiff_t i = 0; i < 3; i++) {
@@ -188,8 +195,14 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     for (std::ptrdiff_t j = 0; j < 4; j++) {
       for (std::ptrdiff_t k = 0; k < 3; k++) {
-        if (j == 0 || j == 3) {
+        if (i == 1 && j == 0) {
           physical_group_tag[0].emplace_back(farfield_line_tag(k, j, i));
+        }
+        if (i == 1 && j == 3) {
+          physical_group_tag[1].emplace_back(farfield_line_tag(k, j, i));
+        }
+        if ((i == 0) && (j == 0 || j == 3)) {
+          physical_group_tag[2].emplace_back(farfield_line_tag(k, j, i));
         }
       }
     }
@@ -197,7 +210,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     for (std::ptrdiff_t j = 0; j < 2; j++) {
       for (std::ptrdiff_t k = 0; k < 1; k++) {
-        physical_group_tag[1].emplace_back(cylinder_line_tag(k, j, i));
+        physical_group_tag[2].emplace_back(cylinder_line_tag(k, j, i));
       }
     }
   }
@@ -206,17 +219,18 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       if (i == 1 && j == 1) {
         continue;
       }
-      physical_group_tag[2].emplace_back(farfield_plane_surface_tag(j, i));
+      physical_group_tag[3].emplace_back(farfield_plane_surface_tag(j, i));
     }
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     for (std::ptrdiff_t j = 0; j < 2; j++) {
-      physical_group_tag[2].emplace_back(cylinder_plane_surface_tag(j, i));
+      physical_group_tag[3].emplace_back(cylinder_plane_surface_tag(j, i));
     }
   }
   gmsh::model::addPhysicalGroup(1, physical_group_tag[0], -1, "bc-1");
   gmsh::model::addPhysicalGroup(1, physical_group_tag[1], -1, "bc-2");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[2], -1, "bc-3");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[3], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

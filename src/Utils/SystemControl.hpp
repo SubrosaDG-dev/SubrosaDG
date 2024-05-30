@@ -65,35 +65,35 @@ struct System {
     this->source_term_.gravity = gravity;
   }
 
-  template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
-             BoundaryConditionType == BoundaryConditionEnum::CharacteristicInflow ||
-             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow)
-  inline void addBoundaryCondition(
-      const std::string& boundary_condition_name,
-      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_condition_variable) {
-    const auto boundary_condition_index =
-        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
-    this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
-    this->boundary_condition_[boundary_condition_index] =
-        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
-    this->boundary_condition_[boundary_condition_index]->boundary_dummy_variable_.primitive_ =
-        boundary_condition_variable;
+  inline void addInitialCondition(
+      const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
+          const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>& initial_condition_function) {
+    this->initial_condition_.function_ = initial_condition_function;
+  }
+
+  inline void addInitialCondition(const std::filesystem::path& initial_condition_file) {
+    this->initial_condition_.raw_binary_path_ = initial_condition_file;
+  }
+
+  inline void addInitialCondition(const int initial_condition_step) {
+    this->time_integration_.iteration_start_ = initial_condition_step;
   }
 
   template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::IsothermalNoslipWall)
-  inline void addBoundaryCondition(const std::string& boundary_condition_name,
-                                   const Real boundary_condition_temperature) {
+    requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
+             BoundaryConditionType == BoundaryConditionEnum::VelocityInflow ||
+             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow ||
+             BoundaryConditionType == BoundaryConditionEnum::IsothermalNoslipWall)
+  inline void addBoundaryCondition(
+      const std::string& boundary_condition_name,
+      const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
+          const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>& boundary_condition_function) {
     const auto boundary_condition_index =
         static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
     this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
     this->boundary_condition_[boundary_condition_index] =
         std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
-    this->boundary_condition_[boundary_condition_index]->boundary_dummy_variable_.primitive_.setZero();
-    this->boundary_condition_[boundary_condition_index]
-        ->boundary_dummy_variable_.template setScalar<PrimitiveVariableEnum::Temperature>(
-            boundary_condition_temperature);
+    this->boundary_condition_[boundary_condition_index]->function_ = boundary_condition_function;
   }
 
   template <BoundaryConditionEnum BoundaryConditionType>
@@ -115,20 +115,6 @@ struct System {
     this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
   }
 
-  inline void addInitialCondition(
-      const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
-          const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>& initial_condition_function) {
-    this->initial_condition_.function_ = initial_condition_function;
-  }
-
-  inline void addInitialCondition(const std::filesystem::path& initial_condition_file) {
-    this->initial_condition_.raw_binary_path_ = initial_condition_file;
-  }
-
-  inline void addInitialCondition(const int initial_condition_step) {
-    this->time_integration_.iteration_start_ = initial_condition_step;
-  }
-
   inline void setTransportModel(const Real dynamic_viscosity) {
     this->thermal_model_.transport_model_.dynamic_viscosity = dynamic_viscosity;
     this->thermal_model_.calculateThermalConductivityFromDynamicViscosity();
@@ -147,8 +133,7 @@ struct System {
   }
 
   inline void setViewConfig(const std::filesystem::path& output_directory,
-                            const std::string_view output_file_name_prefix,
-                            const std::vector<ViewVariableEnum>& view_variable, const int io_interval = 0) {
+                            const std::string_view output_file_name_prefix, const int io_interval = 0) {
     if (io_interval == 0) {
       std::cout << "Set view interval: ";
       std::cin >> this->view_.io_interval_;
@@ -163,6 +148,9 @@ struct System {
     this->view_.iteration_order_ = static_cast<int>(std::log10(this->time_integration_.iteration_end_) + 1);
     this->view_.output_directory_ = output_directory;
     this->view_.output_file_name_prefix_ = output_file_name_prefix;
+  }
+
+  inline void addViewVariable(const std::vector<ViewVariableEnum>& view_variable) {
     this->view_.variable_type_ = view_variable;
   }
 

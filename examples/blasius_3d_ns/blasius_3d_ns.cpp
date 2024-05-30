@@ -17,7 +17,7 @@ inline const std::string kExampleName{"blasius_3d_ns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
-    SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Hexahedron,
+    SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Hexahedron,
     SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::TransportModelEnum::Constant, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
@@ -31,17 +31,23 @@ int main(int argc, char* argv[]) {
   system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 3>& coordinate) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.0, 0.5, 0.0, 1.0};
   });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>("bc-1", {1.4, 0.0, 0.5, 0.0, 1.0});
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>("bc-2", {1.4, 0.0, 0.5, 0.0, 1.0});
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
+      "bc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate) {
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.0, 0.5, 0.0, 1.0};
+      });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>(
+      "bc-2", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate) {
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.0, 0.5, 0.0, 1.0};
+      });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-3");
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-4");
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-5");
   system.setTransportModel(1.4 * 0.5 / 100000);
   system.setTimeIntegration(1.0);
-  system.setViewConfig(kExampleDirectory, kExampleName,
-                       {SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-                        SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
-                        SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::Vorticity});
+  system.setViewConfig(kExampleDirectory, kExampleName);
+  system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
+                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
+                          SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::Vorticity});
   system.synchronize();
   system.solve();
   system.view();
@@ -177,6 +183,6 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::addPhysicalGroup(3, physical_group_tag[5], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
-  gmsh::model::mesh::optimize("HighOrderFastCurving");
+  gmsh::model::mesh::optimize("HighOrder");
   gmsh::write(mesh_file_path);
 }

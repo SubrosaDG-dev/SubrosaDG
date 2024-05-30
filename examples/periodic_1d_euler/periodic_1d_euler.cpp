@@ -17,7 +17,7 @@ inline const std::string kExampleName{"periodic_1d_euler"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControlEuler<
-    SubrosaDG::DimensionEnum::D1, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Line,
+    SubrosaDG::DimensionEnum::D1, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Line,
     SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3>;
@@ -34,9 +34,9 @@ int main(int argc, char* argv[]) {
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
   system.setTimeIntegration(1.0);
-  system.setViewConfig(kExampleDirectory, kExampleName,
-                       {SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-                        SubrosaDG::ViewVariableEnum::Pressure});
+  system.setViewConfig(kExampleDirectory, kExampleName);
+  system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
+                          SubrosaDG::ViewVariableEnum::Pressure});
   system.synchronize();
   system.solve();
   system.view();
@@ -53,6 +53,6 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::addPhysicalGroup(1, {1}, -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
-  gmsh::model::mesh::optimize("HighOrderFastCurving");
+  gmsh::model::mesh::optimize("HighOrder");
   gmsh::write(mesh_file_path);
 }

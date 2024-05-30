@@ -32,6 +32,8 @@ add_subdirectory(periodic_1d_euler)
 
 add_subdirectory(periodic_2d_euler)
 
+add_subdirectory(pipe_2d_ns)
+
 add_subdirectory(protuberance_3d_euler)
 
 add_subdirectory(rae2822_2d_ns)

@@ -72,7 +72,7 @@ enum class InitialConditionEnum {
 
 enum class BoundaryConditionEnum {
   RiemannFarfield = 1,
-  CharacteristicInflow,
+  VelocityInflow,
   PressureOutflow,
   IsothermalNoslipWall,
   AdiabaticSlipWall,
@@ -162,6 +162,16 @@ enum class ViewVariableEnum {
   VorticityX,
   VorticityY,
   VorticityZ,
+  Drag,
+  ForceXX,
+  ForceXY,
+  ForceXZ,
+  ForceYX,
+  ForceYY,
+  ForceYZ,
+  ForceZX,
+  ForceZY,
+  ForceZZ,
 };
 
 }  // namespace SubrosaDG

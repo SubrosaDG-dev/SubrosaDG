@@ -176,6 +176,7 @@ struct ViewSupplemental {
   Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic> element_connectivity_;
   Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic> element_offset_;
   Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic> element_type_;
+  Eigen::Vector<Real, SimulationControl::kDimension> force_{Eigen::Vector<Real, SimulationControl::kDimension>::Zero()};
 
   ViewSupplemental(Isize physical_index, const Mesh<SimulationControl>& mesh,
                    const std::vector<ViewVariableEnum>& variable_type) {
@@ -213,6 +214,12 @@ struct View {
   inline std::string getBaseName(int step, std::string_view physical_name);
 
   inline void getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information);
+
+  template <typename AdjacencyElementTrait, typename ElementTrait>
+  inline void calculateAdjacencyForce(const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+  const ThermalModel<SimulationControl>& thermal_model,
+                                const ViewVariable<ElementTrait, SimulationControl>& view_variable,
+                                Eigen::Vector<Real, SimulationControl::kDimension>& force, Isize element_index, Isize column, Isize index);
 
   template <typename ElementTrait>
   inline void calculateViewVariable(const ThermalModel<SimulationControl>& thermal_model,

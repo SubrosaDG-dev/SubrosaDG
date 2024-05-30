@@ -854,8 +854,68 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
   }
 };
 
+template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+struct ViewVariableBase;
+
 template <typename ElementTrait, typename SimulationControl>
-struct ViewVariable {
+struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Euler> {
+  Variable<SimulationControl> variable_{ElementTrait::kBasisFunctionNumber};
+
+  [[nodiscard]] inline Real get(const ThermalModel<SimulationControl>& thermal_model,
+                                const ViewVariableEnum variable_type, const Isize column) const {
+    switch (variable_type) {
+    case ViewVariableEnum::Density:
+      return this->variable_.template getScalar<ComputationalVariableEnum::Density>(column);
+    case ViewVariableEnum::Velocity:
+      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column));
+    case ViewVariableEnum::Temperature:
+      return thermal_model.calculateTemperatureFromInternalEnergy(
+          this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
+    case ViewVariableEnum::Pressure:
+      return this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column);
+    case ViewVariableEnum::SoundSpeed:
+      return thermal_model.calculateSoundSpeedFromInternalEnergy(
+          this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
+    case ViewVariableEnum::MachNumber:
+      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column)) /
+             thermal_model.calculateSoundSpeedFromInternalEnergy(
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
+    case ViewVariableEnum::Entropy:
+      return thermal_model.calculateEntropyFromDensityPressure(
+          this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
+          this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
+    case ViewVariableEnum::MachNumberX:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column) /
+             thermal_model.calculateSoundSpeedFromInternalEnergy(
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
+    case ViewVariableEnum::MachNumberY:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>(column) /
+             thermal_model.calculateSoundSpeedFromInternalEnergy(
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
+    case ViewVariableEnum::MachNumberZ:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column) /
+             thermal_model.calculateSoundSpeedFromInternalEnergy(
+                 this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
+    case ViewVariableEnum::VelocityX:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column);
+    case ViewVariableEnum::VelocityY:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>(column);
+    case ViewVariableEnum::VelocityZ:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column);
+    default:
+      return 0.0;
+    }
+  }
+
+  inline Eigen::Vector<Real, SimulationControl::kDimension> getForce(
+      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Isize column) const {
+    return this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column) * normal_vector;
+  }
+};
+
+template <typename ElementTrait, typename SimulationControl>
+struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes> {
   Variable<SimulationControl> variable_{ElementTrait::kBasisFunctionNumber};
   VariableGradient<SimulationControl> variable_gradient_{ElementTrait::kBasisFunctionNumber};
 
@@ -947,7 +1007,28 @@ struct ViewVariable {
       return 0.0;
     }
   }
+
+  inline Eigen::Vector<Real, SimulationControl::kDimension> getForce(
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Isize column) const {
+    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
+        this->variable_gradient_.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
+    const Real tempurature = thermal_model.calculateTemperatureFromInternalEnergy(
+        this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
+    const Real dynamic_viscosity = thermal_model.calculateDynamicViscosity(tempurature);
+    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
+        dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
+        2.0 / 3.0 * dynamic_viscosity * velocity_gradient.trace() *
+            Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
+    return (this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column) *
+                Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity() -
+            viscous_stress) *
+           normal_vector;
+  }
 };
+
+template <typename ElementTrait, typename SimulationControl>
+struct ViewVariable : ViewVariableBase<ElementTrait, SimulationControl, SimulationControl::kEquationModel> {};
 
 }  // namespace SubrosaDG
 

@@ -23,6 +23,6 @@ The project is still in early development stage.
 - [x] Compress RawBinary output(use zlib and async io)
 - [ ] Cuda gemm acceleration(use cublas)
 - [x] Add SourceTerm (e.g. Gravity with Boussinesq approximation)
-- [ ] 3D Euler/Navier-Stokes equation
+- [x] 3D Euler/Navier-Stokes equation
 
   ...

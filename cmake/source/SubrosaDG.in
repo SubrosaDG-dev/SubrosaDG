@@ -24,7 +24,8 @@
 #define EIGEN_STACK_ALLOCATION_LIMIT 0
 #define EIGEN_DONT_PARALLELIZE
 
-#include <Eigen/Geometry>  // IWYU pragma: keep
+#include <Eigen/Geometry>                         // IWYU pragma: keep
+#include <eigen3/unsupported/Eigen/CXX11/Tensor>  // IWYU pragma: keep
 #include <filesystem>
 
 // clang-format off

@@ -81,6 +81,8 @@ struct PerElementMeshBase : PerElementInformation {
 template <typename AdjacencyElementTrait>
 struct PerAdjacencyElementMesh : PerElementMeshBase<AdjacencyElementTrait> {
   Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber> node_coordinate_;
+  Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>
+      quadrature_node_coordinate_;
   Isize gmsh_jacobian_tag_;
   Isize adjacency_right_rotation_;
   Eigen::Vector<Isize, 2> parent_index_each_type_;

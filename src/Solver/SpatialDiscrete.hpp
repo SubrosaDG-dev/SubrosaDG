@@ -629,7 +629,9 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
       boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_index_)
           ->calculateBoundaryVariable(thermal_model, adjacency_element_mesh.element_(i).normal_vector_.col(j),
-                                      left_quadrature_node_variable, boundary_quadrature_node_variable, j);
+                                      left_quadrature_node_variable,
+                                      this->boundary_dummy_variable_(i - adjacency_element_mesh.interior_number_),
+                                      boundary_quadrature_node_variable, j);
       calculateConvectiveNormalFlux(adjacency_element_mesh.element_(i).normal_vector_.col(j),
                                     boundary_quadrature_node_variable, convective_flux.result_, 0);
       adjacency_element_quadrature_node_temporary_variable =
@@ -682,7 +684,9 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
       boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_index_)
           ->calculateBoundaryVariable(thermal_model, adjacency_element_mesh.element_(i).normal_vector_.col(j),
-                                      left_quadrature_node_variable, boundary_quadrature_node_variable, j);
+                                      left_quadrature_node_variable,
+                                      this->boundary_dummy_variable_(i - adjacency_element_mesh.interior_number_),
+                                      boundary_quadrature_node_variable, j);
       calculateConvectiveNormalFlux(adjacency_element_mesh.element_(i).normal_vector_.col(j),
                                     boundary_quadrature_node_variable, convective_flux.result_, 0);
       boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_index_)
@@ -737,10 +741,11 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
     left_quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
       boundary_condition.at(adjacency_element_mesh.element_(i).gmsh_physical_index_)
-          ->calculateBoundaryGradientVariable(thermal_model, adjacency_element_mesh.element_(i).normal_vector_.col(j),
-                                              left_quadrature_node_variable,
-                                              boundary_quadrature_node_volume_gradient_variable,
-                                              boundary_quadrature_node_interface_gradient_variable, j);
+          ->calculateBoundaryGradientVariable(
+              thermal_model, adjacency_element_mesh.element_(i).normal_vector_.col(j), left_quadrature_node_variable,
+              this->boundary_dummy_variable_(i - adjacency_element_mesh.interior_number_),
+              boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable,
+              j);
       calculateGardientRawFlux(adjacency_element_mesh.element_(i).normal_vector_.col(j),
                                boundary_quadrature_node_volume_gradient_variable, gardient_flux, 0);
       adjacency_element_quadrature_node_temporary_variable.noalias() =
