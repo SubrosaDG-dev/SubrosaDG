@@ -18,7 +18,7 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
 
 using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
     SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
-    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
     SubrosaDG::TimeIntegrationEnum::SSPRK3>;
@@ -28,12 +28,16 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "rae2822_2d.msh", generateMesh);
-  system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0};
-  });
+  system.addInitialCondition(
+      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
+          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+            1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0};
+      });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate) {
+      "bc-1",
+      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
+          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
             1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0};
       });

@@ -18,16 +18,17 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
 
 using SimulationControl = SubrosaDG::SimulationControlEuler<
     SubrosaDG::DimensionEnum::D1, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Line,
-    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system{};
+  SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "periodic_1d_euler.msh", generateMesh);
-  system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate) {
+  system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate)
+                                 -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
         1.0 + 0.2 * std::sin(SubrosaDG::kPi * coordinate.x()), 1.0,
         1.4 / (1.0 + 0.2 * std::sin(SubrosaDG::kPi * coordinate.x()))};

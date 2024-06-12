@@ -43,26 +43,43 @@ inline std::vector<double> getElementNodeCoordinate() {
 }
 
 template <ElementEnum ElementType, int PolynomialOrder>
-inline std::vector<double> getElementBasisFunction(const std::vector<double>& local_coord) {
+inline std::vector<double> getElementNodalBasisFunction(const bool gradient, const std::vector<double>& local_coord) {
   constexpr int kElementGmshTypeNumber{getElementGmshTypeNumber<ElementType, PolynomialOrder>()};
   int num_components;
   std::vector<double> basis_functions;
   int num_orientations;
-  gmsh::model::mesh::getBasisFunctions(kElementGmshTypeNumber, local_coord, std::format("Lagrange{}", PolynomialOrder),
+  gmsh::model::mesh::getBasisFunctions(kElementGmshTypeNumber, local_coord,
+                                       std::format("{}Lagrange{}", gradient ? "Grad" : "", PolynomialOrder),
                                        num_components, basis_functions, num_orientations);
   return basis_functions;
 }
 
+template <ElementEnum ElementType, int PolynomialOrder>
+inline std::vector<double> getElementModalBasisFunction(const bool gradient, const std::vector<double>& local_coord) {
+  constexpr int kElementGmshTypeNumber{getElementGmshTypeNumber<ElementType, PolynomialOrder>()};
+  int num_components;
+  std::vector<double> basis_functions;
+  int num_orientations{0};
+  // NOTE: Gmsh now does not support the basis functions of the pyramid element.
+  if constexpr (ElementType == ElementEnum::Pyramid) {
+    gmsh::model::mesh::getBasisFunctions(kElementGmshTypeNumber, local_coord,
+                                         std::format("{}Lagrange{}", gradient ? "Grad" : "", PolynomialOrder),
+                                         num_components, basis_functions, num_orientations);
+  } else {
+    gmsh::model::mesh::getBasisFunctions(kElementGmshTypeNumber, local_coord,
+                                         std::format("{}H1Legendre{}", gradient ? "Grad" : "", PolynomialOrder),
+                                         num_components, basis_functions, num_orientations);
+  }
+  return basis_functions;
+}
+
 template <typename ElementTrait, typename AdjacencyElementTrait>
-inline std::vector<double> getElementPerAdjacencyBasisFunction(
+inline std::vector<double> getElementPerAdjacencyModalBasisFunction(
     const Eigen::Matrix<Real, ElementTrait::kDimension, AdjacencyElementTrait::kBasicNodeNumber>&
         adjacency_basic_node_coordinate) {
   const auto& [local_coord, weights] = getElementQuadrature<AdjacencyElementTrait>();
-  int num_components;
-  std::vector<double> basis_functions;
-  int num_orientations;
-  gmsh::model::mesh::getBasisFunctions(AdjacencyElementTrait::kGmshTypeNumber, local_coord, "Lagrange1", num_components,
-                                       basis_functions, num_orientations);
+  std::vector<double> basis_functions{
+      getElementNodalBasisFunction<AdjacencyElementTrait::kElementType, 1>(false, local_coord)};
   constexpr int kAdjacencyElementP1BasisFunctionNumber =
       getElementBasisFunctionNumber<AdjacencyElementTrait::kElementType, 1>();
   Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, kAdjacencyElementP1BasisFunctionNumber>
@@ -79,9 +96,9 @@ inline std::vector<double> getElementPerAdjacencyBasisFunction(
       adjacency_basic_node_coordinate * basis_function_value.transpose();
   Eigen::Matrix<double, 3, AdjacencyElementTrait::kQuadratureNumber> adjacency_local_coord_double =
       adjacency_local_coord.template cast<double>();
-  return (getElementBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(
-      {adjacency_local_coord_double.data(),
-       adjacency_local_coord_double.data() + adjacency_local_coord_double.size()}));
+  return getElementModalBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(
+      false,
+      {adjacency_local_coord_double.data(), adjacency_local_coord_double.data() + adjacency_local_coord_double.size()});
 }
 
 template <typename AdjacencyElementTrait>
@@ -89,20 +106,17 @@ struct AdjacencyElementBasisFunction {
   Eigen::Array<
       Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, AdjacencyElementTrait::kBasisFunctionNumber>,
       AdjacencyElementTrait::kDimension, 1>
-      gradient_value_;
+      nodal_gradient_value_;
 
   inline AdjacencyElementBasisFunction() {
     const auto& [local_coord, weights] = getElementQuadrature<AdjacencyElementTrait>();
-    int num_components;
-    std::vector<double> gradient_basis_functions;
-    int num_orientations;
-    gmsh::model::mesh::getBasisFunctions(AdjacencyElementTrait::kGmshTypeNumber, local_coord,
-                                         std::format("GradLagrange{}", AdjacencyElementTrait::kPolynomialOrder),
-                                         num_components, gradient_basis_functions, num_orientations);
+    std::vector<double> gradient_basis_functions{
+        getElementNodalBasisFunction<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>(
+            true, local_coord)};
     for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
       for (Isize j = 0; j < AdjacencyElementTrait::kBasisFunctionNumber; j++) {
         for (Isize k = 0; k < AdjacencyElementTrait::kDimension; k++) {
-          this->gradient_value_(k)(i, j) = static_cast<Real>(gradient_basis_functions[static_cast<Usize>(
+          this->nodal_gradient_value_(k)(i, j) = static_cast<Real>(gradient_basis_functions[static_cast<Usize>(
               (i * AdjacencyElementTrait::kBasisFunctionNumber + j) * 3 + k)]);
         }
       }
@@ -112,11 +126,12 @@ struct AdjacencyElementBasisFunction {
 
 template <typename ElementTrait>
 struct ElementBasisFunction {
-  Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, ElementTrait::kBasisFunctionNumber, Eigen::RowMajor> value_;
+  Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, ElementTrait::kBasisFunctionNumber, Eigen::RowMajor>
+      modal_value_;
   Eigen::Matrix<Real, ElementTrait::kQuadratureNumber * ElementTrait::kDimension, ElementTrait::kBasisFunctionNumber>
-      gradient_value_;
+      modal_gradient_value_;
   Eigen::Matrix<Real, ElementTrait::kAllAdjacencyQuadratureNumber, ElementTrait::kBasisFunctionNumber, Eigen::RowMajor>
-      adjacency_value_;
+      modal_adjacency_value_;
 
   template <int I>
   inline void getElementAdjacencyBasisFunction(int node_column = 0, int quadrature_column = 0) {
@@ -138,13 +153,13 @@ struct ElementBasisFunction {
         adjacency_basic_node_coordinate.col(j) =
             basic_node_coordinate.col(kElementAdjacencyNodeIndex[static_cast<Usize>(node_column + j)]);
       }
-      const std::vector<double> adjacency_basis_functions = getElementPerAdjacencyBasisFunction<
+      const std::vector<double> adjacency_basis_functions{getElementPerAdjacencyModalBasisFunction<
           ElementTrait,
           AdjacencyElementTrait<kAdjacencyElementType[static_cast<Usize>(I)], ElementTrait::kPolynomialOrder>>(
-          adjacency_basic_node_coordinate);
+          adjacency_basic_node_coordinate)};
       for (Isize j = 0; j < kElementPerAdjacencyQuadratureNumber[static_cast<Usize>(I)]; j++) {
         for (Isize k = 0; k < ElementTrait::kBasisFunctionNumber; k++) {
-          this->adjacency_value_(quadrature_column + j, k) = static_cast<Real>(
+          this->modal_adjacency_value_(quadrature_column + j, k) = static_cast<Real>(
               adjacency_basis_functions[static_cast<Usize>(j * ElementTrait::kBasisFunctionNumber + k)]);
         }
       }
@@ -159,23 +174,19 @@ struct ElementBasisFunction {
   inline ElementBasisFunction() {
     const auto& [local_coord, weights] = getElementQuadrature<ElementTrait>();
     std::vector<double> basis_functions{
-        getElementBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(local_coord)};
+        getElementModalBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(false, local_coord)};
     for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kBasisFunctionNumber; j++) {
-        this->value_(i, j) =
+        this->modal_value_(i, j) =
             static_cast<Real>(basis_functions[static_cast<Usize>(i * ElementTrait::kBasisFunctionNumber + j)]);
       }
     }
-    int num_components;
-    std::vector<double> gradient_basis_functions;
-    int num_orientations;
-    gmsh::model::mesh::getBasisFunctions(ElementTrait::kGmshTypeNumber, local_coord,
-                                         std::format("GradLagrange{}", ElementTrait::kPolynomialOrder), num_components,
-                                         gradient_basis_functions, num_orientations);
+    std::vector<double> gradient_basis_functions{
+        getElementModalBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(true, local_coord)};
     for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kBasisFunctionNumber; j++) {
         for (Isize k = 0; k < ElementTrait::kDimension; k++) {
-          this->gradient_value_(i * ElementTrait::kDimension + k, j) = static_cast<Real>(
+          this->modal_gradient_value_(i * ElementTrait::kDimension + k, j) = static_cast<Real>(
               gradient_basis_functions[static_cast<Usize>((i * ElementTrait::kBasisFunctionNumber + j) * 3 + k)]);
         }
       }

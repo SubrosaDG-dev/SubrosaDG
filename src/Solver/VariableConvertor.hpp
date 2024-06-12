@@ -329,7 +329,7 @@ struct ElementVariable : Variable<SimulationControl> {
   inline void get(const ElementMesh<ElementTrait>& element_mesh,
                   const ElementSolverBase<ElementTrait, SimulationControl>& element_solver, const Isize element_index) {
     this->conserved_.noalias() = element_solver.element_(element_index).variable_basis_function_coefficient_(1) *
-                                 element_mesh.basis_function_.value_.transpose();
+                                 element_mesh.basis_function_.modal_value_.transpose();
   }
 };
 
@@ -347,7 +347,7 @@ struct AdjacencyElementVariable : Variable<SimulationControl> {
       this->conserved_.noalias() =
           solver.line_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
           mesh.line_.basis_function_
-              .adjacency_value_(
+              .modal_adjacency_value_(
                   Eigen::seq(
                       kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                       kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -364,7 +364,7 @@ struct AdjacencyElementVariable : Variable<SimulationControl> {
         this->conserved_.noalias() =
             solver.triangle_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
             mesh.triangle_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -380,7 +380,7 @@ struct AdjacencyElementVariable : Variable<SimulationControl> {
         this->conserved_.noalias() =
             solver.quadrangle_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
             mesh.quadrangle_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -398,7 +398,7 @@ struct AdjacencyElementVariable : Variable<SimulationControl> {
         this->conserved_.noalias() =
             solver.tetrahedron_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
             mesh.tetrahedron_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -414,7 +414,7 @@ struct AdjacencyElementVariable : Variable<SimulationControl> {
         this->conserved_.noalias() =
             solver.pyramid_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
             mesh.pyramid_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -432,7 +432,7 @@ struct AdjacencyElementVariable : Variable<SimulationControl> {
         this->conserved_.noalias() =
             solver.pyramid_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
             mesh.pyramid_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -448,7 +448,7 @@ struct AdjacencyElementVariable : Variable<SimulationControl> {
         this->conserved_.noalias() =
             solver.hexahedron_.element_(parent_index_each_type).variable_basis_function_coefficient_(1) *
             mesh.hexahedron_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -611,7 +611,7 @@ struct ElementVariableGradient : VariableGradient<SimulationControl> {
   inline void get(const ElementMesh<ElementTrait>& element_mesh,
                   const ElementSolverBase<ElementTrait, SimulationControl>& element_solver, const Isize element_index) {
     this->conserved_.noalias() = element_solver.element_(element_index).variable_gradient_basis_function_coefficient_ *
-                                 element_mesh.basis_function_.value_.transpose();
+                                 element_mesh.basis_function_.modal_value_.transpose();
   }
 };
 
@@ -636,7 +636,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
         this->conserved_.noalias() =
             solver.triangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
             mesh.triangle_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -652,7 +652,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
         this->conserved_.noalias() =
             solver.quadrangle_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
             mesh.quadrangle_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -670,7 +670,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
         this->conserved_.noalias() =
             solver.tetrahedron_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
             mesh.tetrahedron_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -686,7 +686,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
         this->conserved_.noalias() =
             solver.pyramid_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
             mesh.pyramid_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -704,7 +704,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
         this->conserved_.noalias() =
             solver.pyramid_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
             mesh.pyramid_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -720,7 +720,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
         this->conserved_.noalias() =
             solver.hexahedron_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
             mesh.hexahedron_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -747,7 +747,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
              solver.triangle_.element_(parent_index_each_type)
                  .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
             mesh.triangle_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -765,7 +765,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
              solver.quadrangle_.element_(parent_index_each_type)
                  .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
             mesh.quadrangle_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -785,7 +785,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
              solver.tetrahedron_.element_(parent_index_each_type)
                  .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
             mesh.tetrahedron_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -803,7 +803,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
              solver.pyramid_.element_(parent_index_each_type)
                  .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
             mesh.pyramid_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -823,7 +823,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
              solver.pyramid_.element_(parent_index_each_type)
                  .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
             mesh.pyramid_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -841,7 +841,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
              solver.hexahedron_.element_(parent_index_each_type)
                  .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
             mesh.hexahedron_.basis_function_
-                .adjacency_value_(
+                .modal_adjacency_value_(
                     Eigen::seq(
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
@@ -905,12 +905,6 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Eule
     default:
       return 0.0;
     }
-  }
-
-  inline Eigen::Vector<Real, SimulationControl::kDimension> getForce(
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Isize column) const {
-    return this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column) * normal_vector;
   }
 };
 
@@ -1006,24 +1000,6 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
     default:
       return 0.0;
     }
-  }
-
-  inline Eigen::Vector<Real, SimulationControl::kDimension> getForce(
-      const ThermalModel<SimulationControl>& thermal_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Isize column) const {
-    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
-        this->variable_gradient_.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
-    const Real tempurature = thermal_model.calculateTemperatureFromInternalEnergy(
-        this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
-    const Real dynamic_viscosity = thermal_model.calculateDynamicViscosity(tempurature);
-    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
-        dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
-        2.0 / 3.0 * dynamic_viscosity * velocity_gradient.trace() *
-            Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
-    return (this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column) *
-                Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity() -
-            viscous_stress) *
-           normal_vector;
   }
 };
 

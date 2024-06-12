@@ -226,6 +226,11 @@ struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equation
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       Solver<SimulationControl>& solver);
+
+  inline void calculateBoundaryAdjacencyElementForce(const Mesh<SimulationControl>& mesh,
+                                                     const ThermalModel<SimulationControl>& thermal_model,
+                                                     const Solver<SimulationControl>& solver,
+                                                     Eigen::Matrix<Real, SimulationControl::kDimension, 2>& force);
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -259,6 +264,11 @@ struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equation
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       Solver<SimulationControl>& solver);
+
+  inline void calculateBoundaryAdjacencyElementForce(const Mesh<SimulationControl>& mesh,
+                                                     const ThermalModel<SimulationControl>& thermal_model,
+                                                     const Solver<SimulationControl>& solver,
+                                                     Eigen::Matrix<Real, SimulationControl::kDimension, 2>& force);
 };
 
 template <typename SimulationControl>
@@ -267,7 +277,8 @@ struct SolverBase {
   std::fstream error_finout_;
   std::future<void> write_raw_binary_future_;
 
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_{Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero()};
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_{
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero()};
 };
 
 template <typename SimulationControl>
@@ -386,6 +397,9 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
   inline void calculateAdjacencyGardientQuadrature(
       const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
+
+  inline void calculateBoundaryAdjacencyForce(const Mesh<SimulationControl>& mesh,
+                                              const ThermalModel<SimulationControl>& thermal_model);
 
   inline void calculateResidual(const Mesh<SimulationControl>& mesh);
 

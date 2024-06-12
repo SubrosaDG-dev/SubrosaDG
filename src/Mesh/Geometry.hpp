@@ -80,8 +80,8 @@ inline void ElementMesh<ElementTrait>::calculateElementLocalMassMatrixInverse() 
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).local_mass_matrix_inverse_.noalias() =
-        (this->basis_function_.value_.transpose() *
-         (this->basis_function_.value_.array().colwise() *
+        (this->basis_function_.modal_value_.transpose() *
+         (this->basis_function_.modal_value_.array().colwise() *
           (this->quadrature_.weight_.array() * this->element_(i).jacobian_determinant_.array()))
              .matrix())
             .inverse();
@@ -186,12 +186,12 @@ inline void calculateNormalVector(
         node_coordinate,
     const Eigen::Array<
         Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, AdjacencyElementTrait::kBasisFunctionNumber>,
-        AdjacencyElementTrait::kDimension, 1>& gradient_value,
+        AdjacencyElementTrait::kDimension, 1>& nodal_gradient_value,
     Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>&
         normal_vector) {
   for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
-    normal_vector(0, i) = gradient_value(0).row(i) * node_coordinate.row(1).transpose();
-    normal_vector(1, i) = -gradient_value(0).row(i) * node_coordinate.row(0).transpose();
+    normal_vector(0, i) = nodal_gradient_value(0).row(i) * node_coordinate.row(1).transpose();
+    normal_vector(1, i) = -nodal_gradient_value(0).row(i) * node_coordinate.row(0).transpose();
     normal_vector.col(i).normalize();
   }
 }
@@ -203,14 +203,14 @@ inline void calculateNormalVector(
         node_coordinate,
     const Eigen::Array<
         Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, AdjacencyElementTrait::kBasisFunctionNumber>,
-        AdjacencyElementTrait::kDimension, 1>& gradient_value,
+        AdjacencyElementTrait::kDimension, 1>& nodal_gradient_value,
     Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>&
         normal_vector) {
   Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> partial_xi_vector;
   Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> partial_eta_vector;
   for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
-    partial_xi_vector = gradient_value(0).row(i) * node_coordinate.transpose();
-    partial_eta_vector = gradient_value(1).row(i) * node_coordinate.transpose();
+    partial_xi_vector = nodal_gradient_value(0).row(i) * node_coordinate.transpose();
+    partial_eta_vector = nodal_gradient_value(1).row(i) * node_coordinate.transpose();
     normal_vector.col(i) = partial_xi_vector.cross(partial_eta_vector).normalized();
   }
 }
@@ -225,11 +225,13 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::calculateAdjacencyEleme
       calculateNormalVector<AdjacencyElementTrait>(this->element_(i).adjacency_sequence_in_parent_(0),
                                                    this->element_(i).normal_vector_);
     } else if constexpr (Is1dElement<AdjacencyElementTrait::kElementType>) {
-      calculateNormalVector<AdjacencyElementTrait>(
-          this->element_(i).node_coordinate_, this->basis_function_.gradient_value_, this->element_(i).normal_vector_);
+      calculateNormalVector<AdjacencyElementTrait>(this->element_(i).node_coordinate_,
+                                                   this->basis_function_.nodal_gradient_value_,
+                                                   this->element_(i).normal_vector_);
     } else if constexpr (Is2dElement<AdjacencyElementTrait::kElementType>) {
-      calculateNormalVector<AdjacencyElementTrait>(
-          this->element_(i).node_coordinate_, this->basis_function_.gradient_value_, this->element_(i).normal_vector_);
+      calculateNormalVector<AdjacencyElementTrait>(this->element_(i).node_coordinate_,
+                                                   this->basis_function_.nodal_gradient_value_,
+                                                   this->element_(i).normal_vector_);
     }
   }
 }

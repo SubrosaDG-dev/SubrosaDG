@@ -17,8 +17,8 @@ inline const std::string kExampleName{"naca0012_2d_ns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
-    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
-    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
+    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
     SubrosaDG::TimeIntegrationEnum::SSPRK3>;
@@ -26,20 +26,24 @@ using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  SubrosaDG::System<SimulationControl> system{};
+  SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "naca0012_2d_ns.msh", generateMesh);
-  system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 2>& coordinate) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        1.4, 0.5 * std::cos(SubrosaDG::toRadian(1.0)), 0.5 * std::sin(SubrosaDG::toRadian(1.0)), 1.0};
-  });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate) {
+  system.addInitialCondition(
+      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
+          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 0.5 * std::cos(SubrosaDG::toRadian(1.0)), 0.5 * std::sin(SubrosaDG::toRadian(1.0)), 1.0};
+            1.4, 0.2 * std::cos(SubrosaDG::toRadian(30.0)), 0.2 * std::sin(SubrosaDG::toRadian(30.0)), 1.0};
+      });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
+      "bc-1",
+      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
+          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+            1.4, 0.2 * std::cos(SubrosaDG::toRadian(30.0)), 0.2 * std::sin(SubrosaDG::toRadian(30.0)), 1.0};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
-  system.setTransportModel(1.4 * 0.5 / 5000);
-  system.setTimeIntegration(1.0);
+  system.setTransportModel(1.4 * 0.2 / 16000);
+  system.setTimeIntegration(0.5);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
@@ -130,19 +134,19 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     plane_surface_tag(i) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i)});
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
-    gmsh::model::geo::mesh::setTransfiniteCurve(naca0012_line_tag(i), 40, "Progression", 1.08);
+    gmsh::model::geo::mesh::setTransfiniteCurve(naca0012_line_tag(i), 60, "Progression", 1.05);
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
-    gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(i), 40);
+    gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(i), 60);
   }
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 20);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 20, "Progression", -1.4);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 20, "Progression", 1.4);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 20);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 20, "Progression", -1.4);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 20, "Progression", -1.35);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 20, "Progression", -1.4);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 20);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 20, "Progression", 1.1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 30, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 30, "Progression", 1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 20, "Progression", -1.1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 30, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 30, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 30, "Progression", -1.25);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 20, "Progression", -1.1);
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
     gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i));

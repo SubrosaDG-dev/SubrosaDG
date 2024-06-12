@@ -34,7 +34,7 @@ namespace SubrosaDG {
 
 template <typename ElementTrait>
 struct ElementViewBasisFunction {
-  Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kAllNodeNumber> basis_function_value_;
+  Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kAllNodeNumber> modal_value_;
 
   inline ElementViewBasisFunction() {
     Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kAllNodeNumber> all_node_coordinate{
@@ -45,11 +45,11 @@ struct ElementViewBasisFunction {
         all_node_coordinate.template cast<double>();
     std::vector<double> local_coord(local_coord_gmsh_matrix.data(),
                                     local_coord_gmsh_matrix.data() + local_coord_gmsh_matrix.size());
-    std::vector<double> basis_functions =
-        getElementBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(local_coord);
+    std::vector<double> basis_functions{
+        getElementModalBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(false, local_coord)};
     for (Isize i = 0; i < ElementTrait::kAllNodeNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kBasisFunctionNumber; j++) {
-        this->basis_function_value_(j, i) =
+        this->modal_value_(j, i) =
             static_cast<Real>(basis_functions[static_cast<Usize>(i * ElementTrait::kBasisFunctionNumber + j)]);
       }
     }
@@ -176,7 +176,6 @@ struct ViewSupplemental {
   Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic> element_connectivity_;
   Eigen::Vector<vtu11::VtkIndexType, Eigen::Dynamic> element_offset_;
   Eigen::Vector<vtu11::VtkCellType, Eigen::Dynamic> element_type_;
-  Eigen::Vector<Real, SimulationControl::kDimension> force_{Eigen::Vector<Real, SimulationControl::kDimension>::Zero()};
 
   ViewSupplemental(Isize physical_index, const Mesh<SimulationControl>& mesh,
                    const std::vector<ViewVariableEnum>& variable_type) {
@@ -214,12 +213,6 @@ struct View {
   inline std::string getBaseName(int step, std::string_view physical_name);
 
   inline void getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information);
-
-  template <typename AdjacencyElementTrait, typename ElementTrait>
-  inline void calculateAdjacencyForce(const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-  const ThermalModel<SimulationControl>& thermal_model,
-                                const ViewVariable<ElementTrait, SimulationControl>& view_variable,
-                                Eigen::Vector<Real, SimulationControl::kDimension>& force, Isize element_index, Isize column, Isize index);
 
   template <typename ElementTrait>
   inline void calculateViewVariable(const ThermalModel<SimulationControl>& thermal_model,
@@ -273,6 +266,9 @@ struct View {
     error_finout.open((this->output_directory_ / "error.txt").string(), open_mode);
     error_finout.setf(std::ios::left, std::ios::adjustfield);
     error_finout.setf(std::ios::scientific, std::ios::floatfield);
+    if (std::filesystem::exists("force.dat")) {
+      std::filesystem::remove("force.dat");
+    }
   }
 
   inline void finalizeSolverFinout(std::fstream& error_finout) { error_finout.close(); }

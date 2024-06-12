@@ -8,10 +8,7 @@ The project is still in early development stage.
 
 - [x] 1D Euler equation
 - [x] 2D Euler equation(Roe scheme)
-- [x] Ascii Tecplot output(for 1 order solution)
 - [x] 2D Euler equation(Lax-Friedrichs scheme and HLLC scheme)
-- [x] Ascii Tecplot output(reconstruction for high-order solution)
-- [x] Ascii Tecplot output(for different physical groups)
 - [x] Riemann invariant for boundary condition
 - [x] Periodic boundary condition
 - [x] Ascii/Binary VTU output
@@ -19,10 +16,12 @@ The project is still in early development stage.
 - [x] Curved elements
 - [x] 2D Navier-Stokes equation(BR1/BR2 scheme)
 - [x] Auto RawBinary File initialization
-- [x] Parallel Post-processing Acceleration
+- [x] Parallel Post-processing acceleration
 - [x] Compress RawBinary output(use zlib and async io)
 - [ ] Cuda gemm acceleration(use cublas)
 - [x] Add SourceTerm (e.g. Gravity with Boussinesq approximation)
 - [x] 3D Euler/Navier-Stokes equation
+- [x] Change modal basis function to Legendre polynomial
+- [ ] Add Shock-Capturing(Artificial Viscosity)
 
   ...

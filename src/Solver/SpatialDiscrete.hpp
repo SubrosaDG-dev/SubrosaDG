@@ -820,12 +820,12 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
   for (Isize i = 0; i < this->number_; i++) {
     // NOTE: Here we split the calculation to trigger eigen's noalias to avoid intermediate variables.
     this->element_(i).variable_residual_.noalias() =
-        this->element_(i).variable_quadrature_ * element_mesh.basis_function_.gradient_value_;
+        this->element_(i).variable_quadrature_ * element_mesh.basis_function_.modal_gradient_value_;
     this->element_(i).variable_residual_.noalias() -=
-        this->element_(i).variable_adjacency_quadrature_ * element_mesh.basis_function_.adjacency_value_;
+        this->element_(i).variable_adjacency_quadrature_ * element_mesh.basis_function_.modal_adjacency_value_;
     if constexpr (SimulationControl::kSourceTerm != SourceTermEnum::None) {
       this->element_(i).variable_residual_.noalias() +=
-          this->element_(i).variable_source_quadrature_ * element_mesh.basis_function_.value_;
+          this->element_(i).variable_source_quadrature_ * element_mesh.basis_function_.modal_value_;
     }
   }
 }
@@ -845,20 +845,20 @@ ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>:
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).variable_gradient_volume_residual_.noalias() =
         this->element_(i).variable_gradient_volume_adjacency_quadrature_ *
-        element_mesh.basis_function_.adjacency_value_;
+        element_mesh.basis_function_.modal_adjacency_value_;
     this->element_(i).variable_gradient_volume_residual_.noalias() -=
-        this->element_(i).variable_gradient_volume_quadrature_ * element_mesh.basis_function_.gradient_value_;
+        this->element_(i).variable_gradient_volume_quadrature_ * element_mesh.basis_function_.modal_gradient_value_;
     if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
       this->element_(i).variable_gradient_interface_residual_.noalias() =
           this->element_(i).variable_gradient_interface_adjacency_quadrature_ *
-          element_mesh.basis_function_.adjacency_value_;
+          element_mesh.basis_function_.modal_adjacency_value_;
     } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
       for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
         this->element_(i).variable_gradient_interface_residual_(j).noalias() =
             this->element_(i).variable_gradient_interface_adjacency_quadrature_(
                 Eigen::all, Eigen::seq(kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j)],
                                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j) + 1] - 1)) *
-            element_mesh.basis_function_.adjacency_value_(
+            element_mesh.basis_function_.modal_adjacency_value_(
                 Eigen::seq(kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j)],
                            kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j) + 1] - 1),
                 Eigen::all);

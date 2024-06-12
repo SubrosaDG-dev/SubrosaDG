@@ -24,6 +24,8 @@ add_subdirectory(cylinder_2d_euler)
 
 add_subdirectory(gravity_2d_ns)
 
+add_subdirectory(instability_2d_euler)
+
 add_subdirectory(naca0012_2d_euler)
 
 add_subdirectory(naca0012_2d_ns)
@@ -31,6 +33,8 @@ add_subdirectory(naca0012_2d_ns)
 add_subdirectory(periodic_1d_euler)
 
 add_subdirectory(periodic_2d_euler)
+
+add_subdirectory(periodic_3d_euler)
 
 add_subdirectory(pipe_2d_ns)
 

@@ -136,7 +136,14 @@ enum class ComputationalVariableEnum {
   Pressure,
 };
 
-enum class PrimitiveVariableEnum { Density = 1, Velocity, VelocityX, VelocityY, VelocityZ, Temperature };
+enum class PrimitiveVariableEnum {
+  Density = 1,
+  Velocity,
+  VelocityX,
+  VelocityY,
+  VelocityZ,
+  Temperature,
+};
 
 enum class VariableGradientEnum {
   X = 1,
@@ -162,16 +169,6 @@ enum class ViewVariableEnum {
   VorticityX,
   VorticityY,
   VorticityZ,
-  Drag,
-  ForceXX,
-  ForceXY,
-  ForceXZ,
-  ForceYX,
-  ForceYY,
-  ForceYZ,
-  ForceZX,
-  ForceZY,
-  ForceZZ,
 };
 
 }  // namespace SubrosaDG

@@ -128,8 +128,7 @@ inline void ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum
     raw_binary_ss.read(reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
                        SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
                            static_cast<std::streamsize>(sizeof(Real)));
-    this->view_variable_(i).variable_.conserved_.noalias() =
-        variable_basis_function_coefficient * this->basis_function_value_;
+    this->view_variable_(i).variable_.conserved_.noalias() = variable_basis_function_coefficient * this->modal_value_;
     this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
   }
 }
@@ -151,11 +150,10 @@ ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStok
     raw_binary_ss.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                        SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
                            ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
-    this->view_variable_(i).variable_.conserved_.noalias() =
-        variable_basis_function_coefficient * this->basis_function_value_;
+    this->view_variable_(i).variable_.conserved_.noalias() = variable_basis_function_coefficient * this->modal_value_;
     this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
     this->view_variable_(i).variable_gradient_.conserved_.noalias() =
-        variable_gradient_basis_function_coefficient * this->basis_function_value_;
+        variable_gradient_basis_function_coefficient * this->modal_value_;
     this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(thermal_model,
                                                                                this->view_variable_(i).variable_);
   }

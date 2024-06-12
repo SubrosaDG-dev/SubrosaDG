@@ -1165,25 +1165,21 @@ using AdjacencyQuadrangleTrait = AdjacencyElementTrait<ElementEnum::Quadrangle, 
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, EquationModelEnum EquationModelType,
           SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
-          PolynomialOrderEnum InitialPolynomialOrder, ThermodynamicModelEnum ThermodynamicModelType,
-          EquationOfStateEnum EquationOfStateType, TimeIntegrationEnum TimeIntegrationType>
+          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TimeIntegrationEnum TimeIntegrationType>
 struct SolveControl {
   inline static constexpr int kDimension{magic_enum::enum_integer(Dimension)};
   inline static constexpr int kPolynomialOrder{magic_enum::enum_integer(PolynomialOrder)};
   inline static constexpr SourceTermEnum kSourceTerm{SourceTermType};
   inline static constexpr EquationModelEnum kEquationModel{EquationModelType};
   inline static constexpr InitialConditionEnum kInitialCondition{InitialConditionType};
-  inline static constexpr int kInitialPolynomialOrder{magic_enum::enum_integer(InitialPolynomialOrder)};
   inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
   inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
   inline static constexpr TimeIntegrationEnum kTimeIntegration{TimeIntegrationType};
 };
 
-template <EquationModelEnum EquationModelType>
-struct EquationVariable {};
-
 template <DimensionEnum Dimension, ConvectiveFluxEnum ConvectiveFluxType>
-struct EulerVariable : EquationVariable<EquationModelEnum::Euler> {
+struct EulerVariable {
   inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
   inline static constexpr int kConservedVariableNumber{
       getConservedVariableNumber<magic_enum::enum_integer(Dimension), EquationModelEnum::Euler>()};
@@ -1195,7 +1191,7 @@ struct EulerVariable : EquationVariable<EquationModelEnum::Euler> {
 
 template <DimensionEnum Dimension, TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType,
           ViscousFluxEnum ViscousFluxType>
-struct NavierStokesVariable : EquationVariable<EquationModelEnum::NavierStokes> {
+struct NavierStokesVariable {
   inline static constexpr TransportModelEnum kTransportModel{TransportModelType};
   inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
   inline static constexpr ViscousFluxEnum kViscousFlux{ViscousFluxType};
@@ -1209,7 +1205,7 @@ struct NavierStokesVariable : EquationVariable<EquationModelEnum::NavierStokes> 
 
 template <DimensionEnum Dimension, TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType,
           ViscousFluxEnum ViscousFluxType, TurbulenceModelEnum TurbulenceModelType>
-struct RANSVariable : EquationVariable<EquationModelEnum::RANS> {
+struct RANSVariable {
   inline static constexpr TransportModelEnum kTransportModel{TransportModelType};
   inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
   inline static constexpr ViscousFluxEnum kViscousFlux{ViscousFluxType};
@@ -1225,46 +1221,41 @@ struct RANSVariable : EquationVariable<EquationModelEnum::RANS> {
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
           EquationModelEnum EquationModelType, SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
-          PolynomialOrderEnum InitialPolynomialOrder, ThermodynamicModelEnum ThermodynamicModelType,
-          EquationOfStateEnum EquationOfStateType, TimeIntegrationEnum TimeIntegrationType>
+          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TimeIntegrationEnum TimeIntegrationType>
 struct SimulationControl
     : SolveControl<Dimension, PolynomialOrder, EquationModelType, SourceTermType, InitialConditionType,
-                   InitialPolynomialOrder, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType> {
+                   ThermodynamicModelType, EquationOfStateType, TimeIntegrationType> {
   inline static constexpr MeshModelEnum kMeshModel{MeshModelType};
 };
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
           SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
-          PolynomialOrderEnum InitialPolynomialOrder, ThermodynamicModelEnum ThermodynamicModelType,
-          EquationOfStateEnum EquationOfStateType, ConvectiveFluxEnum ConvectiveFluxType,
-          TimeIntegrationEnum TimeIntegrationType>
-struct SimulationControlEuler : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::Euler,
-                                                  SourceTermType, InitialConditionType, InitialPolynomialOrder,
-                                                  ThermodynamicModelType, EquationOfStateType, TimeIntegrationType>,
-                                EulerVariable<Dimension, ConvectiveFluxType> {};
+          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          ConvectiveFluxEnum ConvectiveFluxType, TimeIntegrationEnum TimeIntegrationType>
+struct SimulationControlEuler
+    : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::Euler, SourceTermType,
+                        InitialConditionType, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType>,
+      EulerVariable<Dimension, ConvectiveFluxType> {};
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
           SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
-          PolynomialOrderEnum InitialPolynomialOrder, ThermodynamicModelEnum ThermodynamicModelType,
-          EquationOfStateEnum EquationOfStateType, TransportModelEnum TransportModelType,
-          ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
+          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
           TimeIntegrationEnum TimeIntegrationType>
 struct SimulationControlNavierStokes
     : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::NavierStokes, SourceTermType,
-                        InitialConditionType, InitialPolynomialOrder, ThermodynamicModelType, EquationOfStateType,
-                        TimeIntegrationType>,
+                        InitialConditionType, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType>,
       NavierStokesVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType> {};
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
           SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
-          PolynomialOrderEnum InitialPolynomialOrder, ThermodynamicModelEnum ThermodynamicModelType,
-          EquationOfStateEnum EquationOfStateType, TransportModelEnum TransportModelType,
-          ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
+          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
           TurbulenceModelEnum TurbulenceModelType, TimeIntegrationEnum TimeIntegrationType>
 struct SimulationControlRANS
     : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::NavierStokes, SourceTermType,
-                        InitialConditionType, InitialPolynomialOrder, ThermodynamicModelType, EquationOfStateType,
-                        TimeIntegrationType>,
+                        InitialConditionType, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType>,
       RANSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType, TurbulenceModelType> {};
 
 }  // namespace SubrosaDG

@@ -15,9 +15,11 @@
 
 #include <Eigen/Core>
 #include <array>
+#include <fstream>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 
 #include "Mesh/ReadControl.hpp"
@@ -282,8 +284,8 @@ template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElementRelativeError(
     const ElementMesh<ElementTrait>& element_mesh,
     Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error) {
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> local_error =
-      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero();
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> local_error{
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero()};
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp declare reduction(+ : Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> : omp_out += \
                                   omp_in) initializer(omp_priv = decltype(omp_orig)::Zero())
@@ -292,14 +294,15 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     local_error.array() +=
-        ((this->element_(i).variable_residual_ * element_mesh.basis_function_.value_.transpose()).array() /
-         ((this->element_(i).variable_basis_function_coefficient_(1) * element_mesh.basis_function_.value_.transpose())
+        ((this->element_(i).variable_residual_ * element_mesh.basis_function_.modal_value_.transpose()).array() /
+         ((this->element_(i).variable_basis_function_coefficient_(1) *
+           element_mesh.basis_function_.modal_value_.transpose())
               .array()))
             .square()
             .rowwise()
             .mean();
   }
-  relative_error.array() += local_error.array();
+  relative_error += local_error;
 }
 
 template <typename SimulationControl>
@@ -325,7 +328,127 @@ inline void Solver<SimulationControl>::calculateRelativeError(const Mesh<Simulat
       this->hexahedron_.calculateElementRelativeError(mesh.hexahedron_, this->relative_error_);
     }
   }
-  this->relative_error_ = (this->relative_error_ / static_cast<Real>(mesh.element_number_)).array().sqrt();
+  this->relative_error_ = (this->relative_error_ / static_cast<Real>(mesh.element_number_)).array().sqrt().matrix();
+}
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::Euler>::
+    calculateBoundaryAdjacencyElementForce(const Mesh<SimulationControl>& mesh,
+                                           const ThermalModel<SimulationControl>& thermal_model,
+                                           const Solver<SimulationControl>& solver,
+                                           Eigen::Matrix<Real, SimulationControl::kDimension, 2>& force) {
+  const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
+      mesh.*(std::remove_reference<decltype(mesh)>::type::template getAdjacencyElement<AdjacencyElementTrait>());
+  AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl> left_quadrature_node_variable;
+  Eigen::Vector<Real, SimulationControl::kDimension> local_pressure_force{
+      Eigen::Vector<Real, SimulationControl::kDimension>::Zero()};
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp declare reduction(+ : Eigen::Vector<Real, SimulationControl::kDimension> : omp_out += omp_in) \
+    initializer(omp_priv = decltype(omp_orig)::Zero())
+#pragma omp parallel for reduction(+ : local_pressure_force) default(none) schedule(nonmonotonic : auto) \
+    shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, solver) private(left_quadrature_node_variable)
+#endif  // SUBROSA_DG_DEVELOP
+  for (Isize i = adjacency_element_mesh.interior_number_;
+       i < adjacency_element_mesh.boundary_number_ + adjacency_element_mesh.interior_number_; i++) {
+    if (!isWall(
+            mesh.information_.boundary_condition_type_.at(adjacency_element_mesh.element_(i).gmsh_physical_index_))) {
+      continue;
+    }
+    const Isize parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_(0);
+    const Isize adjacency_sequence_in_parent = adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_(0);
+    const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
+    left_quadrature_node_variable.get(mesh, solver, parent_gmsh_type_number, parent_index_each_type,
+                                      adjacency_sequence_in_parent);
+    left_quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
+    for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+      local_pressure_force += left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(j) *
+                              adjacency_element_mesh.element_(i).normal_vector_.col(j) *
+                              adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
+                              adjacency_element_mesh.quadrature_.weight_(j);
+    }
+  }
+  force.col(0) += local_pressure_force;
+}
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::
+    calculateBoundaryAdjacencyElementForce(const Mesh<SimulationControl>& mesh,
+                                           const ThermalModel<SimulationControl>& thermal_model,
+                                           const Solver<SimulationControl>& solver,
+                                           Eigen::Matrix<Real, SimulationControl::kDimension, 2>& force) {
+  const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
+      mesh.*(std::remove_reference<decltype(mesh)>::type::template getAdjacencyElement<AdjacencyElementTrait>());
+  AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl> left_quadrature_node_variable;
+  AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl> left_quadrature_node_variable_gradient;
+  Eigen::Vector<Real, SimulationControl::kDimension> local_pressure_force{
+      Eigen::Vector<Real, SimulationControl::kDimension>::Zero()};
+  Eigen::Vector<Real, SimulationControl::kDimension> local_viscous_force{
+      Eigen::Vector<Real, SimulationControl::kDimension>::Zero()};
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp declare reduction(+ : Eigen::Vector<Real, SimulationControl::kDimension> : omp_out += omp_in) \
+    initializer(omp_priv = decltype(omp_orig)::Zero())
+#pragma omp parallel for reduction(+ : local_pressure_force, local_viscous_force) default(none)                        \
+    schedule(nonmonotonic : auto) shared(Eigen::Dynamic, mesh, adjacency_element_mesh, thermal_model, solver) private( \
+            left_quadrature_node_variable, left_quadrature_node_variable_gradient)
+#endif  // SUBROSA_DG_DEVELOP
+  for (Isize i = adjacency_element_mesh.interior_number_;
+       i < adjacency_element_mesh.boundary_number_ + adjacency_element_mesh.interior_number_; i++) {
+    if (!isWall(
+            mesh.information_.boundary_condition_type_.at(adjacency_element_mesh.element_(i).gmsh_physical_index_))) {
+      continue;
+    }
+    const Isize parent_index_each_type = adjacency_element_mesh.element_(i).parent_index_each_type_(0);
+    const Isize adjacency_sequence_in_parent = adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_(0);
+    const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
+    left_quadrature_node_variable.get(mesh, solver, parent_gmsh_type_number, parent_index_each_type,
+                                      adjacency_sequence_in_parent);
+    left_quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
+    left_quadrature_node_variable_gradient.template get<SimulationControl::kViscousFlux>(
+        mesh, solver, parent_gmsh_type_number, parent_index_each_type, adjacency_sequence_in_parent);
+    left_quadrature_node_variable_gradient.calculatePrimitiveFromConserved(thermal_model,
+                                                                           left_quadrature_node_variable);
+    for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
+          left_quadrature_node_variable_gradient.template getMatrix<PrimitiveVariableEnum::Velocity>(j);
+      const Real tempurature = thermal_model.calculateTemperatureFromInternalEnergy(
+          left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(j));
+      const Real dynamic_viscosity = thermal_model.calculateDynamicViscosity(tempurature);
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
+          dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
+          2.0 / 3.0 * dynamic_viscosity * velocity_gradient.trace() *
+              Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
+      local_pressure_force += left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(j) *
+                              adjacency_element_mesh.element_(i).normal_vector_.col(j) *
+                              adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
+                              adjacency_element_mesh.quadrature_.weight_(j);
+      local_viscous_force += -viscous_stress * adjacency_element_mesh.element_(i).normal_vector_.col(j) *
+                             adjacency_element_mesh.element_(i).jacobian_determinant_(j) *
+                             adjacency_element_mesh.quadrature_.weight_(j);
+    }
+  }
+  force.col(0) += local_pressure_force;
+  force.col(1) += local_viscous_force;
+}
+
+template <typename SimulationControl>
+inline void Solver<SimulationControl>::calculateBoundaryAdjacencyForce(
+    const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model) {
+  Eigen::Matrix<Real, SimulationControl::kDimension, 2> force{
+      Eigen::Matrix<Real, SimulationControl::kDimension, 2>::Zero()};
+  if constexpr (SimulationControl::kDimension == 2) {
+    this->line_.calculateBoundaryAdjacencyElementForce(mesh, thermal_model, *this, force);
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.calculateBoundaryAdjacencyElementForce(mesh, thermal_model, *this, force);
+    }
+    if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.calculateBoundaryAdjacencyElementForce(mesh, thermal_model, *this, force);
+    }
+  }
+  std::fstream force_fout("force.dat", std::ios::out | std::ios::app);
+  force_fout.setf(std::ios::left, std::ios::adjustfield);
+  force_fout.setf(std::ios::scientific, std::ios::floatfield);
+  force_fout << force.reshaped().transpose() << std::endl;
 }
 
 template <typename SimulationControl>

@@ -186,6 +186,7 @@ struct System {
                                  this->time_integration_);
       }
       if (i % this->view_.io_interval_ == 0) {
+        // this->solver_.calculateBoundaryAdjacencyForce(this->mesh_, this->thermal_model_);
         this->solver_.write_raw_binary_future_.get();
         this->solver_.writeRawBinary(this->view_.output_directory_ /
                                      std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i));

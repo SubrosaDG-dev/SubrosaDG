@@ -18,7 +18,7 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
 
 using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
     SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
-    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::TransportModelEnum::Constant, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR1,
     SubrosaDG::TimeIntegrationEnum::SSPRK3>;
@@ -29,17 +29,22 @@ int main(int argc, char* argv[]) {
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / std::format("{}.msh", kExampleName), generateMesh);
   system.addInitialCondition(
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate) {
+      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
+          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
             1.4, 4.0 * 0.3 * coordinate.y() * (0.4 - coordinate.y()) / (0.4 * 0.4), 0.0, 1.0};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::VelocityInflow>(
-      "bc-1", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate) {
+      "bc-1",
+      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
+          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
             1.4, 4.0 * 0.3 * coordinate.y() * (0.4 - coordinate.y()) / (0.4 * 0.4), 0.0, 1.0};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>(
-      "bc-2", []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate) {
+      "bc-2",
+      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
+          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
             1.4, 4.0 * 0.3 * coordinate.y() * (0.4 - coordinate.y()) / (0.4 * 0.4), 0.0, 1.0};
       });

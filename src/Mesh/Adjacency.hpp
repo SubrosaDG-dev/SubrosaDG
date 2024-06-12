@@ -17,7 +17,6 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <iostream>

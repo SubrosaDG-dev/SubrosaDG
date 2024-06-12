@@ -20,10 +20,7 @@
 #include <memory>
 #include <sstream>
 #include <unordered_map>
-#include <vector>
 
-#include "Mesh/BasisFunction.hpp"
-#include "Mesh/Quadrature.hpp"
 #include "Mesh/ReadControl.hpp"
 #include "Solver/BoundaryCondition.hpp"
 #include "Solver/SimulationControl.hpp"
@@ -70,25 +67,13 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::SpecificFil
   template <typename ElementTrait>
   void getVariableBasisFunctionCoefficient(
       const ElementMesh<ElementTrait>& element_mesh,
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
-      Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1>& variable) {
+      Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
+                   Eigen::Dynamic, 1>& variable) {
     constexpr int kBasisFunctionNumber{
-        getElementBasisFunctionNumber<ElementTrait::kElementType, SimulationControl::kInitialPolynomialOrder>()};
-    Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, kBasisFunctionNumber>, Eigen::Dynamic,
-                 1>
-        variable_basis_function_coefficient(element_mesh.number_);
-    Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, kBasisFunctionNumber, Eigen::RowMajor> basis_function_value;
-    const auto& [local_coord, weights] = getElementQuadrature<ElementTrait>();
-    std::vector<double> basis_functions =
-        getElementBasisFunction<ElementTrait::kElementType, SimulationControl::kInitialPolynomialOrder>(local_coord);
-    for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
-      for (Isize j = 0; j < kBasisFunctionNumber; j++) {
-        basis_function_value(i, j) =
-            static_cast<Real>(basis_functions[static_cast<Usize>(i * kBasisFunctionNumber + j)]);
-      }
-    }
+        getElementBasisFunctionNumber<ElementTrait::kElementType, SimulationControl::kPolynomialOrder - 1>()};
+    Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, kBasisFunctionNumber> initial_variable;
     for (Isize i = 0; i < element_mesh.number_; i++) {
-      this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
+      this->raw_binary_ss_.read(reinterpret_cast<char*>(initial_variable.data()),
                                 SimulationControl::kConservedVariableNumber * kBasisFunctionNumber *
                                     static_cast<std::streamsize>(sizeof(Real)));
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
@@ -99,14 +84,8 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::SpecificFil
                                   SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
                                       kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
       }
-    }
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                    \
-    shared(Eigen::Dynamic, element_mesh, variable, variable_basis_function_coefficient) \
-    firstprivate(basis_function_value)
-#endif  // SUBROSA_DG_DEVELOP
-    for (Isize i = 0; i < element_mesh.number_; i++) {
-      variable(i).conserved_ = variable_basis_function_coefficient(i) * basis_function_value.transpose();
+      variable(i).setZero();
+      variable(i)(Eigen::all, Eigen::seqN(Eigen::fix<0>, Eigen::fix<kBasisFunctionNumber>)) = initial_variable;
     }
   }
 };
@@ -119,13 +98,10 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::LastStep> {
   template <typename ElementTrait>
   void getVariableBasisFunctionCoefficient(
       const ElementMesh<ElementTrait>& element_mesh,
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
-      Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1>& variable) {
-    Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
-                 Eigen::Dynamic, 1>
-        variable_basis_function_coefficient(element_mesh.number_);
+      Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
+                   Eigen::Dynamic, 1>& variable) {
     for (Isize i = 0; i < element_mesh.number_; i++) {
-      this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
+      this->raw_binary_ss_.read(reinterpret_cast<char*>(variable(i).data()),
                                 SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
                                     static_cast<std::streamsize>(sizeof(Real)));
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
@@ -136,13 +112,6 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::LastStep> {
                                   SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
                                       ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
       }
-    }
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, element_mesh, variable, variable_basis_function_coefficient)
-#endif  // SUBROSA_DG_DEVELOP
-    for (Isize i = 0; i < element_mesh.number_; i++) {
-      variable(i).conserved_ = variable_basis_function_coefficient(i) * element_mesh.basis_function_.value_.transpose();
     }
   }
 };
@@ -156,18 +125,33 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElemen
     InitialCondition<SimulationControl>& initial_condition) {
   this->number_ = element_mesh.number_;
   this->element_.resize(this->number_);
-  Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> variable(this->number_);
-  initial_condition.getVariableBasisFunctionCoefficient(element_mesh, thermal_model, variable);
-  Eigen::LLT<Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>>
-      basis_function_value_llt(element_mesh.basis_function_.value_.transpose() * element_mesh.basis_function_.value_);
+  if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::Function) {
+    Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> variable(this->number_);
+    initial_condition.getVariableBasisFunctionCoefficient(element_mesh, thermal_model, variable);
+    Eigen::LLT<Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>>
+        basis_function_value_llt(element_mesh.basis_function_.modal_value_.transpose() *
+                                 element_mesh.basis_function_.modal_value_);
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh, variable) \
     firstprivate(basis_function_value_llt)
 #endif  // SUBROSA_DG_DEVELOP
-  for (Isize i = 0; i < this->number_; i++) {
-    this->element_(i).variable_basis_function_coefficient_(1).noalias() =
-        basis_function_value_llt.solve((variable(i).conserved_ * element_mesh.basis_function_.value_).transpose())
-            .transpose();
+    for (Isize i = 0; i < this->number_; i++) {
+      this->element_(i).variable_basis_function_coefficient_(1).noalias() =
+          basis_function_value_llt
+              .solve((variable(i).conserved_ * element_mesh.basis_function_.modal_value_).transpose())
+              .transpose();
+    }
+  } else {
+    Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
+                 Eigen::Dynamic, 1>
+        variable(this->number_);
+    initial_condition.getVariableBasisFunctionCoefficient(element_mesh, variable);
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh, variable)
+#endif  // SUBROSA_DG_DEVELOP
+    for (Isize i = 0; i < this->number_; i++) {
+      this->element_(i).variable_basis_function_coefficient_ = variable(i);
+    }
   }
 }
 
