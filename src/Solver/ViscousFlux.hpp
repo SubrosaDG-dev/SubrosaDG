@@ -82,6 +82,16 @@ inline void calculateViscousRawFlux(const ThermalModel<SimulationControl>& therm
 }
 
 template <typename SimulationControl>
+inline void calculateArtificialViscousRawFlux(const Real artificial_viscosity,
+                                              const VariableGradient<SimulationControl>& variable_volumn_gradient,
+                                              FluxVariable<SimulationControl>& artificial_viscous_raw_flux,
+                                              const Isize column) {
+  artificial_viscous_raw_flux.variable_.noalias() =
+      artificial_viscosity * variable_volumn_gradient.conserved_.col(column).reshaped(
+                                 SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
+}
+
+template <typename SimulationControl>
 inline void calculateViscousNormalFlux(const ThermalModel<SimulationControl>& thermal_model,
                                        const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                        const Variable<SimulationControl>& variable,
@@ -90,6 +100,18 @@ inline void calculateViscousNormalFlux(const ThermalModel<SimulationControl>& th
   FluxVariable<SimulationControl> viscous_raw_flux;
   calculateViscousRawFlux(thermal_model, variable, variable_gradient, viscous_raw_flux, column);
   viscous_normal_flux.normal_variable_.noalias() = viscous_raw_flux.variable_.transpose() * normal_vector;
+}
+
+template <typename SimulationControl>
+inline void calculateArtificialViscousNormalFlux(
+    const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Real artificial_viscosity,
+    const VariableGradient<SimulationControl>& variable_volumn_gradient,
+    FluxNormalVariable<SimulationControl>& artificial_viscous_normal_flux, const Isize column) {
+  FluxVariable<SimulationControl> artificial_viscous_raw_flux;
+  calculateArtificialViscousRawFlux(artificial_viscosity, variable_volumn_gradient, artificial_viscous_raw_flux,
+                                    column);
+  artificial_viscous_normal_flux.normal_variable_.noalias() =
+      artificial_viscous_raw_flux.variable_.transpose() * normal_vector;
 }
 
 template <typename SimulationControl>
@@ -107,6 +129,23 @@ inline void calculateViscousFlux(const ThermalModel<SimulationControl>& thermal_
                              right_quadrature_node_variable_gradient, viscous_flux.right_, right_column);
   viscous_flux.result_.normal_variable_.noalias() =
       (viscous_flux.left_.normal_variable_ + viscous_flux.right_.normal_variable_) / 2.0;
+}
+
+template <typename SimulationControl>
+inline void calculateArtificialViscousFlux(
+    const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Real left_artificial_viscosity,
+    const VariableGradient<SimulationControl>& left_quadrature_node_variable_volumn_gradient,
+    const Real right_artificial_viscosity,
+    const VariableGradient<SimulationControl>& right_quadrature_node_variable_volumn_gradient,
+    Flux<SimulationControl>& artificial_viscous_flux, const Isize left_column, const Isize right_column) {
+  calculateArtificialViscousNormalFlux(normal_vector, left_artificial_viscosity,
+                                       left_quadrature_node_variable_volumn_gradient, artificial_viscous_flux.left_,
+                                       left_column);
+  calculateArtificialViscousNormalFlux(normal_vector, right_artificial_viscosity,
+                                       right_quadrature_node_variable_volumn_gradient, artificial_viscous_flux.right_,
+                                       right_column);
+  artificial_viscous_flux.result_.normal_variable_.noalias() =
+      (artificial_viscous_flux.left_.normal_variable_ + artificial_viscous_flux.right_.normal_variable_) / 2.0;
 }
 
 }  // namespace SubrosaDG

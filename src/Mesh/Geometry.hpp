@@ -96,18 +96,18 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, information, point)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    const std::vector<PerAdjacencyElementInformation>& sub_index_and_type =
+    const std::vector<ElementBasicInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
     Real adjacency_size = 0.0;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
-      adjacency_size += (point.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
-                         point.quadrature_.weight_)
-                            .sum() *
-                        getElementMeasure<ElementEnum::Point>();
+      adjacency_size = std::max(
+          adjacency_size, (point.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
+                           point.quadrature_.weight_)
+                                  .sum() *
+                              getElementMeasure<ElementEnum::Point>());
     }
     this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_).sum() *
-                              getElementMeasure<ElementTrait::kElementType>() /
-                              (adjacency_size * (2.0 * static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
+                              getElementMeasure<ElementTrait::kElementType>() / adjacency_size;
   }
 }
 
@@ -119,18 +119,18 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, information, line)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    const std::vector<PerAdjacencyElementInformation>& sub_index_and_type =
+    const std::vector<ElementBasicInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
     Real adjacency_size = 0.0;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
-      adjacency_size += (line.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
-                         line.quadrature_.weight_)
-                            .sum() *
-                        getElementMeasure<ElementEnum::Line>();
+      adjacency_size = std::max(adjacency_size,
+                                (line.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
+                                 line.quadrature_.weight_)
+                                        .sum() *
+                                    getElementMeasure<ElementEnum::Line>());
     }
     this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_).sum() *
-                              getElementMeasure<ElementTrait::kElementType>() /
-                              (adjacency_size * (2.0 * static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
+                              getElementMeasure<ElementTrait::kElementType>() / adjacency_size;
   }
 }
 
@@ -144,26 +144,28 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
     shared(Eigen::Dynamic, information, triangle, quadrangle)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    const std::vector<PerAdjacencyElementInformation>& sub_index_and_type =
+    const std::vector<ElementBasicInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
     Real adjacency_size = 0.0;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
       if (sub_index_and_type[j].gmsh_type_number_ == TriangleTrait<ElementTrait::kPolynomialOrder>::kGmshTypeNumber) {
-        adjacency_size += (triangle.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
-                           triangle.quadrature_.weight_)
-                              .sum() *
-                          getElementMeasure<ElementEnum::Triangle>();
+        adjacency_size = std::max(
+            adjacency_size, (triangle.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
+                             triangle.quadrature_.weight_)
+                                    .sum() *
+                                getElementMeasure<ElementEnum::Triangle>());
       } else if (sub_index_and_type[j].gmsh_type_number_ ==
                  QuadrangleTrait<ElementTrait::kPolynomialOrder>::kGmshTypeNumber) {
-        adjacency_size += (quadrangle.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
-                           quadrangle.quadrature_.weight_)
-                              .sum() *
-                          getElementMeasure<ElementEnum::Quadrangle>();
+        adjacency_size =
+            std::max(adjacency_size,
+                     (quadrangle.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
+                      quadrangle.quadrature_.weight_)
+                             .sum() *
+                         getElementMeasure<ElementEnum::Quadrangle>());
       }
     }
     this->element_(i).size_ = (this->element_(i).jacobian_determinant_.transpose() * this->quadrature_.weight_).sum() *
-                              getElementMeasure<ElementTrait::kElementType>() /
-                              (adjacency_size * (2.0 * static_cast<Real>(ElementTrait::kPolynomialOrder) + 1.0));
+                              getElementMeasure<ElementTrait::kElementType>() / adjacency_size;
   }
 }
 

@@ -132,6 +132,16 @@ struct CommandLine {
     this->is_open_ = open_command_line;
     if (this->is_open_) {
       std::stringstream information;
+      information << " \
+      @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \
+      @   ____        _                         ____   ____  @ \
+      @  / ___| _   _| |__  _ __ ___  ___  __ _|  _ \ / ___| @ \
+      @  \___ \| | | | '_ \| '__/ _ \/ __|/ _` | | | | |  _  @ \
+      @   ___) | |_| | |_) | | | (_) \__ \ (_| | |_| | |_| | @ \
+      @  |____/ \__,_|_.__/|_|  \___/|___/\__,_|____/ \____| @ \
+      @                                                      @ \
+      @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ "
+                  << '\n';
       information << "SubrosaDG Info:" << '\n';
       information << std::format("Version: {}", kSubrosaDGVersionString) << '\n';
       information << std::format("Build type: {}", kSubrosaDGBuildType) << '\n';

@@ -74,7 +74,8 @@ inline std::vector<double> getElementModalBasisFunction(const bool gradient, con
 }
 
 template <typename ElementTrait, typename AdjacencyElementTrait>
-inline std::vector<double> getElementPerAdjacencyModalBasisFunction(
+inline std::vector<double> getElementPerAdjacencyBasisFunction(
+    const BasisFunctionEnum basis_function_type,
     const Eigen::Matrix<Real, ElementTrait::kDimension, AdjacencyElementTrait::kBasicNodeNumber>&
         adjacency_basic_node_coordinate) {
   const auto& [local_coord, weights] = getElementQuadrature<AdjacencyElementTrait>();
@@ -96,9 +97,17 @@ inline std::vector<double> getElementPerAdjacencyModalBasisFunction(
       adjacency_basic_node_coordinate * basis_function_value.transpose();
   Eigen::Matrix<double, 3, AdjacencyElementTrait::kQuadratureNumber> adjacency_local_coord_double =
       adjacency_local_coord.template cast<double>();
-  return getElementModalBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(
-      false,
-      {adjacency_local_coord_double.data(), adjacency_local_coord_double.data() + adjacency_local_coord_double.size()});
+  if (basis_function_type == BasisFunctionEnum::Nodal) {
+    return getElementNodalBasisFunction<ElementTrait::kElementType, 1>(
+        false, {adjacency_local_coord_double.data(),
+                adjacency_local_coord_double.data() + adjacency_local_coord_double.size()});
+  }
+  if (basis_function_type == BasisFunctionEnum::Modal) {
+    return getElementModalBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(
+        false, {adjacency_local_coord_double.data(),
+                adjacency_local_coord_double.data() + adjacency_local_coord_double.size()});
+  }
+  return {};
 }
 
 template <typename AdjacencyElementTrait>
@@ -126,6 +135,9 @@ struct AdjacencyElementBasisFunction {
 
 template <typename ElementTrait>
 struct ElementBasisFunction {
+  Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, ElementTrait::kBasicNodeNumber, Eigen::RowMajor> nodal_value_;
+  Eigen::Matrix<Real, ElementTrait::kAllAdjacencyQuadratureNumber, ElementTrait::kBasicNodeNumber, Eigen::RowMajor>
+      nodal_adjacency_value_;
   Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, ElementTrait::kBasisFunctionNumber, Eigen::RowMajor>
       modal_value_;
   Eigen::Matrix<Real, ElementTrait::kQuadratureNumber * ElementTrait::kDimension, ElementTrait::kBasisFunctionNumber>
@@ -153,14 +165,24 @@ struct ElementBasisFunction {
         adjacency_basic_node_coordinate.col(j) =
             basic_node_coordinate.col(kElementAdjacencyNodeIndex[static_cast<Usize>(node_column + j)]);
       }
-      const std::vector<double> adjacency_basis_functions{getElementPerAdjacencyModalBasisFunction<
+      const std::vector<double> nodal_adjacency_basis_functions{getElementPerAdjacencyBasisFunction<
           ElementTrait,
           AdjacencyElementTrait<kAdjacencyElementType[static_cast<Usize>(I)], ElementTrait::kPolynomialOrder>>(
-          adjacency_basic_node_coordinate)};
+          BasisFunctionEnum::Nodal, adjacency_basic_node_coordinate)};
+      for (Isize j = 0; j < kElementPerAdjacencyQuadratureNumber[static_cast<Usize>(I)]; j++) {
+        for (Isize k = 0; k < ElementTrait::kBasicNodeNumber; k++) {
+          this->nodal_adjacency_value_(quadrature_column + j, k) = static_cast<Real>(
+              nodal_adjacency_basis_functions[static_cast<Usize>(j * ElementTrait::kBasicNodeNumber + k)]);
+        }
+      }
+      const std::vector<double> modal_adjacency_basis_functions{getElementPerAdjacencyBasisFunction<
+          ElementTrait,
+          AdjacencyElementTrait<kAdjacencyElementType[static_cast<Usize>(I)], ElementTrait::kPolynomialOrder>>(
+          BasisFunctionEnum::Modal, adjacency_basic_node_coordinate)};
       for (Isize j = 0; j < kElementPerAdjacencyQuadratureNumber[static_cast<Usize>(I)]; j++) {
         for (Isize k = 0; k < ElementTrait::kBasisFunctionNumber; k++) {
           this->modal_adjacency_value_(quadrature_column + j, k) = static_cast<Real>(
-              adjacency_basis_functions[static_cast<Usize>(j * ElementTrait::kBasisFunctionNumber + k)]);
+              modal_adjacency_basis_functions[static_cast<Usize>(j * ElementTrait::kBasisFunctionNumber + k)]);
         }
       }
       this->template getElementAdjacencyBasisFunction<I + 1>(
@@ -173,21 +195,29 @@ struct ElementBasisFunction {
 
   inline ElementBasisFunction() {
     const auto& [local_coord, weights] = getElementQuadrature<ElementTrait>();
-    std::vector<double> basis_functions{
+    std::vector<double> nodal_basis_functions{
+        getElementNodalBasisFunction<ElementTrait::kElementType, 1>(false, local_coord)};
+    for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
+      for (Isize j = 0; j < ElementTrait::kBasicNodeNumber; j++) {
+        this->nodal_value_(i, j) =
+            static_cast<Real>(nodal_basis_functions[static_cast<Usize>(i * ElementTrait::kBasicNodeNumber + j)]);
+      }
+    }
+    std::vector<double> modal_basis_functions{
         getElementModalBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(false, local_coord)};
     for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kBasisFunctionNumber; j++) {
         this->modal_value_(i, j) =
-            static_cast<Real>(basis_functions[static_cast<Usize>(i * ElementTrait::kBasisFunctionNumber + j)]);
+            static_cast<Real>(modal_basis_functions[static_cast<Usize>(i * ElementTrait::kBasisFunctionNumber + j)]);
       }
     }
-    std::vector<double> gradient_basis_functions{
+    std::vector<double> modal_gradient_basis_functions{
         getElementModalBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(true, local_coord)};
     for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kBasisFunctionNumber; j++) {
         for (Isize k = 0; k < ElementTrait::kDimension; k++) {
           this->modal_gradient_value_(i * ElementTrait::kDimension + k, j) = static_cast<Real>(
-              gradient_basis_functions[static_cast<Usize>((i * ElementTrait::kBasisFunctionNumber + j) * 3 + k)]);
+              modal_gradient_basis_functions[static_cast<Usize>((i * ElementTrait::kBasisFunctionNumber + j) * 3 + k)]);
         }
       }
     }

@@ -29,6 +29,7 @@
 #include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
+#include "Utils/Constant.hpp"
 #include "Utils/Enum.hpp"
 
 namespace SubrosaDG {
@@ -74,15 +75,14 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::SpecificFil
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, kBasisFunctionNumber> initial_variable;
     for (Isize i = 0; i < element_mesh.number_; i++) {
       this->raw_binary_ss_.read(reinterpret_cast<char*>(initial_variable.data()),
-                                SimulationControl::kConservedVariableNumber * kBasisFunctionNumber *
-                                    static_cast<std::streamsize>(sizeof(Real)));
+                                SimulationControl::kConservedVariableNumber * kBasisFunctionNumber * kRealSize);
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
         Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                       kBasisFunctionNumber>
             variable_gradient_basis_function_coefficient;
         this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                                   SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                                      kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
+                                      kBasisFunctionNumber * kRealSize);
       }
       variable(i).setZero();
       variable(i)(Eigen::all, Eigen::seqN(Eigen::fix<0>, Eigen::fix<kBasisFunctionNumber>)) = initial_variable;
@@ -101,16 +101,16 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::LastStep> {
       Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
                    Eigen::Dynamic, 1>& variable) {
     for (Isize i = 0; i < element_mesh.number_; i++) {
-      this->raw_binary_ss_.read(reinterpret_cast<char*>(variable(i).data()),
-                                SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber *
-                                    static_cast<std::streamsize>(sizeof(Real)));
+      this->raw_binary_ss_.read(
+          reinterpret_cast<char*>(variable(i).data()),
+          SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber * kRealSize);
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
         Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                       ElementTrait::kBasisFunctionNumber>
             variable_gradient_basis_function_coefficient;
         this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                                   SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                                      ElementTrait::kBasisFunctionNumber * static_cast<std::streamsize>(sizeof(Real)));
+                                      ElementTrait::kBasisFunctionNumber * kRealSize);
       }
     }
   }
@@ -160,8 +160,9 @@ inline void AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl>
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
     const ThermalModel<SimulationControl>& thermal_model,
     const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition) {
-  this->number_ = adjacency_element_mesh.boundary_number_;
-  this->boundary_dummy_variable_.resize(this->number_);
+  this->interior_number_ = adjacency_element_mesh.interior_number_;
+  this->boundary_number_ = adjacency_element_mesh.boundary_number_;
+  this->boundary_dummy_variable_.resize(this->boundary_number_);
   for (Isize i = 0; i < adjacency_element_mesh.boundary_number_; i++) {
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
       this->boundary_dummy_variable_(i).primitive_.col(j) =
@@ -180,6 +181,12 @@ inline void Solver<SimulationControl>::initializeSolver(
     const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
     const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
     InitialCondition<SimulationControl>& initial_condition) {
+  this->node_artificial_viscosity_.resize(mesh.node_number_);
+  if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::Function) {
+    this->raw_binary_ss.read(reinterpret_cast<char*>(this->node_artificial_viscosity.data()),
+                             mesh.node_number_ * kRealSize);
+  }
+  this->node_artificial_viscosity_.setZero();
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.initializeElementSolver(mesh.line_, thermal_model, initial_condition);
     this->point_.initializeAdjacencyElementSolver(mesh.point_, thermal_model, boundary_condition);

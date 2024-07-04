@@ -17,7 +17,7 @@ inline const std::string kExampleName{"instability_2d_euler"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControlEuler<
-    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
+    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P5, SubrosaDG::MeshModelEnum::Quadrangle,
     SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3>;
@@ -39,10 +39,11 @@ int main(int argc, char* argv[]) {
         1.4 * 2.5 / (coordinate.y() >= 0.25 && coordinate.y() <= 0.75 ? 2.0 : 1.0)};
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
-  system.setTimeIntegration(1.0);
+  system.setArtificialViscosity(5.0, 0.05);
+  system.setTimeIntegration(0.1);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-                          SubrosaDG::ViewVariableEnum::Pressure});
+                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::ArtificialViscosity});
   system.synchronize();
   system.solve();
   system.view();

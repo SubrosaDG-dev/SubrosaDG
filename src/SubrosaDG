@@ -63,6 +63,10 @@
 #include "View/Paraview.hpp"
 #include "View/RawBinary.hpp"
 
+#ifdef SUBROSA_DG_CUDA
+#include "Utils/CudaGemm.cuh"
+#endif
+
 // IWYU pragma: end_exports
 
 // clang-format on

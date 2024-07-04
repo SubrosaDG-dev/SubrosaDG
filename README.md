@@ -18,10 +18,10 @@ The project is still in early development stage.
 - [x] Auto RawBinary File initialization
 - [x] Parallel Post-processing acceleration
 - [x] Compress RawBinary output(use zlib and async io)
-- [ ] Cuda gemm acceleration(use cublas)
+- [ ] Cuda gemm acceleration(use cutlass)
 - [x] Add SourceTerm (e.g. Gravity with Boussinesq approximation)
 - [x] 3D Euler/Navier-Stokes equation
 - [x] Change modal basis function to Legendre polynomial
-- [ ] Add Shock-Capturing(Artificial Viscosity)
+- [x] Add Shock-Capturing(Artificial Viscosity)
 
   ...

@@ -10,7 +10,9 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-set(CLANG_FORMAT_SOURCE_FILES ${SUBROSA_DG_SOURCES} ${SUBROSA_DG_EXAMPLES} ${SUBROSA_DG_TESTS})
+set(CLANG_FORMAT_SOURCE_FILES ${SUBROSA_DG_CXX_HEADERS} ${SUBROSA_DG_CUDA_HEADERS}
+    ${SUBROSA_DG_CUDA_SOURCES} ${SUBROSA_DG_EXAMPLES} ${SUBROSA_DG_TESTS}
+)
 
 add_custom_target(clang-format
     COMMENT "Running clang-format to format file"

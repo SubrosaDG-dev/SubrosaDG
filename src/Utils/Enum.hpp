@@ -59,6 +59,11 @@ enum class EquationModelEnum {
   RANS,
 };
 
+enum class BasisFunctionEnum {
+  Nodal = 1,
+  Modal,
+};
+
 enum class SourceTermEnum {
   None = 1,
   Gravity,
@@ -88,7 +93,8 @@ enum class ConvectiveFluxEnum {
 };
 
 enum class ViscousFluxEnum {
-  BR1 = 1,
+  None = 1,
+  BR1,
   BR2,
 };
 
@@ -160,6 +166,7 @@ enum class ViewVariableEnum {
   MachNumber,
   Entropy,
   Vorticity,
+  ArtificialViscosity,
   VelocityX,
   VelocityY,
   VelocityZ,

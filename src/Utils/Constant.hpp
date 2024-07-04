@@ -13,6 +13,7 @@
 #ifndef SUBROSA_DG_CONSTANT_HPP_
 #define SUBROSA_DG_CONSTANT_HPP_
 
+#include <iosfwd>
 #include <limits>
 #include <numbers>
 
@@ -23,6 +24,8 @@ namespace SubrosaDG {
 inline constexpr Real kPi = std::numbers::pi_v<Real>;
 inline consteval Real toRadian(Real degree) { return degree * kPi / 180.0; }
 inline constexpr Real kEuler = std::numbers::e_v<Real>;
+
+inline constexpr std::streamsize kRealSize = sizeof(Real);
 
 inline constexpr Real kRealMin = std::numeric_limits<Real>::min();
 inline constexpr Real kRealMax = std::numeric_limits<Real>::max();

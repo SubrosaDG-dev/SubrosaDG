@@ -21,6 +21,7 @@
 #include <magic_enum.hpp>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "Mesh/ReadControl.hpp"

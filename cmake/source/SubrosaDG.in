@@ -32,7 +32,10 @@
 
 // IWYU pragma: begin_exports
 
-@SUBROSA_DG_SOURCES_RELATIVE_INCLUDE@
+@SUBROSA_DG_CXX_HEADERS_RELATIVE_INCLUDE@
+#ifdef SUBROSA_DG_CUDA
+@SUBROSA_DG_CUDA_HEADERS_RELATIVE_INCLUDE@#endif
+
 // IWYU pragma: end_exports
 
 // clang-format on

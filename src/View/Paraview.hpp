@@ -43,6 +43,7 @@ template <typename SimulationControl>
 inline void View<SimulationControl>::getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information) {
   data_set_information.emplace_back("TMSTEP", vtu11::DataSetType::FieldData, 1, 1);
   data_set_information.emplace_back("TimeValue", vtu11::DataSetType::FieldData, 1, 1);
+  data_set_information.emplace_back("Force", vtu11::DataSetType::FieldData, 3, 1);
   for (const auto variable : this->variable_type_) {
     if ((SimulationControl::kDimension >= 2) &&
         (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
@@ -92,75 +93,50 @@ inline void View<SimulationControl>::calculateViewVariable(
 }
 
 template <typename SimulationControl>
+template <typename AdjacencyElementTrait, typename ElementTrait>
+inline void View<SimulationControl>::calculateAdjacencyForce(
+    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+    const ThermalModel<SimulationControl>& thermal_model,
+    const ViewVariable<ElementTrait, SimulationControl>& view_variable,
+    Eigen::Vector<Real, SimulationControl::kDimension>& force, const Isize element_index, const Isize column) {
+  force += view_variable.getForce(thermal_model,
+                                  adjacency_element_mesh.element_(element_index).normal_vector_.col(column), column) *
+           adjacency_element_mesh.quadrature_.weight_(column) *
+           adjacency_element_mesh.element_(element_index).jacobian_determinant_(column);
+}
+
+template <typename SimulationControl>
 template <typename AdjacencyElementTrait>
 inline void View<SimulationControl>::writeAdjacencyElement(
     const Isize physical_index, const MeshInformation& mesh_information,
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
     const ThermalModel<SimulationControl>& thermal_model, const ViewData<SimulationControl>& view_data,
     const Isize element_index, ViewSupplemental<SimulationControl>& view_supplemental) {
+  const AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, SimulationControl::kEquationModel>&
+      adjacency_element_view_solver =
+          view_data.solver_.*(decltype(view_data.solver_)::template getAdjacencyElement<AdjacencyElementTrait>());
   constexpr std::array<int, AdjacencyElementTrait::kVtkElementNumber> kVtkTypeNumber{
       getElementVtkTypeNumber<AdjacencyElementTrait::kElementType>()};
   constexpr std::array<int, AdjacencyElementTrait::kVtkElementNumber> kVtkPerNodeNumber{
       getElementVtkPerNodeNumber<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()};
   constexpr std::array<int, AdjacencyElementTrait::kAllNodeNumber> kVtkConnectivity{
       getElementVTKConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()};
-  const Isize element_gmsh_tag =
+  const Isize adjacency_element_gmsh_tag =
       mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
-  const Isize element_index_per_type =
-      mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
-  const Isize parent_index_each_type =
-      adjacency_element_mesh.element_(element_index_per_type).parent_index_each_type_(0);
-  const Isize adjacency_sequence_in_parent =
-      adjacency_element_mesh.element_(element_index_per_type).adjacency_sequence_in_parent_(0);
-  const Isize parent_gmsh_type_number =
-      adjacency_element_mesh.element_(element_index_per_type).parent_gmsh_type_number_(0);
-  const std::array<
-      int, getElementBasisFunctionNumber<AdjacencyElementTrait::kElementType, SimulationControl::kPolynomialOrder>()>
-      adjacency_element_basis_function_sequence{
-          getAdjacencyElementBasisFunctionSequence<AdjacencyElementTrait::kElementType,
-                                                   SimulationControl::kPolynomialOrder>(
-              static_cast<int>(parent_gmsh_type_number), static_cast<int>(adjacency_sequence_in_parent))};
+  const Isize adjacency_element_index_per_type =
+      mesh_information.gmsh_tag_to_element_information_.at(adjacency_element_gmsh_tag).element_index_;
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
-        adjacency_element_mesh.element_(element_index_per_type).node_coordinate_(Eigen::all, i);
-    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-      if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(thermal_model, view_data.solver_.triangle_.view_variable_(parent_index_each_type),
-                                    view_supplemental.node_variable_,
-                                    adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
-                                    view_supplemental.node_index_ + i);
-      } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(thermal_model, view_data.solver_.quadrangle_.view_variable_(parent_index_each_type),
-                                    view_supplemental.node_variable_,
-                                    adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
-                                    view_supplemental.node_index_ + i);
-      }
-    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
-      if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(
-            thermal_model, view_data.solver_.tetrahedron_.view_variable_(parent_index_each_type),
-            view_supplemental.node_variable_, adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
-            view_supplemental.node_index_ + i);
-      } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(thermal_model, view_data.solver_.pyramid_.view_variable_(parent_index_each_type),
-                                    view_supplemental.node_variable_,
-                                    adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
-                                    view_supplemental.node_index_ + i);
-      }
-    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
-      if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(thermal_model, view_data.solver_.pyramid_.view_variable_(parent_index_each_type),
-                                    view_supplemental.node_variable_,
-                                    adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
-                                    view_supplemental.node_index_ + i);
-      } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-        this->calculateViewVariable(thermal_model, view_data.solver_.hexahedron_.view_variable_(parent_index_each_type),
-                                    view_supplemental.node_variable_,
-                                    adjacency_element_basis_function_sequence[static_cast<Usize>(i)],
-                                    view_supplemental.node_index_ + i);
-      }
-    }
+        adjacency_element_mesh.element_(adjacency_element_index_per_type).node_coordinate_(Eigen::all, i);
+    this->calculateViewVariable(thermal_model,
+                                adjacency_element_view_solver.view_variable_(adjacency_element_index_per_type -
+                                                                             adjacency_element_mesh.interior_number_),
+                                view_supplemental.node_variable_, i, view_supplemental.node_index_ + i);
+    this->calculateAdjacencyForce(adjacency_element_mesh, thermal_model,
+                                  adjacency_element_view_solver.view_variable_(adjacency_element_index_per_type -
+                                                                               adjacency_element_mesh.interior_number_),
+                                  view_supplemental.force_, adjacency_element_index_per_type, i);
   }
   for (Isize i = 0; i < AdjacencyElementTrait::kVtkAllNodeNumber; i++) {
     view_supplemental.element_connectivity_(view_supplemental.vtk_node_index_ + i) =
@@ -273,11 +249,8 @@ inline void View<SimulationControl>::writeView(const int step, const Isize physi
                                                const ThermalModel<SimulationControl>& thermal_model,
                                                const ViewData<SimulationControl>& view_data,
                                                const std::string& base_name) {
-  std::vector<vtu11::DataSetInfo> data_set_information;
-  std::vector<vtu11::DataSetData> data_set_data;
-  this->getDataSetInfomatoin(data_set_information);
-  data_set_data.resize(this->variable_type_.size() + 2);
   ViewSupplemental<SimulationControl> view_supplemental(physical_index, mesh, this->variable_type_);
+  this->getDataSetInfomatoin(view_supplemental.data_set_information_);
   this->writeField<Dimension, IsAdjacency>(physical_index, mesh, thermal_model, view_data, view_supplemental);
   vtu11::Vtu11UnstructuredMesh mesh_data{
       {view_supplemental.node_coordinate_.data(),
@@ -288,15 +261,20 @@ inline void View<SimulationControl>::writeView(const int step, const Isize physi
        view_supplemental.element_offset_.data() + view_supplemental.element_offset_.size()},
       {view_supplemental.element_type_.data(),
        view_supplemental.element_type_.data() + view_supplemental.element_type_.size()}};
-  data_set_data[0].emplace_back(step);
-  data_set_data[1].emplace_back(this->time_value_(step));
+  view_supplemental.data_set_data_[0].emplace_back(step);
+  view_supplemental.data_set_data_[1].emplace_back(this->time_value_(step));
+  Eigen::Vector<Real, 3> force{Eigen::Vector<Real, 3>::Zero()};
+  force(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>)) = view_supplemental.force_;
+  for (Isize i = 0; i < 3; i++) {
+    view_supplemental.data_set_data_[2].emplace_back(force(i));
+  }
   for (Isize i = 0; i < static_cast<Isize>(this->variable_type_.size()); i++) {
-    data_set_data[static_cast<Usize>(i) + 2].assign(
+    view_supplemental.data_set_data_[static_cast<Usize>(i) + 3].assign(
         view_supplemental.node_variable_(i).data(),
         view_supplemental.node_variable_(i).data() + view_supplemental.node_variable_(i).size());
   }
-  vtu11::writeVtu((this->output_directory_ / "vtu" / base_name).string(), mesh_data, data_set_information,
-                  data_set_data, "rawbinarycompressed");
+  vtu11::writeVtu((this->output_directory_ / "vtu" / base_name).string(), mesh_data,
+                  view_supplemental.data_set_information_, view_supplemental.data_set_data_, "rawbinarycompressed");
 }
 
 template <typename SimulationControl>

@@ -16,7 +16,6 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
-#include <functional>
 
 #include "Solver/ThermalModel.hpp"
 #include "Solver/VariableConvertor.hpp"

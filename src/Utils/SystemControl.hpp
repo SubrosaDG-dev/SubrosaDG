@@ -115,6 +115,11 @@ struct System {
     this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
   }
 
+  inline void setArtificialViscosity(const Real empirical_tolerance, const Real artificial_viscosity_factor = 1.0) {
+    this->solver_.empirical_tolerance_ = empirical_tolerance;
+    this->solver_.artificial_viscosity_factor_ = artificial_viscosity_factor;
+  }
+
   inline void setTransportModel(const Real dynamic_viscosity) {
     this->thermal_model_.transport_model_.dynamic_viscosity = dynamic_viscosity;
     this->thermal_model_.calculateThermalConductivityFromDynamicViscosity();
@@ -172,26 +177,23 @@ struct System {
                                    this->initial_condition_);
     this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
     if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
-      this->solver_.writeRawBinary(this->view_.output_directory_ /
-                                   std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, 0));
+      this->solver_.writeRawBinary(
+          this->mesh_,
+          this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, 0));
     } else {
       this->solver_.write_raw_binary_future_ = std::async(std::launch::async, []() {});
     }
     this->command_line_.initializeSolver(this->time_integration_.delta_time_, this->time_integration_.iteration_start_,
                                          this->time_integration_.iteration_end_, this->solver_.error_finout_);
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
-      this->solver_.copyBasisFunctionCoefficient();
-      for (int j = 0; j < this->time_integration_.kStep; j++) {
-        this->solver_.stepSolver(j, this->mesh_, this->source_term_, this->thermal_model_, this->boundary_condition_,
-                                 this->time_integration_);
-      }
+      this->solver_.stepSolver(this->mesh_, this->source_term_, this->thermal_model_, this->boundary_condition_,
+                               this->time_integration_);
       if (i % this->view_.io_interval_ == 0) {
-        // this->solver_.calculateBoundaryAdjacencyForce(this->mesh_, this->thermal_model_);
         this->solver_.write_raw_binary_future_.get();
-        this->solver_.writeRawBinary(this->view_.output_directory_ /
-                                     std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i));
+        this->solver_.writeRawBinary(
+            this->mesh_,
+            this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i));
       }
-      this->solver_.calculateRelativeError(this->mesh_);
       this->command_line_.updateSolver(i, this->solver_.relative_error_, this->solver_.error_finout_);
     }
     this->solver_.write_raw_binary_future_.get();

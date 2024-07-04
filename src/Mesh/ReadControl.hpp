@@ -44,23 +44,17 @@ struct PhysicalInformation {
   Isize vtk_node_number_{0};
 };
 
-struct PerElementPhysicalInformation {
+struct ElementPhysicalInformation {
   Isize gmsh_physical_index_;
   Isize element_index_;
 };
 
-struct PerAdjacencyElementInformation {
+struct ElementBasicInformation {
   int gmsh_type_number_;
   Isize element_index_;
 
-  inline PerAdjacencyElementInformation(int gmsh_type_number, Isize element_index)
-      : gmsh_type_number_(gmsh_type_number), element_index_(element_index){};
-};
-
-struct PerElementInformation {
-  Isize gmsh_tag_;
-  Isize gmsh_physical_index_;
-  Isize element_index_;
+  inline ElementBasicInformation(int gmsh_type_number, Isize element_index)
+      : gmsh_type_number_(gmsh_type_number), element_index_(element_index) {};
 };
 
 struct MeshInformation {
@@ -68,8 +62,14 @@ struct MeshInformation {
   std::vector<Isize> physical_dimension_;
   std::unordered_map<Isize, BoundaryConditionEnum> boundary_condition_type_;
   std::unordered_map<Isize, PhysicalInformation> physical_information_;
-  std::unordered_map<Isize, PerElementPhysicalInformation> gmsh_tag_to_element_information_;
-  std::unordered_map<Isize, std::vector<PerAdjacencyElementInformation>> gmsh_tag_to_sub_index_and_type_;
+  std::unordered_map<Isize, ElementPhysicalInformation> gmsh_tag_to_element_information_;
+  std::unordered_map<Isize, std::vector<ElementBasicInformation>> gmsh_tag_to_sub_index_and_type_;
+};
+
+struct PerElementInformation {
+  Isize gmsh_tag_;
+  Isize gmsh_physical_index_;
+  Isize element_index_;
 };
 
 template <typename ElementTrait>
@@ -142,7 +142,7 @@ struct AdjacencyElementMesh {
 
   inline void calculateAdjacencyElementNormalVector();
 
-  inline AdjacencyElementMesh() : quadrature_(){};
+  inline AdjacencyElementMesh() : quadrature_() {};
 };
 
 template <typename ElementTrait>
@@ -173,7 +173,7 @@ struct ElementMesh {
       const AdjacencyElementMesh<AdjacencyTriangleTrait<ElementTrait::kPolynomialOrder>>& triangle,
       const AdjacencyElementMesh<AdjacencyQuadrangleTrait<ElementTrait::kPolynomialOrder>>& quadrangle);
 
-  inline ElementMesh() : quadrature_(), basis_function_(){};
+  inline ElementMesh() : quadrature_(), basis_function_() {};
 };
 
 template <typename SimulationControl>
@@ -267,7 +267,8 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
     std::vector<double> coord;
     std::vector<double> parametric_coord;
     gmsh::model::mesh::getNodes(node_tags, coord, parametric_coord);
-    this->node_coordinate_.resize(Eigen::NoChange, static_cast<Isize>(node_tags.size()));
+    this->node_number_ = static_cast<Isize>(node_tags.size());
+    this->node_coordinate_.resize(Eigen::NoChange, this->node_number_);
     for (const auto node_tag : node_tags) {
       for (Isize i = 0; i < SimulationControl::kDimension; i++) {
         this->node_coordinate_(i, static_cast<Isize>(node_tag) - 1) =

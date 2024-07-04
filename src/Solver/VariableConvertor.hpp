@@ -608,8 +608,31 @@ template <typename ElementTrait, typename SimulationControl>
 struct ElementVariableGradient : VariableGradient<SimulationControl> {
   ElementVariableGradient() : VariableGradient<SimulationControl>(ElementTrait::kQuadratureNumber) {}
 
+  template <ViscousFluxEnum ViscousFluxType>
   inline void get(const ElementMesh<ElementTrait>& element_mesh,
-                  const ElementSolverBase<ElementTrait, SimulationControl>& element_solver, const Isize element_index) {
+                  const ElementSolverBase<ElementTrait, SimulationControl>& element_solver, Isize element_index);
+
+  template <>
+  inline void get<ViscousFluxEnum::None>(const ElementMesh<ElementTrait>& element_mesh,
+                                         const ElementSolverBase<ElementTrait, SimulationControl>& element_solver,
+                                         const Isize element_index) {
+    this->conserved_.noalias() =
+        element_solver.element_(element_index).variable_gradient_volume_basis_function_coefficient_ *
+        element_mesh.basis_function_.modal_value_.transpose();
+  }
+
+  template <>
+  inline void get<ViscousFluxEnum::BR1>(const ElementMesh<ElementTrait>& element_mesh,
+                                        const ElementSolverBase<ElementTrait, SimulationControl>& element_solver,
+                                        const Isize element_index) {
+    this->conserved_.noalias() = element_solver.element_(element_index).variable_gradient_basis_function_coefficient_ *
+                                 element_mesh.basis_function_.modal_value_.transpose();
+  }
+
+  template <>
+  inline void get<ViscousFluxEnum::BR2>(const ElementMesh<ElementTrait>& element_mesh,
+                                        const ElementSolverBase<ElementTrait, SimulationControl>& element_solver,
+                                        const Isize element_index) {
     this->conserved_.noalias() = element_solver.element_(element_index).variable_gradient_basis_function_coefficient_ *
                                  element_mesh.basis_function_.modal_value_.transpose();
   }
@@ -624,10 +647,149 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
                   Isize parent_gmsh_type_number, Isize parent_index_each_type, Isize adjacency_sequence_in_parent);
 
   template <>
+  inline void get<ViscousFluxEnum::None>(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
+                                         Isize parent_gmsh_type_number, Isize parent_index_each_type,
+                                         Isize adjacency_sequence_in_parent) {
+    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+      constexpr std::array<int, LineTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+          kElementAccumulateAdjacencyQuadratureNumber{
+              getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Line, SimulationControl::kPolynomialOrder>()};
+      this->conserved_.noalias() =
+          solver.line_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ *
+          mesh.line_.basis_function_
+              .modal_adjacency_value_(
+                  Eigen::seq(
+                      kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                      kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                  1] -
+                          1),
+                  Eigen::all)
+              .transpose();
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+      if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, TriangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Triangle,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.triangle_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ *
+            mesh.triangle_.basis_function_
+                .modal_adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, QuadrangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Quadrangle,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.quadrangle_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ *
+            mesh.quadrangle_.basis_function_
+                .modal_adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+      if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, TetrahedronTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Tetrahedron,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.tetrahedron_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ *
+            mesh.tetrahedron_.basis_function_
+                .modal_adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, PyramidTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Pyramid,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.pyramid_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ *
+            mesh.pyramid_.basis_function_
+                .modal_adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, PyramidTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Pyramid,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.pyramid_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ *
+            mesh.pyramid_.basis_function_
+                .modal_adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        constexpr std::array<int, HexahedronTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+            kElementAccumulateAdjacencyQuadratureNumber{
+                getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Hexahedron,
+                                                              SimulationControl::kPolynomialOrder>()};
+        this->conserved_.noalias() =
+            solver.hexahedron_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ *
+            mesh.hexahedron_.basis_function_
+                .modal_adjacency_value_(
+                    Eigen::seq(
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                        kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                    1] -
+                            1),
+                    Eigen::all)
+                .transpose();
+      }
+    }
+  }
+
+  template <>
   inline void get<ViscousFluxEnum::BR1>(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
                                         Isize parent_gmsh_type_number, Isize parent_index_each_type,
                                         Isize adjacency_sequence_in_parent) {
-    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+      constexpr std::array<int, LineTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+          kElementAccumulateAdjacencyQuadratureNumber{
+              getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Line, SimulationControl::kPolynomialOrder>()};
+      this->conserved_.noalias() =
+          solver.line_.element_(parent_index_each_type).variable_gradient_basis_function_coefficient_ *
+          mesh.line_.basis_function_
+              .modal_adjacency_value_(
+                  Eigen::seq(
+                      kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                      kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                  1] -
+                          1),
+                  Eigen::all)
+              .transpose();
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         constexpr std::array<int, TriangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
             kElementAccumulateAdjacencyQuadratureNumber{
@@ -736,7 +898,24 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
   inline void get<ViscousFluxEnum::BR2>(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
                                         Isize parent_gmsh_type_number, Isize parent_index_each_type,
                                         Isize adjacency_sequence_in_parent) {
-    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+      constexpr std::array<int, LineTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
+          kElementAccumulateAdjacencyQuadratureNumber{
+              getElementAccumulateAdjacencyQuadratureNumber<ElementEnum::Line, SimulationControl::kPolynomialOrder>()};
+      this->conserved_.noalias() =
+          (solver.line_.element_(parent_index_each_type).variable_gradient_volume_basis_function_coefficient_ +
+           solver.line_.element_(parent_index_each_type)
+               .variable_gradient_interface_basis_function_coefficient_(adjacency_sequence_in_parent)) *
+          mesh.line_.basis_function_
+              .modal_adjacency_value_(
+                  Eigen::seq(
+                      kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
+                      kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
+                                                                  1] -
+                          1),
+                  Eigen::all)
+              .transpose();
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         constexpr std::array<int, TriangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
             kElementAccumulateAdjacencyQuadratureNumber{
@@ -860,6 +1039,7 @@ struct ViewVariableBase;
 template <typename ElementTrait, typename SimulationControl>
 struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Euler> {
   Variable<SimulationControl> variable_{ElementTrait::kBasisFunctionNumber};
+  Eigen::Vector<Real, ElementTrait::kBasisFunctionNumber> artificial_viscosity_;
 
   [[nodiscard]] inline Real get(const ThermalModel<SimulationControl>& thermal_model,
                                 const ViewVariableEnum variable_type, const Isize column) const {
@@ -884,6 +1064,8 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Eule
       return thermal_model.calculateEntropyFromDensityPressure(
           this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
           this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
+    case ViewVariableEnum::ArtificialViscosity:
+      return this->artificial_viscosity_(column);
     case ViewVariableEnum::MachNumberX:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
@@ -906,12 +1088,19 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Eule
       return 0.0;
     }
   }
+
+  inline Eigen::Vector<Real, SimulationControl::kDimension> getForce(
+      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Isize column) const {
+    return this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column) * normal_vector;
+  }
 };
 
 template <typename ElementTrait, typename SimulationControl>
 struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes> {
   Variable<SimulationControl> variable_{ElementTrait::kBasisFunctionNumber};
   VariableGradient<SimulationControl> variable_gradient_{ElementTrait::kBasisFunctionNumber};
+  Eigen::Vector<Real, ElementTrait::kBasisFunctionNumber> artificial_viscosity_;
 
   [[nodiscard]] inline Real get(const ThermalModel<SimulationControl>& thermal_model,
                                 const ViewVariableEnum variable_type, const Isize column) const {
@@ -964,6 +1153,8 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
                         .template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(column),
                 2));
       }
+    case ViewVariableEnum::ArtificialViscosity:
+      return this->artificial_viscosity_(column);
     case ViewVariableEnum::MachNumberX:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
@@ -1000,6 +1191,24 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
     default:
       return 0.0;
     }
+  }
+
+  inline Eigen::Vector<Real, SimulationControl::kDimension> getForce(
+      const ThermalModel<SimulationControl>& thermal_model,
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Isize column) const {
+    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
+        this->variable_gradient_.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
+    const Real tempurature = thermal_model.calculateTemperatureFromInternalEnergy(
+        this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
+    const Real dynamic_viscosity = thermal_model.calculateDynamicViscosity(tempurature);
+    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
+        dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
+        2.0 / 3.0 * dynamic_viscosity * velocity_gradient.trace() *
+            Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
+    return (this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column) *
+                Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity() -
+            viscous_stress) *
+           normal_vector;
   }
 };
 

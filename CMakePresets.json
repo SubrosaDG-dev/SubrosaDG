@@ -20,7 +20,8 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "SUBROSA_DG_BUILD_ALL": false,
-                "SUBROSA_DG_DEVELOP": true
+                "SUBROSA_DG_DEVELOP": true,
+                "SUBROSA_DG_CUDA": false
             }
         },
         {
@@ -31,7 +32,8 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "SUBROSA_DG_BUILD_ALL": true,
-                "SUBROSA_DG_DEVELOP": true
+                "SUBROSA_DG_DEVELOP": true,
+                "SUBROSA_DG_CUDA": false
             }
         },
         {
@@ -42,7 +44,8 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
                 "SUBROSA_DG_BUILD_ALL": true,
-                "SUBROSA_DG_DEVELOP": false
+                "SUBROSA_DG_DEVELOP": false,
+                "SUBROSA_DG_CUDA": false
             }
         },
         {
@@ -53,7 +56,20 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "SUBROSA_DG_BUILD_ALL": true,
-                "SUBROSA_DG_DEVELOP": false
+                "SUBROSA_DG_DEVELOP": false,
+                "SUBROSA_DG_CUDA": false
+            }
+        },
+        {
+            "name": "Build all in cuda release",
+            "displayName": "Build all in cuda release",
+            "description": "Build all in cuda release",
+            "inherits": "Base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SUBROSA_DG_BUILD_ALL": true,
+                "SUBROSA_DG_DEVELOP": false,
+                "SUBROSA_DG_CUDA": true
             }
         },
         {

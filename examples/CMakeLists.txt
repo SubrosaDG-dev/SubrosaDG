@@ -22,6 +22,8 @@ add_subdirectory(blasius_3d_ns)
 
 add_subdirectory(cylinder_2d_euler)
 
+add_subdirectory(delta_3d_ns)
+
 add_subdirectory(gravity_2d_ns)
 
 add_subdirectory(instability_2d_euler)
@@ -41,6 +43,8 @@ add_subdirectory(pipe_2d_ns)
 add_subdirectory(protuberance_3d_euler)
 
 add_subdirectory(rae2822_2d_ns)
+
+add_subdirectory(sod_1d_euler)
 
 add_subdirectory(sphere_3d_ns)
 

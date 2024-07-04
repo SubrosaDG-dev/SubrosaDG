@@ -7,25 +7,20 @@
     ],
     "homepage": "https://github.com/SubrosaDG-dev/SubrosaDG",
     "license": "MIT",
-    "$default-features-explanation": "The minimum dependencies required for the project to run",
-    "default-features": [
-        "main"
+    "dependencies": [
+        "fmt",
+        "magic-enum",
+        "eigen3",
+        "zlib",
+        "dbg-macro",
+        "gmsh"
     ],
     "features": {
-        "main": {
-            "description": "Build main dependencies",
-            "dependencies": [
-                "fmt",
-                "magic-enum",
-                "eigen3",
-                "zlib",
-                "dbg-macro"
-            ]
-        },
         "cuda": {
             "description": "Build with CUDA support",
             "dependencies": [
-                "cuda-api-wrappers"
+                "cuda-api-wrappers",
+                "nvidia-cutlass"
             ]
         },
         "tests": {
@@ -34,5 +29,11 @@
                 "gtest"
             ]
         }
+    },
+    "vcpkg-configuration": {
+        "overlay-ports": [
+            "cmake/vcpkg-ports/gmsh",
+            "cmake/vcpkg-ports/nvidia-cutlass"
+        ]
     }
 }
