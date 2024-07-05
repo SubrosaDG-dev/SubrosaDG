@@ -157,8 +157,10 @@ struct ElementBasisFunction {
       constexpr std::array<int, getElementAdjacencyNumber<ElementTrait::kElementType>()>
           kElementPerAdjacencyQuadratureNumber{
               getElementPerAdjacencyQuadratureNumber<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>()};
-      const Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kBasicNodeNumber> basic_node_coordinate{
-          getElementNodeCoordinate<ElementTrait::kElementType, 1>().data()};
+      const Eigen::Matrix<double, ElementTrait::kDimension, ElementTrait::kBasicNodeNumber>
+          basic_node_coordinate_double{getElementNodeCoordinate<ElementTrait::kElementType, 1>().data()};
+      const Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kBasicNodeNumber> basic_node_coordinate =
+          basic_node_coordinate_double.template cast<Real>();
       Eigen::Matrix<Real, ElementTrait::kDimension, kElementPerAdjacencyNodeNumber[static_cast<Usize>(I)]>
           adjacency_basic_node_coordinate;
       for (Isize j = 0; j < kElementPerAdjacencyNodeNumber[static_cast<Usize>(I)]; j++) {

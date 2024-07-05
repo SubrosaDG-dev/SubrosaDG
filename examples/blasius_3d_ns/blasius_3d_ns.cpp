@@ -31,25 +31,28 @@ int main(int argc, char* argv[]) {
   system.addInitialCondition(
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.0, 0.5, 0.0, 1.0};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r,
+                                                                                           1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.0, 0.5, 0.0, 1.0};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r,
+                                                                                           1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>(
       "bc-2",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4, 0.0, 0.5, 0.0, 1.0};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r,
+                                                                                           1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-3");
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-4");
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-5");
-  system.setTransportModel(1.4 * 0.5 / 100000);
-  system.setTimeIntegration(1.0);
+  system.setTransportModel(1.4_r * 0.5_r / 100000);
+  system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,

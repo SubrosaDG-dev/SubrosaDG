@@ -298,8 +298,8 @@ struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equation
 
 template <typename SimulationControl>
 struct SolverBase {
-  Real empirical_tolerance_{0.0};
-  Real artificial_viscosity_factor_{1.0};
+  Real empirical_tolerance_{0.0_r};
+  Real artificial_viscosity_factor_{1.0_r};
 
   std::stringstream raw_binary_ss_;
   std::fstream error_finout_;

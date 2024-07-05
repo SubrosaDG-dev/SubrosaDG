@@ -32,25 +32,25 @@ int main(int argc, char* argv[]) {
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 4.0 * 0.3 * coordinate.y() * (0.4 - coordinate.y()) / (0.4 * 0.4), 0.0, 1.0};
+            1.4_r, 4.0_r * 0.3_r * coordinate.y() * (0.4_r - coordinate.y()) / (0.4_r * 0.4_r), 0.0_r, 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::VelocityInflow>(
       "bc-1",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 4.0 * 0.3 * coordinate.y() * (0.4 - coordinate.y()) / (0.4 * 0.4), 0.0, 1.0};
+            1.4_r, 4.0_r * 0.3_r * coordinate.y() * (0.4_r - coordinate.y()) / (0.4_r * 0.4_r), 0.0_r, 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>(
       "bc-2",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 4.0 * 0.3 * coordinate.y() * (0.4 - coordinate.y()) / (0.4 * 0.4), 0.0, 1.0};
+            1.4_r, 4.0_r * 0.3_r * coordinate.y() * (0.4_r - coordinate.y()) / (0.4_r * 0.4_r), 0.0_r, 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-3");
-  system.setTransportModel(1.4 * 0.2 * 0.1 / 200);
-  system.setTimeIntegration(1.0);
+  system.setTransportModel(1.4_r * 0.2_r * 0.1_r / 200);
+  system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,

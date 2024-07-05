@@ -37,7 +37,7 @@ inline void calculateConvectiveRawFlux(const Variable<SimulationControl>& variab
       pressure * Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity());
   const Real total_energy =
       variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) +
-      variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column) / 2.0;
+      variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column) / 2.0_r;
   convective_raw_flux.template setVector<ConservedVariableEnum::DensityTotalEnergy>(
       (density * total_energy + pressure) * velocity);
 }
@@ -57,7 +57,7 @@ inline void calculateConvectiveNormalFlux(const Eigen::Vector<Real, SimulationCo
                                                                              pressure * normal_vector);
   const Real total_energy =
       variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) +
-      variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column) / 2.0;
+      variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column) / 2.0_r;
   convective_normal_flux.template setScalar<ConservedVariableEnum::DensityTotalEnergy>(
       (density * total_energy + pressure) * normal_velocity);
 }
@@ -72,7 +72,7 @@ inline void calculateConvectiveCentralFlux([[maybe_unused]] const ThermalModel<S
   calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_, left_column);
   calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_, right_column);
   convective_flux.result_.normal_variable_.noalias() =
-      (convective_flux.left_.normal_variable_ + convective_flux.right_.normal_variable_) / 2.0;
+      (convective_flux.left_.normal_variable_ + convective_flux.right_.normal_variable_) / 2.0_r;
 }
 
 template <typename SimulationControl>
@@ -100,7 +100,7 @@ inline void calculateConvectiveLaxFriedrichsFlux(
       ((convective_flux.left_.normal_variable_ + convective_flux.right_.normal_variable_) -
        spectral_radius * (right_quadrature_node_variable.conserved_.col(right_column) -
                           left_quadrature_node_variable.conserved_.col(left_column))) /
-      2.0;
+      2.0_r;
 }
 
 template <typename SimulationControl>
@@ -129,30 +129,30 @@ inline void calculateConvectiveHLLCFlux(const ThermalModel<SimulationControl>& t
       left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(left_column));
   const Real right_sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
       right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(right_column));
-  const Real average_density = (left_density + right_density) / 2.0;
-  const Real average_sound_speed = (left_sound_speed + right_sound_speed) / 2.0;
-  const Real contact_pressure =
-      std::ranges::max(0.0, (left_pressure + right_pressure) / 2.0 -
-                                (right_normal_velocity - left_normal_velocity) * average_density * average_sound_speed);
+  const Real average_density = (left_density + right_density) / 2.0_r;
+  const Real average_sound_speed = (left_sound_speed + right_sound_speed) / 2.0_r;
+  const Real contact_pressure = std::ranges::max(
+      0.0_r, (left_pressure + right_pressure) / 2.0_r -
+                 (right_normal_velocity - left_normal_velocity) * average_density * average_sound_speed);
   const Real left_wave_speed =
       left_normal_velocity -
       left_sound_speed * (contact_pressure <= left_pressure
-                              ? 1.0
-                              : std::sqrt(1.0 + (thermal_model.equation_of_state_.kSpecificHeatRatio + 1.0) *
-                                                    (contact_pressure / left_pressure - 1.0) / 2.0 /
-                                                    thermal_model.equation_of_state_.kSpecificHeatRatio));
-  if (left_wave_speed >= 0.0) {
+                              ? 1.0_r
+                              : std::sqrt(1.0_r + (thermal_model.equation_of_state_.kSpecificHeatRatio + 1.0_r) *
+                                                      (contact_pressure / left_pressure - 1.0_r) / 2.0_r /
+                                                      thermal_model.equation_of_state_.kSpecificHeatRatio));
+  if (left_wave_speed >= 0.0_r) {
     calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.result_, left_column);
     return;
   }
   const Real right_wave_speed =
       right_normal_velocity +
       right_sound_speed * (contact_pressure <= right_pressure
-                               ? 1.0
-                               : std::sqrt(1.0 + (thermal_model.equation_of_state_.kSpecificHeatRatio + 1.0) *
-                                                     (contact_pressure / right_pressure - 1.0) / 2.0 /
-                                                     thermal_model.equation_of_state_.kSpecificHeatRatio));
-  if (right_wave_speed <= 0.0) {
+                               ? 1.0_r
+                               : std::sqrt(1.0_r + (thermal_model.equation_of_state_.kSpecificHeatRatio + 1.0_r) *
+                                                       (contact_pressure / right_pressure - 1.0_r) / 2.0_r /
+                                                       thermal_model.equation_of_state_.kSpecificHeatRatio));
+  if (right_wave_speed <= 0.0_r) {
     calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.result_, right_column);
     return;
   }
@@ -161,7 +161,7 @@ inline void calculateConvectiveHLLCFlux(const ThermalModel<SimulationControl>& t
        right_density * right_normal_velocity * (right_wave_speed - right_normal_velocity)) /
       (left_density * (left_wave_speed - left_normal_velocity) -
        right_density * (right_wave_speed - right_normal_velocity));
-  if (contact_wave_speed >= 0.0) {
+  if (contact_wave_speed >= 0.0_r) {
     calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_, left_column);
     contact_variable.template setScalar<ConservedVariableEnum::Density>(
         left_density * (left_wave_speed - left_normal_velocity) / (left_wave_speed - contact_wave_speed), 0);
@@ -176,7 +176,7 @@ inline void calculateConvectiveHLLCFlux(const ThermalModel<SimulationControl>& t
              (left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(left_column) +
               left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(
                   left_column) /
-                  2.0) -
+                  2.0_r) -
          left_pressure * left_normal_velocity + contact_pressure * contact_wave_speed) /
             (left_wave_speed - contact_wave_speed),
         0);
@@ -199,7 +199,7 @@ inline void calculateConvectiveHLLCFlux(const ThermalModel<SimulationControl>& t
                   right_column) +
               right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(
                   right_column) /
-                  2.0) -
+                  2.0_r) -
          right_pressure * right_normal_velocity + contact_pressure * contact_wave_speed) /
             (right_wave_speed - contact_wave_speed),
         0);
@@ -244,19 +244,19 @@ inline void calculateConvectiveRoeFlux(const ThermalModel<SimulationControl>& th
           left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(left_column)) +
       left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(
           left_column) /
-          2.0;
+          2.0_r;
   const Real right_total_enthapy =
       thermal_model.calculateEnthalpyFromInternalEnergy(
           right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(right_column)) +
       right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(
           right_column) /
-          2.0;
+          2.0_r;
   const Real roe_total_enthapy =
       (left_sqrt_density * left_total_enthapy + right_sqrt_density * right_total_enthapy) / sqrt_density_summation;
   roe_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
       thermal_model.calculateInternalEnergyFromEnthalpy(
           roe_total_enthapy -
-          roe_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(0) / 2.0),
+          roe_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(0) / 2.0_r),
       0);
   roe_variable.template setScalar<ComputationalVariableEnum::Pressure>(
       thermal_model.calculatePressureFormDensityInternalEnergy(
@@ -271,31 +271,35 @@ inline void calculateConvectiveRoeFlux(const ThermalModel<SimulationControl>& th
                                   left_quadrature_node_variable.computational_.col(left_column);
   const Real delta_normal_velocity =
       delta_variable.template getVector<ComputationalVariableEnum::Velocity>(0).transpose() * normal_vector;
-  const Real harten_delta = roe_sound_speed / 20.0;
+  const Real harten_delta = roe_sound_speed / 20.0_r;
   const Real lambda_velocity_subtract_sound_speed =
       std::fabs(roe_normal_velocity - roe_sound_speed) > harten_delta
           ? std::fabs(roe_normal_velocity - roe_sound_speed)
-          : (std::pow(roe_normal_velocity - roe_sound_speed, 2) + harten_delta * harten_delta) / (2.0 * harten_delta);
+          : ((roe_normal_velocity - roe_sound_speed) * (roe_normal_velocity - roe_sound_speed) +
+             harten_delta * harten_delta) /
+                (2.0_r * harten_delta);
   const Real lambda_velocity_add_sound_speed =
       std::fabs(roe_normal_velocity + roe_sound_speed) > harten_delta
           ? std::fabs(roe_normal_velocity + roe_sound_speed)
-          : (std::pow(roe_normal_velocity + roe_sound_speed, 2) + harten_delta * harten_delta) / (2.0 * harten_delta);
-  roe_matrix.col(0) << 1.0,
+          : ((roe_normal_velocity + roe_sound_speed) * (roe_normal_velocity + roe_sound_speed) +
+             harten_delta * harten_delta) /
+                (2.0_r * harten_delta);
+  roe_matrix.col(0) << 1.0_r,
       roe_variable.template getVector<ComputationalVariableEnum::Velocity>(0) - roe_sound_speed * normal_vector,
       roe_total_enthapy - roe_sound_speed * roe_normal_velocity;
   roe_matrix.col(0) *= lambda_velocity_subtract_sound_speed *
                        (delta_variable.template getScalar<ComputationalVariableEnum::Pressure>(0) -
                         roe_variable.template getScalar<ComputationalVariableEnum::Density>(0) * roe_sound_speed *
                             delta_normal_velocity) /
-                       (2.0 * roe_sound_speed * roe_sound_speed);
-  roe_matrix.col(1) << 1.0, roe_variable.template getVector<ComputationalVariableEnum::Velocity>(0),
-      roe_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(0) / 2.0;
+                       (2.0_r * roe_sound_speed * roe_sound_speed);
+  roe_matrix.col(1) << 1.0_r, roe_variable.template getVector<ComputationalVariableEnum::Velocity>(0),
+      roe_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(0) / 2.0_r;
   roe_matrix.col(1) *=
       std::fabs(roe_normal_velocity) *
       (delta_variable.template getScalar<ComputationalVariableEnum::Density>(0) -
        delta_variable.template getScalar<ComputationalVariableEnum::Pressure>(0) / (roe_sound_speed * roe_sound_speed));
   if constexpr (SimulationControl::kDimension == 2 || SimulationControl::kDimension == 3) {
-    roe_matrix.col(2) << 0.0,
+    roe_matrix.col(2) << 0.0_r,
         delta_variable.template getVector<ComputationalVariableEnum::Velocity>(0) -
             delta_normal_velocity * normal_vector,
         roe_variable.template getVector<ComputationalVariableEnum::Velocity>(0).transpose() *
@@ -304,7 +308,7 @@ inline void calculateConvectiveRoeFlux(const ThermalModel<SimulationControl>& th
     roe_matrix.col(2) *=
         std::fabs(roe_normal_velocity) * roe_variable.template getScalar<ComputationalVariableEnum::Density>(0);
   }
-  roe_matrix.col(SimulationControl::kDimension + 1) << 1.0,
+  roe_matrix.col(SimulationControl::kDimension + 1) << 1.0_r,
       roe_variable.template getVector<ComputationalVariableEnum::Velocity>(0) + roe_sound_speed * normal_vector,
       roe_total_enthapy + roe_sound_speed * roe_normal_velocity;
   roe_matrix.col(SimulationControl::kDimension + 1) *=
@@ -312,11 +316,11 @@ inline void calculateConvectiveRoeFlux(const ThermalModel<SimulationControl>& th
       (delta_variable.template getScalar<ComputationalVariableEnum::Pressure>(0) +
        roe_variable.template getScalar<ComputationalVariableEnum::Density>(0) * roe_sound_speed *
            delta_normal_velocity) /
-      (2.0 * roe_sound_speed * roe_sound_speed);
+      (2.0_r * roe_sound_speed * roe_sound_speed);
   convective_flux.result_.normal_variable_.noalias() =
       ((convective_flux.left_.normal_variable_ + convective_flux.right_.normal_variable_) -
        roe_matrix.rowwise().sum()) /
-      2.0;
+      2.0_r;
 }
 
 template <typename SimulationControl>

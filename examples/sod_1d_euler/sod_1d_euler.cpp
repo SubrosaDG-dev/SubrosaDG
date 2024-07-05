@@ -30,23 +30,24 @@ int main(int argc, char* argv[]) {
   system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate)
                                  -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        coordinate.x() <= 0.5 ? 1.0 : 0.125, coordinate.x() <= 0.5 ? 0.75 : 0.0,
-        coordinate.x() <= 0.5 ? 1.4 : 0.8 * 1.4};
+        coordinate.x() <= 0.5_r ? 1.0_r : 0.125_r, coordinate.x() <= 0.5_r ? 0.75_r : 0.0_r,
+        coordinate.x() <= 0.5_r ? 1.4_r : 0.8_r * 1.4_r};
   });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0, 0.75, 1.4};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.75_r, 1.4_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-2",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{0.125, 0.0, 0.8 * 1.4};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{0.125_r, 0.0_r,
+                                                                                           0.8_r * 1.4_r};
       });
-  system.setArtificialViscosity(2.0);
-  system.setTimeIntegration(0.1);
+  system.setArtificialViscosity(2.0_r);
+  system.setTimeIntegration(0.1_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::MachNumber,

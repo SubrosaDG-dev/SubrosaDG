@@ -1,12 +1,12 @@
 /**
- * @file CommandLine.hpp
- * @brief The header file of SubrosaDG command line output.
+ * #file CommandLine.hpp
+ * #brief The header file of SubrosaDG command line output.
  *
- * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
- * @date 2023-12-06
+ * #author Yufei.Liu, Calm.Liu#outlook.com | Chenyu.Bao, bcynuaa#163.com
+ * #date 2023-12-06
  *
- * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2024 by SubrosaDG developers. All rights reserved.
+ * #version 0.1.0
+ * #copyright Copyright (c) 2022 - 2024 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
@@ -28,10 +28,12 @@
 #include <sstream>
 #include <string>
 #include <tqdm.hpp>
+#include <type_traits>
 #include <vector>
 
 #include "Cmake.hpp"
 #include "Utils/BasicDataType.hpp"
+#include "Utils/Constant.hpp"
 #include "Utils/Enum.hpp"
 
 namespace SubrosaDG {
@@ -80,7 +82,7 @@ struct CommandLine {
     }
     if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       error_finout << this->getVariableList() << '\n'
-                   << this->getLineInformation(0.0,
+                   << this->getLineInformation(0.0_r,
                                                Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero())
                    << '\n';
     } else {
@@ -132,19 +134,18 @@ struct CommandLine {
     this->is_open_ = open_command_line;
     if (this->is_open_) {
       std::stringstream information;
-      information << " \
-      @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \
-      @   ____        _                         ____   ____  @ \
-      @  / ___| _   _| |__  _ __ ___  ___  __ _|  _ \ / ___| @ \
-      @  \___ \| | | | '_ \| '__/ _ \/ __|/ _` | | | | |  _  @ \
-      @   ___) | |_| | |_) | | | (_) \__ \ (_| | |_| | |_| | @ \
-      @  |____/ \__,_|_.__/|_|  \___/|___/\__,_|____/ \____| @ \
-      @                                                      @ \
-      @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ "
-                  << '\n';
-      information << "SubrosaDG Info:" << '\n';
+      information << R"(########################################################)" << '\n'
+                  << R"(#   ____        _                         ____   ____  #)" << '\n'
+                  << R"(#  / ___| _   _| |__  _ __ ___  ___  __ _|  _ \ / ___| #)" << '\n'
+                  << R"(#  \___ \| | | | '_ \| '__/ _ \/ __|/ _` | | | | |  _  #)" << '\n'
+                  << R"(#   ___) | |_| | |_) | | | (_) \__ \ (_| | |_| | |_| | #)" << '\n'
+                  << R"(#  |____/ \__,_|_.__/|_|  \___/|___/\__,_|____/ \____| #)" << '\n'
+                  << R"(#                                                      #)" << '\n'
+                  << R"(########################################################)" << '\n';
       information << std::format("Version: {}", kSubrosaDGVersionString) << '\n';
       information << std::format("Build type: {}", kSubrosaDGBuildType) << '\n';
+      information << std::format("Data type: {}: {}", std::is_same_v<Real, double> ? "double" : "float", kRealEpsilon)
+                  << '\n';
       information << std::format("Number of physical cores: {}", kNumberOfPhysicalCores) << "\n";
       information << std::format("Eigen SIMD Instructions: {}", Eigen::SimdInstructionSetsInUse()) << "\n\n";
       information << "Gmsh Info:" << '\n';
@@ -161,7 +162,7 @@ struct CommandLine {
       gmsh::option::setNumber("General.Terminal", 0);
     }
     for (int i = 0; i < this->line_number_; i++) {
-      this->time_value_deque_.emplace_back(0.0);
+      this->time_value_deque_.emplace_back(0.0_r);
       this->error_deque_.emplace_back(Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero());
     }
   }

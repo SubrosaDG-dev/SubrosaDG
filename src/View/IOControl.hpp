@@ -40,13 +40,13 @@ struct AdjacencyElementViewBasisFunction {
   Eigen::Matrix<Real, AdjacencyElementTrait::kBasicNodeNumber, AdjacencyElementTrait::kAllNodeNumber> nodal_value_;
 
   inline AdjacencyElementViewBasisFunction() {
-    Eigen::Matrix<Real, AdjacencyElementTrait::kDimension, AdjacencyElementTrait::kAllNodeNumber> all_node_coordinate{
+    Eigen::Matrix<double, AdjacencyElementTrait::kDimension, AdjacencyElementTrait::kAllNodeNumber> all_node_coordinate{
         getElementNodeCoordinate<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()
             .data()};
     Eigen::Matrix<double, 3, AdjacencyElementTrait::kAllNodeNumber> local_coord_gmsh_matrix;
     local_coord_gmsh_matrix.setZero();
     local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<AdjacencyElementTrait::kDimension>), Eigen::all) =
-        all_node_coordinate.template cast<double>();
+        all_node_coordinate;
     std::vector<double> local_coord(local_coord_gmsh_matrix.data(),
                                     local_coord_gmsh_matrix.data() + local_coord_gmsh_matrix.size());
     std::vector<double> nodal_basis_functions{
@@ -66,12 +66,12 @@ struct ElementViewBasisFunction {
   Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kAllNodeNumber> modal_value_;
 
   inline ElementViewBasisFunction() {
-    Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kAllNodeNumber> all_node_coordinate{
+    Eigen::Matrix<double, ElementTrait::kDimension, ElementTrait::kAllNodeNumber> all_node_coordinate{
         getElementNodeCoordinate<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>().data()};
     Eigen::Matrix<double, 3, ElementTrait::kAllNodeNumber> local_coord_gmsh_matrix;
     local_coord_gmsh_matrix.setZero();
     local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>), Eigen::all) =
-        all_node_coordinate.template cast<double>();
+        all_node_coordinate;
     std::vector<double> local_coord(local_coord_gmsh_matrix.data(),
                                     local_coord_gmsh_matrix.data() + local_coord_gmsh_matrix.size());
     std::vector<double> nodal_basis_functions{

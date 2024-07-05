@@ -88,8 +88,8 @@ set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_LIST_DIR}/cmake/vcpkg-ports")
 set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_CURRENT_LIST_DIR}/cmake/vcpkg-triplets")
 
 # set vcpkg triplet
-set(VCPKG_HOST_TRIPLET "x64-linux-dynamic-llvm")
-set(VCPKG_TARGET_TRIPLET "x64-linux-dynamic-llvm")
+set(VCPKG_HOST_TRIPLET "x64-linux-dynamic")
+set(VCPKG_TARGET_TRIPLET "x64-linux-dynamic")
 
 # add vcpkg cmake
 include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)

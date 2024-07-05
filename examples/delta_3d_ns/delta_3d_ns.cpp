@@ -34,24 +34,24 @@ int main(int argc, char* argv[]) {
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 0.0, 0.3 * std::cos(SubrosaDG::toRadian(12.5)), 0.3 * std::sin(SubrosaDG::toRadian(12.5)), 1.0};
+            1.4_r, 0.0_r, 0.3_r * std::cos(12.5_deg), 0.3_r * std::sin(12.5_deg), 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 0.0, 0.3 * std::cos(SubrosaDG::toRadian(12.5)), 0.3 * std::sin(SubrosaDG::toRadian(12.5)), 1.0};
+            1.4_r, 0.0_r, 0.3_r * std::cos(12.5_deg), 0.3_r * std::sin(12.5_deg), 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsothermalNoslipWall>(
       "bc-2",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 0.0, 0.3 * std::cos(SubrosaDG::toRadian(12.5)), 0.3 * std::sin(SubrosaDG::toRadian(12.5)), 1.0};
+            1.4_r, 0.0_r, 0.3_r * std::cos(12.5_deg), 0.3_r * std::sin(12.5_deg), 1.0_r};
       });
-  system.setTransportModel(1.4 * 0.3 / 4000);
-  system.setTimeIntegration(1.0);
+  system.setTransportModel(1.4_r * 0.3_r / 4000);
+  system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,

@@ -31,18 +31,18 @@ int main(int argc, char* argv[]) {
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 0.8 * std::cos(SubrosaDG::toRadian(1.25)), 0.8 * std::sin(SubrosaDG::toRadian(1.25)), 1.0};
+            1.4_r, 0.8_r * std::cos(1.25_deg), 0.8_r * std::sin(1.25_deg), 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 0.8 * std::cos(SubrosaDG::toRadian(1.25)), 0.8 * std::sin(SubrosaDG::toRadian(1.25)), 1.0};
+            1.4_r, 0.8_r * std::cos(1.25_deg), 0.8_r * std::sin(1.25_deg), 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-2");
-  system.setArtificialViscosity(1.5);
-  system.setTimeIntegration(0.1);
+  system.setArtificialViscosity(1.5_r);
+  system.setTimeIntegration(0.1_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,

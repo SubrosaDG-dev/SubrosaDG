@@ -39,7 +39,7 @@ inline void calculateVolumeGardientFlux(const Eigen::Vector<Real, SimulationCont
                                              (left_quadrature_node_variable.conserved_.col(left_column) +
                                               right_quadrature_node_variable.conserved_.col(right_column))
                                                  .transpose() /
-                                             2.0;
+                                             2.0_r;
 }
 
 template <typename SimulationControl>
@@ -52,7 +52,7 @@ inline void calculateInterfaceGardientFlux(const Eigen::Vector<Real, SimulationC
                                                 (right_quadrature_node_variable.conserved_.col(right_column) -
                                                  left_quadrature_node_variable.conserved_.col(left_column))
                                                     .transpose() /
-                                                2.0;
+                                                2.0_r;
 }
 
 template <typename SimulationControl>
@@ -69,7 +69,7 @@ inline void calculateViscousRawFlux(const ThermalModel<SimulationControl>& therm
   const Real dynamic_viscosity = thermal_model.calculateDynamicViscosity(tempurature);
   const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
       dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
-      2.0 / 3.0 * dynamic_viscosity * velocity_gradient.trace() *
+      2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient.trace() *
           Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
   viscous_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(viscous_stress);
   const Eigen::Vector<Real, SimulationControl::kDimension>& velocity =
@@ -128,7 +128,7 @@ inline void calculateViscousFlux(const ThermalModel<SimulationControl>& thermal_
   calculateViscousNormalFlux(thermal_model, normal_vector, right_quadrature_node_variable,
                              right_quadrature_node_variable_gradient, viscous_flux.right_, right_column);
   viscous_flux.result_.normal_variable_.noalias() =
-      (viscous_flux.left_.normal_variable_ + viscous_flux.right_.normal_variable_) / 2.0;
+      (viscous_flux.left_.normal_variable_ + viscous_flux.right_.normal_variable_) / 2.0_r;
 }
 
 template <typename SimulationControl>
@@ -145,7 +145,7 @@ inline void calculateArtificialViscousFlux(
                                        right_quadrature_node_variable_volumn_gradient, artificial_viscous_flux.right_,
                                        right_column);
   artificial_viscous_flux.result_.normal_variable_.noalias() =
-      (artificial_viscous_flux.left_.normal_variable_ + artificial_viscous_flux.right_.normal_variable_) / 2.0;
+      (artificial_viscous_flux.left_.normal_variable_ + artificial_viscous_flux.right_.normal_variable_) / 2.0_r;
 }
 
 }  // namespace SubrosaDG

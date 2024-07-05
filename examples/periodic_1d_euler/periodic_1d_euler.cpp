@@ -25,25 +25,23 @@ using SimulationControl = SubrosaDG::SimulationControlEuler<
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
-  Matrix matrix;
-  std::cout << cudaComputation(matrix) << std::endl;
-  // SubrosaDG::System<SimulationControl> system;
-  // system.setMesh(kExampleDirectory / "periodic_1d_euler.msh", generateMesh);
-  // system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate)
-  //                                -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-  //   return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-  //       1.0 + 0.2 * std::sin(SubrosaDG::kPi * coordinate.x()), 1.0,
-  //       1.4 / (1.0 + 0.2 * std::sin(SubrosaDG::kPi * coordinate.x()))};
-  // });
-  // system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
-  // system.setTimeIntegration(1.0);
-  // system.setViewConfig(kExampleDirectory, kExampleName);
-  // system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-  //                         SubrosaDG::ViewVariableEnum::Pressure});
-  // system.synchronize();
-  // system.solve();
-  // system.view();
-  // return EXIT_SUCCESS;
+  SubrosaDG::System<SimulationControl> system;
+  system.setMesh(kExampleDirectory / "periodic_1d_euler.msh", generateMesh);
+  system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate)
+                                 -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+        1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * coordinate.x()), 1.0_r,
+        1.4_r / (1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * coordinate.x()))};
+  });
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
+  system.setTimeIntegration(1.0_r);
+  system.setViewConfig(kExampleDirectory, kExampleName);
+  system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
+                          SubrosaDG::ViewVariableEnum::Pressure});
+  system.synchronize();
+  system.solve();
+  system.view();
+  return EXIT_SUCCESS;
 }
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {

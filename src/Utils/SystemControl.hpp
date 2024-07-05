@@ -115,7 +115,7 @@ struct System {
     this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
   }
 
-  inline void setArtificialViscosity(const Real empirical_tolerance, const Real artificial_viscosity_factor = 1.0) {
+  inline void setArtificialViscosity(const Real empirical_tolerance, const Real artificial_viscosity_factor = 1.0_r) {
     this->solver_.empirical_tolerance_ = empirical_tolerance;
     this->solver_.artificial_viscosity_factor_ = artificial_viscosity_factor;
   }

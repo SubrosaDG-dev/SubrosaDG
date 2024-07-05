@@ -70,7 +70,7 @@ inline void View<SimulationControl>::calculateViewVariable(
     } else if constexpr (SimulationControl::kDimension == 2) {
       node_variable(i)(node_index * 3) = view_variable.get(thermal_model, variable_x, column);
       node_variable(i)(node_index * 3 + 1) = view_variable.get(thermal_model, variable_y, column);
-      node_variable(i)(node_index * 3 + 2) = 0.0;
+      node_variable(i)(node_index * 3 + 2) = 0.0_r;
     } else if constexpr (SimulationControl::kDimension == 3) {
       node_variable(i)(node_index * 3) = view_variable.get(thermal_model, variable_x, column);
       node_variable(i)(node_index * 3 + 1) = view_variable.get(thermal_model, variable_y, column);

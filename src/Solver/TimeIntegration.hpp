@@ -46,20 +46,23 @@ struct TimeIntegrationData;
 template <>
 struct TimeIntegrationData<TimeIntegrationEnum::ForwardEuler> : TimeIntegrationBase {
   inline static constexpr int kStep = 1;
-  inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{{{1.0, 0.0, 1.0}}};
+  inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{{{1.0_r, 0.0_r, 1.0_r}}};
 };
 
 template <>
 struct TimeIntegrationData<TimeIntegrationEnum::HeunRK2> : TimeIntegrationBase {
   inline static constexpr int kStep = 2;
-  inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{{{1.0, 0.0, 1.0}, {0.5, 0.0, 0.5}}};
+  inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{
+      {{1.0_r, 0.0_r, 1.0_r}, {0.5_r, 0.0_r, 0.5_r}}};
 };
 
 template <>
 struct TimeIntegrationData<TimeIntegrationEnum::SSPRK3> : TimeIntegrationBase {
   inline static constexpr int kStep = 3;
   inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{
-      {{1.0, 0.0, 1.0}, {3.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0}, {1.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0}}};
+      {{1.0_r, 0.0_r, 1.0_r},
+       {3.0_r / 4.0_r, 1.0_r / 4.0_r, 1.0_r / 4.0_r},
+       {1.0_r / 3.0_r, 2.0_r / 3.0_r, 2.0_r / 3.0_r}}};
 };
 
 template <typename SimulationControl>
@@ -122,7 +125,7 @@ inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
           thermal_model.calculateSoundSpeedFromInternalEnergy(
               quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(j));
       delta_time(j) = courant_friedrichs_lewy_number * element_mesh.element_(i).size_ /
-                      (spectral_radius * (2.0 * SimulationControl::kPolynomialOrder + 1.0));
+                      (spectral_radius * (2.0_r * SimulationControl::kPolynomialOrder + 1.0_r));
     }
     min_delta_time = std::min(min_delta_time, delta_time.minCoeff());
   }

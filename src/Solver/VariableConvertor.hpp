@@ -273,7 +273,7 @@ struct Variable {
       this->setVector<ConservedVariableEnum::Momentum>(
           density * this->getVector<ComputationalVariableEnum::Velocity>(i), i);
       const Real total_energy = this->getScalar<ComputationalVariableEnum::InternalEnergy>(i) +
-                                this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0;
+                                this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0_r;
       this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy, i);
     }
   }
@@ -285,7 +285,7 @@ struct Variable {
       this->setVector<ComputationalVariableEnum::Velocity>(
           this->getVector<ConservedVariableEnum::Momentum>(i) / density, i);
       const Real internal_energy = this->getScalar<ConservedVariableEnum::DensityTotalEnergy>(i) / density -
-                                   this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0;
+                                   this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0_r;
       this->setScalar<ComputationalVariableEnum::InternalEnergy>(internal_energy, i);
       this->setScalar<ComputationalVariableEnum::Pressure>(
           thermal_model.calculatePressureFormDensityInternalEnergy(density, internal_energy), i);
@@ -301,7 +301,7 @@ struct Variable {
       this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<PrimitiveVariableEnum::Velocity>(i), i);
       const Real total_energy =
           thermal_model.calculateInternalEnergyFromTemperature(this->getScalar<PrimitiveVariableEnum::Temperature>(i)) +
-          this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0;
+          this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0_r;
       this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy, i);
     }
   }
@@ -1085,7 +1085,7 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Eule
     case ViewVariableEnum::VelocityZ:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column);
     default:
-      return 0.0;
+      return 0.0_r;
     }
   }
 
@@ -1134,24 +1134,30 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
       }
       if constexpr (SimulationControl::kDimension == 3) {
         return std::sqrt(
-            std::pow(
-                this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>(
-                    column) -
-                    this->variable_gradient_
-                        .template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>(column),
-                2) +
-            std::pow(
-                this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>(
-                    column) -
-                    this->variable_gradient_
-                        .template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>(column),
-                2) +
-            std::pow(
-                this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>(
-                    column) -
-                    this->variable_gradient_
-                        .template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(column),
-                2));
+            (this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>(
+                 column) -
+             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>(
+                 column)) *
+                (this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>(
+                     column) -
+                 this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>(
+                     column)) +
+            (this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>(
+                 column) -
+             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>(
+                 column)) *
+                (this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>(
+                     column) -
+                 this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>(
+                     column)) +
+            (this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>(
+                 column) -
+             this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(
+                 column)) *
+                (this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>(
+                     column) -
+                 this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(
+                     column)));
       }
     case ViewVariableEnum::ArtificialViscosity:
       return this->artificial_viscosity_(column);
@@ -1189,7 +1195,7 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
              this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(
                  column);
     default:
-      return 0.0;
+      return 0.0_r;
     }
   }
 
@@ -1203,7 +1209,7 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
     const Real dynamic_viscosity = thermal_model.calculateDynamicViscosity(tempurature);
     const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
         dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
-        2.0 / 3.0 * dynamic_viscosity * velocity_gradient.trace() *
+        2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient.trace() *
             Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
     return (this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column) *
                 Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity() -

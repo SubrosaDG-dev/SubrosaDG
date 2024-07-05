@@ -39,6 +39,12 @@ using Real = float;
 using Real = double;
 #endif
 
+inline namespace Literals {
+
+inline constexpr Real operator""_r(long double x) { return static_cast<Real>(x); }
+
+}  // namespace Literals
+
 }  // namespace SubrosaDG
 
 // NOLINTBEGIN

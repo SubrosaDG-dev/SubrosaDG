@@ -32,18 +32,18 @@ int main(int argc, char* argv[]) {
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0};
+            1.4_r, 0.4_r * std::cos(2.79_deg), 0.4_r * std::sin(2.79_deg), 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4, 0.4 * std::cos(SubrosaDG::toRadian(2.79)), 0.4 * std::sin(SubrosaDG::toRadian(2.79)), 1.0};
+            1.4_r, 0.4_r * std::cos(2.79_deg), 0.4_r * std::sin(2.79_deg), 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
-  system.setTransportModel(1.4 * 0.4 / 6.5e6);
-  system.setTimeIntegration(1.0);
+  system.setTransportModel(1.4_r * 0.4_r / 6.5e6_r);
+  system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,

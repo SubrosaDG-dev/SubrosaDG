@@ -218,25 +218,25 @@ inline consteval std::array<int, getElementAllAdjacencyNodeNumber<ElementType>()
 template <ElementEnum ElementType>
 inline consteval Real getElementMeasure() {
   if constexpr (ElementType == ElementEnum::Point) {
-    return 1.0;
+    return 1.0_r;
   }
   if constexpr (ElementType == ElementEnum::Line) {
-    return 2.0;
+    return 2.0_r;
   }
   if constexpr (ElementType == ElementEnum::Triangle) {
-    return 0.5;
+    return 0.5_r;
   }
   if constexpr (ElementType == ElementEnum::Quadrangle) {
-    return 4.0;
+    return 4.0_r;
   }
   if constexpr (ElementType == ElementEnum::Tetrahedron) {
-    return 1.0 / 6.0;
+    return 1.0_r / 6.0_r;
   }
   if constexpr (ElementType == ElementEnum::Pyramid) {
-    return 1.0 / 3.0;
+    return 1.0_r / 3.0_r;
   }
   if constexpr (ElementType == ElementEnum::Hexahedron) {
-    return 8.0;
+    return 8.0_r;
   }
 }
 

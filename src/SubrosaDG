@@ -71,6 +71,8 @@
 
 // clang-format on
 
+using namespace SubrosaDG::Literals;
+
 void generateMesh(const std::filesystem::path& mesh_file_path);
 
 #endif  // SUBROSA_DG_HPP_

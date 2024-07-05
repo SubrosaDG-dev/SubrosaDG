@@ -30,11 +30,11 @@ int main(int argc, char* argv[]) {
   system.addInitialCondition([](const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
                                  -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        1.0 + 0.2 * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())), 0.7, 0.3,
-        1.4 / (1.0 + 0.2 * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())))};
+        1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())), 0.7_r, 0.3_r,
+        1.4_r / (1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())))};
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
-  system.setTimeIntegration(1.0);
+  system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});

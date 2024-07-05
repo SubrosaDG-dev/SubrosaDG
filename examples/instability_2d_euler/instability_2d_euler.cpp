@@ -30,17 +30,17 @@ int main(int argc, char* argv[]) {
   system.addInitialCondition([](const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
                                  -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        coordinate.y() >= 0.25 && coordinate.y() <= 0.75 ? 2.0 : 1.0,
-        coordinate.y() >= 0.25 && coordinate.y() <= 0.75 ? 0.5 : -0.5,
-        std::sin(4.0 * SubrosaDG::kPi * coordinate.x()) *
-            (std::exp(-std::pow((coordinate.y() - 0.25), 2) / (2 * 0.025 * 0.025)) +
-             std::exp(-std::pow((coordinate.y() - 0.75), 2) / (2 * 0.025 * 0.025))) /
-            10.0,
-        1.4 * 2.5 / (coordinate.y() >= 0.25 && coordinate.y() <= 0.75 ? 2.0 : 1.0)};
+        coordinate.y() >= 0.25_r && coordinate.y() <= 0.75_r ? 2.0_r : 1.0_r,
+        coordinate.y() >= 0.25_r && coordinate.y() <= 0.75_r ? 0.5_r : -0.5_r,
+        std::sin(4.0_r * SubrosaDG::kPi * coordinate.x()) *
+            (std::exp(-std::pow((coordinate.y() - 0.25_r), 2) / (2 * 0.025_r * 0.025_r)) +
+             std::exp(-std::pow((coordinate.y() - 0.75_r), 2) / (2 * 0.025_r * 0.025_r))) /
+            10.0_r,
+        1.4_r * 2.5_r / (coordinate.y() >= 0.25_r && coordinate.y() <= 0.75_r ? 2.0_r : 1.0_r)};
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
-  system.setArtificialViscosity(5.0, 0.05);
-  system.setTimeIntegration(0.1);
+  system.setArtificialViscosity(10.0_r);
+  system.setTimeIntegration(0.1_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::ArtificialViscosity});

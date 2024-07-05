@@ -43,8 +43,8 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
   [[maybe_unused]] constexpr int kBasisFunctionNumber{
       getElementBasisFunctionNumber<ElementTrait::kElementType, SimulationControl::kPolynomialOrder - 1>()};
   const Real polynomial_order_scale =
-      std::log10(1.0 / (SimulationControl::kPolynomialOrder * SimulationControl::kPolynomialOrder *
-                        SimulationControl::kPolynomialOrder * SimulationControl::kPolynomialOrder));
+      std::log10(1.0_r / (SimulationControl::kPolynomialOrder * SimulationControl::kPolynomialOrder *
+                          SimulationControl::kPolynomialOrder * SimulationControl::kPolynomialOrder));
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> variable_density_high_order;
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> variable_density_all_order;
 #ifndef SUBROSA_DG_DEVELOP
@@ -79,14 +79,14 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
                         .matrix())
                        .sum());
     if (shock_scale < polynomial_order_scale - empirical_tolerance) [[likely]] {
-      this->element_(i).variable_artificial_viscosity_.fill(0.0);
+      this->element_(i).variable_artificial_viscosity_.fill(0.0_r);
     } else if (shock_scale > polynomial_order_scale + empirical_tolerance) {
       this->element_(i).variable_artificial_viscosity_.fill(
           artificial_viscosity_factor * (element_mesh.element_(i).size_ / SimulationControl::kPolynomialOrder));
     } else {
       this->element_(i).variable_artificial_viscosity_.fill(
           artificial_viscosity_factor * (element_mesh.element_(i).size_ / SimulationControl::kPolynomialOrder) *
-          (1.0 + std::sin(kPi * (shock_scale - polynomial_order_scale) / (2.0 * empirical_tolerance))) / 2.0);
+          (1.0_r + std::sin(kPi * (shock_scale - polynomial_order_scale) / (2.0_r * empirical_tolerance))) / 2.0_r);
     }
   }
 }

@@ -98,7 +98,7 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
   for (Isize i = 0; i < this->number_; i++) {
     const std::vector<ElementBasicInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
-    Real adjacency_size = 0.0;
+    Real adjacency_size = 0.0_r;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
       adjacency_size = std::max(
           adjacency_size, (point.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
@@ -121,7 +121,7 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
   for (Isize i = 0; i < this->number_; i++) {
     const std::vector<ElementBasicInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
-    Real adjacency_size = 0.0;
+    Real adjacency_size = 0.0_r;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
       adjacency_size = std::max(adjacency_size,
                                 (line.element_(sub_index_and_type[j].element_index_).jacobian_determinant_.transpose() *
@@ -146,7 +146,7 @@ inline void ElementMesh<ElementTrait>::calculateElementMeshSize(
   for (Isize i = 0; i < this->number_; i++) {
     const std::vector<ElementBasicInformation>& sub_index_and_type =
         information.gmsh_tag_to_sub_index_and_type_.at(this->element_(i).gmsh_tag_);
-    Real adjacency_size = 0.0;
+    Real adjacency_size = 0.0_r;
     for (Usize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
       if (sub_index_and_type[j].gmsh_type_number_ == TriangleTrait<ElementTrait::kPolynomialOrder>::kGmshTypeNumber) {
         adjacency_size = std::max(
@@ -175,9 +175,9 @@ inline void calculateNormalVector(const Isize adjacency_sequence_in_parent,
                                   Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1,
                                                 AdjacencyElementTrait::kQuadratureNumber>& normal_vector) {
   if (adjacency_sequence_in_parent == 0) {
-    normal_vector(0, 0) = -1.0;
+    normal_vector(0, 0) = -1.0_r;
   } else if (adjacency_sequence_in_parent == 1) {
-    normal_vector(0, 0) = 1.0;
+    normal_vector(0, 0) = 1.0_r;
   }
 }
 
