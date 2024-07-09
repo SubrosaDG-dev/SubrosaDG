@@ -60,7 +60,7 @@ set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 # set cuda compiler
 if(SUBROSA_DG_CUDA)
     set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
-    set(CMAKE_CUDA_FLAGS "-allow-unsupported-compiler -ccbin /usr/bin/clang")
+    set(CMAKE_CUDA_HOST_COMPILER "/usr/bin/clang")
 endif()
 
 # set project
