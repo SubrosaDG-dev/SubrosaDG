@@ -24,9 +24,13 @@ add_subdirectory(cylinder_2d_euler)
 
 add_subdirectory(delta_3d_ns)
 
+add_subdirectory(explosion_2d_euler)
+
 add_subdirectory(gravity_2d_ns)
 
 add_subdirectory(instability_2d_euler)
+
+add_subdirectory(lidcavity_2d_ns)
 
 add_subdirectory(naca0012_2d_euler)
 
@@ -43,6 +47,10 @@ add_subdirectory(pipe_2d_ns)
 add_subdirectory(protuberance_3d_euler)
 
 add_subdirectory(rae2822_2d_ns)
+
+add_subdirectory(sedovblast_2d_euler)
+
+add_subdirectory(shuosher_1d_euler)
 
 add_subdirectory(sod_1d_euler)
 

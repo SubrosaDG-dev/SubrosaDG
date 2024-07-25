@@ -64,10 +64,11 @@ if(SUBROSA_DG_CUDA)
 endif()
 
 # set project
+project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
+
+# enable cuda
 if(SUBROSA_DG_CUDA)
-    project(subrosa_dg LANGUAGES C CXX CUDA VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
-else()
-    project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
+    enable_language(CUDA)
 endif()
 
 # message error if build in source dir
@@ -203,6 +204,7 @@ if(SUBROSA_DG_DEVELOP)
     endif()
 endif()
 
+# use gcovr to check coverage
 if(SUBROSA_DG_DEVELOP)
     find_program(GCOVR NAMES gcovr)
     if(GCOVR)
@@ -242,16 +244,21 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(SUBROSA_DG_INCLUDE_DIRS)
 set(SUBROSA_DG_INCLUDE_SYSTEM_DIRS)
 set(SUBROSA_DG_LINK_LIBRARIES)
-set(SUBROSA_DG_COMPILE_OPTIONS)
+set(SUBROSA_DG_CXX_COMPILE_OPTIONS)
+if(SUBROSA_DG_CUDA)
+    set(SUBROSA_DG_CUDA_COMPILE_OPTIONS)
+endif()
 set(SUBROSA_DG_COMPILE_DEFINITIONS)
 
-# set library and add compile option
-if(SUBROSA_DG_CUDA)
-    add_library(${PROJECT_NAME} SHARED ${SUBROSA_DG_CUDA_SOURCES})
-else()
-    add_library(${PROJECT_NAME} INTERFACE)
-endif()
+# set library
+add_library(${PROJECT_NAME} INTERFACE)
 add_library(lib::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
+# set source directory
+if(SUBROSA_DG_CUDA)
+    target_sources(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_CUDA_SOURCES})
+    set_property(TARGET ${PROJECT_NAME} PROPERTY INTERFACE_LINK_LIBRARIES "")
+endif()
 
 # check for interprocedural optimization
 if(NOT SUBROSA_DG_DEVELOP)
@@ -263,30 +270,46 @@ if(NOT SUBROSA_DG_DEVELOP)
     endif()
 endif()
 
-# set compilation option
+# set compilation flags
 set(SUBROSA_DG_WARNING_FLAGS)
 set(SUBROSA_DG_COVER_FLAGS)
-set(SUBROSA_DG_DEBUG_FLAGS)
-set(SUBROSA_DG_RELWITHDEBINFO_FLAGS)
-set(SUBROSA_DG_RELEASE_FLAGS)
+
+# set cxx compilation option
+set(SUBROSA_DG_CXX_DEBUG_FLAGS)
+set(SUBROSA_DG_CXX_RELEASE_FLAGS)
+
+# set cuda compilation option
+set(SUBROSA_DG_CUDA_DEBUG_FLAGS)
+set(SUBROSA_DG_CUDA_RELEASE_FLAGS)
+
+# add compilation option
+string(APPEND SUBROSA_DG_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation -Wno-narrowing")
+# string(APPEND SUBROSA_DG_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
 
 # add coverage compilation option
 # set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
 
 # add cxx compilation option
-string(APPEND SUBROSA_DG_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation -Wno-narrowing")
-# string(APPEND SUBROSA_DG_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
-string(APPEND SUBROSA_DG_DEBUG_FLAGS "${SUBROSA_DG_WARNING_FLAGS} ${SUBROSA_DG_COVER_FLAGS}")
-string(APPEND SUBROSA_DG_RELWITHDEBINFO_FLAGS "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native> \
-    $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},arm64>:-mcpu=native>")
-string(APPEND SUBROSA_DG_RELEASE_FLAGS "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=native> \
-    $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},arm64>:-mcpu=native>")
+string(APPEND SUBROSA_DG_CXX_DEBUG_FLAGS "${SUBROSA_DG_WARNING_FLAGS} ${SUBROSA_DG_COVER_FLAGS}")
+string(APPEND SUBROSA_DG_CXX_RELEASE_FLAGS "-march=native")
 
-# set different compile option
-set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_DEBUG_FLAGS}> \
-    $<$<CONFIG:RelWithDebInfo>:${SUBROSA_DG_RELWITHDEBINFO_FLAGS}> \
-    $<$<CONFIG:Release>:${SUBROSA_DG_RELEASE_FLAGS}>")
-string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
+# add cuda compilation option
+if(SUBROSA_DG_CUDA)
+    string(APPEND SUBROSA_DG_CUDA_DEBUG_FLAGS "${SUBROSA_DG_WARNING_FLAGS}")
+    string(APPEND SUBROSA_DG_CUDA_RELEASE_FLAGS "")
+endif()
+
+# set cxx compile option
+set(SUBROSA_DG_CXX_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_DEBUG_FLAGS}> \
+    $<$<CONFIG:Release>:${SUBROSA_DG_CXX_RELEASE_FLAGS}>")
+string(REPLACE " " ";" SUBROSA_DG_CXX_FLAGS ${SUBROSA_DG_CXX_FLAGS})
+
+# set cuda compile option
+if(SUBROSA_DG_CUDA)
+    set(SUBROSA_DG_CUDA_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CUDA_DEBUG_FLAGS}> \
+        $<$<CONFIG:Release>:${SUBROSA_DG_CUDA_RELEASE_FLAGS}>")
+    string(REPLACE " " ";" SUBROSA_DG_CUDA_FLAGS ${SUBROSA_DG_CUDA_FLAGS})
+endif()
 
 # create and include the cmake header
 configure_file(${PROJECT_SOURCE_DIR}/cmake/source/Cmake.hpp.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/Cmake.hpp @ONLY)
@@ -295,9 +318,16 @@ list(APPEND SUBROSA_DG_INCLUDE_DIRS ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
 # create and include the SubrosaDG header
 configure_file(${PROJECT_SOURCE_DIR}/cmake/source/SubrosaDG.in ${SUBROSA_DG_SOURCES_DIR}/SubrosaDG @ONLY)
 
-# add include directory and compiler flags
+# add include directory
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/src)
-list(APPEND SUBROSA_DG_COMPILE_OPTIONS ${SUBROSA_DG_FLAGS})
+
+# add cxx compile option
+list(APPEND SUBROSA_DG_CXX_COMPILE_OPTIONS ${SUBROSA_DG_CXX_FLAGS})
+
+# add cuda compile option
+if(SUBROSA_DG_CUDA)
+    list(APPEND SUBROSA_DG_CUDA_COMPILE_OPTIONS ${SUBROSA_DG_CUDA_FLAGS})
+endif()
 
 # find tqdm-cpp
 find_path(TQDM_DIR NAMES tqdm.hpp PATHS ${PROJECT_SOURCE_DIR}/libs/tqdm-cpp)
@@ -337,7 +367,7 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES ${GMSH_LIBRARY})
 
 # set for openmp
 find_package(OpenMP REQUIRED)
-list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_C OpenMP::OpenMP_CXX)
 
 # set for cuda-api-wrappers
 if(SUBROSA_DG_CUDA)
@@ -363,19 +393,15 @@ foreach(SUBROSA_DG_OPTION IN ITEMS
     endif()
 endforeach()
 
-# set library compiler property
-if(SUBROSA_DG_CUDA)
-    set(PROJECT_PROPERTY PUBLIC)
-else()
-    set(PROJECT_PROPERTY INTERFACE)
-endif()
-
 # set library compiler option
-target_include_directories(${PROJECT_NAME} ${PROJECT_PROPERTY} ${SUBROSA_DG_INCLUDE_DIRS})
-target_include_directories(${PROJECT_NAME} SYSTEM ${PROJECT_PROPERTY} ${SUBROSA_DG_INCLUDE_SYSTEM_DIRS})
-target_link_libraries(${PROJECT_NAME} ${PROJECT_PROPERTY} ${SUBROSA_DG_LINK_LIBRARIES})
-target_compile_options(${PROJECT_NAME} ${PROJECT_PROPERTY} ${SUBROSA_DG_COMPILE_OPTIONS})
-target_compile_definitions(${PROJECT_NAME} ${PROJECT_PROPERTY} ${SUBROSA_DG_COMPILE_DEFINITIONS})
+target_include_directories(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM INTERFACE ${SUBROSA_DG_INCLUDE_SYSTEM_DIRS})
+target_link_libraries(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_LINK_LIBRARIES})
+target_compile_options(${PROJECT_NAME} INTERFACE "$<$<COMPILE_LANGUAGE:CXX>:${SUBROSA_DG_CXX_COMPILE_OPTIONS}>")
+if(SUBROSA_DG_CUDA)
+    target_compile_options(${PROJECT_NAME} INTERFACE "$<$<COMPILE_LANGUAGE:CUDA>:${SUBROSA_DG_CUDA_COMPILE_OPTIONS}>")
+endif()
+target_compile_definitions(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_DEFINITIONS})
 
 # TODO: use cmake install and XXXXConfig.cmake to link
 

@@ -16,7 +16,7 @@ inline const std::string kExampleName{"delta_3d_ns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-// inline const std::filesystem::path kExampleDirectory{"/data/" + kExampleName};
+// inline const std::filesystem::path kExampleDirectory{"/mnt/data/" + kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
     SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Hexahedron,
@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "delta_3d_ns.msh", generateMesh);
+  // NOTE: Phd Thesis: Yuchen.Yang, Research on Adaptive Mesh Method for Compressible Flow Simulation, 2023.
   system.addInitialCondition(
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
@@ -43,14 +44,14 @@ int main(int argc, char* argv[]) {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
             1.4_r, 0.0_r, 0.3_r * std::cos(12.5_deg), 0.3_r * std::sin(12.5_deg), 1.0_r};
       });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsothermalNoslipWall>(
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsothermalNoSlipWall>(
       "bc-2",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4_r, 0.0_r, 0.3_r * std::cos(12.5_deg), 0.3_r * std::sin(12.5_deg), 1.0_r};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 0.0_r,
+                                                                                           1.0_r};
       });
-  system.setTransportModel(1.4_r * 0.3_r / 4000);
+  system.setTransportModel(1.4_r * 0.3_r / 4000.0_r);
   system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

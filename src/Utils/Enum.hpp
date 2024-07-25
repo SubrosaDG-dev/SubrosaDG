@@ -79,7 +79,7 @@ enum class BoundaryConditionEnum {
   RiemannFarfield = 1,
   VelocityInflow,
   PressureOutflow,
-  IsothermalNoslipWall,
+  IsothermalNoSlipWall,
   AdiabaticSlipWall,
   AdiabaticNoSlipWall,
   Periodic,
@@ -137,7 +137,7 @@ enum class ComputationalVariableEnum {
   VelocityX,
   VelocityY,
   VelocityZ,
-  VelocitySquareSummation,
+  VelocitySquaredNorm,
   InternalEnergy,
   Pressure,
 };

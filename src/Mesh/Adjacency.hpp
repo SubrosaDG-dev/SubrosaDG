@@ -397,8 +397,6 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
     this->element_(i).adjacency_sequence_in_parent_(0) =
         adjacency_element_mesh_supplemental.adjacency_sequence_in_parent_[0];
     this->element_(i).parent_gmsh_type_number_(0) = adjacency_element_mesh_supplemental.parent_gmsh_type_number_[0];
-    information.gmsh_tag_to_sub_index_and_type_[adjacency_element_mesh_supplemental.parent_gmsh_tag_[0]].emplace_back(
-        AdjacencyElementTrait::kGmshTypeNumber, i);
   }
   gmsh::model::mesh::addElementsByType(entity_tag, AdjacencyElementTrait::kGmshTypeNumber, boundary_gmsh_tag,
                                        boundary_node_tag);
@@ -439,9 +437,6 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementInte
           adjacency_element_mesh_supplemental.adjacency_sequence_in_parent_[static_cast<Usize>(j)];
       this->element_(i).parent_gmsh_type_number_(j) =
           adjacency_element_mesh_supplemental.parent_gmsh_type_number_[static_cast<Usize>(j)];
-      information
-          .gmsh_tag_to_sub_index_and_type_[adjacency_element_mesh_supplemental.parent_gmsh_tag_[static_cast<Usize>(j)]]
-          .emplace_back(AdjacencyElementTrait::kGmshTypeNumber, i);
     }
   }
   gmsh::model::mesh::addElementsByType(entity_tag, AdjacencyElementTrait::kGmshTypeNumber, interior_gmsh_tag,

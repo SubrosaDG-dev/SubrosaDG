@@ -21,15 +21,15 @@
 
 namespace SubrosaDG {
 
-inline constexpr Real kPi = std::numbers::pi_v<Real>;
-inline constexpr Real kEuler = std::numbers::e_v<Real>;
+inline constexpr Real kPi{std::numbers::pi_v<Real>};
+inline constexpr Real kEuler{std::numbers::e_v<Real>};
 
-inline constexpr std::streamsize kRealSize = sizeof(Real);
+inline constexpr std::streamsize kRealSize{sizeof(Real)};
 
-inline constexpr Real kRealMin = std::numeric_limits<Real>::min();
-inline constexpr Real kRealMax = std::numeric_limits<Real>::max();
-inline constexpr Real kRealEpsilon = std::numeric_limits<Real>::epsilon();
-inline constexpr int kRealSignificantDigits = std::numeric_limits<Real>::digits10;
+inline constexpr Real kRealMin{std::numeric_limits<Real>::min()};
+inline constexpr Real kRealMax{std::numeric_limits<Real>::max()};
+inline constexpr Real kRealEpsilon{std::numeric_limits<Real>::epsilon()};
+inline constexpr int kRealSignificantDigits{std::numeric_limits<Real>::digits10};
 
 inline namespace Literals {
 

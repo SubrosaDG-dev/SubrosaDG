@@ -30,7 +30,8 @@ inline consteval int getConservedVariableIndex() {
   if constexpr (ConservedVariableType == ConservedVariableEnum::Density) {
     return 0;
   }
-  if constexpr (ConservedVariableType == ConservedVariableEnum::MomentumX) {
+  if constexpr (ConservedVariableType == ConservedVariableEnum::MomentumX ||
+                ConservedVariableType == ConservedVariableEnum::Momentum) {
     return 1;
   }
   if constexpr (ConservedVariableType == ConservedVariableEnum::MomentumY) {
@@ -50,7 +51,8 @@ inline consteval int getComputationalVariableIndex() {
   if constexpr (ComputationalVariableType == ComputationalVariableEnum::Density) {
     return 0;
   }
-  if constexpr (ComputationalVariableType == ComputationalVariableEnum::VelocityX) {
+  if constexpr (ComputationalVariableType == ComputationalVariableEnum::VelocityX ||
+                ComputationalVariableType == ComputationalVariableEnum::Velocity) {
     return 1;
   }
   if constexpr (ComputationalVariableType == ComputationalVariableEnum::VelocityY) {
@@ -73,7 +75,8 @@ inline consteval int getPrimitiveVariableIndex() {
   if constexpr (PrimitiveVariableType == PrimitiveVariableEnum::Density) {
     return 0;
   }
-  if constexpr (PrimitiveVariableType == PrimitiveVariableEnum::VelocityX) {
+  if constexpr (PrimitiveVariableType == PrimitiveVariableEnum::VelocityX ||
+                PrimitiveVariableType == PrimitiveVariableEnum::Velocity) {
     return 1;
   }
   if constexpr (PrimitiveVariableType == PrimitiveVariableEnum::VelocityY) {
@@ -112,12 +115,10 @@ struct FluxNormalVariable {
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value);
-
-  template <>
-  inline void setVector<ConservedVariableEnum::Momentum>(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
-    this->normal_variable_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>)) = value;
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value) {
+    this->normal_variable_(
+        Eigen::seqN(Eigen::fix<getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()>,
+                    Eigen::fix<SimulationControl::kDimension>)) = value;
   }
 };
 
@@ -131,12 +132,12 @@ struct FluxVariable {
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value);
-
-  template <>
-  inline void setMatrix<ConservedVariableEnum::Momentum>(
+  inline void setMatrix(
       const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value) {
-    this->variable_(Eigen::all, Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>)) = value;
+    this->variable_(
+        Eigen::all,
+        Eigen::seqN(Eigen::fix<getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()>,
+                    Eigen::fix<SimulationControl::kDimension>)) = value;
   }
 };
 
@@ -181,12 +182,11 @@ struct Variable {
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(Isize) const;
-
-  template <>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector<ConservedVariableEnum::Momentum>(
-      const Isize column) const {
-    return this->conserved_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column);
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(const Isize column) const {
+    return this->conserved_(
+        Eigen::seqN(Eigen::fix<getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()>,
+                    Eigen::fix<SimulationControl::kDimension>),
+        column);
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
@@ -195,18 +195,18 @@ struct Variable {
         getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>(), column);
   }
 
-  template <ComputationalVariableEnum ComputationalVariableType>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(Isize) const;
-
   template <>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension>
-  getVector<ComputationalVariableEnum::Velocity>(const Isize column) const {
-    return this->computational_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column);
+  [[nodiscard]] inline Real getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(const Isize column) const {
+    return this->getVector<ComputationalVariableEnum::Velocity>(column).squaredNorm();
   }
 
-  template <>
-  [[nodiscard]] inline Real getScalar<ComputationalVariableEnum::VelocitySquareSummation>(const Isize column) const {
-    return this->getVector<ComputationalVariableEnum::Velocity>(column).squaredNorm();
+  template <ComputationalVariableEnum ComputationalVariableType>
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(const Isize column) const {
+    return this->computational_(
+        Eigen::seqN(
+            Eigen::fix<getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>()>,
+            Eigen::fix<SimulationControl::kDimension>),
+        column);
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
@@ -215,12 +215,11 @@ struct Variable {
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(Isize) const;
-
-  template <>
-  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector<PrimitiveVariableEnum::Velocity>(
-      const Isize column) const {
-    return this->primitive_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column);
+  [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(const Isize column) const {
+    return this->primitive_(
+        Eigen::seqN(Eigen::fix<getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>()>,
+                    Eigen::fix<SimulationControl::kDimension>),
+        column);
   }
 
   template <ConservedVariableEnum ConservedVariableType>
@@ -229,12 +228,11 @@ struct Variable {
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>&, Isize);
-
-  template <>
-  inline void setVector<ConservedVariableEnum::Momentum>(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
-    this->conserved_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column) = value;
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
+    this->conserved_(
+        Eigen::seqN(Eigen::fix<getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>()>,
+                    Eigen::fix<SimulationControl::kDimension>),
+        column) = value;
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
@@ -244,12 +242,12 @@ struct Variable {
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
-  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>&, Isize);
-
-  template <>
-  inline void setVector<ComputationalVariableEnum::Velocity>(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
-    this->computational_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column) = value;
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
+    this->computational_(
+        Eigen::seqN(
+            Eigen::fix<getComputationalVariableIndex<SimulationControl::kDimension, ComputationalVariableType>()>,
+            Eigen::fix<SimulationControl::kDimension>),
+        column) = value;
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
@@ -258,12 +256,11 @@ struct Variable {
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>&, Isize);
-
-  template <>
-  inline void setVector<PrimitiveVariableEnum::Velocity>(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
-    this->primitive_(Eigen::seqN(Eigen::fix<1>, Eigen::fix<SimulationControl::kDimension>), column) = value;
+  inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
+    this->primitive_(
+        Eigen::seqN(Eigen::fix<getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>()>,
+                    Eigen::fix<SimulationControl::kDimension>),
+        column) = value;
   }
 
   inline void calculateConservedFromComputational() {
@@ -273,7 +270,7 @@ struct Variable {
       this->setVector<ConservedVariableEnum::Momentum>(
           density * this->getVector<ComputationalVariableEnum::Velocity>(i), i);
       const Real total_energy = this->getScalar<ComputationalVariableEnum::InternalEnergy>(i) +
-                                this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0_r;
+                                this->getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(i) / 2.0_r;
       this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy, i);
     }
   }
@@ -285,7 +282,7 @@ struct Variable {
       this->setVector<ComputationalVariableEnum::Velocity>(
           this->getVector<ConservedVariableEnum::Momentum>(i) / density, i);
       const Real internal_energy = this->getScalar<ConservedVariableEnum::DensityTotalEnergy>(i) / density -
-                                   this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0_r;
+                                   this->getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(i) / 2.0_r;
       this->setScalar<ComputationalVariableEnum::InternalEnergy>(internal_energy, i);
       this->setScalar<ComputationalVariableEnum::Pressure>(
           thermal_model.calculatePressureFormDensityInternalEnergy(density, internal_energy), i);
@@ -301,7 +298,7 @@ struct Variable {
       this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<PrimitiveVariableEnum::Velocity>(i), i);
       const Real total_energy =
           thermal_model.calculateInternalEnergyFromTemperature(this->getScalar<PrimitiveVariableEnum::Temperature>(i)) +
-          this->getScalar<ComputationalVariableEnum::VelocitySquareSummation>(i) / 2.0_r;
+          this->getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(i) / 2.0_r;
       this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy, i);
     }
   }
@@ -492,15 +489,13 @@ struct VariableGradient {
 
   template <ConservedVariableEnum ConservedVariableType>
   [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> getMatrix(
-      Isize) const;
-
-  template <>
-  [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>
-  getMatrix<ConservedVariableEnum::Momentum>(const Isize column) const {
+      const Isize column) const {
     return this
-        ->conserved_(Eigen::seqN(Eigen::fix<SimulationControl::kDimension>,
-                                 Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>),
-                     column)
+        ->conserved_(
+            Eigen::seqN(Eigen::fix<getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>() *
+                                   SimulationControl::kDimension>,
+                        Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>),
+            column)
         .reshaped(SimulationControl::kDimension, SimulationControl::kDimension);
   }
 
@@ -523,15 +518,13 @@ struct VariableGradient {
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
   [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> getMatrix(
-      Isize) const;
-
-  template <>
-  [[nodiscard]] inline Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>
-  getMatrix<PrimitiveVariableEnum::Velocity>(const Isize column) const {
+      const Isize column) const {
     return this
-        ->primitive_(Eigen::seqN(Eigen::fix<SimulationControl::kDimension>,
-                                 Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>),
-                     column)
+        ->primitive_(
+            Eigen::seqN(Eigen::fix<getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>() *
+                                   SimulationControl::kDimension>,
+                        Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>),
+            column)
         .reshaped(SimulationControl::kDimension, SimulationControl::kDimension);
   }
 
@@ -545,38 +538,32 @@ struct VariableGradient {
   }
 
   template <ConservedVariableEnum ConservedVariableType>
-  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>&,
-                        Isize);
-
-  template <>
-  inline void setMatrix<ConservedVariableEnum::Momentum>(
-      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value,
-      const Isize column) {
-    this->conserved_(Eigen::seqN(Eigen::fix<SimulationControl::kDimension>,
-                                 Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>()),
-                     column) = value.reshaped();
+  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value,
+                        const Isize column) {
+    this->conserved_(
+        Eigen::seqN(Eigen::fix<getConservedVariableIndex<SimulationControl::kDimension, ConservedVariableType>() *
+                               SimulationControl::kDimension>,
+                    Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>()),
+        column) = value.reshaped();
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
   inline void setVector(const Eigen::Vector<Real, SimulationControl::kDimension>& value, const Isize column) {
     this->primitive_(
-        Eigen::seqN(Eigen::fix<SimulationControl::kDimension *
-                               getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>()>,
+        Eigen::seqN(Eigen::fix<getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>() *
+                               SimulationControl::kDimension>,
                     Eigen::fix<SimulationControl::kDimension>),
         column) = value;
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
-  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>&,
-                        Isize);
-
-  template <>
-  inline void setMatrix<PrimitiveVariableEnum::Velocity>(
-      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value,
-      const Isize column) {
-    this->primitive_(Eigen::seqN(Eigen::fix<SimulationControl::kDimension>,
-                                 Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>),
-                     column) = value.reshaped();
+  inline void setMatrix(const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value,
+                        const Isize column) {
+    this->primitive_(
+        Eigen::seqN(Eigen::fix<getPrimitiveVariableIndex<SimulationControl::kDimension, PrimitiveVariableType>() *
+                               SimulationControl::kDimension>,
+                    Eigen::fix<SimulationControl::kDimension * SimulationControl::kDimension>),
+        column) = value.reshaped();
   }
 
   inline void calculatePrimitiveFromConserved(const ThermalModel<SimulationControl>& thermal_model,
@@ -1047,7 +1034,7 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Eule
     case ViewVariableEnum::Density:
       return this->variable_.template getScalar<ComputationalVariableEnum::Density>(column);
     case ViewVariableEnum::Velocity:
-      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column));
+      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column));
     case ViewVariableEnum::Temperature:
       return thermal_model.calculateTemperatureFromInternalEnergy(
           this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
@@ -1057,7 +1044,7 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Eule
       return thermal_model.calculateSoundSpeedFromInternalEnergy(
           this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     case ViewVariableEnum::MachNumber:
-      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column)) /
+      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column)) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
                  this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     case ViewVariableEnum::Entropy:
@@ -1066,6 +1053,12 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Eule
           this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::ArtificialViscosity:
       return this->artificial_viscosity_(column);
+    case ViewVariableEnum::VelocityX:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column);
+    case ViewVariableEnum::VelocityY:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>(column);
+    case ViewVariableEnum::VelocityZ:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column);
     case ViewVariableEnum::MachNumberX:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
@@ -1078,12 +1071,6 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Eule
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
                  this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
-    case ViewVariableEnum::VelocityX:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column);
-    case ViewVariableEnum::VelocityY:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>(column);
-    case ViewVariableEnum::VelocityZ:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column);
     default:
       return 0.0_r;
     }
@@ -1108,7 +1095,7 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
     case ViewVariableEnum::Density:
       return this->variable_.template getScalar<ComputationalVariableEnum::Density>(column);
     case ViewVariableEnum::Velocity:
-      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column));
+      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column));
     case ViewVariableEnum::Temperature:
       return thermal_model.calculateTemperatureFromInternalEnergy(
           this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
@@ -1118,7 +1105,7 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
       return thermal_model.calculateSoundSpeedFromInternalEnergy(
           this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     case ViewVariableEnum::MachNumber:
-      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(column)) /
+      return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column)) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
                  this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     case ViewVariableEnum::Entropy:
@@ -1161,6 +1148,12 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
       }
     case ViewVariableEnum::ArtificialViscosity:
       return this->artificial_viscosity_(column);
+    case ViewVariableEnum::VelocityX:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column);
+    case ViewVariableEnum::VelocityY:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>(column);
+    case ViewVariableEnum::VelocityZ:
+      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column);
     case ViewVariableEnum::MachNumberX:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
@@ -1173,12 +1166,6 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column) /
              thermal_model.calculateSoundSpeedFromInternalEnergy(
                  this->variable_.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
-    case ViewVariableEnum::VelocityX:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column);
-    case ViewVariableEnum::VelocityY:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>(column);
-    case ViewVariableEnum::VelocityZ:
-      return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column);
     case ViewVariableEnum::VorticityX:
       return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>(
                  column) -

@@ -67,6 +67,7 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
                   0, Eigen::seq(kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber - 1))
               .transpose();
     }
+    // NOTE: http://persson.berkeley.edu/pub/persson13transient_shocks.pdf
     const Real shock_scale =
         std::log10((variable_density_high_order.transpose() *
                     (variable_density_high_order.array() * element_mesh.element_(i).jacobian_determinant_.array() *
@@ -82,10 +83,10 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
       this->element_(i).variable_artificial_viscosity_.fill(0.0_r);
     } else if (shock_scale > polynomial_order_scale + empirical_tolerance) {
       this->element_(i).variable_artificial_viscosity_.fill(
-          artificial_viscosity_factor * (element_mesh.element_(i).size_ / SimulationControl::kPolynomialOrder));
+          artificial_viscosity_factor * (element_mesh.element_(i).inner_radius_ / SimulationControl::kPolynomialOrder));
     } else {
       this->element_(i).variable_artificial_viscosity_.fill(
-          artificial_viscosity_factor * (element_mesh.element_(i).size_ / SimulationControl::kPolynomialOrder) *
+          artificial_viscosity_factor * (element_mesh.element_(i).inner_radius_ / SimulationControl::kPolynomialOrder) *
           (1.0_r + std::sin(kPi * (shock_scale - polynomial_order_scale) / (2.0_r * empirical_tolerance))) / 2.0_r);
     }
   }

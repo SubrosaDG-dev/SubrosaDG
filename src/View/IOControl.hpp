@@ -43,8 +43,8 @@ struct AdjacencyElementViewBasisFunction {
     Eigen::Matrix<double, AdjacencyElementTrait::kDimension, AdjacencyElementTrait::kAllNodeNumber> all_node_coordinate{
         getElementNodeCoordinate<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()
             .data()};
-    Eigen::Matrix<double, 3, AdjacencyElementTrait::kAllNodeNumber> local_coord_gmsh_matrix;
-    local_coord_gmsh_matrix.setZero();
+    Eigen::Matrix<double, 3, AdjacencyElementTrait::kAllNodeNumber> local_coord_gmsh_matrix{
+        Eigen::Matrix<double, 3, AdjacencyElementTrait::kAllNodeNumber>::Zero()};
     local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<AdjacencyElementTrait::kDimension>), Eigen::all) =
         all_node_coordinate;
     std::vector<double> local_coord(local_coord_gmsh_matrix.data(),
@@ -68,8 +68,8 @@ struct ElementViewBasisFunction {
   inline ElementViewBasisFunction() {
     Eigen::Matrix<double, ElementTrait::kDimension, ElementTrait::kAllNodeNumber> all_node_coordinate{
         getElementNodeCoordinate<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>().data()};
-    Eigen::Matrix<double, 3, ElementTrait::kAllNodeNumber> local_coord_gmsh_matrix;
-    local_coord_gmsh_matrix.setZero();
+    Eigen::Matrix<double, 3, ElementTrait::kAllNodeNumber> local_coord_gmsh_matrix{
+        Eigen::Matrix<double, 3, ElementTrait::kAllNodeNumber>::Zero()};
     local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>), Eigen::all) =
         all_node_coordinate;
     std::vector<double> local_coord(local_coord_gmsh_matrix.data(),

@@ -89,7 +89,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 4, 1> curve_loop_tag;
   Eigen::Array<int, 4, 1> plane_surface_tag;
   std::array<std::vector<int>, 3> physical_group_tag;
-  gmsh::model::add("naca0012");
+  gmsh::model::add("naca0012_2d");
   const int naca0012_leading_edge_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   const int naca0012_trailing_edge_point_tag = gmsh::model::geo::addPoint(1.0, 0.0, 0.0);
   for (std::ptrdiff_t i = 0; i < 6; i++) {

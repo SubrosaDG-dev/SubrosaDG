@@ -67,6 +67,7 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
       this->element_(i).node_tag_(j) = node_tag;
     }
   }
+  this->getElementQuality();
   this->getElementJacobian();
   this->calculateElementLocalMassMatrixInverse();
 }

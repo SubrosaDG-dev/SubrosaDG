@@ -41,7 +41,12 @@ int main(int argc, char* argv[]) {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
             1.4_r, 0.4_r * std::cos(2.79_deg), 0.4_r * std::sin(2.79_deg), 1.0_r};
       });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>("bc-2");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>(
+      "bc-2",
+      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
+          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
+      });
   system.setTransportModel(1.4_r * 0.4_r / 6.5e6_r);
   system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
@@ -101,7 +106,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 4, 1> curve_loop_tag;
   Eigen::Array<int, 4, 1> plane_surface_tag;
   std::array<std::vector<int>, 3> physical_group_tag;
-  gmsh::model::add("rae2822");
+  gmsh::model::add("rae2822_2d");
   const int rae2822_leading_edge_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   const int rae2822_trailing_edge_point_tag = gmsh::model::geo::addPoint(1.0, 0.0, 0.0);
   for (std::ptrdiff_t i = 0; i < 6; i++) {

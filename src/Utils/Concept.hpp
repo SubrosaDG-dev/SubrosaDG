@@ -66,7 +66,7 @@ concept Is3dElement = ElementType == ElementEnum::Tetrahedron || ElementType == 
                       ElementType == ElementEnum::Hexahedron;
 
 bool isWall(const BoundaryConditionEnum boundary_condition_type) {
-  return boundary_condition_type == BoundaryConditionEnum::IsothermalNoslipWall ||
+  return boundary_condition_type == BoundaryConditionEnum::IsothermalNoSlipWall ||
          boundary_condition_type == BoundaryConditionEnum::AdiabaticSlipWall ||
          boundary_condition_type == BoundaryConditionEnum::AdiabaticNoSlipWall;
 }

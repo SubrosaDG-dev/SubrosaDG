@@ -46,9 +46,10 @@ int main(int argc, char* argv[]) {
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::add("periodic_1d");
-  gmsh::model::geo::addPoint(0.0, 0.0, 0.0, 0.01);
-  gmsh::model::geo::addPoint(2.0, 0.0, 0.0, 0.01);
+  gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
+  gmsh::model::geo::addPoint(2.0, 0.0, 0.0);
   gmsh::model::geo::addLine(1, 2);
+  gmsh::model::geo::mesh::setTransfiniteCurve(1, 101);
   gmsh::model::geo::synchronize();
   gmsh::model::addPhysicalGroup(0, {1, 2}, -1, "bc-1");
   gmsh::model::addPhysicalGroup(1, {1}, -1, "vc-1");

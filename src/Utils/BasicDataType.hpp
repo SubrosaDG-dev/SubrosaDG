@@ -18,7 +18,6 @@
 #include <dbg.h>
 
 #include <iostream>
-#include <variant>
 
 // IWYU pragma: end_keep
 
@@ -26,6 +25,7 @@
 #include <cstddef>
 #include <functional>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 namespace SubrosaDG {
@@ -48,6 +48,14 @@ inline constexpr Real operator""_r(long double x) { return static_cast<Real>(x);
 }  // namespace SubrosaDG
 
 // NOLINTBEGIN
+
+template <typename T, std::size_t... sizes>
+constexpr auto concatenate(const std::array<T, sizes>&... arrays) {
+  std::array<T, (sizes + ...)> result;
+  std::size_t index{};
+  ((std::copy_n(arrays.begin(), sizes, result.begin() + index), index += sizes), ...);
+  return result;
+}
 
 template <typename T, std::size_t N>
 struct unordered_array : std::array<T, N> {};

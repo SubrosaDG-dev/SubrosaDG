@@ -1,9 +1,9 @@
 /**
- * @file sod_1d_euler.cpp
- * @brief The source file for SubrosaDG example sod_1d_euler.
+ * @file shuosher_1d_euler.cpp
+ * @brief The source file for SubrosaDG example shuosher_1d_euler.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
- * @date 2023-12-15
+ * @date 2024-07-20
  *
  * @version 0.1.0
  * @copyright Copyright (c) 2022 - 2024 by SubrosaDG developers. All rights reserved.
@@ -12,7 +12,7 @@
 
 #include "SubrosaDG"
 
-inline const std::string kExampleName{"sod_1d_euler"};
+inline const std::string kExampleName{"shuosher_1d_euler"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
@@ -26,32 +26,33 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
-  system.setMesh(kExampleDirectory / "sod_1d_euler.msh", generateMesh);
+  system.setMesh(kExampleDirectory / "shuosher_1d_euler.msh", generateMesh);
   system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate)
                                  -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        coordinate.x() <= 0.5_r ? 1.0_r : 0.125_r, coordinate.x() <= 0.5_r ? 0.75_r : 0.0_r,
-        coordinate.x() <= 0.5_r ? 1.4_r : 0.8_r * 1.4_r};
+        coordinate.x() <= -4.0_r ? 3.857143_r : 1.0_r + 0.2_r * std::sin(5.0_r * coordinate.x()),
+        coordinate.x() <= -4.0_r ? 2.629369_r : 0.0_r,
+        coordinate.x() <= -4.0_r ? 3.750342_r : 1.4_r / (1.0_r + 0.2_r * std::sin(5.0_r * coordinate.x()))};
   });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.75_r, 1.4_r};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{3.857143_r, 2.629369_r,
+                                                                                           3.750342_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-2",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{0.125_r, 0.0_r,
-                                                                                           0.8_r * 1.4_r};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+            1.0_r + 0.2_r * std::sin(25.0_r), 0.0_r, 1.4_r / (1.0_r + 0.2_r * std::sin(25.0_r))};
       });
-  system.setArtificialViscosity(2.0_r);
-  system.setTimeIntegration(0.1_r);
+  system.setArtificialViscosity(4.0_r, 3.0_r);
+  system.setTimeIntegration(0.01_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::MachNumber,
-                          SubrosaDG::ViewVariableEnum::ArtificialViscosity});
+                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::ArtificialViscosity});
   system.synchronize();
   system.solve();
   system.view();
@@ -59,9 +60,9 @@ int main(int argc, char* argv[]) {
 }
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
-  gmsh::model::add("sod_1d");
-  gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
-  gmsh::model::geo::addPoint(1.0, 0.0, 0.0);
+  gmsh::model::add("shuosher_1d");
+  gmsh::model::geo::addPoint(-5.0, 0.0, 0.0);
+  gmsh::model::geo::addPoint(5.0, 0.0, 0.0);
   gmsh::model::geo::addLine(1, 2);
   gmsh::model::geo::mesh::setTransfiniteCurve(1, 101);
   gmsh::model::geo::synchronize();

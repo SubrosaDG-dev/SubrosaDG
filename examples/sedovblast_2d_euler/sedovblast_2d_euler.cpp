@@ -1,6 +1,6 @@
 /**
- * @file periodic_2d_euler.cpp
- * @brief The source file for SubrosaDG example periodic_2d_euler.
+ * @file sedovblast_2d_euler.cpp
+ * @brief The source file for SubrosaDG example sedovblast_2d_euler.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2024-01-17
@@ -12,12 +12,12 @@
 
 #include "SubrosaDG"
 
-inline const std::string kExampleName{"periodic_2d_euler"};
+inline const std::string kExampleName{"sedovblast_2d_euler"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControlEuler<
-    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Quadrangle,
+    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
     SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function,
     SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
     SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3>;
@@ -26,46 +26,59 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
-  system.setMesh(kExampleDirectory / "periodic_2d_euler.msh", generateMesh);
+  system.setMesh(kExampleDirectory / "sedovblast_2d_euler.msh", generateMesh);
+  // NOTE: https://arxiv.org/pdf/2102.06017
   system.addInitialCondition([](const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
                                  -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())), 0.7_r, 0.3_r,
-        1.4_r / (1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y())))};
+        1.0_r +
+            std::exp(-(coordinate.x() * coordinate.x() + coordinate.y() * coordinate.y()) / (2.0_r * 0.25_r * 0.25_r)) /
+                (4.0_r * SubrosaDG::kPi * 0.25_r * 0.25_r),
+        0.0_r, 0.0_r,
+        1.4_r *
+            (1e-5_r + (1.4_r - 1.0_r) *
+                          std::exp(-(coordinate.x() * coordinate.x() + coordinate.y() * coordinate.y()) /
+                                   (2.0_r * 0.15_r * 0.15_r)) /
+                          (4.0_r * SubrosaDG::kPi * 0.15_r * 0.15_r)) /
+            (1.0_r + std::exp(-(coordinate.x() * coordinate.x() + coordinate.y() * coordinate.y()) /
+                              (2.0_r * 0.25_r * 0.25_r)) /
+                         (4.0_r * SubrosaDG::kPi * 0.25_r * 0.25_r))};
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
-  system.setTimeIntegration(1.0_r);
+  system.setArtificialViscosity(5.0_r, 5.0_r);
+  system.setTimeIntegration(0.1_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
-                          SubrosaDG::ViewVariableEnum::Pressure});
+                          SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::ArtificialViscosity});
   system.synchronize();
   system.solve();
   system.view();
 }
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
-  gmsh::model::add("periodic_2d");
-  gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
-  gmsh::model::geo::addPoint(2.0, 0.0, 0.0);
-  gmsh::model::geo::addPoint(2.0, 2.0, 0.0);
-  gmsh::model::geo::addPoint(0.0, 2.0, 0.0);
+  gmsh::model::add("sedovblast_2d");
+  gmsh::model::geo::addPoint(-1.5, -1.5, 0.0);
+  gmsh::model::geo::addPoint(1.5, -1.5, 0.0);
+  gmsh::model::geo::addPoint(1.5, 1.5, 0.0);
+  gmsh::model::geo::addPoint(-1.5, 1.5, 0.0);
   gmsh::model::geo::addLine(1, 2);
   gmsh::model::geo::addLine(2, 3);
   gmsh::model::geo::addLine(4, 3);
   gmsh::model::geo::addLine(1, 4);
   gmsh::model::geo::addCurveLoop({1, 2, -3, -4});
   gmsh::model::geo::addPlaneSurface({1});
-  gmsh::model::geo::mesh::setTransfiniteCurve(1, 21);
-  gmsh::model::geo::mesh::setTransfiniteCurve(2, 21);
-  gmsh::model::geo::mesh::setTransfiniteCurve(3, 21);
-  gmsh::model::geo::mesh::setTransfiniteCurve(4, 21);
+  gmsh::model::geo::mesh::setTransfiniteCurve(1, 101);
+  gmsh::model::geo::mesh::setTransfiniteCurve(2, 101);
+  gmsh::model::geo::mesh::setTransfiniteCurve(3, 101);
+  gmsh::model::geo::mesh::setTransfiniteCurve(4, 101);
   gmsh::model::geo::mesh::setTransfiniteSurface(1);
   gmsh::model::geo::mesh::setRecombine(2, 1);
   gmsh::model::geo::synchronize();
+  gmsh::model::mesh::setTransfiniteAutomatic();
   Eigen::Matrix<double, 4, 4, Eigen::RowMajor> transform_x =
-      (Eigen::Transform<double, 3, Eigen::Affine>::Identity() * Eigen::Translation<double, 3>(2, 0, 0)).matrix();
+      (Eigen::Transform<double, 3, Eigen::Affine>::Identity() * Eigen::Translation<double, 3>(3, 0, 0)).matrix();
   Eigen::Matrix<double, 4, 4, Eigen::RowMajor> transform_y =
-      (Eigen::Transform<double, 3, Eigen::Affine>::Identity() * Eigen::Translation<double, 3>(0, 2, 0)).matrix();
+      (Eigen::Transform<double, 3, Eigen::Affine>::Identity() * Eigen::Translation<double, 3>(0, 3, 0)).matrix();
   gmsh::model::mesh::setPeriodic(1, {2}, {4}, {transform_x.data(), transform_x.data() + transform_x.size()});
   gmsh::model::mesh::setPeriodic(1, {3}, {1}, {transform_y.data(), transform_y.data() + transform_y.size()});
   gmsh::model::addPhysicalGroup(1, {1, 2, 3, 4}, -1, "bc-1");

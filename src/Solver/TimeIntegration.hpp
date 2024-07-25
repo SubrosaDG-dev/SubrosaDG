@@ -119,13 +119,15 @@ inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
     quadrature_node_variable.get(element_mesh, *this, i);
     quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
+      const Real sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
+          quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(j));
       const Real spectral_radius =
-          std::sqrt(
-              quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquareSummation>(j)) +
-          thermal_model.calculateSoundSpeedFromInternalEnergy(
-              quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(j));
-      delta_time(j) = courant_friedrichs_lewy_number * element_mesh.element_(i).size_ /
-                      (spectral_radius * (2.0_r * SimulationControl::kPolynomialOrder + 1.0_r));
+          std::sqrt(quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(j)) +
+          sound_speed;
+      // NOTE: https://arxiv.org/pdf/2008.12044
+      delta_time(j) = courant_friedrichs_lewy_number * element_mesh.element_(i).minimum_characteristic_length_ /
+                      (spectral_radius * (SimulationControl::kPolynomialOrder + 1.0_r) *
+                       (SimulationControl::kPolynomialOrder + 1.0_r));
     }
     min_delta_time = std::min(min_delta_time, delta_time.minCoeff());
   }

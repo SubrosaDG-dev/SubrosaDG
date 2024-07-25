@@ -242,12 +242,289 @@ inline consteval Real getElementMeasure() {
 
 template <ElementEnum ElementType, int PolynomialOrder>
 inline consteval int getElementBasisFunctionNumber() {
-  return getElementNodeNumber<ElementType, PolynomialOrder>();
+  if constexpr (ElementType == ElementEnum::Point) {
+    return 1;
+  }
+  if constexpr (ElementType == ElementEnum::Line) {
+    return PolynomialOrder + 1;
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    return (PolynomialOrder + 1) * (PolynomialOrder + 2) / 2;
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    return (PolynomialOrder + 1) * (PolynomialOrder + 1);
+  }
+  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+    return (PolynomialOrder + 1) * (PolynomialOrder + 2) * (PolynomialOrder + 3) / 6;
+  }
+  if constexpr (ElementType == ElementEnum::Pyramid) {
+    return (PolynomialOrder + 1) * (PolynomialOrder + 2) * (2 * PolynomialOrder + 3) / 6;
+  }
+  if constexpr (ElementType == ElementEnum::Hexahedron) {
+    return (PolynomialOrder + 1) * (PolynomialOrder + 1) * (PolynomialOrder + 1);
+  }
+}
+
+inline constexpr std::array<int, 12> kLineQuadratureNumber{1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6};
+inline constexpr std::array<int, 12> kTriangleQuadratureNumber{1, 1, 3, 4, 6, 7, 12, 13, 16, 19, 25, 27};
+inline constexpr std::array<int, 12> kQuadrangleQuadratureNumber{1, 3, 7, 4, 9, 9, 16, 16, 25, 25, 36, 36};
+inline constexpr std::array<int, 12> kTetrahedronQuadratureNumber{1, 1, 4, 5, 11, 14, 24, 31, 43, 53, 126, 126};
+inline constexpr std::array<int, 12> kPyramidQuadratureNumber{1, 1, 8, 8, 27, 27, 64, 64, 125, 125, 216, 216};
+inline constexpr std::array<int, 12> kHexahedronQuadratureNumber{1, 6, 8, 8, 27, 27, 64, 64, 125, 125, 216, 216};
+
+template <int PolynomialOrder>
+inline consteval int getElementQuadratureOrder() {
+  return 2 * PolynomialOrder;
+}
+
+template <int PolynomialOrder>
+inline consteval int getAdjacencyElementQuadratureOrder() {
+  return 2 * PolynomialOrder + 1;
 }
 
 template <ElementEnum ElementType, int PolynomialOrder>
-inline constexpr std::array<int, getElementBasisFunctionNumber<ElementType, PolynomialOrder>()>
-getAdjacencyElementBasisFunctionSequence([[maybe_unused]] int parent, int sequence) {
+inline consteval int getElementQuadratureNumber() {
+  if constexpr (ElementType == ElementEnum::Point) {
+    return 1;
+  }
+  if constexpr (ElementType == ElementEnum::Line) {
+    return kLineQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    return kTriangleQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    return kQuadrangleQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
+  }
+  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+    return kTetrahedronQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
+  }
+  if constexpr (ElementType == ElementEnum::Pyramid) {
+    return kPyramidQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
+  }
+  if constexpr (ElementType == ElementEnum::Hexahedron) {
+    return kHexahedronQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
+  }
+}
+
+template <ElementEnum ElementType, int PolynomialOrder>
+inline consteval int getAdjacencyElementQuadratureNumber() {
+  if constexpr (ElementType == ElementEnum::Point) {
+    return 1;
+  }
+  if constexpr (ElementType == ElementEnum::Line) {
+    return kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())];
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    return kTriangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())];
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    return kQuadrangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())];
+  }
+}
+
+template <ElementEnum ElementType, int PolynomialOrder>
+inline consteval std::array<int, getElementAdjacencyNumber<ElementType>()> getElementPerAdjacencyQuadratureNumber() {
+  if constexpr (ElementType == ElementEnum::Line) {
+    return {1, 1};
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    constexpr int kLineQuadrature{
+        kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
+    return {kLineQuadrature, kLineQuadrature, kLineQuadrature};
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    constexpr int kLineQuadrature{
+        kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
+    return {kLineQuadrature, kLineQuadrature, kLineQuadrature, kLineQuadrature};
+  }
+  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+    constexpr int kTriangleQuadrature{
+        kTriangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
+    return {kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature};
+  }
+  if constexpr (ElementType == ElementEnum::Pyramid) {
+    constexpr int kTriangleQuadrature{
+        kTriangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
+    constexpr int kQuadrangleQuadrature{
+        kQuadrangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
+    return {kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature, kQuadrangleQuadrature};
+  }
+  if constexpr (ElementType == ElementEnum::Hexahedron) {
+    constexpr int kQuadrangleQuadrature{
+        kQuadrangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
+    return {kQuadrangleQuadrature, kQuadrangleQuadrature, kQuadrangleQuadrature,
+            kQuadrangleQuadrature, kQuadrangleQuadrature, kQuadrangleQuadrature};
+  }
+}
+
+template <ElementEnum ElementType, int PolynomialOrder>
+inline consteval int getElementAllAdjacencyQuadratureNumber() {
+  constexpr std::array<int, getElementAdjacencyNumber<ElementType>()> kElementPerAdjacencyQuadratureNumber{
+      getElementPerAdjacencyQuadratureNumber<ElementType, PolynomialOrder>()};
+  return std::accumulate(kElementPerAdjacencyQuadratureNumber.begin(), kElementPerAdjacencyQuadratureNumber.end(), 0);
+}
+
+template <ElementEnum ElementType, int PolynomialOrder>
+inline consteval std::array<int, getElementAdjacencyNumber<ElementType>() + 1>
+getElementAccumulateAdjacencyQuadratureNumber() {
+  std::array<int, getElementAdjacencyNumber<ElementType>() + 1> accumulate_adjacency_quadrature_number{};
+  accumulate_adjacency_quadrature_number[0] = 0;
+  for (int i = 0; i < getElementAdjacencyNumber<ElementType>(); ++i) {
+    accumulate_adjacency_quadrature_number[static_cast<Usize>(i) + 1] =
+        accumulate_adjacency_quadrature_number[static_cast<Usize>(i)] +
+        getElementPerAdjacencyQuadratureNumber<ElementType, PolynomialOrder>()[static_cast<Usize>(i)];
+  }
+  return accumulate_adjacency_quadrature_number;
+}
+
+template <ElementEnum ElementType, int PolynomialOrder>
+inline constexpr std::array<int, getAdjacencyElementQuadratureNumber<ElementType, PolynomialOrder>()>
+getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
+  if constexpr (ElementType == ElementEnum::Point) {
+    return {0};
+  }
+  if constexpr (ElementType == ElementEnum::Line) {
+    if constexpr (PolynomialOrder == 1) {
+      return {1, 0};
+    }
+    if constexpr (PolynomialOrder == 2) {
+      return {2, 1, 0};
+    }
+    if constexpr (PolynomialOrder == 3) {
+      return {3, 2, 1, 0};
+    }
+    if constexpr (PolynomialOrder == 4) {
+      return {4, 3, 2, 1, 0};
+    }
+    if constexpr (PolynomialOrder == 5) {
+      return {5, 4, 3, 2, 1, 0};
+    }
+  }
+  if constexpr (ElementType == ElementEnum::Triangle) {
+    if constexpr (PolynomialOrder == 1) {
+      switch (rotation) {
+      case 0:
+        return {0, 1, 3, 2};
+      case 1:
+        return {0, 3, 2, 1};
+      case 2:
+        return {0, 2, 1, 3};
+      }
+    }
+    if constexpr (PolynomialOrder == 2) {
+      switch (rotation) {
+      case 0:
+        return {0, 1, 3, 2, 4, 6, 5};
+      case 1:
+        return {0, 3, 2, 1, 6, 5, 4};
+      case 2:
+        return {0, 2, 1, 3, 5, 4, 6};
+      }
+    }
+    if constexpr (PolynomialOrder == 3) {
+      switch (rotation) {
+      case 0:
+        return {0, 1, 3, 2, 4, 6, 5, 11, 12, 10, 9, 7, 8};
+      case 1:
+        return {0, 3, 2, 1, 6, 5, 4, 12, 10, 11, 8, 9, 7};
+      case 2:
+        return {0, 2, 1, 3, 5, 4, 6, 10, 11, 12, 7, 8, 9};
+      }
+    }
+    if constexpr (PolynomialOrder == 4) {
+      switch (rotation) {
+      case 0:
+        return {0, 1, 3, 2, 4, 6, 5, 7, 9, 8, 10, 12, 11, 17, 18, 16, 15, 13, 14};
+      case 1:
+        return {0, 3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10, 18, 16, 17, 14, 15, 13};
+      case 2:
+        return {0, 2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12, 16, 17, 18, 13, 14, 15};
+      }
+    }
+    if constexpr (PolynomialOrder == 5) {
+      switch (rotation) {
+      case 0:
+        return {0, 2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12, 14, 13, 19, 20, 18, 17, 15, 16, 25, 26, 24, 23, 21, 22};
+      case 1:
+        return {1, 0, 2, 4, 3, 5, 7, 6, 8, 10, 9, 11, 13, 12, 14, 18, 19, 20, 15, 16, 17, 24, 25, 26, 21, 22, 23};
+      case 2:
+        return {2, 1, 0, 5, 4, 3, 8, 7, 6, 11, 10, 9, 14, 13, 12, 20, 18, 19, 16, 17, 15, 26, 24, 25, 22, 23, 21};
+      }
+    }
+  }
+  if constexpr (ElementType == ElementEnum::Quadrangle) {
+    if constexpr (PolynomialOrder == 1) {
+      switch (rotation) {
+      case 0:
+        return {0, 2, 1, 3};
+      case 1:
+        return {2, 3, 0, 1};
+      case 2:
+        return {3, 1, 2, 0};
+      case 3:
+        return {1, 0, 3, 2};
+      }
+    }
+    if constexpr (PolynomialOrder == 2) {
+      switch (rotation) {
+      case 0:
+        return {0, 3, 6, 1, 4, 7, 2, 5, 8};
+      case 1:
+        return {6, 7, 8, 3, 4, 5, 0, 1, 2};
+      case 2:
+        return {8, 5, 2, 7, 4, 1, 6, 3, 0};
+      case 3:
+        return {2, 1, 0, 5, 4, 3, 8, 7, 6};
+      }
+    }
+    if constexpr (PolynomialOrder == 3) {
+      switch (rotation) {
+      case 0:
+        return {0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15};
+      case 1:
+        return {12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3};
+      case 2:
+        return {15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0};
+      case 3:
+        return {3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12};
+      }
+    }
+    if constexpr (PolynomialOrder == 4) {
+      switch (rotation) {
+      case 0:
+        return {0, 5, 10, 15, 20, 1, 6, 11, 16, 21, 2, 7, 12, 17, 22, 3, 8, 13, 18, 23, 4, 9, 14, 19, 24};
+      case 1:
+        return {20, 21, 22, 23, 24, 15, 16, 17, 18, 19, 10, 11, 12, 13, 14, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4};
+      case 2:
+        return {24, 19, 14, 9, 4, 23, 18, 13, 8, 3, 22, 17, 12, 7, 2, 21, 16, 11, 6, 1, 20, 15, 10, 5, 0};
+      case 3:
+        return {4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 14, 13, 12, 11, 10, 19, 18, 17, 16, 15, 24, 23, 22, 21, 20};
+      }
+    }
+    if constexpr (PolynomialOrder == 5) {
+      switch (rotation) {
+      case 0:
+        return {0, 6, 12, 18, 24, 30, 1, 7,  13, 19, 25, 31, 2, 8,  14, 20, 26, 32,
+                3, 9, 15, 21, 27, 33, 4, 10, 16, 22, 28, 34, 5, 11, 17, 23, 29, 35};
+      case 1:
+        return {30, 31, 32, 33, 34, 35, 24, 25, 26, 27, 28, 29, 18, 19, 20, 21, 22, 23,
+                12, 13, 14, 15, 16, 17, 6,  7,  8,  9,  10, 11, 0,  1,  2,  3,  4,  5};
+      case 2:
+        return {35, 29, 23, 17, 11, 5, 34, 28, 22, 16, 10, 4, 33, 27, 21, 15, 9, 3,
+                32, 26, 20, 14, 8,  2, 31, 25, 19, 13, 7,  1, 30, 24, 18, 12, 6, 0};
+      case 3:
+        return {5,  4,  3,  2,  1,  0,  11, 10, 9,  8,  7,  6,  17, 16, 15, 14, 13, 12,
+                23, 22, 21, 20, 19, 18, 29, 28, 27, 26, 25, 24, 35, 34, 33, 32, 31, 30};
+      }
+    }
+  }
+  return {};
+}
+
+template <ElementEnum ElementType, int PolynomialOrder>
+inline constexpr std::array<int, getElementNodeNumber<ElementType, PolynomialOrder>()>
+getAdjacencyElementViewNodeParentSequence([[maybe_unused]] int parent, int sequence) {
   if constexpr (ElementType == ElementEnum::Point) {
     switch (sequence) {
     case 0:
@@ -609,263 +886,6 @@ getAdjacencyElementBasisFunctionSequence([[maybe_unused]] int parent, int sequen
   return {};
 }
 
-inline constexpr std::array<int, 12> kLineQuadratureNumber{1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6};
-inline constexpr std::array<int, 12> kTriangleQuadratureNumber{1, 1, 3, 4, 6, 7, 12, 13, 16, 19, 25, 27};
-inline constexpr std::array<int, 12> kQuadrangleQuadratureNumber{1, 3, 7, 4, 9, 9, 16, 16, 25, 25, 36, 36};
-inline constexpr std::array<int, 12> kTetrahedronQuadratureNumber{1, 1, 4, 5, 11, 14, 24, 31, 43, 53, 126, 126};
-inline constexpr std::array<int, 12> kPyramidQuadratureNumber{1, 1, 8, 8, 27, 27, 64, 64, 125, 125, 216, 216};
-inline constexpr std::array<int, 12> kHexahedronQuadratureNumber{1, 6, 8, 8, 27, 27, 64, 64, 125, 125, 216, 216};
-
-template <int PolynomialOrder>
-inline consteval int getElementQuadratureOrder() {
-  return 2 * PolynomialOrder;
-}
-
-template <int PolynomialOrder>
-inline consteval int getAdjacencyElementQuadratureOrder() {
-  return 2 * PolynomialOrder + 1;
-}
-
-template <ElementEnum ElementType, int PolynomialOrder>
-inline consteval int getElementQuadratureNumber() {
-  if constexpr (ElementType == ElementEnum::Point) {
-    return 1;
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
-    return kLineQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
-    return kTriangleQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
-    return kQuadrangleQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
-    return kTetrahedronQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
-    return kPyramidQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
-    return kHexahedronQuadratureNumber[static_cast<Usize>(getElementQuadratureOrder<PolynomialOrder>())];
-  }
-}
-
-template <ElementEnum ElementType, int PolynomialOrder>
-inline consteval int getAdjacencyElementQuadratureNumber() {
-  if constexpr (ElementType == ElementEnum::Point) {
-    return 1;
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
-    return kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
-    return kTriangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
-    return kQuadrangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())];
-  }
-}
-
-template <ElementEnum ElementType, int PolynomialOrder>
-inline consteval std::array<int, getElementAdjacencyNumber<ElementType>()> getElementPerAdjacencyQuadratureNumber() {
-  if constexpr (ElementType == ElementEnum::Line) {
-    return {1, 1};
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
-    constexpr int kLineQuadrature{
-        kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
-    return {kLineQuadrature, kLineQuadrature, kLineQuadrature};
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
-    constexpr int kLineQuadrature{
-        kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
-    return {kLineQuadrature, kLineQuadrature, kLineQuadrature, kLineQuadrature};
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
-    constexpr int kTriangleQuadrature{
-        kTriangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
-    return {kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature};
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
-    constexpr int kTriangleQuadrature{
-        kTriangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
-    constexpr int kQuadrangleQuadrature{
-        kQuadrangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
-    return {kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature, kQuadrangleQuadrature};
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
-    constexpr int kQuadrangleQuadrature{
-        kQuadrangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
-    return {kQuadrangleQuadrature, kQuadrangleQuadrature, kQuadrangleQuadrature,
-            kQuadrangleQuadrature, kQuadrangleQuadrature, kQuadrangleQuadrature};
-  }
-}
-
-template <ElementEnum ElementType, int PolynomialOrder>
-inline consteval int getElementAllAdjacencyQuadratureNumber() {
-  constexpr std::array<int, getElementAdjacencyNumber<ElementType>()> kElementPerAdjacencyQuadratureNumber{
-      getElementPerAdjacencyQuadratureNumber<ElementType, PolynomialOrder>()};
-  return std::accumulate(kElementPerAdjacencyQuadratureNumber.begin(), kElementPerAdjacencyQuadratureNumber.end(), 0);
-}
-
-template <ElementEnum ElementType, int PolynomialOrder>
-inline consteval std::array<int, getElementAdjacencyNumber<ElementType>() + 1>
-getElementAccumulateAdjacencyQuadratureNumber() {
-  std::array<int, getElementAdjacencyNumber<ElementType>() + 1> accumulate_adjacency_quadrature_number{};
-  accumulate_adjacency_quadrature_number[0] = 0;
-  for (int i = 0; i < getElementAdjacencyNumber<ElementType>(); ++i) {
-    accumulate_adjacency_quadrature_number[static_cast<Usize>(i) + 1] =
-        accumulate_adjacency_quadrature_number[static_cast<Usize>(i)] +
-        getElementPerAdjacencyQuadratureNumber<ElementType, PolynomialOrder>()[static_cast<Usize>(i)];
-  }
-  return accumulate_adjacency_quadrature_number;
-}
-
-template <ElementEnum ElementType, int PolynomialOrder>
-inline constexpr std::array<int, getAdjacencyElementQuadratureNumber<ElementType, PolynomialOrder>()>
-getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
-  if constexpr (ElementType == ElementEnum::Point) {
-    return {0};
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
-    if constexpr (PolynomialOrder == 1) {
-      return {1, 0};
-    }
-    if constexpr (PolynomialOrder == 2) {
-      return {2, 1, 0};
-    }
-    if constexpr (PolynomialOrder == 3) {
-      return {3, 2, 1, 0};
-    }
-    if constexpr (PolynomialOrder == 4) {
-      return {4, 3, 2, 1, 0};
-    }
-    if constexpr (PolynomialOrder == 5) {
-      return {5, 4, 3, 2, 1, 0};
-    }
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
-    if constexpr (PolynomialOrder == 1) {
-      switch (rotation) {
-      case 0:
-        return {0, 1, 3, 2};
-      case 1:
-        return {0, 3, 2, 1};
-      case 2:
-        return {0, 2, 1, 3};
-      }
-    }
-    if constexpr (PolynomialOrder == 2) {
-      switch (rotation) {
-      case 0:
-        return {0, 1, 3, 2, 4, 6, 5};
-      case 1:
-        return {0, 3, 2, 1, 6, 5, 4};
-      case 2:
-        return {0, 2, 1, 3, 5, 4, 6};
-      }
-    }
-    if constexpr (PolynomialOrder == 3) {
-      switch (rotation) {
-      case 0:
-        return {0, 1, 3, 2, 4, 6, 5, 11, 12, 10, 9, 7, 8};
-      case 1:
-        return {0, 3, 2, 1, 6, 5, 4, 12, 10, 11, 8, 9, 7};
-      case 2:
-        return {0, 2, 1, 3, 5, 4, 6, 10, 11, 12, 7, 8, 9};
-      }
-    }
-    if constexpr (PolynomialOrder == 4) {
-      switch (rotation) {
-      case 0:
-        return {0, 1, 3, 2, 4, 6, 5, 7, 9, 8, 10, 12, 11, 17, 18, 16, 15, 13, 14};
-      case 1:
-        return {0, 3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10, 18, 16, 17, 14, 15, 13};
-      case 2:
-        return {0, 2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12, 16, 17, 18, 13, 14, 15};
-      }
-    }
-    if constexpr (PolynomialOrder == 5) {
-      switch (rotation) {
-      case 0:
-        return {0, 2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12, 14, 13, 19, 20, 18, 17, 15, 16, 25, 26, 24, 23, 21, 22};
-      case 1:
-        return {1, 0, 2, 4, 3, 5, 7, 6, 8, 10, 9, 11, 13, 12, 14, 18, 19, 20, 15, 16, 17, 24, 25, 26, 21, 22, 23};
-      case 2:
-        return {2, 1, 0, 5, 4, 3, 8, 7, 6, 11, 10, 9, 14, 13, 12, 20, 18, 19, 16, 17, 15, 26, 24, 25, 22, 23, 21};
-      }
-    }
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
-    if constexpr (PolynomialOrder == 1) {
-      switch (rotation) {
-      case 0:
-        return {0, 2, 1, 3};
-      case 1:
-        return {2, 3, 0, 1};
-      case 2:
-        return {3, 1, 2, 0};
-      case 3:
-        return {1, 0, 3, 2};
-      }
-    }
-    if constexpr (PolynomialOrder == 2) {
-      switch (rotation) {
-      case 0:
-        return {0, 3, 6, 1, 4, 7, 2, 5, 8};
-      case 1:
-        return {6, 7, 8, 3, 4, 5, 0, 1, 2};
-      case 2:
-        return {8, 5, 2, 7, 4, 1, 6, 3, 0};
-      case 3:
-        return {2, 1, 0, 5, 4, 3, 8, 7, 6};
-      }
-    }
-    if constexpr (PolynomialOrder == 3) {
-      switch (rotation) {
-      case 0:
-        return {0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15};
-      case 1:
-        return {12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3};
-      case 2:
-        return {15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0};
-      case 3:
-        return {3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12};
-      }
-    }
-    if constexpr (PolynomialOrder == 4) {
-      switch (rotation) {
-      case 0:
-        return {0, 5, 10, 15, 20, 1, 6, 11, 16, 21, 2, 7, 12, 17, 22, 3, 8, 13, 18, 23, 4, 9, 14, 19, 24};
-      case 1:
-        return {20, 21, 22, 23, 24, 15, 16, 17, 18, 19, 10, 11, 12, 13, 14, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4};
-      case 2:
-        return {24, 19, 14, 9, 4, 23, 18, 13, 8, 3, 22, 17, 12, 7, 2, 21, 16, 11, 6, 1, 20, 15, 10, 5, 0};
-      case 3:
-        return {4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 14, 13, 12, 11, 10, 19, 18, 17, 16, 15, 24, 23, 22, 21, 20};
-      }
-    }
-    if constexpr (PolynomialOrder == 5) {
-      switch (rotation) {
-      case 0:
-        return {0, 6, 12, 18, 24, 30, 1, 7,  13, 19, 25, 31, 2, 8,  14, 20, 26, 32,
-                3, 9, 15, 21, 27, 33, 4, 10, 16, 22, 28, 34, 5, 11, 17, 23, 29, 35};
-      case 1:
-        return {30, 31, 32, 33, 34, 35, 24, 25, 26, 27, 28, 29, 18, 19, 20, 21, 22, 23,
-                12, 13, 14, 15, 16, 17, 6,  7,  8,  9,  10, 11, 0,  1,  2,  3,  4,  5};
-      case 2:
-        return {35, 29, 23, 17, 11, 5, 34, 28, 22, 16, 10, 4, 33, 27, 21, 15, 9, 3,
-                32, 26, 20, 14, 8,  2, 31, 25, 19, 13, 7,  1, 30, 24, 18, 12, 6, 0};
-      case 3:
-        return {5,  4,  3,  2,  1,  0,  11, 10, 9,  8,  7,  6,  17, 16, 15, 14, 13, 12,
-                23, 22, 21, 20, 19, 18, 29, 28, 27, 26, 25, 24, 35, 34, 33, 32, 31, 30};
-      }
-    }
-  }
-  return {};
-}
-
 template <ElementEnum ElementType>
 inline consteval int getElementVtkElementNumber() {
   if constexpr (ElementType == ElementEnum::Pyramid) {
@@ -1049,60 +1069,6 @@ getElementVTKConnectivity() {
   }
 }
 
-template <int Dimension, EquationModelEnum EquationModelType>
-inline consteval int getConservedVariableNumber() {
-  if constexpr (EquationModelType == EquationModelEnum::Euler) {
-    return Dimension + 2;
-  }
-  if constexpr (EquationModelType == EquationModelEnum::NavierStokes) {
-    return Dimension + 2;
-  }
-}
-
-template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
-  requires(EquationModelType == EquationModelEnum::RANS)
-inline consteval int getConservedVariableNumber() {
-  if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
-    return Dimension + 3;
-  }
-}
-
-template <int Dimension, EquationModelEnum EquationModelType>
-inline consteval int getComputationalVariableNumber() {
-  if constexpr (EquationModelType == EquationModelEnum::Euler) {
-    return Dimension + 3;
-  }
-  if constexpr (EquationModelType == EquationModelEnum::NavierStokes) {
-    return Dimension + 3;
-  }
-}
-
-template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
-  requires(EquationModelType == EquationModelEnum::RANS)
-inline consteval int getComputationalVariableNumber() {
-  if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
-    return Dimension + 4;
-  }
-}
-
-template <int Dimension, EquationModelEnum EquationModelType>
-inline consteval int getPrimitiveVariableNumber() {
-  if constexpr (EquationModelType == EquationModelEnum::Euler) {
-    return Dimension + 2;
-  }
-  if constexpr (EquationModelType == EquationModelEnum::NavierStokes) {
-    return Dimension + 2;
-  }
-}
-
-template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
-  requires(EquationModelType == EquationModelEnum::RANS)
-inline consteval int getPrimitiveVariableNumber() {
-  if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
-    return Dimension + 3;
-  }
-}
-
 template <ElementEnum ElementType, int PolynomialOrder>
 struct ElementTraitBase {
   inline static constexpr int kDimension{getElementDimension<ElementType>()};
@@ -1162,6 +1128,60 @@ using AdjacencyTriangleTrait = AdjacencyElementTrait<ElementEnum::Triangle, Poly
 
 template <int PolynomialOrder>
 using AdjacencyQuadrangleTrait = AdjacencyElementTrait<ElementEnum::Quadrangle, PolynomialOrder>;
+
+template <int Dimension, EquationModelEnum EquationModelType>
+inline consteval int getConservedVariableNumber() {
+  if constexpr (EquationModelType == EquationModelEnum::Euler) {
+    return Dimension + 2;
+  }
+  if constexpr (EquationModelType == EquationModelEnum::NavierStokes) {
+    return Dimension + 2;
+  }
+}
+
+template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
+  requires(EquationModelType == EquationModelEnum::RANS)
+inline consteval int getConservedVariableNumber() {
+  if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
+    return Dimension + 3;
+  }
+}
+
+template <int Dimension, EquationModelEnum EquationModelType>
+inline consteval int getComputationalVariableNumber() {
+  if constexpr (EquationModelType == EquationModelEnum::Euler) {
+    return Dimension + 3;
+  }
+  if constexpr (EquationModelType == EquationModelEnum::NavierStokes) {
+    return Dimension + 3;
+  }
+}
+
+template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
+  requires(EquationModelType == EquationModelEnum::RANS)
+inline consteval int getComputationalVariableNumber() {
+  if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
+    return Dimension + 4;
+  }
+}
+
+template <int Dimension, EquationModelEnum EquationModelType>
+inline consteval int getPrimitiveVariableNumber() {
+  if constexpr (EquationModelType == EquationModelEnum::Euler) {
+    return Dimension + 2;
+  }
+  if constexpr (EquationModelType == EquationModelEnum::NavierStokes) {
+    return Dimension + 2;
+  }
+}
+
+template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
+  requires(EquationModelType == EquationModelEnum::RANS)
+inline consteval int getPrimitiveVariableNumber() {
+  if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
+    return Dimension + 3;
+  }
+}
 
 template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, EquationModelEnum EquationModelType,
           SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,

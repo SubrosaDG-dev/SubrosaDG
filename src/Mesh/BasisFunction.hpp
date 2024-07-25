@@ -144,6 +144,8 @@ struct ElementBasisFunction {
       modal_gradient_value_;
   Eigen::Matrix<Real, ElementTrait::kAllAdjacencyQuadratureNumber, ElementTrait::kBasisFunctionNumber, Eigen::RowMajor>
       modal_adjacency_value_;
+  Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>
+      modal_least_squares_inverse_;
 
   template <int I>
   inline void getElementAdjacencyBasisFunction(int node_column = 0, int quadrature_column = 0) {
@@ -213,6 +215,7 @@ struct ElementBasisFunction {
             static_cast<Real>(modal_basis_functions[static_cast<Usize>(i * ElementTrait::kBasisFunctionNumber + j)]);
       }
     }
+    this->modal_least_squares_inverse_ = (this->modal_value_.transpose() * this->modal_value_).inverse();
     std::vector<double> modal_gradient_basis_functions{
         getElementModalBasisFunction<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>(true, local_coord)};
     for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {

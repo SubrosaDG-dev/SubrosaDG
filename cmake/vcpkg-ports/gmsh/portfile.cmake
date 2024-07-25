@@ -25,6 +25,7 @@ vcpkg_cmake_configure(
         -DENABLE_PACKAGE_STRIP=ON
         -DENABLE_SYSTEM_CONTRIB=ON
         -DENABLE_MESH=ON
+        -DENABLE_ALGLIB=ON
         -DENABLE_ANN=ON
         -DENABLE_EIGEN=ON
         -DENABLE_OPENMP=ON
@@ -56,7 +57,6 @@ vcpkg_cmake_configure(
         -DENABLE_WRAP_PYTHON=OFF
         # Requies dependencies which not included in vcpkg yet
         -DENABLE_3M=OFF
-        -DENABLE_ALGLIB=OFF
         -DENABLE_BAMG=OFF
         -DENABLE_BLOSSOM=OFF
         -DENABLE_BUILD_DYNAMIC=OFF # Needs gfortran

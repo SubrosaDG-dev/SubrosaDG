@@ -83,7 +83,8 @@ struct System {
     requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
              BoundaryConditionType == BoundaryConditionEnum::VelocityInflow ||
              BoundaryConditionType == BoundaryConditionEnum::PressureOutflow ||
-             BoundaryConditionType == BoundaryConditionEnum::IsothermalNoslipWall)
+             BoundaryConditionType == BoundaryConditionEnum::IsothermalNoSlipWall ||
+             BoundaryConditionType == BoundaryConditionEnum::AdiabaticNoSlipWall)
   inline void addBoundaryCondition(
       const std::string& boundary_condition_name,
       const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
@@ -97,8 +98,7 @@ struct System {
   }
 
   template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::AdiabaticSlipWall ||
-             BoundaryConditionType == BoundaryConditionEnum::AdiabaticNoSlipWall)
+    requires(BoundaryConditionType == BoundaryConditionEnum::AdiabaticSlipWall)
   inline void addBoundaryCondition(const std::string& boundary_condition_name) {
     const auto boundary_condition_index =
         static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
@@ -188,13 +188,20 @@ struct System {
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
       this->solver_.stepSolver(this->mesh_, this->source_term_, this->thermal_model_, this->boundary_condition_,
                                this->time_integration_);
-      if (i % this->view_.io_interval_ == 0) {
+      if (i % this->view_.io_interval_ == 0) [[unlikely]] {
         this->solver_.write_raw_binary_future_.get();
         this->solver_.writeRawBinary(
             this->mesh_,
             this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i));
       }
       this->command_line_.updateSolver(i, this->solver_.relative_error_, this->solver_.error_finout_);
+      if (this->solver_.relative_error_.array().isNaN().all()) [[unlikely]] {
+        if (this->view_.io_interval_ == this->time_integration_.iteration_end_) {
+          this->view_.io_interval_ = i;
+        }
+        this->time_integration_.iteration_end_ = i;
+        break;
+      }
     }
     this->solver_.write_raw_binary_future_.get();
     this->view_.finalizeSolverFinout(this->solver_.error_finout_);

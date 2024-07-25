@@ -49,21 +49,12 @@ struct ElementPhysicalInformation {
   Isize element_index_;
 };
 
-struct ElementBasicInformation {
-  int gmsh_type_number_;
-  Isize element_index_;
-
-  inline ElementBasicInformation(int gmsh_type_number, Isize element_index)
-      : gmsh_type_number_(gmsh_type_number), element_index_(element_index) {};
-};
-
 struct MeshInformation {
   ordered_set<std::string> physical_;
   std::vector<Isize> physical_dimension_;
   std::unordered_map<Isize, BoundaryConditionEnum> boundary_condition_type_;
   std::unordered_map<Isize, PhysicalInformation> physical_information_;
   std::unordered_map<Isize, ElementPhysicalInformation> gmsh_tag_to_element_information_;
-  std::unordered_map<Isize, std::vector<ElementBasicInformation>> gmsh_tag_to_sub_index_and_type_;
 };
 
 struct PerElementInformation {
@@ -99,7 +90,8 @@ struct PerElementMesh : PerElementMeshBase<ElementTrait> {
       local_mass_matrix_inverse_;
   Eigen::Matrix<Real, ElementTrait::kDimension * ElementTrait::kDimension, ElementTrait::kQuadratureNumber>
       jacobian_transpose_inverse_;
-  Real size_;
+  Real minimum_characteristic_length_;
+  Real inner_radius_;
 };
 
 template <typename AdjacencyElementTrait>
@@ -156,22 +148,11 @@ struct ElementMesh {
   inline void getElementMesh(const Eigen::Matrix<Real, ElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
                              MeshInformation& information);
 
+  inline void getElementQuality();
+
   inline void getElementJacobian();
 
   inline void calculateElementLocalMassMatrixInverse();
-
-  inline void calculateElementMeshSize(
-      const MeshInformation& information,
-      const AdjacencyElementMesh<AdjacencyPointTrait<ElementTrait::kPolynomialOrder>>& point);
-
-  inline void calculateElementMeshSize(
-      const MeshInformation& information,
-      const AdjacencyElementMesh<AdjacencyLineTrait<ElementTrait::kPolynomialOrder>>& line);
-
-  inline void calculateElementMeshSize(
-      const MeshInformation& information,
-      const AdjacencyElementMesh<AdjacencyTriangleTrait<ElementTrait::kPolynomialOrder>>& triangle,
-      const AdjacencyElementMesh<AdjacencyQuadrangleTrait<ElementTrait::kPolynomialOrder>>& quadrangle);
 
   inline ElementMesh() : quadrature_(), basis_function_() {};
 };
@@ -321,7 +302,6 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
       this->point_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
                                                                                    this->information_);
       this->adjacency_element_number_ += this->point_.interior_number_ + this->point_.boundary_number_;
-      this->line_.calculateElementMeshSize(this->information_, this->point_);
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
         this->triangle_.getElementMesh(this->node_coordinate_, this->information_);
@@ -334,12 +314,6 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
       this->line_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
                                                                                   this->information_);
       this->adjacency_element_number_ += this->line_.interior_number_ + this->line_.boundary_number_;
-      if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-        this->triangle_.calculateElementMeshSize(this->information_, this->line_);
-      }
-      if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-        this->quadrangle_.calculateElementMeshSize(this->information_, this->line_);
-      }
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
         this->tetrahedron_.getElementMesh(this->node_coordinate_, this->information_);
@@ -362,15 +336,6 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
       }
       this->adjacency_element_number_ += this->triangle_.interior_number_ + this->triangle_.boundary_number_ +
                                          this->quadrangle_.interior_number_ + this->quadrangle_.boundary_number_;
-      if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-        this->tetrahedron_.calculateElementMeshSize(this->information_, this->triangle_, this->quadrangle_);
-      }
-      if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-        this->pyramid_.calculateElementMeshSize(this->information_, this->triangle_, this->quadrangle_);
-      }
-      if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-        this->hexahedron_.calculateElementMeshSize(this->information_, this->triangle_, this->quadrangle_);
-      }
     }
   }
 };

@@ -413,7 +413,7 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::Euler>::
     calcluateAdjacencyElementViewVariable(const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
                                           const ThermalModel<SimulationControl>& thermal_model,
-                                          const ViewSolver<SimulationControl>& solver,
+                                          const ViewSolver<SimulationControl>& view_solver,
                                           const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity,
                                           std::stringstream& raw_binary_ss) {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic> variable_basis_function_coefficient;
@@ -425,9 +425,9 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).parent_gmsh_type_number_(0);
     const std::array<
         int, getElementBasisFunctionNumber<AdjacencyElementTrait::kElementType, SimulationControl::kPolynomialOrder>()>
-        adjacency_element_basis_function_sequence{
-            getAdjacencyElementBasisFunctionSequence<AdjacencyElementTrait::kElementType,
-                                                     SimulationControl::kPolynomialOrder>(
+        adjacency_element_view_node_parent_sequence{
+            getAdjacencyElementViewNodeParentSequence<AdjacencyElementTrait::kElementType,
+                                                      SimulationControl::kPolynomialOrder>(
                 static_cast<int>(parent_gmsh_type_number), static_cast<int>(adjacency_sequence_in_parent))};
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
       variable_basis_function_coefficient.resize(Eigen::NoChange,
@@ -437,8 +437,9 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
                              LineTrait<SimulationControl::kPolynomialOrder>::kBasisFunctionNumber * kRealSize);
       for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
         this->view_variable_(i).variable_.conserved_.col(j).noalias() =
-            variable_basis_function_coefficient * solver.line_.basis_function_.modal_value_.col(
-                                                      adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+            variable_basis_function_coefficient *
+            view_solver.line_.basis_function_.modal_value_.col(
+                adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
       }
       this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
@@ -451,8 +452,8 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.triangle_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.triangle_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         variable_basis_function_coefficient.resize(
@@ -463,8 +464,8 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.quadrangle_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.quadrangle_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
       this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
@@ -478,8 +479,8 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.tetrahedron_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.tetrahedron_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         variable_basis_function_coefficient.resize(
@@ -490,8 +491,8 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.pyramid_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.pyramid_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
       this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
@@ -505,8 +506,8 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.pyramid_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.pyramid_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         variable_basis_function_coefficient.resize(
@@ -517,8 +518,8 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.hexahedron_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.hexahedron_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
       this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
@@ -535,7 +536,7 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::
     calcluateAdjacencyElementViewVariable(const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
                                           const ThermalModel<SimulationControl>& thermal_model,
-                                          const ViewSolver<SimulationControl>& solver,
+                                          const ViewSolver<SimulationControl>& view_solver,
                                           const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity,
                                           std::stringstream& raw_binary_ss) {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic> variable_basis_function_coefficient;
@@ -547,9 +548,9 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
     const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
     const std::array<
         int, getElementBasisFunctionNumber<AdjacencyElementTrait::kElementType, SimulationControl::kPolynomialOrder>()>
-        adjacency_element_basis_function_sequence{
-            getAdjacencyElementBasisFunctionSequence<AdjacencyElementTrait::kElementType,
-                                                     SimulationControl::kPolynomialOrder>(
+        adjacency_element_view_node_parent_sequence{
+            getAdjacencyElementViewNodeParentSequence<AdjacencyElementTrait::kElementType,
+                                                      SimulationControl::kPolynomialOrder>(
                 static_cast<int>(parent_gmsh_type_number), static_cast<int>(adjacency_sequence_in_parent))};
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
       variable_basis_function_coefficient.resize(Eigen::NoChange,
@@ -564,12 +565,13 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
                              LineTrait<SimulationControl::kPolynomialOrder>::kBasisFunctionNumber * kRealSize);
       for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
         this->view_variable_(i).variable_.conserved_.col(j).noalias() =
-            variable_basis_function_coefficient * solver.line_.basis_function_.modal_value_.col(
-                                                      adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+            variable_basis_function_coefficient *
+            view_solver.line_.basis_function_.modal_value_.col(
+                adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         this->view_variable_(i).variable_gradient_.conserved_.col(j).noalias() =
             variable_gradient_basis_function_coefficient *
-            solver.line_.basis_function_.modal_value_.col(
-                adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+            view_solver.line_.basis_function_.modal_value_.col(
+                adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
       }
       this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
       this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(thermal_model,
@@ -589,12 +591,12 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.triangle_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.triangle_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
           this->view_variable_(i).variable_gradient_.conserved_.col(j).noalias() =
               variable_gradient_basis_function_coefficient *
-              solver.triangle_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.triangle_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         variable_basis_function_coefficient.resize(
@@ -610,12 +612,12 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.quadrangle_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.quadrangle_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
           this->view_variable_(i).variable_gradient_.conserved_.col(j).noalias() =
               variable_gradient_basis_function_coefficient *
-              solver.quadrangle_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.quadrangle_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
       this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
@@ -636,12 +638,12 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.tetrahedron_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.tetrahedron_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
           this->view_variable_(i).variable_gradient_.conserved_.col(j).noalias() =
               variable_gradient_basis_function_coefficient *
-              solver.tetrahedron_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.tetrahedron_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         variable_basis_function_coefficient.resize(
@@ -657,12 +659,12 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.pyramid_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.pyramid_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
           this->view_variable_(i).variable_gradient_.conserved_.col(j).noalias() =
               variable_gradient_basis_function_coefficient *
-              solver.pyramid_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.pyramid_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
       this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
@@ -683,12 +685,12 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.pyramid_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.pyramid_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
           this->view_variable_(i).variable_gradient_.conserved_.col(j).noalias() =
               variable_gradient_basis_function_coefficient *
-              solver.pyramid_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.pyramid_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         variable_basis_function_coefficient.resize(
@@ -704,12 +706,12 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
         for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
           this->view_variable_(i).variable_.conserved_.col(j).noalias() =
               variable_basis_function_coefficient *
-              solver.hexahedron_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.hexahedron_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
           this->view_variable_(i).variable_gradient_.conserved_.col(j).noalias() =
               variable_gradient_basis_function_coefficient *
-              solver.hexahedron_.basis_function_.modal_value_.col(
-                  adjacency_element_basis_function_sequence[static_cast<Usize>(j)]);
+              view_solver.hexahedron_.basis_function_.modal_value_.col(
+                  adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
       this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);

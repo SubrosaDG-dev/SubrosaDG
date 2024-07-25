@@ -13,7 +13,6 @@
 #ifndef SUBROSA_DG_INITIAL_CONDITION_HPP_
 #define SUBROSA_DG_INITIAL_CONDITION_HPP_
 
-#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <filesystem>
 #include <functional>
@@ -128,18 +127,13 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElemen
   if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::Function) {
     Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> variable(this->number_);
     initial_condition.getVariableBasisFunctionCoefficient(element_mesh, thermal_model, variable);
-    Eigen::LLT<Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>>
-        basis_function_value_llt(element_mesh.basis_function_.modal_value_.transpose() *
-                                 element_mesh.basis_function_.modal_value_);
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh, variable) \
-    firstprivate(basis_function_value_llt)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh, variable)
 #endif  // SUBROSA_DG_DEVELOP
     for (Isize i = 0; i < this->number_; i++) {
       this->element_(i).variable_basis_function_coefficient_(1).noalias() =
-          basis_function_value_llt
-              .solve((variable(i).conserved_ * element_mesh.basis_function_.modal_value_).transpose())
-              .transpose();
+          variable(i).conserved_ * element_mesh.basis_function_.modal_value_ *
+          element_mesh.basis_function_.modal_least_squares_inverse_;
     }
   } else {
     Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
