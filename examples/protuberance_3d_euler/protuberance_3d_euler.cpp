@@ -16,11 +16,14 @@ inline const std::string kExampleName{"protuberance_3d_euler"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-using SimulationControl = SubrosaDG::SimulationControlEuler<
-    SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Hexahedron,
-    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function,
-    SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
-    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3>;
+using SimulationControl = SubrosaDG::SimulationControl<
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P1,
+                            SubrosaDG::SourceTermEnum::None>,
+    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Hexahedron, SubrosaDG::ShockCapturingEnum::None,
+                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
+                                SubrosaDG::TimeIntegrationEnum::SSPRK3>,
+    SubrosaDG::EulerVariable<SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
+                             SubrosaDG::ConvectiveFluxEnum::HLLC>>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
@@ -42,6 +45,8 @@ int main(int argc, char* argv[]) {
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-2");
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-3");
+  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
+  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
   system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

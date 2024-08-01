@@ -16,12 +16,15 @@ inline const std::string kExampleName{"gravity_2d_ns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
-    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::TriangleQuadrangle,
-    SubrosaDG::SourceTermEnum::Gravity, SubrosaDG::InitialConditionEnum::Function,
-    SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
-    SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
-    SubrosaDG::TimeIntegrationEnum::SSPRK3>;
+using SimulationControl = SubrosaDG::SimulationControl<
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
+                            SubrosaDG::SourceTermEnum::Gravity>,
+    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::TriangleQuadrangle, SubrosaDG::ShockCapturingEnum::None,
+                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
+                                SubrosaDG::TimeIntegrationEnum::SSPRK3>,
+    SubrosaDG::NavierStokesVariable<SubrosaDG::ThermodynamicModelEnum::ConstantE,
+                                    SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::TransportModelEnum::Sutherland,
+                                    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2>>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
@@ -40,13 +43,15 @@ int main(int argc, char* argv[]) {
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
       });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsothermalNoSlipWall>(
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(
       "bc-2",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{0.0_r, 0.0_r, 0.0_r, 1.1_r};
       });
-  system.setTransportModel(1.4_r * 0.2_r / 200.0_r);
+  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
+  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
+  system.setTransportModel<SimulationControl::kTransportModel>(0.71_r, 1.4_r * 0.2_r / 200.0_r);
   system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

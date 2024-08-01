@@ -16,12 +16,15 @@ inline const std::string kExampleName{"blasius_3d_ns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-using SimulationControl = SubrosaDG::SimulationControlNavierStokes<
-    SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P1, SubrosaDG::MeshModelEnum::Hexahedron,
-    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function,
-    SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
-    SubrosaDG::TransportModelEnum::Constant, SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2,
-    SubrosaDG::TimeIntegrationEnum::SSPRK3>;
+using SimulationControl = SubrosaDG::SimulationControl<
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P1,
+                            SubrosaDG::SourceTermEnum::None>,
+    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Hexahedron, SubrosaDG::ShockCapturingEnum::None,
+                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
+                                SubrosaDG::TimeIntegrationEnum::SSPRK3>,
+    SubrosaDG::NavierStokesVariable<SubrosaDG::ThermodynamicModelEnum::ConstantE,
+                                    SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::TransportModelEnum::Constant,
+                                    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2>>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
@@ -50,14 +53,16 @@ int main(int argc, char* argv[]) {
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-3");
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-4");
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNoSlipWall>(
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
       "bc-5",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 0.0_r,
                                                                                            1.0_r};
       });
-  system.setTransportModel(1.4_r * 0.5_r / 100000.0_r);
+  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
+  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
+  system.setTransportModel<SimulationControl::kTransportModel>(0.71_r, 1.4_r * 0.5_r / 100000.0_r);
   system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

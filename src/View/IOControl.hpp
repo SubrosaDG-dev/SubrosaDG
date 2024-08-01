@@ -24,8 +24,8 @@
 
 #include "Mesh/BasisFunction.hpp"
 #include "Mesh/ReadControl.hpp"
+#include "Solver/PhysicalModel.hpp"
 #include "Solver/SimulationControl.hpp"
-#include "Solver/ThermalModel.hpp"
 #include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Enum.hpp"
@@ -102,7 +102,7 @@ struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Eul
   Eigen::Array<ViewVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
 
   inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
-                                           const ThermalModel<SimulationControl>& thermal_model,
+                                           const PhysicalModel<SimulationControl>& physical_model,
                                            const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity,
                                            std::stringstream& raw_binary_ss);
 };
@@ -113,7 +113,7 @@ struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Nav
   Eigen::Array<ViewVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
 
   inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
-                                           const ThermalModel<SimulationControl>& thermal_model,
+                                           const PhysicalModel<SimulationControl>& physical_model,
                                            const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity,
                                            std::stringstream& raw_binary_ss);
 };
@@ -128,7 +128,7 @@ struct AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, Equa
 
   inline void calcluateAdjacencyElementViewVariable(
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const ThermalModel<SimulationControl>& thermal_model, const ViewSolver<SimulationControl>& solver,
+      const PhysicalModel<SimulationControl>& physical_model, const ViewSolver<SimulationControl>& solver,
       const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity, std::stringstream& raw_binary_ss);
 };
 
@@ -139,7 +139,7 @@ struct AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, Equa
 
   inline void calcluateAdjacencyElementViewVariable(
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const ThermalModel<SimulationControl>& thermal_model, const ViewSolver<SimulationControl>& solver,
+      const PhysicalModel<SimulationControl>& physical_model, const ViewSolver<SimulationControl>& solver,
       const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity, std::stringstream& raw_binary_ss);
 };
 
@@ -240,7 +240,7 @@ struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimens
   }
 
   inline void calcluateViewVariable(const Mesh<SimulationControl>& mesh,
-                                    const ThermalModel<SimulationControl>& thermal_model,
+                                    const PhysicalModel<SimulationControl>& physical_model,
                                     const std::filesystem::path& raw_binary_path, std::stringstream& raw_binary_ss);
 
   inline void initialViewSolver(const Mesh<SimulationControl>& mesh);
@@ -312,14 +312,14 @@ struct View {
   inline void getDataSetInfomatoin(std::vector<vtu11::DataSetInfo>& data_set_information);
 
   template <typename ElementTrait>
-  inline void calculateViewVariable(const ThermalModel<SimulationControl>& thermal_model,
+  inline void calculateViewVariable(const PhysicalModel<SimulationControl>& physical_model,
                                     const ViewVariable<ElementTrait, SimulationControl>& view_variable,
                                     Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
                                     Isize column, Isize node_index);
 
   template <typename AdjacencyElementTrait, typename ElementTrait>
   inline void calculateAdjacencyForce(const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-                                      const ThermalModel<SimulationControl>& thermal_model,
+                                      const PhysicalModel<SimulationControl>& physical_model,
                                       const ViewVariable<ElementTrait, SimulationControl>& view_variable,
                                       Eigen::Vector<Real, SimulationControl::kDimension>& force, Isize element_index,
                                       Isize column);
@@ -327,30 +327,30 @@ struct View {
   template <typename AdjacencyElementTrait>
   inline void writeAdjacencyElement(Isize physical_index, const MeshInformation& mesh_information,
                                     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-                                    const ThermalModel<SimulationControl>& thermal_model,
+                                    const PhysicalModel<SimulationControl>& physical_model,
                                     const ViewData<SimulationControl>& view_data, Isize element_index,
                                     ViewSupplemental<SimulationControl>& view_supplemental);
 
   template <typename ElementTrait>
   inline void writeElement(Isize physical_index, const MeshInformation& mesh_information,
                            const ElementMesh<ElementTrait>& element_mesh,
-                           const ThermalModel<SimulationControl>& thermal_model,
+                           const PhysicalModel<SimulationControl>& physical_model,
                            const ViewData<SimulationControl>& view_data, Isize element_index,
                            ViewSupplemental<SimulationControl>& view_supplemental);
 
   template <int Dimension, bool IsAdjacency>
   inline void writeField(Isize physical_index, const Mesh<SimulationControl>& mesh,
-                         const ThermalModel<SimulationControl>& thermal_model,
+                         const PhysicalModel<SimulationControl>& physical_model,
                          const ViewData<SimulationControl>& view_data,
                          ViewSupplemental<SimulationControl>& view_supplemental);
 
   template <int Dimension, bool IsAdjacency>
   inline void writeView(int step, Isize physical_index, const Mesh<SimulationControl>& mesh,
-                        const ThermalModel<SimulationControl>& thermal_model,
+                        const PhysicalModel<SimulationControl>& physical_model,
                         const ViewData<SimulationControl>& view_data, const std::string& base_name);
 
   inline void stepView(int step, const Mesh<SimulationControl>& mesh,
-                       const ThermalModel<SimulationControl>& thermal_model, ViewData<SimulationControl>& view_data);
+                       const PhysicalModel<SimulationControl>& physical_model, ViewData<SimulationControl>& view_data);
 
   inline void initializeSolverFinout(const bool delete_dir, std::fstream& error_finout) {
     const std::filesystem::path raw_output_directory = this->output_directory_ / "raw";

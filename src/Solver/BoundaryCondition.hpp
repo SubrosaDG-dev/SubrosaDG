@@ -17,7 +17,7 @@
 #include <cmath>
 #include <functional>
 
-#include "Solver/ThermalModel.hpp"
+#include "Solver/PhysicalModel.hpp"
 #include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Enum.hpp"
@@ -32,7 +32,7 @@ struct BoundaryConditionBase {
         return Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
       }};
 
-  virtual inline void calculateBoundaryVariable(const ThermalModel<SimulationControl>& thermal_model,
+  virtual inline void calculateBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
                                                 const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                                 const Variable<SimulationControl>& left_quadrature_node_variable,
                                                 const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -40,7 +40,7 @@ struct BoundaryConditionBase {
                                                 Isize column) const = 0;
 
   virtual inline void calculateBoundaryGradientVariable(
-      const ThermalModel<SimulationControl>& thermal_model,
+      const PhysicalModel<SimulationControl>& physical_model,
       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -62,7 +62,7 @@ struct BoundaryCondition;
 template <typename SimulationControl>
 struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfield>
     : BoundaryConditionBase<SimulationControl> {
-  inline void calculateBoundaryVariableLocally(const ThermalModel<SimulationControl>& thermal_model,
+  inline void calculateBoundaryVariableLocally(const PhysicalModel<SimulationControl>& physical_model,
                                                const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                                const Variable<SimulationControl>& left_quadrature_node_variable,
                                                const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -73,7 +73,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfie
         normal_vector;
     const Real normal_mach_number =
         normal_velocity /
-        thermal_model.calculateSoundSpeedFromInternalEnergy(
+        physical_model.calculateSoundSpeedFromInternalEnergy(
             left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     if (std::fabs(normal_mach_number) > 1.0_r) {
       if (normal_mach_number < 0.0_r) {  // Supersonic inflow
@@ -86,12 +86,12 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfie
         const Real left_riemann_invariant =
             right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
                 normal_vector -
-            thermal_model.calculateRiemannInvariantPart(
+            physical_model.calculateRiemannInvariantPart(
                 right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
         const Real right_riemann_invariant =
             left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
                 normal_vector +
-            thermal_model.calculateRiemannInvariantPart(
+            physical_model.calculateRiemannInvariantPart(
                 left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
         const Real boundary_normal_velocity = (left_riemann_invariant + right_riemann_invariant) / 2.0_r;
         const Eigen::Vector<Real, SimulationControl::kDimension> boundary_velocity =
@@ -101,15 +101,15 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfie
                      .transpose() *
                  normal_vector) *
                 normal_vector;
-        const Real boundary_internal_energy = thermal_model.calculateInternalEnergyFromRiemannInvariantPart(
+        const Real boundary_internal_energy = physical_model.calculateInternalEnergyFromRiemannInvariantPart(
             (right_riemann_invariant - left_riemann_invariant) / 2.0_r);
-        const Real boundary_density = thermal_model.calculateDensityFromEntropyInternalEnergy(
-            thermal_model.calculateEntropyFromDensityPressure(
+        const Real boundary_density = physical_model.calculateDensityFromEntropyInternalEnergy(
+            physical_model.calculateEntropyFromDensityPressure(
                 right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
                 right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column)),
             boundary_internal_energy);
         const Real boundary_pressure =
-            thermal_model.calculatePressureFormDensityInternalEnergy(boundary_density, boundary_internal_energy);
+            physical_model.calculatePressureFormDensityInternalEnergy(boundary_density, boundary_internal_energy);
         boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Density>(boundary_density, 0);
         boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(boundary_velocity, 0);
         boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
@@ -119,12 +119,12 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfie
         const Real left_riemann_invariant =
             right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
                 normal_vector -
-            thermal_model.calculateRiemannInvariantPart(
+            physical_model.calculateRiemannInvariantPart(
                 right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
         const Real right_riemann_invariant =
             left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
                 normal_vector +
-            thermal_model.calculateRiemannInvariantPart(
+            physical_model.calculateRiemannInvariantPart(
                 left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
         const Real boundary_normal_velocity = (left_riemann_invariant + right_riemann_invariant) / 2.0_r;
         const Eigen::Vector<Real, SimulationControl::kDimension> boundary_velocity =
@@ -133,15 +133,15 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfie
              left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
                  normal_vector) *
                 normal_vector;
-        const Real boundary_internal_energy = thermal_model.calculateInternalEnergyFromRiemannInvariantPart(
+        const Real boundary_internal_energy = physical_model.calculateInternalEnergyFromRiemannInvariantPart(
             (right_riemann_invariant - left_riemann_invariant) / 2.0_r);
-        const Real boundary_density = thermal_model.calculateDensityFromEntropyInternalEnergy(
-            thermal_model.calculateEntropyFromDensityPressure(
+        const Real boundary_density = physical_model.calculateDensityFromEntropyInternalEnergy(
+            physical_model.calculateEntropyFromDensityPressure(
                 left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
                 left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column)),
             boundary_internal_energy);
         const Real boundary_pressure =
-            thermal_model.calculatePressureFormDensityInternalEnergy(boundary_density, boundary_internal_energy);
+            physical_model.calculatePressureFormDensityInternalEnergy(boundary_density, boundary_internal_energy);
         boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Density>(boundary_density, 0);
         boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(boundary_velocity, 0);
         boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
@@ -151,18 +151,18 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfie
     }
   }
 
-  inline void calculateBoundaryVariable(const ThermalModel<SimulationControl>& thermal_model,
+  inline void calculateBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
                                         const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                         const Variable<SimulationControl>& left_quadrature_node_variable,
                                         const Variable<SimulationControl>& right_quadrature_node_variable,
                                         Variable<SimulationControl>& boundary_quadrature_node_variable,
                                         const Isize column) const override {
-    this->calculateBoundaryVariableLocally(thermal_model, normal_vector, left_quadrature_node_variable,
+    this->calculateBoundaryVariableLocally(physical_model, normal_vector, left_quadrature_node_variable,
                                            right_quadrature_node_variable, boundary_quadrature_node_variable, column);
   }
 
   inline void calculateBoundaryGradientVariable(
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
       [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       [[maybe_unused]] const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -187,7 +187,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfie
 template <typename SimulationControl>
 struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::VelocityInflow>
     : BoundaryConditionBase<SimulationControl> {
-  inline void calculateBoundaryVariableLocally(const ThermalModel<SimulationControl>& thermal_model,
+  inline void calculateBoundaryVariableLocally(const PhysicalModel<SimulationControl>& physical_model,
                                                const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                                const Variable<SimulationControl>& left_quadrature_node_variable,
                                                const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -198,11 +198,11 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::VelocityInflo
         normal_vector;
     const Real normal_mach_number =
         normal_velocity /
-        thermal_model.calculateSoundSpeedFromInternalEnergy(
+        physical_model.calculateSoundSpeedFromInternalEnergy(
             left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     boundary_quadrature_node_variable.computational_ = right_quadrature_node_variable.computational_.col(column);
     if (normal_mach_number > -1.0_r) {  // Subsonic inflow
-      const Real boundary_internal_energy = thermal_model.calculateInternalEnergyFromDensityPressure(
+      const Real boundary_internal_energy = physical_model.calculateInternalEnergyFromDensityPressure(
           right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
           left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
       boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
@@ -212,18 +212,18 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::VelocityInflo
     }
   }
 
-  inline void calculateBoundaryVariable(const ThermalModel<SimulationControl>& thermal_model,
+  inline void calculateBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
                                         const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                         const Variable<SimulationControl>& left_quadrature_node_variable,
                                         const Variable<SimulationControl>& right_quadrature_node_variable,
                                         Variable<SimulationControl>& boundary_quadrature_node_variable,
                                         const Isize column) const override {
-    this->calculateBoundaryVariableLocally(thermal_model, normal_vector, left_quadrature_node_variable,
+    this->calculateBoundaryVariableLocally(physical_model, normal_vector, left_quadrature_node_variable,
                                            right_quadrature_node_variable, boundary_quadrature_node_variable, column);
   }
 
   inline void calculateBoundaryGradientVariable(
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
       [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       [[maybe_unused]] const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -248,7 +248,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::VelocityInflo
 template <typename SimulationControl>
 struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::PressureOutflow>
     : BoundaryConditionBase<SimulationControl> {
-  inline void calculateBoundaryVariableLocally(const ThermalModel<SimulationControl>& thermal_model,
+  inline void calculateBoundaryVariableLocally(const PhysicalModel<SimulationControl>& physical_model,
                                                const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                                const Variable<SimulationControl>& left_quadrature_node_variable,
                                                const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -259,11 +259,11 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::PressureOutfl
         normal_vector;
     const Real normal_mach_number =
         normal_velocity /
-        thermal_model.calculateSoundSpeedFromInternalEnergy(
+        physical_model.calculateSoundSpeedFromInternalEnergy(
             left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     boundary_quadrature_node_variable.computational_ = left_quadrature_node_variable.computational_.col(column);
     if (normal_mach_number < 1.0_r) {  // Subsonic outflow
-      const Real boundary_internal_energy = thermal_model.calculateInternalEnergyFromDensityPressure(
+      const Real boundary_internal_energy = physical_model.calculateInternalEnergyFromDensityPressure(
           left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
           right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
       boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
@@ -273,18 +273,18 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::PressureOutfl
     }
   }
 
-  inline void calculateBoundaryVariable(const ThermalModel<SimulationControl>& thermal_model,
+  inline void calculateBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
                                         const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                         const Variable<SimulationControl>& left_quadrature_node_variable,
                                         const Variable<SimulationControl>& right_quadrature_node_variable,
                                         Variable<SimulationControl>& boundary_quadrature_node_variable,
                                         const Isize column) const override {
-    this->calculateBoundaryVariableLocally(thermal_model, normal_vector, left_quadrature_node_variable,
+    this->calculateBoundaryVariableLocally(physical_model, normal_vector, left_quadrature_node_variable,
                                            right_quadrature_node_variable, boundary_quadrature_node_variable, column);
   }
 
   inline void calculateBoundaryGradientVariable(
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
       [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       [[maybe_unused]] const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -307,9 +307,9 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::PressureOutfl
 };
 
 template <typename SimulationControl>
-struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsothermalNoSlipWall>
+struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>
     : BoundaryConditionBase<SimulationControl> {
-  inline void calculateBoundaryVariableLocally(const ThermalModel<SimulationControl>& thermal_model,
+  inline void calculateBoundaryVariableLocally(const PhysicalModel<SimulationControl>& physical_model,
                                                const Variable<SimulationControl>& left_quadrature_node_variable,
                                                const Variable<SimulationControl>& right_quadrature_node_variable,
                                                Variable<SimulationControl>& boundary_quadrature_node_variable,
@@ -321,24 +321,24 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsothermalNoS
         right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column), 0);
     boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
         right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column), 0);
-    const Real boundary_pressure = thermal_model.calculatePressureFormDensityInternalEnergy(
+    const Real boundary_pressure = physical_model.calculatePressureFormDensityInternalEnergy(
         boundary_density,
         right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
     boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(boundary_pressure, 0);
   }
 
   inline void calculateBoundaryVariable(
-      const ThermalModel<SimulationControl>& thermal_model,
+      const PhysicalModel<SimulationControl>& physical_model,
       [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       const Variable<SimulationControl>& right_quadrature_node_variable,
       Variable<SimulationControl>& boundary_quadrature_node_variable, const Isize column) const override {
-    this->calculateBoundaryVariableLocally(thermal_model, left_quadrature_node_variable, right_quadrature_node_variable,
-                                           boundary_quadrature_node_variable, column);
+    this->calculateBoundaryVariableLocally(physical_model, left_quadrature_node_variable,
+                                           right_quadrature_node_variable, boundary_quadrature_node_variable, column);
   }
 
   inline void calculateBoundaryGradientVariable(
-      const ThermalModel<SimulationControl>& thermal_model,
+      const PhysicalModel<SimulationControl>& physical_model,
       [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -346,8 +346,8 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsothermalNoS
       Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable,
       const Isize column) const override {
     Variable<SimulationControl> boundary_quadrature_node_variable;
-    this->calculateBoundaryVariableLocally(thermal_model, left_quadrature_node_variable, right_quadrature_node_variable,
-                                           boundary_quadrature_node_variable, column);
+    this->calculateBoundaryVariableLocally(physical_model, left_quadrature_node_variable,
+                                           right_quadrature_node_variable, boundary_quadrature_node_variable, column);
     boundary_quadrature_node_variable.calculateConservedFromComputational();
     boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
     boundary_quadrature_node_interface_gradient_variable.conserved_ =
@@ -383,7 +383,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticSlip
   }
 
   inline void calculateBoundaryVariable(
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       [[maybe_unused]] const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -393,7 +393,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticSlip
   }
 
   inline void calculateBoundaryGradientVariable(
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       [[maybe_unused]] const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -424,7 +424,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticSlip
 };
 
 template <typename SimulationControl>
-struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticNoSlipWall>
+struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>
     : BoundaryConditionBase<SimulationControl> {
   inline void calculateBoundaryVariableLocally(const Variable<SimulationControl>& left_quadrature_node_variable,
                                                const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -436,7 +436,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticNoSl
   }
 
   inline void calculateBoundaryVariable(
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
       [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       const Variable<SimulationControl>& right_quadrature_node_variable,
@@ -446,7 +446,7 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::AdiabaticNoSl
   }
 
   inline void calculateBoundaryGradientVariable(
-      [[maybe_unused]] const ThermalModel<SimulationControl>& thermal_model,
+      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
       [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
       const Variable<SimulationControl>& left_quadrature_node_variable,
       const Variable<SimulationControl>& right_quadrature_node_variable,

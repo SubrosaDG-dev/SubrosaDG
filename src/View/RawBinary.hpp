@@ -28,9 +28,9 @@
 #include <vector>
 
 #include "Mesh/ReadControl.hpp"
+#include "Solver/PhysicalModel.hpp"
 #include "Solver/SimulationControl.hpp"
 #include "Solver/SolveControl.hpp"
-#include "Solver/ThermalModel.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
 #include "Utils/Constant.hpp"
@@ -358,7 +358,7 @@ inline void Solver<SimulationControl>::writeRawBinary(const Mesh<SimulationContr
 
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>::calcluateElementViewVariable(
-    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
+    const ElementMesh<ElementTrait>& element_mesh, const PhysicalModel<SimulationControl>& physical_model,
     const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity, std::stringstream& raw_binary_ss) {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
       variable_basis_function_coefficient;
@@ -368,7 +368,7 @@ inline void ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum
                        SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber * kRealSize);
     this->view_variable_(i).variable_.conserved_.noalias() =
         variable_basis_function_coefficient * this->basis_function_.modal_value_;
-    this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
+    this->view_variable_(i).variable_.calculateComputationalFromConserved(physical_model);
     for (Isize j = 0; j < ElementTrait::kBasicNodeNumber; j++) {
       variable_artificial_viscosity(j) = node_artificial_viscosity(element_mesh.element_(i).node_tag_(j) - 1);
     }
@@ -380,7 +380,7 @@ inline void ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum
 template <typename ElementTrait, typename SimulationControl>
 inline void
 ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::calcluateElementViewVariable(
-    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
+    const ElementMesh<ElementTrait>& element_mesh, const PhysicalModel<SimulationControl>& physical_model,
     const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity, std::stringstream& raw_binary_ss) {
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
       variable_basis_function_coefficient;
@@ -396,10 +396,10 @@ ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStok
                            ElementTrait::kBasisFunctionNumber * kRealSize);
     this->view_variable_(i).variable_.conserved_.noalias() =
         variable_basis_function_coefficient * this->basis_function_.modal_value_;
-    this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
+    this->view_variable_(i).variable_.calculateComputationalFromConserved(physical_model);
     this->view_variable_(i).variable_gradient_.conserved_.noalias() =
         variable_gradient_basis_function_coefficient * this->basis_function_.modal_value_;
-    this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(thermal_model,
+    this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(physical_model,
                                                                                this->view_variable_(i).variable_);
     for (Isize j = 0; j < ElementTrait::kBasicNodeNumber; j++) {
       variable_artificial_viscosity(j) = node_artificial_viscosity(element_mesh.element_(i).node_tag_(j) - 1);
@@ -412,7 +412,7 @@ ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStok
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::Euler>::
     calcluateAdjacencyElementViewVariable(const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-                                          const ThermalModel<SimulationControl>& thermal_model,
+                                          const PhysicalModel<SimulationControl>& physical_model,
                                           const ViewSolver<SimulationControl>& view_solver,
                                           const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity,
                                           std::stringstream& raw_binary_ss) {
@@ -441,7 +441,7 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
             view_solver.line_.basis_function_.modal_value_.col(
                 adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
       }
-      this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
+      this->view_variable_(i).variable_.calculateComputationalFromConserved(physical_model);
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         variable_basis_function_coefficient.resize(
@@ -468,7 +468,7 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
                   adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
-      this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
+      this->view_variable_(i).variable_.calculateComputationalFromConserved(physical_model);
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
       if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         variable_basis_function_coefficient.resize(
@@ -495,7 +495,7 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
                   adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
-      this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
+      this->view_variable_(i).variable_.calculateComputationalFromConserved(physical_model);
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
       if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         variable_basis_function_coefficient.resize(
@@ -522,7 +522,7 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
                   adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
-      this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
+      this->view_variable_(i).variable_.calculateComputationalFromConserved(physical_model);
     }
     for (Isize j = 0; j < AdjacencyElementTrait::kBasicNodeNumber; j++) {
       variable_artificial_viscosity(j) = node_artificial_viscosity(adjacency_element_mesh.element_(i).node_tag_(j) - 1);
@@ -535,7 +535,7 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::NavierStokes>::
     calcluateAdjacencyElementViewVariable(const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-                                          const ThermalModel<SimulationControl>& thermal_model,
+                                          const PhysicalModel<SimulationControl>& physical_model,
                                           const ViewSolver<SimulationControl>& view_solver,
                                           const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity,
                                           std::stringstream& raw_binary_ss) {
@@ -573,8 +573,8 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
             view_solver.line_.basis_function_.modal_value_.col(
                 adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
       }
-      this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
-      this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(thermal_model,
+      this->view_variable_(i).variable_.calculateComputationalFromConserved(physical_model);
+      this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(physical_model,
                                                                                  this->view_variable_(i).variable_);
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
@@ -620,8 +620,8 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
                   adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
-      this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
-      this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(thermal_model,
+      this->view_variable_(i).variable_.calculateComputationalFromConserved(physical_model);
+      this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(physical_model,
                                                                                  this->view_variable_(i).variable_);
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
       if (parent_gmsh_type_number == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
@@ -667,8 +667,8 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
                   adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
-      this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
-      this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(thermal_model,
+      this->view_variable_(i).variable_.calculateComputationalFromConserved(physical_model);
+      this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(physical_model,
                                                                                  this->view_variable_(i).variable_);
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
       if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
@@ -714,8 +714,8 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
                   adjacency_element_view_node_parent_sequence[static_cast<Usize>(j)]);
         }
       }
-      this->view_variable_(i).variable_.calculateComputationalFromConserved(thermal_model);
-      this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(thermal_model,
+      this->view_variable_(i).variable_.calculateComputationalFromConserved(physical_model);
+      this->view_variable_(i).variable_gradient_.calculatePrimitiveFromConserved(physical_model,
                                                                                  this->view_variable_(i).variable_);
     }
     for (Isize j = 0; j < AdjacencyElementTrait::kBasicNodeNumber; j++) {
@@ -728,46 +728,46 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
 
 template <typename SimulationControl>
 inline void ViewSolver<SimulationControl>::calcluateViewVariable(const Mesh<SimulationControl>& mesh,
-                                                                 const ThermalModel<SimulationControl>& thermal_model,
+                                                                 const PhysicalModel<SimulationControl>& physical_model,
                                                                  const std::filesystem::path& raw_binary_path,
                                                                  std::stringstream& raw_binary_ss) {
   RawBinaryCompress::read(raw_binary_path, raw_binary_ss);
   Eigen::Vector<Real, Eigen::Dynamic> node_artificial_viscosity(mesh.node_number_);
   raw_binary_ss.read(reinterpret_cast<char*>(node_artificial_viscosity.data()), mesh.node_number_ * kRealSize);
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.calcluateElementViewVariable(mesh.line_, thermal_model, node_artificial_viscosity, raw_binary_ss);
-    this->point_.calcluateAdjacencyElementViewVariable(mesh.point_, thermal_model, *this, node_artificial_viscosity,
+    this->line_.calcluateElementViewVariable(mesh.line_, physical_model, node_artificial_viscosity, raw_binary_ss);
+    this->point_.calcluateAdjacencyElementViewVariable(mesh.point_, physical_model, *this, node_artificial_viscosity,
                                                        raw_binary_ss);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.calcluateElementViewVariable(mesh.triangle_, thermal_model, node_artificial_viscosity,
+      this->triangle_.calcluateElementViewVariable(mesh.triangle_, physical_model, node_artificial_viscosity,
                                                    raw_binary_ss);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.calcluateElementViewVariable(mesh.quadrangle_, thermal_model, node_artificial_viscosity,
+      this->quadrangle_.calcluateElementViewVariable(mesh.quadrangle_, physical_model, node_artificial_viscosity,
                                                      raw_binary_ss);
     }
-    this->line_.calcluateAdjacencyElementViewVariable(mesh.line_, thermal_model, *this, node_artificial_viscosity,
+    this->line_.calcluateAdjacencyElementViewVariable(mesh.line_, physical_model, *this, node_artificial_viscosity,
                                                       raw_binary_ss);
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-      this->tetrahedron_.calcluateElementViewVariable(mesh.tetrahedron_, thermal_model, node_artificial_viscosity,
+      this->tetrahedron_.calcluateElementViewVariable(mesh.tetrahedron_, physical_model, node_artificial_viscosity,
                                                       raw_binary_ss);
     }
     if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-      this->pyramid_.calcluateElementViewVariable(mesh.pyramid_, thermal_model, node_artificial_viscosity,
+      this->pyramid_.calcluateElementViewVariable(mesh.pyramid_, physical_model, node_artificial_viscosity,
                                                   raw_binary_ss);
     }
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-      this->hexahedron_.calcluateElementViewVariable(mesh.hexahedron_, thermal_model, node_artificial_viscosity,
+      this->hexahedron_.calcluateElementViewVariable(mesh.hexahedron_, physical_model, node_artificial_viscosity,
                                                      raw_binary_ss);
     }
     if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.calcluateAdjacencyElementViewVariable(mesh.triangle_, thermal_model, *this,
+      this->triangle_.calcluateAdjacencyElementViewVariable(mesh.triangle_, physical_model, *this,
                                                             node_artificial_viscosity, raw_binary_ss);
     }
     if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.calcluateAdjacencyElementViewVariable(mesh.quadrangle_, thermal_model, *this,
+      this->quadrangle_.calcluateAdjacencyElementViewVariable(mesh.quadrangle_, physical_model, *this,
                                                               node_artificial_viscosity, raw_binary_ss);
     }
   }

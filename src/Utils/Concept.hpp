@@ -66,9 +66,9 @@ concept Is3dElement = ElementType == ElementEnum::Tetrahedron || ElementType == 
                       ElementType == ElementEnum::Hexahedron;
 
 bool isWall(const BoundaryConditionEnum boundary_condition_type) {
-  return boundary_condition_type == BoundaryConditionEnum::IsothermalNoSlipWall ||
+  return boundary_condition_type == BoundaryConditionEnum::IsoThermalNonSlipWall ||
          boundary_condition_type == BoundaryConditionEnum::AdiabaticSlipWall ||
-         boundary_condition_type == BoundaryConditionEnum::AdiabaticNoSlipWall;
+         boundary_condition_type == BoundaryConditionEnum::AdiabaticNonSlipWall;
 }
 
 }  // namespace SubrosaDG

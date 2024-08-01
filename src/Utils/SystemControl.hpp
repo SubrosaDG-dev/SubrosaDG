@@ -29,9 +29,9 @@
 #include "Mesh/ReadControl.hpp"
 #include "Solver/BoundaryCondition.hpp"
 #include "Solver/InitialCondition.hpp"
+#include "Solver/PhysicalModel.hpp"
 #include "Solver/SolveControl.hpp"
 #include "Solver/SourceTerm.hpp"
-#include "Solver/ThermalModel.hpp"
 #include "Solver/TimeIntegration.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Enum.hpp"
@@ -48,7 +48,7 @@ struct System {
   CommandLine<SimulationControl> command_line_;
   Mesh<SimulationControl> mesh_;
   SourceTerm<SimulationControl> source_term_;
-  ThermalModel<SimulationControl> thermal_model_;
+  PhysicalModel<SimulationControl> physical_model_;
   std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>> boundary_condition_;
   InitialCondition<SimulationControl> initial_condition_;
   TimeIntegration<SimulationControl> time_integration_;
@@ -83,8 +83,8 @@ struct System {
     requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
              BoundaryConditionType == BoundaryConditionEnum::VelocityInflow ||
              BoundaryConditionType == BoundaryConditionEnum::PressureOutflow ||
-             BoundaryConditionType == BoundaryConditionEnum::IsothermalNoSlipWall ||
-             BoundaryConditionType == BoundaryConditionEnum::AdiabaticNoSlipWall)
+             BoundaryConditionType == BoundaryConditionEnum::IsoThermalNonSlipWall ||
+             BoundaryConditionType == BoundaryConditionEnum::AdiabaticNonSlipWall)
   inline void addBoundaryCondition(
       const std::string& boundary_condition_name,
       const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
@@ -115,14 +115,28 @@ struct System {
     this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
   }
 
-  inline void setArtificialViscosity(const Real empirical_tolerance, const Real artificial_viscosity_factor = 1.0_r) {
-    this->solver_.empirical_tolerance_ = empirical_tolerance;
-    this->solver_.artificial_viscosity_factor_ = artificial_viscosity_factor;
+  template <ThermodynamicModelEnum ThermodynamicModelType>
+    requires(ThermodynamicModelType == ThermodynamicModelEnum::ConstantE)
+  inline void setThermodynamicModel(const Real specific_heat_constant_volume) {
+    this->physical_model_.thermodynamic_model_.specific_heat_constant_volume_ = specific_heat_constant_volume;
   }
 
-  inline void setTransportModel(const Real dynamic_viscosity) {
-    this->thermal_model_.transport_model_.dynamic_viscosity = dynamic_viscosity;
-    this->thermal_model_.calculateThermalConductivityFromDynamicViscosity();
+  template <EquationOfStateEnum EquationOfStateType>
+    requires(EquationOfStateType == EquationOfStateEnum::IdealGas)
+  inline void setEquationOfState(const Real specific_heat_ratio) {
+    this->physical_model_.equation_of_state_.specific_heat_ratio_ = specific_heat_ratio;
+  }
+
+  template <TransportModelEnum TransportModelType>
+    requires(TransportModelType == TransportModelEnum::Constant || TransportModelType == TransportModelEnum::Sutherland)
+  inline void setTransportModel(const Real prandtl_number, const Real dynamic_viscosity) {
+    this->physical_model_.transport_model_.prandtl_number_ = prandtl_number;
+    this->physical_model_.transport_model_.dynamic_viscosity_ = dynamic_viscosity;
+    this->physical_model_.calculateThermalConductivityFromDynamicViscosity();
+  }
+
+  inline void setArtificialViscosity(const Real artificial_viscosity_factor) {
+    this->solver_.artificial_viscosity_factor_ = artificial_viscosity_factor;
   }
 
   inline void setTimeIntegration(const Real courant_friedrichs_lewy_number,
@@ -136,6 +150,8 @@ struct System {
     }
     this->time_integration_.courant_friedrichs_lewy_number_ = courant_friedrichs_lewy_number;
   }
+
+  inline void setDeltaTime(const Real delta_time) { this->time_integration_.delta_time_ = delta_time; }
 
   inline void setViewConfig(const std::filesystem::path& output_directory,
                             const std::string_view output_file_name_prefix, const int io_interval = 0) {
@@ -173,9 +189,11 @@ struct System {
 
   inline void solve(const bool delete_dir = true) {
     this->view_.initializeSolverFinout(delete_dir, this->solver_.error_finout_);
-    this->solver_.initializeSolver(this->mesh_, this->thermal_model_, this->boundary_condition_,
+    this->solver_.initializeSolver(this->mesh_, this->physical_model_, this->boundary_condition_,
                                    this->initial_condition_);
-    this->solver_.calculateDeltaTime(this->mesh_, this->thermal_model_, this->time_integration_);
+    if (this->time_integration_.delta_time_ == 0.0_r) {
+      this->solver_.calculateDeltaTime(this->mesh_, this->physical_model_, this->time_integration_);
+    }
     if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       this->solver_.writeRawBinary(
           this->mesh_,
@@ -186,7 +204,7 @@ struct System {
     this->command_line_.initializeSolver(this->time_integration_.delta_time_, this->time_integration_.iteration_start_,
                                          this->time_integration_.iteration_end_, this->solver_.error_finout_);
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
-      this->solver_.stepSolver(this->mesh_, this->source_term_, this->thermal_model_, this->boundary_condition_,
+      this->solver_.stepSolver(this->mesh_, this->source_term_, this->physical_model_, this->boundary_condition_,
                                this->time_integration_);
       if (i % this->view_.io_interval_ == 0) [[unlikely]] {
         this->solver_.write_raw_binary_future_.get();
@@ -215,7 +233,7 @@ struct System {
     if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       view_data.raw_binary_path_ =
           this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, 0);
-      this->view_.stepView(0, this->mesh_, this->thermal_model_, view_data);
+      this->view_.stepView(0, this->mesh_, this->physical_model_, view_data);
     }
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for num_threads(8) default(none) schedule(nonmonotonic : auto) firstprivate(view_data)
@@ -224,7 +242,7 @@ struct System {
       if (i % this->view_.io_interval_ == 0) {
         view_data.raw_binary_path_ =
             this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i);
-        this->view_.stepView(i, this->mesh_, this->thermal_model_, view_data);
+        this->view_.stepView(i, this->mesh_, this->physical_model_, view_data);
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp critical
 #endif  // SUBROSA_DG_DEVELOP

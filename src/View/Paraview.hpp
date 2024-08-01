@@ -24,8 +24,8 @@
 #include <vtu11-cpp17.hpp>
 
 #include "Mesh/ReadControl.hpp"
+#include "Solver/PhysicalModel.hpp"
 #include "Solver/SimulationControl.hpp"
-#include "Solver/ThermalModel.hpp"
 #include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
@@ -58,23 +58,23 @@ inline void View<SimulationControl>::getDataSetInfomatoin(std::vector<vtu11::Dat
 template <typename SimulationControl>
 template <typename ElementTrait>
 inline void View<SimulationControl>::calculateViewVariable(
-    const ThermalModel<SimulationControl>& thermal_model,
+    const PhysicalModel<SimulationControl>& physical_model,
     const ViewVariable<ElementTrait, SimulationControl>& view_variable,
     Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable, const Isize column,
     const Isize node_index) {
-  auto handle_variable = [&view_variable, &thermal_model, &node_variable, node_index, column](
+  auto handle_variable = [&view_variable, &physical_model, &node_variable, node_index, column](
                              Isize i, ViewVariableEnum variable_x, ViewVariableEnum variable_y,
                              ViewVariableEnum variable_z) -> void {
     if constexpr (SimulationControl::kDimension == 1) {
-      node_variable(i)(node_index) = view_variable.get(thermal_model, variable_x, column);
+      node_variable(i)(node_index) = view_variable.get(physical_model, variable_x, column);
     } else if constexpr (SimulationControl::kDimension == 2) {
-      node_variable(i)(node_index * 3) = view_variable.get(thermal_model, variable_x, column);
-      node_variable(i)(node_index * 3 + 1) = view_variable.get(thermal_model, variable_y, column);
+      node_variable(i)(node_index * 3) = view_variable.get(physical_model, variable_x, column);
+      node_variable(i)(node_index * 3 + 1) = view_variable.get(physical_model, variable_y, column);
       node_variable(i)(node_index * 3 + 2) = 0.0_r;
     } else if constexpr (SimulationControl::kDimension == 3) {
-      node_variable(i)(node_index * 3) = view_variable.get(thermal_model, variable_x, column);
-      node_variable(i)(node_index * 3 + 1) = view_variable.get(thermal_model, variable_y, column);
-      node_variable(i)(node_index * 3 + 2) = view_variable.get(thermal_model, variable_z, column);
+      node_variable(i)(node_index * 3) = view_variable.get(physical_model, variable_x, column);
+      node_variable(i)(node_index * 3 + 1) = view_variable.get(physical_model, variable_y, column);
+      node_variable(i)(node_index * 3 + 2) = view_variable.get(physical_model, variable_z, column);
     }
   };
   for (Isize i = 0; i < static_cast<Isize>(this->variable_type_.size()); i++) {
@@ -87,7 +87,7 @@ inline void View<SimulationControl>::calculateViewVariable(
       handle_variable(i, ViewVariableEnum::VorticityX, ViewVariableEnum::VorticityY, ViewVariableEnum::VorticityZ);
     } else {
       node_variable(i)(node_index) =
-          view_variable.get(thermal_model, this->variable_type_[static_cast<Usize>(i)], column);
+          view_variable.get(physical_model, this->variable_type_[static_cast<Usize>(i)], column);
     }
   }
 }
@@ -96,10 +96,10 @@ template <typename SimulationControl>
 template <typename AdjacencyElementTrait, typename ElementTrait>
 inline void View<SimulationControl>::calculateAdjacencyForce(
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const ThermalModel<SimulationControl>& thermal_model,
+    const PhysicalModel<SimulationControl>& physical_model,
     const ViewVariable<ElementTrait, SimulationControl>& view_variable,
     Eigen::Vector<Real, SimulationControl::kDimension>& force, const Isize element_index, const Isize column) {
-  force += view_variable.getForce(thermal_model,
+  force += view_variable.getForce(physical_model,
                                   adjacency_element_mesh.element_(element_index).normal_vector_.col(column), column) *
            adjacency_element_mesh.quadrature_.weight_(column) *
            adjacency_element_mesh.element_(element_index).jacobian_determinant_(column);
@@ -110,7 +110,7 @@ template <typename AdjacencyElementTrait>
 inline void View<SimulationControl>::writeAdjacencyElement(
     const Isize physical_index, const MeshInformation& mesh_information,
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const ThermalModel<SimulationControl>& thermal_model, const ViewData<SimulationControl>& view_data,
+    const PhysicalModel<SimulationControl>& physical_model, const ViewData<SimulationControl>& view_data,
     const Isize element_index, ViewSupplemental<SimulationControl>& view_supplemental) {
   const AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, SimulationControl::kEquationModel>&
       adjacency_element_view_solver =
@@ -129,11 +129,11 @@ inline void View<SimulationControl>::writeAdjacencyElement(
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
         adjacency_element_mesh.element_(adjacency_element_index_per_type).node_coordinate_(Eigen::all, i);
-    this->calculateViewVariable(thermal_model,
+    this->calculateViewVariable(physical_model,
                                 adjacency_element_view_solver.view_variable_(adjacency_element_index_per_type -
                                                                              adjacency_element_mesh.interior_number_),
                                 view_supplemental.node_variable_, i, view_supplemental.node_index_ + i);
-    this->calculateAdjacencyForce(adjacency_element_mesh, thermal_model,
+    this->calculateAdjacencyForce(adjacency_element_mesh, physical_model,
                                   adjacency_element_view_solver.view_variable_(adjacency_element_index_per_type -
                                                                                adjacency_element_mesh.interior_number_),
                                   view_supplemental.force_, adjacency_element_index_per_type, i);
@@ -155,7 +155,7 @@ template <typename SimulationControl>
 template <typename ElementTrait>
 inline void View<SimulationControl>::writeElement(const Isize physical_index, const MeshInformation& mesh_information,
                                                   const ElementMesh<ElementTrait>& element_mesh,
-                                                  const ThermalModel<SimulationControl>& thermal_model,
+                                                  const PhysicalModel<SimulationControl>& physical_model,
                                                   const ViewData<SimulationControl>& view_data,
                                                   const Isize element_index,
                                                   ViewSupplemental<SimulationControl>& view_supplemental) {
@@ -175,7 +175,7 @@ inline void View<SimulationControl>::writeElement(const Isize physical_index, co
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
         element_mesh.element_(element_index_per_type).node_coordinate_(Eigen::all, i);
-    this->calculateViewVariable(thermal_model, element_view_solver.view_variable_(element_index_per_type),
+    this->calculateViewVariable(physical_model, element_view_solver.view_variable_(element_index_per_type),
                                 view_supplemental.node_variable_, i, view_supplemental.node_index_ + i);
   }
   for (Isize i = 0; i < ElementTrait::kVtkAllNodeNumber; i++) {
@@ -194,7 +194,7 @@ inline void View<SimulationControl>::writeElement(const Isize physical_index, co
 template <typename SimulationControl>
 template <int Dimension, bool IsAdjacency>
 inline void View<SimulationControl>::writeField(const Isize physical_index, const Mesh<SimulationControl>& mesh,
-                                                const ThermalModel<SimulationControl>& thermal_model,
+                                                const PhysicalModel<SimulationControl>& physical_model,
                                                 const ViewData<SimulationControl>& view_data,
                                                 ViewSupplemental<SimulationControl>& view_supplemental) {
   const Isize element_number = mesh.information_.physical_information_.at(physical_index).element_number_;
@@ -204,39 +204,39 @@ inline void View<SimulationControl>::writeField(const Isize physical_index, cons
     if constexpr (Dimension == 1) {
       if constexpr (IsAdjacency) {
         this->writeAdjacencyElement<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
-            physical_index, mesh.information_, mesh.line_, thermal_model, view_data, i, view_supplemental);
+            physical_index, mesh.information_, mesh.line_, physical_model, view_data, i, view_supplemental);
       } else {
         this->writeElement<LineTrait<SimulationControl::kPolynomialOrder>>(
-            physical_index, mesh.information_, mesh.line_, thermal_model, view_data, i, view_supplemental);
+            physical_index, mesh.information_, mesh.line_, physical_model, view_data, i, view_supplemental);
       }
     } else if constexpr (Dimension == 2) {
       if constexpr (IsAdjacency) {
         if (element_gmsh_type == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeAdjacencyElement<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>>(
-              physical_index, mesh.information_, mesh.triangle_, thermal_model, view_data, i, view_supplemental);
+              physical_index, mesh.information_, mesh.triangle_, physical_model, view_data, i, view_supplemental);
         } else if (element_gmsh_type == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeAdjacencyElement<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>>(
-              physical_index, mesh.information_, mesh.quadrangle_, thermal_model, view_data, i, view_supplemental);
+              physical_index, mesh.information_, mesh.quadrangle_, physical_model, view_data, i, view_supplemental);
         }
       } else {
         if (element_gmsh_type == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeElement<TriangleTrait<SimulationControl::kPolynomialOrder>>(
-              physical_index, mesh.information_, mesh.triangle_, thermal_model, view_data, i, view_supplemental);
+              physical_index, mesh.information_, mesh.triangle_, physical_model, view_data, i, view_supplemental);
         } else if (element_gmsh_type == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeElement<QuadrangleTrait<SimulationControl::kPolynomialOrder>>(
-              physical_index, mesh.information_, mesh.quadrangle_, thermal_model, view_data, i, view_supplemental);
+              physical_index, mesh.information_, mesh.quadrangle_, physical_model, view_data, i, view_supplemental);
         }
       }
     } else if constexpr (Dimension == 3) {
       if (element_gmsh_type == TetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->writeElement<TetrahedronTrait<SimulationControl::kPolynomialOrder>>(
-            physical_index, mesh.information_, mesh.tetrahedron_, thermal_model, view_data, i, view_supplemental);
+            physical_index, mesh.information_, mesh.tetrahedron_, physical_model, view_data, i, view_supplemental);
       } else if (element_gmsh_type == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->writeElement<PyramidTrait<SimulationControl::kPolynomialOrder>>(
-            physical_index, mesh.information_, mesh.pyramid_, thermal_model, view_data, i, view_supplemental);
+            physical_index, mesh.information_, mesh.pyramid_, physical_model, view_data, i, view_supplemental);
       } else if (element_gmsh_type == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->writeElement<HexahedronTrait<SimulationControl::kPolynomialOrder>>(
-            physical_index, mesh.information_, mesh.hexahedron_, thermal_model, view_data, i, view_supplemental);
+            physical_index, mesh.information_, mesh.hexahedron_, physical_model, view_data, i, view_supplemental);
       }
     }
   }
@@ -246,12 +246,12 @@ template <typename SimulationControl>
 template <int Dimension, bool IsAdjacency>
 inline void View<SimulationControl>::writeView(const int step, const Isize physical_index,
                                                const Mesh<SimulationControl>& mesh,
-                                               const ThermalModel<SimulationControl>& thermal_model,
+                                               const PhysicalModel<SimulationControl>& physical_model,
                                                const ViewData<SimulationControl>& view_data,
                                                const std::string& base_name) {
   ViewSupplemental<SimulationControl> view_supplemental(physical_index, mesh, this->variable_type_);
   this->getDataSetInfomatoin(view_supplemental.data_set_information_);
-  this->writeField<Dimension, IsAdjacency>(physical_index, mesh, thermal_model, view_data, view_supplemental);
+  this->writeField<Dimension, IsAdjacency>(physical_index, mesh, physical_model, view_data, view_supplemental);
   vtu11::Vtu11UnstructuredMesh mesh_data{
       {view_supplemental.node_coordinate_.data(),
        view_supplemental.node_coordinate_.data() + view_supplemental.node_coordinate_.size()},
@@ -279,9 +279,9 @@ inline void View<SimulationControl>::writeView(const int step, const Isize physi
 
 template <typename SimulationControl>
 inline void View<SimulationControl>::stepView(const int step, const Mesh<SimulationControl>& mesh,
-                                              const ThermalModel<SimulationControl>& thermal_model,
+                                              const PhysicalModel<SimulationControl>& physical_model,
                                               ViewData<SimulationControl>& view_data) {
-  view_data.solver_.calcluateViewVariable(mesh, thermal_model, view_data.raw_binary_path_, view_data.raw_binary_ss_);
+  view_data.solver_.calcluateViewVariable(mesh, physical_model, view_data.raw_binary_path_, view_data.raw_binary_ss_);
   for (Isize i = 0; i < static_cast<Isize>(mesh.information_.physical_.size()); i++) {
     if (mesh.information_.boundary_condition_type_.contains(i) &&
         !isWall(mesh.information_.boundary_condition_type_.at(i))) {
@@ -290,19 +290,19 @@ inline void View<SimulationControl>::stepView(const int step, const Mesh<Simulat
     const std::string base_name = this->getBaseName(step, mesh.information_.physical_[static_cast<Usize>(i)]);
     if constexpr (SimulationControl::kDimension == 1) {
       if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 1) {
-        this->writeView<1, false>(step, i, mesh, thermal_model, view_data, base_name);
+        this->writeView<1, false>(step, i, mesh, physical_model, view_data, base_name);
       }
     } else if constexpr (SimulationControl::kDimension == 2) {
       if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 1) {
-        this->writeView<1, true>(step, i, mesh, thermal_model, view_data, base_name);
+        this->writeView<1, true>(step, i, mesh, physical_model, view_data, base_name);
       } else if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 2) {
-        this->writeView<2, false>(step, i, mesh, thermal_model, view_data, base_name);
+        this->writeView<2, false>(step, i, mesh, physical_model, view_data, base_name);
       }
     } else if constexpr (SimulationControl::kDimension == 3) {
       if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 2) {
-        this->writeView<2, true>(step, i, mesh, thermal_model, view_data, base_name);
+        this->writeView<2, true>(step, i, mesh, physical_model, view_data, base_name);
       } else if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 3) {
-        this->writeView<3, false>(step, i, mesh, thermal_model, view_data, base_name);
+        this->writeView<3, false>(step, i, mesh, physical_model, view_data, base_name);
       }
     }
   }

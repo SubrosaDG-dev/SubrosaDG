@@ -16,11 +16,14 @@ inline const std::string kExampleName{"shuosher_1d_euler"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-using SimulationControl = SubrosaDG::SimulationControlEuler<
-    SubrosaDG::DimensionEnum::D1, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Line,
-    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function,
-    SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
-    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3>;
+using SimulationControl = SubrosaDG::SimulationControl<
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D1, SubrosaDG::PolynomialOrderEnum::P3,
+                            SubrosaDG::SourceTermEnum::None>,
+    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Line, SubrosaDG::ShockCapturingEnum::ArtificialViscosity,
+                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
+                                SubrosaDG::TimeIntegrationEnum::SSPRK3>,
+    SubrosaDG::EulerVariable<SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
+                             SubrosaDG::ConvectiveFluxEnum::HLLC>>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
@@ -48,7 +51,9 @@ int main(int argc, char* argv[]) {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
             1.0_r + 0.2_r * std::sin(25.0_r), 0.0_r, 1.4_r / (1.0_r + 0.2_r * std::sin(25.0_r))};
       });
-  system.setArtificialViscosity(4.0_r, 3.0_r);
+  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
+  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
+  system.setArtificialViscosity(3.0_r);
   system.setTimeIntegration(0.01_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

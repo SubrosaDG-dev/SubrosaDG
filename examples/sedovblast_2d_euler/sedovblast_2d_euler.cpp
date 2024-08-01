@@ -16,11 +16,14 @@ inline const std::string kExampleName{"sedovblast_2d_euler"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-using SimulationControl = SubrosaDG::SimulationControlEuler<
-    SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3, SubrosaDG::MeshModelEnum::Quadrangle,
-    SubrosaDG::SourceTermEnum::None, SubrosaDG::InitialConditionEnum::Function,
-    SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
-    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::TimeIntegrationEnum::SSPRK3>;
+using SimulationControl = SubrosaDG::SimulationControl<
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3,
+                            SubrosaDG::SourceTermEnum::None>,
+    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle,
+                                SubrosaDG::ShockCapturingEnum::ArtificialViscosity, SubrosaDG::LimiterEnum::None,
+                                SubrosaDG::InitialConditionEnum::Function, SubrosaDG::TimeIntegrationEnum::SSPRK3>,
+    SubrosaDG::EulerVariable<SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
+                             SubrosaDG::ConvectiveFluxEnum::HLLC>>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
@@ -45,7 +48,9 @@ int main(int argc, char* argv[]) {
                          (4.0_r * SubrosaDG::kPi * 0.25_r * 0.25_r))};
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
-  system.setArtificialViscosity(5.0_r, 5.0_r);
+  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
+  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
+  system.setArtificialViscosity(5.0_r);
   system.setTimeIntegration(0.1_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

@@ -22,9 +22,9 @@
 
 #include "Mesh/ReadControl.hpp"
 #include "Solver/BoundaryCondition.hpp"
+#include "Solver/PhysicalModel.hpp"
 #include "Solver/SimulationControl.hpp"
 #include "Solver/SolveControl.hpp"
-#include "Solver/ThermalModel.hpp"
 #include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
@@ -44,17 +44,17 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::Function> {
 
   template <typename ElementTrait>
   void getVariableBasisFunctionCoefficient(
-      const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const ElementMesh<ElementTrait>& element_mesh, const PhysicalModel<SimulationControl>& physical_model,
       Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1>& variable) {
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, element_mesh, thermal_model, variable)
+    shared(Eigen::Dynamic, element_mesh, physical_model, variable)
 #endif  // SUBROSA_DG_DEVELOP
     for (Isize i = 0; i < element_mesh.number_; i++) {
       for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
         variable(i).primitive_.col(j) = this->function_(element_mesh.element_(i).quadrature_node_coordinate_.col(j));
       }
-      variable(i).calculateConservedFromPrimitive(thermal_model);
+      variable(i).calculateConservedFromPrimitive(physical_model);
     }
   }
 };
@@ -120,13 +120,13 @@ struct InitialCondition : InitialConditionBase<SimulationControl, SimulationCont
 
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElementSolver(
-    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
+    const ElementMesh<ElementTrait>& element_mesh, const PhysicalModel<SimulationControl>& physical_model,
     InitialCondition<SimulationControl>& initial_condition) {
   this->number_ = element_mesh.number_;
   this->element_.resize(this->number_);
   if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::Function) {
     Eigen::Array<ElementVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> variable(this->number_);
-    initial_condition.getVariableBasisFunctionCoefficient(element_mesh, thermal_model, variable);
+    initial_condition.getVariableBasisFunctionCoefficient(element_mesh, physical_model, variable);
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh, variable)
 #endif  // SUBROSA_DG_DEVELOP
@@ -152,7 +152,7 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElemen
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl>::initializeAdjacencyElementSolver(
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const ThermalModel<SimulationControl>& thermal_model,
+    const PhysicalModel<SimulationControl>& physical_model,
     const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition) {
   this->interior_number_ = adjacency_element_mesh.interior_number_;
   this->boundary_number_ = adjacency_element_mesh.boundary_number_;
@@ -165,14 +165,14 @@ inline void AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl>
               ->function_(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_)
                               .quadrature_node_coordinate_.col(j));
     }
-    this->boundary_dummy_variable_(i).calculateConservedFromPrimitive(thermal_model);
-    this->boundary_dummy_variable_(i).calculateComputationalFromPrimitive(thermal_model);
+    this->boundary_dummy_variable_(i).calculateConservedFromPrimitive(physical_model);
+    this->boundary_dummy_variable_(i).calculateComputationalFromPrimitive(physical_model);
   }
 }
 
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::initializeSolver(
-    const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+    const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
     const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
     InitialCondition<SimulationControl>& initial_condition) {
   this->node_artificial_viscosity_.resize(mesh.node_number_);
@@ -182,31 +182,31 @@ inline void Solver<SimulationControl>::initializeSolver(
   }
   this->node_artificial_viscosity_.setZero();
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.initializeElementSolver(mesh.line_, thermal_model, initial_condition);
-    this->point_.initializeAdjacencyElementSolver(mesh.point_, thermal_model, boundary_condition);
+    this->line_.initializeElementSolver(mesh.line_, physical_model, initial_condition);
+    this->point_.initializeAdjacencyElementSolver(mesh.point_, physical_model, boundary_condition);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.initializeElementSolver(mesh.triangle_, thermal_model, initial_condition);
+      this->triangle_.initializeElementSolver(mesh.triangle_, physical_model, initial_condition);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.initializeElementSolver(mesh.quadrangle_, thermal_model, initial_condition);
+      this->quadrangle_.initializeElementSolver(mesh.quadrangle_, physical_model, initial_condition);
     }
-    this->line_.initializeAdjacencyElementSolver(mesh.line_, thermal_model, boundary_condition);
+    this->line_.initializeAdjacencyElementSolver(mesh.line_, physical_model, boundary_condition);
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-      this->tetrahedron_.initializeElementSolver(mesh.tetrahedron_, thermal_model, initial_condition);
+      this->tetrahedron_.initializeElementSolver(mesh.tetrahedron_, physical_model, initial_condition);
     }
     if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-      this->pyramid_.initializeElementSolver(mesh.pyramid_, thermal_model, initial_condition);
+      this->pyramid_.initializeElementSolver(mesh.pyramid_, physical_model, initial_condition);
     }
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-      this->hexahedron_.initializeElementSolver(mesh.hexahedron_, thermal_model, initial_condition);
+      this->hexahedron_.initializeElementSolver(mesh.hexahedron_, physical_model, initial_condition);
     }
     if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.initializeAdjacencyElementSolver(mesh.triangle_, thermal_model, boundary_condition);
+      this->triangle_.initializeAdjacencyElementSolver(mesh.triangle_, physical_model, boundary_condition);
     }
     if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.initializeAdjacencyElementSolver(mesh.quadrangle_, thermal_model, boundary_condition);
+      this->quadrangle_.initializeAdjacencyElementSolver(mesh.quadrangle_, physical_model, boundary_condition);
     }
   }
 }

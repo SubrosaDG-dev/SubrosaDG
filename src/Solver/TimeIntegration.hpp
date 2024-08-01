@@ -22,9 +22,9 @@
 
 #include "Mesh/ReadControl.hpp"
 #include "Solver/BoundaryCondition.hpp"
+#include "Solver/PhysicalModel.hpp"
 #include "Solver/SolveControl.hpp"
 #include "Solver/SourceTerm.hpp"
-#include "Solver/ThermalModel.hpp"
 #include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Concept.hpp"
@@ -37,7 +37,7 @@ struct TimeIntegrationBase {
   int iteration_start_{0};
   int iteration_end_;
   Real courant_friedrichs_lewy_number_;
-  Real delta_time_{kRealMax};
+  Real delta_time_{0.0};
 };
 
 template <TimeIntegrationEnum TimeIntegrationType>
@@ -105,21 +105,21 @@ inline void Solver<SimulationControl>::copyBasisFunctionCoefficient() {
 
 template <typename ElementTrait, typename SimulationControl>
 inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElementDeltaTime(
-    const ElementMesh<ElementTrait>& element_mesh, const ThermalModel<SimulationControl>& thermal_model,
+    const ElementMesh<ElementTrait>& element_mesh, const PhysicalModel<SimulationControl>& physical_model,
     const Real courant_friedrichs_lewy_number) {
   ElementVariable<ElementTrait, SimulationControl> quadrature_node_variable;
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
   Real min_delta_time{kRealMax};
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                                  \
-    shared(element_mesh, thermal_model, courant_friedrichs_lewy_number) private(quadrature_node_variable, delta_time) \
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                                   \
+    shared(element_mesh, physical_model, courant_friedrichs_lewy_number) private(quadrature_node_variable, delta_time) \
     reduction(min : min_delta_time)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     quadrature_node_variable.get(element_mesh, *this, i);
-    quadrature_node_variable.calculateComputationalFromConserved(thermal_model);
+    quadrature_node_variable.calculateComputationalFromConserved(physical_model);
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      const Real sound_speed = thermal_model.calculateSoundSpeedFromInternalEnergy(
+      const Real sound_speed = physical_model.calculateSoundSpeedFromInternalEnergy(
           quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(j));
       const Real spectral_radius =
           std::sqrt(quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(j)) +
@@ -136,44 +136,45 @@ inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
 
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::calculateDeltaTime(const Mesh<SimulationControl>& mesh,
-                                                          const ThermalModel<SimulationControl>& thermal_model,
+                                                          const PhysicalModel<SimulationControl>& physical_model,
                                                           TimeIntegration<SimulationControl>& time_integration) {
+  time_integration.delta_time_ = kRealMax;
   if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
     if constexpr (SimulationControl::kDimension == 1) {
       time_integration.delta_time_ =
           std::min(time_integration.delta_time_,
-                   this->line_.calculateElementDeltaTime(mesh.line_, thermal_model,
+                   this->line_.calculateElementDeltaTime(mesh.line_, physical_model,
                                                          time_integration.courant_friedrichs_lewy_number_));
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
         time_integration.delta_time_ =
             std::min(time_integration.delta_time_,
-                     this->triangle_.calculateElementDeltaTime(mesh.triangle_, thermal_model,
+                     this->triangle_.calculateElementDeltaTime(mesh.triangle_, physical_model,
                                                                time_integration.courant_friedrichs_lewy_number_));
       }
       if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
         time_integration.delta_time_ =
             std::min(time_integration.delta_time_,
-                     this->quadrangle_.calculateElementDeltaTime(mesh.quadrangle_, thermal_model,
+                     this->quadrangle_.calculateElementDeltaTime(mesh.quadrangle_, physical_model,
                                                                  time_integration.courant_friedrichs_lewy_number_));
       }
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
         time_integration.delta_time_ =
             std::min(time_integration.delta_time_,
-                     this->tetrahedron_.calculateElementDeltaTime(mesh.tetrahedron_, thermal_model,
+                     this->tetrahedron_.calculateElementDeltaTime(mesh.tetrahedron_, physical_model,
                                                                   time_integration.courant_friedrichs_lewy_number_));
       }
       if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
         time_integration.delta_time_ =
             std::min(time_integration.delta_time_,
-                     this->pyramid_.calculateElementDeltaTime(mesh.pyramid_, thermal_model,
+                     this->pyramid_.calculateElementDeltaTime(mesh.pyramid_, physical_model,
                                                               time_integration.courant_friedrichs_lewy_number_));
       }
       if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
         time_integration.delta_time_ =
             std::min(time_integration.delta_time_,
-                     this->hexahedron_.calculateElementDeltaTime(mesh.hexahedron_, thermal_model,
+                     this->hexahedron_.calculateElementDeltaTime(mesh.hexahedron_, physical_model,
                                                                  time_integration.courant_friedrichs_lewy_number_));
       }
     }
@@ -343,18 +344,20 @@ inline void Solver<SimulationControl>::calculateRelativeError(const Mesh<Simulat
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::stepSolver(
     const Mesh<SimulationControl>& mesh, [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
-    const ThermalModel<SimulationControl>& thermal_model,
+    const PhysicalModel<SimulationControl>& physical_model,
     const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
     const TimeIntegration<SimulationControl>& time_integration) {
   this->copyBasisFunctionCoefficient();
-  this->calculateArtificialViscosity(mesh);
+  if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
+    this->calculateArtificialViscosity(mesh, physical_model);
+  }
   for (int i = 0; i < time_integration.kStep; i++) {
     this->calculateGardientQuadrature(mesh);
-    this->calculateAdjacencyGardientQuadrature(mesh, thermal_model, boundary_condition);
+    this->calculateAdjacencyGardientQuadrature(mesh, physical_model, boundary_condition);
     this->calculateGardientResidual(mesh);
     this->updateGardientBasisFunctionCoefficient(mesh);
-    this->calculateQuadrature(mesh, source_term, thermal_model);
-    this->calculateAdjacencyQuadrature(mesh, thermal_model, boundary_condition);
+    this->calculateQuadrature(mesh, source_term, physical_model);
+    this->calculateAdjacencyQuadrature(mesh, physical_model, boundary_condition);
     this->calculateResidual(mesh);
     this->updateBasisFunctionCoefficient(i, mesh, time_integration);
   }

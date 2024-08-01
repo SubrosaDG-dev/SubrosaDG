@@ -15,7 +15,7 @@
 
 #include <Eigen/Core>
 
-#include "Solver/ThermalModel.hpp"
+#include "Solver/PhysicalModel.hpp"
 #include "Solver/VariableConvertor.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Enum.hpp"
@@ -56,7 +56,7 @@ inline void calculateInterfaceGardientFlux(const Eigen::Vector<Real, SimulationC
 }
 
 template <typename SimulationControl>
-inline void calculateViscousRawFlux(const ThermalModel<SimulationControl>& thermal_model,
+inline void calculateViscousRawFlux(const PhysicalModel<SimulationControl>& physical_model,
                                     const Variable<SimulationControl>& variable,
                                     const VariableGradient<SimulationControl>& variable_gradient,
                                     FluxVariable<SimulationControl>& viscous_raw_flux, const Isize column) {
@@ -64,9 +64,9 @@ inline void calculateViscousRawFlux(const ThermalModel<SimulationControl>& therm
       Eigen::Vector<Real, SimulationControl::kDimension>::Zero());
   const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
       variable_gradient.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
-  const Real tempurature = thermal_model.calculateTemperatureFromInternalEnergy(
+  const Real tempurature = physical_model.calculateTemperatureFromInternalEnergy(
       variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
-  const Real dynamic_viscosity = thermal_model.calculateDynamicViscosity(tempurature);
+  const Real dynamic_viscosity = physical_model.calculateDynamicViscosity(tempurature);
   const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
       dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
       2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient.trace() *
@@ -74,7 +74,7 @@ inline void calculateViscousRawFlux(const ThermalModel<SimulationControl>& therm
   viscous_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(viscous_stress);
   const Eigen::Vector<Real, SimulationControl::kDimension>& velocity =
       variable.template getVector<ComputationalVariableEnum::Velocity>(column);
-  const Real thermal_conductivity = thermal_model.calculateThermalConductivity(tempurature);
+  const Real thermal_conductivity = physical_model.calculateThermalConductivity(tempurature);
   const Eigen::Vector<Real, SimulationControl::kDimension>& tempurature_gradient =
       variable_gradient.template getVector<PrimitiveVariableEnum::Temperature>(column);
   viscous_raw_flux.template setVector<ConservedVariableEnum::DensityTotalEnergy>(
@@ -92,13 +92,13 @@ inline void calculateArtificialViscousRawFlux(const Real artificial_viscosity,
 }
 
 template <typename SimulationControl>
-inline void calculateViscousNormalFlux(const ThermalModel<SimulationControl>& thermal_model,
+inline void calculateViscousNormalFlux(const PhysicalModel<SimulationControl>& physical_model,
                                        const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                        const Variable<SimulationControl>& variable,
                                        const VariableGradient<SimulationControl>& variable_gradient,
                                        FluxNormalVariable<SimulationControl>& viscous_normal_flux, const Isize column) {
   FluxVariable<SimulationControl> viscous_raw_flux;
-  calculateViscousRawFlux(thermal_model, variable, variable_gradient, viscous_raw_flux, column);
+  calculateViscousRawFlux(physical_model, variable, variable_gradient, viscous_raw_flux, column);
   viscous_normal_flux.normal_variable_.noalias() = viscous_raw_flux.variable_.transpose() * normal_vector;
 }
 
@@ -115,7 +115,7 @@ inline void calculateArtificialViscousNormalFlux(
 }
 
 template <typename SimulationControl>
-inline void calculateViscousFlux(const ThermalModel<SimulationControl>& thermal_model,
+inline void calculateViscousFlux(const PhysicalModel<SimulationControl>& physical_model,
                                  const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                  const Variable<SimulationControl>& left_quadrature_node_variable,
                                  const VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
@@ -123,9 +123,9 @@ inline void calculateViscousFlux(const ThermalModel<SimulationControl>& thermal_
                                  const VariableGradient<SimulationControl>& right_quadrature_node_variable_gradient,
                                  Flux<SimulationControl>& viscous_flux, const Isize left_column,
                                  const Isize right_column) {
-  calculateViscousNormalFlux(thermal_model, normal_vector, left_quadrature_node_variable,
+  calculateViscousNormalFlux(physical_model, normal_vector, left_quadrature_node_variable,
                              left_quadrature_node_variable_gradient, viscous_flux.left_, left_column);
-  calculateViscousNormalFlux(thermal_model, normal_vector, right_quadrature_node_variable,
+  calculateViscousNormalFlux(physical_model, normal_vector, right_quadrature_node_variable,
                              right_quadrature_node_variable_gradient, viscous_flux.right_, right_column);
   viscous_flux.result_.normal_variable_.noalias() =
       (viscous_flux.left_.normal_variable_ + viscous_flux.right_.normal_variable_) / 2.0_r;

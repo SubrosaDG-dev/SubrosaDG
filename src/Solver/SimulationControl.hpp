@@ -886,6 +886,15 @@ getAdjacencyElementViewNodeParentSequence([[maybe_unused]] int parent, int seque
   return {};
 }
 
+// NOTE: https://doi.org/10.1016/j.compfluid.2018.11.008
+inline constexpr std::array<Real, 5> kArtificialViscosityTolerance{
+    -3.030112443794603, -3.6501669200214115, -4.308112155742919, -5.132752028352565, -5.373451541179087};
+
+template <int PolynomialOrder>
+inline consteval Real getPolynomialOrderArtificialViscosityTolerance() {
+  return kArtificialViscosityTolerance[PolynomialOrder - 1];
+}
+
 template <ElementEnum ElementType>
 inline consteval int getElementVtkElementNumber() {
   if constexpr (ElementType == ElementEnum::Pyramid) {
@@ -1183,100 +1192,66 @@ inline consteval int getPrimitiveVariableNumber() {
   }
 }
 
-template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, EquationModelEnum EquationModelType,
-          SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
-          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
-          TimeIntegrationEnum TimeIntegrationType>
+template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, SourceTermEnum SourceTermType>
 struct SolveControl {
   inline static constexpr int kDimension{magic_enum::enum_integer(Dimension)};
   inline static constexpr int kPolynomialOrder{magic_enum::enum_integer(PolynomialOrder)};
   inline static constexpr SourceTermEnum kSourceTerm{SourceTermType};
-  inline static constexpr EquationModelEnum kEquationModel{EquationModelType};
+};
+
+template <MeshModelEnum MeshModelType, ShockCapturingEnum ShockCapturingType, LimiterEnum LimiterType,
+          InitialConditionEnum InitialConditionType, TimeIntegrationEnum TimeIntegrationType>
+struct NumericalControl {
+  inline static constexpr MeshModelEnum kMeshModel{MeshModelType};
   inline static constexpr InitialConditionEnum kInitialCondition{InitialConditionType};
-  inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
-  inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
+  inline static constexpr ShockCapturingEnum kShockCapturing{ShockCapturingType};
+  inline static constexpr LimiterEnum kLimiter{LimiterType};
   inline static constexpr TimeIntegrationEnum kTimeIntegration{TimeIntegrationType};
 };
 
-template <DimensionEnum Dimension, ConvectiveFluxEnum ConvectiveFluxType>
+template <ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          ConvectiveFluxEnum ConvectiveFluxType>
 struct EulerVariable {
+  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::Euler};
+  inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
+  inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
+  inline static constexpr TransportModelEnum kTransportModel{TransportModelEnum::None};
   inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
-  inline static constexpr int kConservedVariableNumber{
-      getConservedVariableNumber<magic_enum::enum_integer(Dimension), EquationModelEnum::Euler>()};
-  inline static constexpr int kComputationalVariableNumber{
-      getComputationalVariableNumber<magic_enum::enum_integer(Dimension), EquationModelEnum::Euler>()};
-  inline static constexpr int kPrimitiveVariableNumber{
-      getPrimitiveVariableNumber<magic_enum::enum_integer(Dimension), EquationModelEnum::Euler>()};
 };
 
-template <DimensionEnum Dimension, TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType,
-          ViscousFluxEnum ViscousFluxType>
+template <ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType>
 struct NavierStokesVariable {
+  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::NavierStokes};
+  inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
+  inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
   inline static constexpr TransportModelEnum kTransportModel{TransportModelType};
   inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
   inline static constexpr ViscousFluxEnum kViscousFlux{ViscousFluxType};
-  inline static constexpr int kConservedVariableNumber{
-      getConservedVariableNumber<magic_enum::enum_integer(Dimension), EquationModelEnum::NavierStokes>()};
-  inline static constexpr int kComputationalVariableNumber{
-      getComputationalVariableNumber<magic_enum::enum_integer(Dimension), EquationModelEnum::NavierStokes>()};
-  inline static constexpr int kPrimitiveVariableNumber{
-      getPrimitiveVariableNumber<magic_enum::enum_integer(Dimension), EquationModelEnum::NavierStokes>()};
 };
 
-template <DimensionEnum Dimension, TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType,
-          ViscousFluxEnum ViscousFluxType, TurbulenceModelEnum TurbulenceModelType>
+template <ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TransportModelEnum TransportModelType, TurbulenceModelEnum TurbulenceModelType,
+          ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType>
 struct RANSVariable {
+  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::RANS};
+  inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
+  inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
   inline static constexpr TransportModelEnum kTransportModel{TransportModelType};
+  inline static constexpr TurbulenceModelEnum kTurbulenceModel{TurbulenceModelType};
   inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
   inline static constexpr ViscousFluxEnum kViscousFlux{ViscousFluxType};
-  inline static constexpr TurbulenceModelEnum kTurbulenceModel{TurbulenceModelType};
+};
+
+template <typename SolveControl, typename NumericalControl, typename EquationVariable>
+struct SimulationControl : SolveControl, NumericalControl, EquationVariable {
   inline static constexpr int kConservedVariableNumber{
-      getConservedVariableNumber<magic_enum::enum_integer(Dimension), EquationModelEnum::RANS, TurbulenceModelType>()};
+      getConservedVariableNumber<SolveControl::kDimension, EquationVariable::kEquationModel>()};
   inline static constexpr int kComputationalVariableNumber{
-      getComputationalVariableNumber<magic_enum::enum_integer(Dimension), EquationModelEnum::RANS,
-                                     TurbulenceModelType>()};
+      getComputationalVariableNumber<SolveControl::kDimension, EquationVariable::kEquationModel>()};
   inline static constexpr int kPrimitiveVariableNumber{
-      getPrimitiveVariableNumber<magic_enum::enum_integer(Dimension), EquationModelEnum::RANS, TurbulenceModelType>()};
+      getPrimitiveVariableNumber<SolveControl::kDimension, EquationVariable::kEquationModel>()};
 };
-
-template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
-          EquationModelEnum EquationModelType, SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
-          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
-          TimeIntegrationEnum TimeIntegrationType>
-struct SimulationControl
-    : SolveControl<Dimension, PolynomialOrder, EquationModelType, SourceTermType, InitialConditionType,
-                   ThermodynamicModelType, EquationOfStateType, TimeIntegrationType> {
-  inline static constexpr MeshModelEnum kMeshModel{MeshModelType};
-};
-
-template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
-          SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
-          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
-          ConvectiveFluxEnum ConvectiveFluxType, TimeIntegrationEnum TimeIntegrationType>
-struct SimulationControlEuler
-    : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::Euler, SourceTermType,
-                        InitialConditionType, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType>,
-      EulerVariable<Dimension, ConvectiveFluxType> {};
-
-template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
-          SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
-          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
-          TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
-          TimeIntegrationEnum TimeIntegrationType>
-struct SimulationControlNavierStokes
-    : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::NavierStokes, SourceTermType,
-                        InitialConditionType, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType>,
-      NavierStokesVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType> {};
-
-template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, MeshModelEnum MeshModelType,
-          SourceTermEnum SourceTermType, InitialConditionEnum InitialConditionType,
-          ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
-          TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType,
-          TurbulenceModelEnum TurbulenceModelType, TimeIntegrationEnum TimeIntegrationType>
-struct SimulationControlRANS
-    : SimulationControl<Dimension, PolynomialOrder, MeshModelType, EquationModelEnum::NavierStokes, SourceTermType,
-                        InitialConditionType, ThermodynamicModelType, EquationOfStateType, TimeIntegrationType>,
-      RANSVariable<Dimension, TransportModelType, ConvectiveFluxType, ViscousFluxType, TurbulenceModelType> {};
 
 }  // namespace SubrosaDG
 

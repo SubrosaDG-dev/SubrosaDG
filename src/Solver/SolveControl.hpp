@@ -22,8 +22,8 @@
 #include <unordered_map>
 
 #include "Mesh/ReadControl.hpp"
+#include "Solver/PhysicalModel.hpp"
 #include "Solver/SimulationControl.hpp"
-#include "Solver/ThermalModel.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Enum.hpp"
 
@@ -156,13 +156,14 @@ struct ElementSolverBase {
       element_;
 
   inline void initializeElementSolver(const ElementMesh<ElementTrait>& element_mesh,
-                                      const ThermalModel<SimulationControl>& thermal_model,
+                                      const PhysicalModel<SimulationControl>& physical_model,
                                       InitialCondition<SimulationControl>& initial_condition);
 
   inline void copyElementBasisFunctionCoefficient();
 
   inline void calculateElementArtificialViscosity(const ElementMesh<ElementTrait>& element_mesh,
-                                                  Real empirical_tolerance, Real artificial_viscosity_factor);
+                                                  const PhysicalModel<SimulationControl>& physical_model,
+                                                  Real artificial_viscosity_factor);
 
   inline void maxElementArtificialViscosity(const ElementMesh<ElementTrait>& element_mesh,
                                             Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity);
@@ -173,7 +174,7 @@ struct ElementSolverBase {
   inline void calculateElementGardientQuadrature(const ElementMesh<ElementTrait>& element_mesh);
 
   inline Real calculateElementDeltaTime(const ElementMesh<ElementTrait>& element_mesh,
-                                        const ThermalModel<SimulationControl>& thermal_model,
+                                        const PhysicalModel<SimulationControl>& physical_model,
                                         Real courant_friedrichs_lewy_number);
 
   inline void calculateElementResidual(const ElementMesh<ElementTrait>& element_mesh);
@@ -198,7 +199,7 @@ struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler>
     : ElementSolverBase<ElementTrait, SimulationControl> {
   inline void calculateElementQuadrature(const ElementMesh<ElementTrait>& element_mesh,
                                          [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
-                                         const ThermalModel<SimulationControl>& thermal_model);
+                                         const PhysicalModel<SimulationControl>& physical_model);
 
   inline void writeElementRawBinary(std::stringstream& raw_binary_ss) const;
 };
@@ -208,7 +209,7 @@ struct ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierS
     : ElementSolverBase<ElementTrait, SimulationControl> {
   inline void calculateElementQuadrature(const ElementMesh<ElementTrait>& element_mesh,
                                          [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
-                                         const ThermalModel<SimulationControl>& thermal_model);
+                                         const PhysicalModel<SimulationControl>& physical_model);
 
   inline void writeElementRawBinary(std::stringstream& raw_binary_ss) const;
 };
@@ -222,7 +223,7 @@ struct AdjacencyElementSolverBase {
 
   inline void initializeAdjacencyElementSolver(
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const ThermalModel<SimulationControl>& thermal_model,
+      const PhysicalModel<SimulationControl>& physical_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
 
   [[nodiscard]] inline Isize getAdjacencyParentElementAccumulateAdjacencyQuadratureNumber(
@@ -237,7 +238,7 @@ struct AdjacencyElementSolverBase {
                                                                   Solver<SimulationControl>& solver);
 
   inline void calculateBoundaryAdjacencyElementGardientQuadrature(
-      const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       Solver<SimulationControl>& solver);
 
@@ -266,11 +267,11 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
 struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::Euler>
     : AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl> {
   inline void calculateInteriorAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
-                                                          const ThermalModel<SimulationControl>& thermal_model,
+                                                          const PhysicalModel<SimulationControl>& physical_model,
                                                           Solver<SimulationControl>& solver);
 
   inline void calculateBoundaryAdjacencyElementQuadrature(
-      const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       Solver<SimulationControl>& solver);
 
@@ -283,11 +284,11 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
 struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::NavierStokes>
     : AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl> {
   inline void calculateInteriorAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
-                                                          const ThermalModel<SimulationControl>& thermal_model,
+                                                          const PhysicalModel<SimulationControl>& physical_model,
                                                           Solver<SimulationControl>& solver);
 
   inline void calculateBoundaryAdjacencyElementQuadrature(
-      const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       Solver<SimulationControl>& solver);
 
@@ -298,7 +299,6 @@ struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equation
 
 template <typename SimulationControl>
 struct SolverBase {
-  Real empirical_tolerance_{0.0_r};
   Real artificial_viscosity_factor_{1.0_r};
 
   std::stringstream raw_binary_ss_;
@@ -403,34 +403,41 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
   }
 
   inline void initializeSolver(
-      const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       InitialCondition<SimulationControl>& initial_condition);
 
   inline void copyBasisFunctionCoefficient();
 
   inline void calculateDeltaTime(const Mesh<SimulationControl>& mesh,
-                                 const ThermalModel<SimulationControl>& thermal_model,
+                                 const PhysicalModel<SimulationControl>& physical_model,
                                  TimeIntegration<SimulationControl>& time_integration);
 
-  inline void calculateArtificialViscosity(const Mesh<SimulationControl>& mesh);
+  inline void calculateVariable(const Mesh<SimulationControl>& mesh,
+                                const PhysicalModel<SimulationControl>& physical_model);
+
+  inline void calculateVariableGardient(const Mesh<SimulationControl>& mesh,
+                                        const PhysicalModel<SimulationControl>& physical_model);
+
+  inline void calculateArtificialViscosity(const Mesh<SimulationControl>& mesh,
+                                           const PhysicalModel<SimulationControl>& physical_model);
 
   inline void calculateQuadrature(const Mesh<SimulationControl>& mesh,
                                   [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
-                                  const ThermalModel<SimulationControl>& thermal_model);
+                                  const PhysicalModel<SimulationControl>& physical_model);
 
   inline void calculateGardientQuadrature(const Mesh<SimulationControl>& mesh);
 
   inline void calculateAdjacencyQuadrature(
-      const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
 
   inline void calculateAdjacencyGardientQuadrature(
-      const Mesh<SimulationControl>& mesh, const ThermalModel<SimulationControl>& thermal_model,
+      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
 
   inline void calculateBoundaryAdjacencyForce(const Mesh<SimulationControl>& mesh,
-                                              const ThermalModel<SimulationControl>& thermal_model);
+                                              const PhysicalModel<SimulationControl>& physical_model);
 
   inline void calculateResidual(const Mesh<SimulationControl>& mesh);
 
@@ -443,7 +450,7 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void stepSolver(
       const Mesh<SimulationControl>& mesh, [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
-      const ThermalModel<SimulationControl>& thermal_model,
+      const PhysicalModel<SimulationControl>& physical_model,
       const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
       const TimeIntegration<SimulationControl>& time_integration);
 

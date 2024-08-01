@@ -69,6 +69,16 @@ enum class SourceTermEnum {
   Gravity,
 };
 
+enum class ShockCapturingEnum {
+  None = 1,
+  ArtificialViscosity,
+};
+
+enum class LimiterEnum {
+  None = 1,
+  PositivityPreserving,
+};
+
 enum class InitialConditionEnum {
   Function = 1,
   SpecificFile,
@@ -79,9 +89,9 @@ enum class BoundaryConditionEnum {
   RiemannFarfield = 1,
   VelocityInflow,
   PressureOutflow,
-  IsothermalNoSlipWall,
+  IsoThermalNonSlipWall,
   AdiabaticSlipWall,
-  AdiabaticNoSlipWall,
+  AdiabaticNonSlipWall,
   Periodic,
 };
 
@@ -100,14 +110,15 @@ enum class ViscousFluxEnum {
 
 enum class ThermodynamicModelEnum {
   ConstantE = 1,
-  ConstantH,
 };
 
 enum class EquationOfStateEnum {
   IdealGas = 1,
+  Tait,
 };
 
 enum class TransportModelEnum {
+  None,
   Constant = 1,
   Sutherland,
 };
