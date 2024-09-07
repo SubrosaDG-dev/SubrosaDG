@@ -86,8 +86,9 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
       variable_spectral_radius(j) =
           std::sqrt(quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(j)) +
-          physical_model.calculateSoundSpeedFromInternalEnergy(
-              quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(j));
+          physical_model.calculateSoundSpeedFromDensityPressure(
+              quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(j),
+              quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(j));
     }
     const Real artificial_viscosity = artificial_viscosity_factor * variable_spectral_radius.maxCoeff() *
                                       (element_mesh.element_(i).inner_radius_ / SimulationControl::kPolynomialOrder);

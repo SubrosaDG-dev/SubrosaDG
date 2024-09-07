@@ -119,8 +119,9 @@ inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
     quadrature_node_variable.get(element_mesh, *this, i);
     quadrature_node_variable.calculateComputationalFromConserved(physical_model);
     for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      const Real sound_speed = physical_model.calculateSoundSpeedFromInternalEnergy(
-          quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(j));
+      const Real sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(
+          quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(j),
+          quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(j));
       const Real spectral_radius =
           std::sqrt(quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(j)) +
           sound_speed;

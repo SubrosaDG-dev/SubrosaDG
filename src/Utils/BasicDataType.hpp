@@ -15,7 +15,7 @@
 
 // IWYU pragma: begin_keep
 
-#include <dbg.h>
+#include <dbg-macro/dbg.h>
 
 #include <iostream>
 

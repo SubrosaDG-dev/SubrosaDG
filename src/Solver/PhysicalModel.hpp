@@ -41,50 +41,33 @@ struct EquationOfState;
 
 template <>
 struct EquationOfState<EquationOfStateEnum::IdealGas> {
-  Real specific_heat_ratio_;
+  inline static constexpr Real kSpecificHeatRatio = 1.4_r;
 
   [[nodiscard]] inline Real calculatePressureFormDensityInternalEnergy(const Real density,
                                                                        const Real internal_energy) const {
-    return (this->specific_heat_ratio_ - 1.0_r) * density * internal_energy;
+    return (this->kSpecificHeatRatio - 1.0_r) * density * internal_energy;
   }
 
-  [[nodiscard]] inline Real calculateInternalEnergyFromDensityPressure(const Real density, const Real pressure) const {
-    return pressure / ((this->specific_heat_ratio_ - 1.0_r) * density);
+  [[nodiscard]] inline Real calculateSoundSpeedFromDensityPressure(const Real density, const Real pressure) const {
+    return std::sqrt(this->kSpecificHeatRatio * pressure / density);
+  }
+};
+
+template <>
+struct EquationOfState<EquationOfStateEnum::Tait> {
+  inline static constexpr Real kSpecificHeatRatio = 7.0_r;
+  inline static constexpr Real kReferenceSoundSpeed = 15.0_r;
+  Real reference_pressure_addition_;
+
+  [[nodiscard]] inline Real calculatePressureFormDensityInternalEnergy(const Real density,
+                                                                       const Real internal_energy) const {
+    return this->kReferenceSoundSpeed * this->kReferenceSoundSpeed *
+               (std::pow(density, this->kSpecificHeatRatio) - 1.0_r) / this->kSpecificHeatRatio +
+           this->reference_pressure_addition_;
   }
 
-  [[nodiscard]] inline Real calculateInternalEnergyFromEnthalpy(const Real enthalpy) const {
-    return enthalpy / this->specific_heat_ratio_;
-  }
-
-  [[nodiscard]] inline Real calculateEnthalpyFromInternalEnergy(const Real internal_energy) const {
-    return internal_energy * this->specific_heat_ratio_;
-  }
-
-  [[nodiscard]] inline Real calculateSoundSpeedFromInternalEnergy(const Real internal_energy) const {
-    return std::sqrt(this->specific_heat_ratio_ * (this->specific_heat_ratio_ - 1.0_r) * internal_energy);
-  }
-
-  [[nodiscard]] inline Real calculateInternalEnergyFromSoundSpeed(const Real sound_speed) const {
-    return sound_speed * sound_speed / (this->specific_heat_ratio_ * (this->specific_heat_ratio_ - 1.0_r));
-  }
-
-  [[nodiscard]] inline Real calculateRiemannInvariantPart(const Real internal_energy) const {
-    return 2 * this->calculateSoundSpeedFromInternalEnergy(internal_energy) / (this->specific_heat_ratio_ - 1.0_r);
-  }
-
-  [[nodiscard]] inline Real calculateInternalEnergyFromRiemannInvariantPart(const Real riemann_invariant_part) const {
-    return this->calculateInternalEnergyFromSoundSpeed((this->specific_heat_ratio_ - 1.0_r) * riemann_invariant_part /
-                                                       2.0_r);
-  }
-
-  [[nodiscard]] inline Real calculateEntropyFromDensityPressure(const Real density, const Real pressure) const {
-    return pressure / std::pow(density, this->specific_heat_ratio_);
-  }
-
-  [[nodiscard]] inline Real calculateDensityFromEntropyInternalEnergy(const Real entropy,
-                                                                      const Real internal_energy) const {
-    return std::pow((this->specific_heat_ratio_ - 1.0_r) * internal_energy / entropy,
-                    1.0_r / (this->specific_heat_ratio_ - 1.0_r));
+  [[nodiscard]] inline Real calculateSoundSpeedFromDensityPressure(const Real density, const Real pressure) const {
+    return this->kReferenceSoundSpeed;
   }
 };
 
@@ -96,9 +79,10 @@ struct TransportModel<TransportModelEnum::None> {};
 
 template <>
 struct TransportModel<TransportModelEnum::Constant> {
-  Real prandtl_number_;
   Real dynamic_viscosity_;
   Real thermal_conductivity_;
+
+  inline static constexpr Real kPrandtlNumber = 0.71_r;
 
   [[nodiscard]] inline Real calculateDynamicViscosity([[maybe_unused]] const Real temperature) const {
     return this->dynamic_viscosity_;
@@ -111,9 +95,10 @@ struct TransportModel<TransportModelEnum::Constant> {
 
 template <>
 struct TransportModel<TransportModelEnum::Sutherland> {
-  Real prandtl_number_;
   Real dynamic_viscosity_;
   Real thermal_conductivity_;
+
+  inline static constexpr Real kPrandtlNumber = 0.71_r;
 
   inline static constexpr Real kSutherlandTemperature = 110.4_r / 273.15_r;
 
@@ -150,47 +135,18 @@ struct PhysicalModel {
     return this->equation_of_state_.calculatePressureFormDensityInternalEnergy(density, internal_energy);
   }
 
-  [[nodiscard]] inline Real calculateInternalEnergyFromDensityPressure(const Real density, const Real pressure) const {
-    return this->equation_of_state_.calculateInternalEnergyFromDensityPressure(density, pressure);
-  }
-
-  [[nodiscard]] inline Real calculateInternalEnergyFromEnthalpy(const Real enthalpy) const {
-    return this->equation_of_state_.calculateInternalEnergyFromEnthalpy(enthalpy);
-  }
-
-  [[nodiscard]] inline Real calculateEnthalpyFromInternalEnergy(const Real internal_energy) const {
-    return this->equation_of_state_.calculateEnthalpyFromInternalEnergy(internal_energy);
-  }
-
-  [[nodiscard]] inline Real calculateSoundSpeedFromInternalEnergy(const Real internal_energy) const {
-    return this->equation_of_state_.calculateSoundSpeedFromInternalEnergy(internal_energy);
-  }
-
-  [[nodiscard]] inline Real calculateInternalEnergyFromSoundSpeed(const Real sound_speed) const {
-    return this->equation_of_state_.calculateInternalEnergyFromSoundSpeed(sound_speed);
-  }
-
-  [[nodiscard]] inline Real calculateRiemannInvariantPart(const Real internal_energy) const {
-    return this->equation_of_state_.calculateRiemannInvariantPart(internal_energy);
-  }
-
-  [[nodiscard]] inline Real calculateInternalEnergyFromRiemannInvariantPart(const Real riemann_invariant_part) const {
-    return this->equation_of_state_.calculateInternalEnergyFromRiemannInvariantPart(riemann_invariant_part);
+  [[nodiscard]] inline Real calculateSoundSpeedFromDensityPressure(const Real density, const Real pressure) const {
+    return this->equation_of_state_.calculateSoundSpeedFromDensityPressure(density, pressure);
   }
 
   [[nodiscard]] inline Real calculateEntropyFromDensityPressure(const Real density, const Real pressure) const {
-    return this->equation_of_state_.calculateEntropyFromDensityPressure(density, pressure);
-  }
-
-  [[nodiscard]] inline Real calculateDensityFromEntropyInternalEnergy(const Real entropy,
-                                                                      const Real internal_energy) const {
-    return this->equation_of_state_.calculateDensityFromEntropyInternalEnergy(entropy, internal_energy);
+    return pressure / std::pow(density, this->equation_of_state_.kSpecificHeatRatio);
   }
 
   inline void calculateThermalConductivityFromDynamicViscosity() {
     this->transport_model_.thermal_conductivity_ =
-        (this->thermodynamic_model_.specific_heat_constant_volume_ + this->equation_of_state_.specific_heat_ratio_) *
-        this->transport_model_.dynamic_viscosity_ / this->transport_model_.prandtl_number_;
+        (this->thermodynamic_model_.specific_heat_constant_volume_ + this->equation_of_state_.kSpecificHeatRatio) *
+        this->transport_model_.dynamic_viscosity_ / this->transport_model_.kPrandtlNumber;
   }
 
   [[nodiscard]] inline Real calculateDynamicViscosity([[maybe_unused]] const Real temperature) const {

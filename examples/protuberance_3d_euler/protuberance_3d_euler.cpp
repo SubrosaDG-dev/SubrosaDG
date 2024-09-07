@@ -46,7 +46,6 @@ int main(int argc, char* argv[]) {
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-2");
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-3");
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
-  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
   system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

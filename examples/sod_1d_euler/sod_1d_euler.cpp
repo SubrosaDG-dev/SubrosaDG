@@ -50,7 +50,6 @@ int main(int argc, char* argv[]) {
                                                                                            0.8_r * 1.4_r};
       });
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
-  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
   system.setArtificialViscosity(0.5_r);
   system.setTimeIntegration(0.001_r);
   system.setViewConfig(kExampleDirectory, kExampleName);

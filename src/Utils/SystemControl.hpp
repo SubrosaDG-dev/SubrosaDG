@@ -122,15 +122,14 @@ struct System {
   }
 
   template <EquationOfStateEnum EquationOfStateType>
-    requires(EquationOfStateType == EquationOfStateEnum::IdealGas)
-  inline void setEquationOfState(const Real specific_heat_ratio) {
-    this->physical_model_.equation_of_state_.specific_heat_ratio_ = specific_heat_ratio;
+    requires(EquationOfStateType == EquationOfStateEnum::Tait)
+  inline void setEquationOfState(const Real reference_pressure_addition) {
+    this->physical_model_.equation_of_state_.reference_pressure_addition_ = reference_pressure_addition;
   }
 
   template <TransportModelEnum TransportModelType>
     requires(TransportModelType == TransportModelEnum::Constant || TransportModelType == TransportModelEnum::Sutherland)
-  inline void setTransportModel(const Real prandtl_number, const Real dynamic_viscosity) {
-    this->physical_model_.transport_model_.prandtl_number_ = prandtl_number;
+  inline void setTransportModel(const Real dynamic_viscosity) {
     this->physical_model_.transport_model_.dynamic_viscosity_ = dynamic_viscosity;
     this->physical_model_.calculateThermalConductivityFromDynamicViscosity();
   }

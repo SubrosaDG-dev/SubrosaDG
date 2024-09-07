@@ -52,8 +52,7 @@ int main(int argc, char* argv[]) {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
       });
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
-  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
-  system.setTransportModel<SimulationControl::kTransportModel>(0.71_r, 1.4_r * 0.2_r / 16000.0_r);
+  system.setTransportModel<SimulationControl::kTransportModel>(1.4_r * 0.2_r / 16000.0_r);
   system.setTimeIntegration(0.5_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

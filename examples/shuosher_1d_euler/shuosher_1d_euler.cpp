@@ -52,7 +52,6 @@ int main(int argc, char* argv[]) {
             1.0_r + 0.2_r * std::sin(25.0_r), 0.0_r, 1.4_r / (1.0_r + 0.2_r * std::sin(25.0_r))};
       });
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
-  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
   system.setArtificialViscosity(3.0_r);
   system.setTimeIntegration(0.01_r);
   system.setViewConfig(kExampleDirectory, kExampleName);

@@ -45,7 +45,6 @@ int main(int argc, char* argv[]) {
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-1");
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
-  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
   system.setArtificialViscosity(4.0_r);
   system.setTimeIntegration(0.1_r);
   system.setViewConfig(kExampleDirectory, kExampleName);

@@ -23,8 +23,8 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
     SubrosaDG::NavierStokesVariable<SubrosaDG::ThermodynamicModelEnum::ConstantE,
-                                    SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::TransportModelEnum::Constant,
-                                    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2>>;
+                                    SubrosaDG::EquationOfStateEnum::Tait, SubrosaDG::TransportModelEnum::Constant,
+                                    SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs, SubrosaDG::ViscousFluxEnum::BR1>>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
@@ -34,24 +34,24 @@ int main(int argc, char* argv[]) {
   system.addInitialCondition(
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
       "bc-1",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
       "bc-2",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.1_r, 0.0_r, 1.0_r};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 1.0_r, 0.0_r, 1.0_r};
       });
-  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
-  system.setEquationOfState<SimulationControl::kEquationOfState>(1.4_r);
-  system.setTransportModel<SimulationControl::kTransportModel>(0.71_r, 1.4_r * 0.1_r / 100.0_r);
-  system.setTimeIntegration(0.1_r);
+  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r);
+  system.setEquationOfState<SimulationControl::kEquationOfState>(1.0_r);
+  system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r / 5000.0_r);
+  system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
