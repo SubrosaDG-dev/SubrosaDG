@@ -14,9 +14,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib import cm
+from scipy import interpolate
 
 plt.rc('text', usetex=True)
-plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
+plt.rc('text.latex', preamble=r'\usepackage{amsmath}\usepackage{bm}')
 
 fig = plt.figure(figsize=(12, 4))
 fig.set_tight_layout(True)
@@ -199,3 +200,67 @@ ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
 ax.set_title(r'$\phi_{5}^{2}(\xi,\eta)=\dfrac{1}{2}(-\eta+\eta^{2}+\xi^{2}\eta-\xi^{2}\eta^{2})$')
 
 plt.savefig('build/docs/develop-notes/dg_method/figures/quad-basis-fun.pdf')
+
+plt.clf()
+
+fig = plt.figure(figsize=(10, 4))
+fig.set_tight_layout(True)
+
+ax1 = fig.add_subplot(1, 2, 1)
+
+x = np.array([-1, -0.33, 0.33, 1, 1, 1, 1, 0.33, -0.33, -1, -1, -1, -1])
+y = np.array([-1, -1, -1, -1, -0.33, 0.33, 1, 1, 1, 1, 0.33, -0.33, -1])
+ax1.scatter([-0.33, 0.33, -0.33, 0.33], [-0.33, -0.33, 0.33, 0.33], marker='o')
+ax1.plot(x, y, marker='o')
+ax1.set_xlabel(r'$\xi$')
+ax1.set_ylabel(r'$\eta$')
+ax1.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
+ax1.spines.right.set_visible(False)
+ax1.spines.top.set_visible(False)
+
+ax2 = fig.add_subplot(1, 2, 2)
+
+x = np.array([2.0, 3.0, 4.0, 5.0])
+y = np.array([2.0, 1.9, 2.1, 2.0])
+x_new = np.linspace(2.0, 5.0, 100)
+bspline = interpolate.make_interp_spline(x, y)
+y_new = bspline(x_new)
+ax2.plot(x_new, y_new, color='C0')
+ax2.scatter(x, y, marker='o', color='C0')
+x = np.array([5.0, 4.9, 5.1, 5.0])
+y = np.array([2.0, 3.0, 4.0, 5.0])
+y_new = np.linspace(2.0, 5.0, 100)
+bspline = interpolate.make_interp_spline(y, x)
+x_new = bspline(y_new)
+ax2.plot(x_new, y_new, color='C0')
+ax2.scatter(x, y, marker='o', color='C0')
+x = np.array([2.0, 3.0, 4.0, 5.0])
+y = np.array([5.0, 4.9, 5.1, 5.0])
+x_new = np.linspace(2.0, 5.0, 100)
+bspline = interpolate.make_interp_spline(x, y)
+y_new = bspline(x_new)
+ax2.plot(x_new, y_new, color='C0')
+ax2.scatter(x, y, marker='o', color='C0')
+x = np.array([2.0, 1.9, 2.1, 2.0])
+y = np.array([2.0, 3.0, 4.0, 5.0])
+y_new = np.linspace(2.0, 5.0, 100)
+bspline = interpolate.make_interp_spline(y, x)
+x_new = bspline(y_new)
+ax2.plot(x_new, y_new, color='C0')
+ax2.scatter(x, y, marker='o', color='C0')
+ax2.scatter([2.9, 3.9, 3.1, 4.1], [2.9, 3.1, 3.9, 4.1], marker='o')
+ax2.set_xlabel(r'$x$')
+ax2.set_ylabel(r'$y$')
+ax2.xaxis.set_major_locator(ticker.MultipleLocator(0.5))
+ax2.spines.right.set_visible(False)
+ax2.spines.top.set_visible(False)
+
+arrowprops = dict(arrowstyle="->", connectionstyle="arc3, rad=0.2", color='blue')
+
+arrow1_2 = plt.annotate('', xy=(-0.18, 0.49), xycoords=ax2.transAxes, xytext=(1.05, 0.48), textcoords=ax1.transAxes, arrowprops=arrowprops)
+plt.text(0.445, 0.6, r'$\displaystyle\mathbf{x}=\sum_{i=1}^{N_{k}}\phi_{i}^{k}(\bm{\xi})\mathbf{x}_{i}$', transform=fig.transFigure)
+
+ax1.set_aspect('equal', adjustable='box')
+ax2.set_aspect('equal', adjustable='box')
+
+plt.savefig('build/docs/develop-notes/dg_method/figures/quad-curved.pdf')

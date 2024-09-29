@@ -320,7 +320,14 @@ As the isoparametric element is used here, which means that the interpolation fu
 \begin{equation}
   \mathbf{x}=\sum_{i=1}^{N_{k}}\phi_{i}^{k}(\bm{\xi})\mathbf{x}_{i}.
 \end{equation}
-First, let's consider the two-dimensional case, which involves finding the normal vector to a two-dimensional curve at its boundary. Here, the tangent vector to the two-dimensional curve can be directly obtained. The normal vector can be obtained by rotating the tangent vector by 90 degrees. Specifically,
+Here we take a 3 order quadrangle element as an example. Its element transformation is as follows:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.00\textwidth]{figures/quad-curved.pdf}
+\end{figure}
+
+Next we introduce how to solve for the normal vector on the boundary of the curved element. First, let's consider the two-dimensional case, which involves finding the normal vector to a two-dimensional curve at its boundary. Here, the tangent vector to the two-dimensional curve can be directly obtained. The normal vector can be obtained by rotating the tangent vector by 90 degrees. Specifically,
 \begin{equation}
   \bm{\tau}=\begin{bNiceMatrix}
     \dfrac{\partial x}{\partial \xi}\\
@@ -346,7 +353,7 @@ Next, let's consider the three-dimensional case, where we need to find the norma
       \dfrac{\partial x}{\partial\xi}\\
       \dfrac{\partial y}{\partial\xi}\\
       \dfrac{\partial z}{\partial\xi}
-    \end{bNiceMatrix},\bm{\tau}_{\eta}=\dfrac{\partial\mathbf{r}}{\partial\eta}=\begin{bNiceMatrix}
+    \end{bNiceMatrix},\quad\bm{\tau}_{\eta}=\dfrac{\partial\mathbf{r}}{\partial\eta}=\begin{bNiceMatrix}
       \dfrac{\partial x}{\partial\eta}\\
       \dfrac{\partial y}{\partial\eta}\\
       \dfrac{\partial z}{\partial\eta}
@@ -626,6 +633,32 @@ Where $\delta$ is a small value, which can be conveniently set equal to some fra
 
 \section{Viscous Flux}
 
+For DG method, the calculation of viscous flux is a relatively complex problem because we need to compute gradients and then calculate fluxes at the element interfaces. Additionally, since physical quantities at the element interfaces are discontinuous, we not only need to consider the gradients within the elements but also take into account the contribution of the discontinuous physical quantities at the element interfaces to the overall gradient. This part of the computation is where the differences between various viscous flux schemes arise.
+
+\subsection*{BR1 Scheme}
+
+When calculating the contribution of interface discontinuities to the gradient, the BR1 format selects the method of uniformly integrating the discontinuities of the entire element, that is,
+\begin{equation}
+  \begin{aligned}
+  &\mathbf{h}^{\mathrm{int}}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{u}^{-}+\mathbf{u}^{+})\otimes\mathbf{n},\\
+  &\mathbf{h}^{\mathrm{vol}}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{u}^{+}-\mathbf{u}^{-})\otimes\mathbf{n},\\
+  &\mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-},\mathbf{u}^{+},\mathbf{w}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{\mathrm{int},-}+\mathbf{w}^{\mathrm{vol},-})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{+},\mathbf{w}^{\mathrm{int},+}+\mathbf{w}^{\mathrm{vol},+}))\cdot\mathbf{n}.
+  \end{aligned}
+\end{equation}
+
+\subsection*{BR2 Scheme}
+
+The BR2 format is an improvement based on the BR1 format. Its calculation method is based on the BR1 format and corrects the calculation of the element interface gradient, thereby avoiding the problem of the scheme in BR1 not being compact. The calculation method of BR2 format is as follows
+\begin{equation}
+  \begin{aligned}
+  &\mathbf{h}^{\mathrm{int}}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{u}^{-}+\mathbf{u}^{+})\otimes\mathbf{n},\\
+  &\mathbf{h}^{\mathrm{vol}}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{u}^{+}-\mathbf{u}^{-})\otimes\mathbf{n},\\
+  &\mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-},\mathbf{u}^{+},\mathbf{w}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{-},\eta_{e}\mathbf{w}_{e}^{\mathrm{int},-}+\mathbf{w}^{\mathrm{vol},-})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{+},\eta_{e}\mathbf{w}_{e}^{\mathrm{int},+}+\mathbf{w}^{\mathrm{vol},+}))\cdot\mathbf{n}.
+  \end{aligned}
+\end{equation}
+
+\section{Shock Capturing}
+
 
 \section{Time Integration}
 
@@ -634,11 +667,13 @@ Where $\delta$ is a small value, which can be conveniently set equal to some fra
 
 In the preceding section, we have discussed the calculation of numerical fluxes at element interfaces. However, for certain elements that are located at the domain boundary, they lack a neighboring element on the right side. Therefore, we need to handle this particular situation differently. Here, most of the boundary processing is based on the Mengaldo\cite{mengaldoGuideImplementationBoundary2014} papers, so we first quote a passage from the article to introduce the boundary conditions: \textit{Usually BCs are imposed in two different ways: by directly modifying the boundary solution at each iteration/time-step (strong BCs) or by modifying the state from which the numerical flux is calculated (weak BCs). Published studies to date suggest that weak BCs tend to improve convergence and can improve accuracy over strong BCs.}
 
+Besides, here we not only introduce the boundary treatment of convective flux, but also the solution of using BR2 for viscous flux. The solution of certain physical quantities on the boundary is not particularly clear in the literature, so we will also introduce it here.
+
 \subsection*{Riemann Farfield}
 
 First, let's introduce the farfield boundary. The Riemann farfield boundary condition is used to calculate boundary fluxes based on the Riemann solution. Here, we define a state $\mathbf{u}_{\mathrm{bc}}$ for the boundary, and then compute the boundary flux based on this state. In other words, we only need to use the Riemann solver to compute the flux for this state.
 \begin{equation}
-  \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}_{\infty};\mathbf{n})=\mathbf{F}_{\mathrm{e},n}(\mathbf{u}_{\mathrm{bc}}).
+  \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\mathbf{F}_{\mathrm{e},n}(\mathbf{u}_{\mathrm{bc}}).
 \end{equation}
 
 There are five eigenvalues for $\mathbf{A}_{\mathrm{e},n}(\mathbf{u})=\partial\mathbf{F}_{\mathrm{e},n}/\partial\mathbf{u}$. The boundary conditions can be divided into four situations according to the positivity and negativity of the five eigenvalues, namely
@@ -743,20 +778,23 @@ The entropy at the boundary is
 
 For the vicious flux, we need to calculate some auxiliary variables like $\mathbf{w}_{h|e}^{\mathrm{int}}$ and $\mathbf{w}_{h}^{\mathrm{vol}}$. In the process of calculating these variables, the value of the element on the right must be given directly, which is here
 \begin{equation}
-  \mathbf{h}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}_{\infty};\mathbf{n})=\dfrac{1}{2}(\mathbf{u}^{-}+\mathbf{u}_{\infty})\otimes\mathbf{n}.
+  \begin{aligned}
+  &\mathbf{h}^{\mathrm{vol}}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\mathbf{u}^{-}\otimes\mathbf{n},\\
+  &\mathbf{h}^{\mathrm{int}}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=0.
+  \end{aligned}
 \end{equation}
 After calculating the auxiliary variables, we can calculate the viscous flux at the boundary. It is just the same as the viscous flux at the element interface, but the value of the element on the right is given directly as left boundary value.
 \begin{equation}
-  \mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-};\mathbf{n})=\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-})\cdot\mathbf{n}
+  \mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-},\mathbf{u}^{+},\mathbf{w}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{F}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_\mathrm{bc},\mathbf{w}^{-}))\cdot\mathbf{n}
 \end{equation}
 
 \subsection*{IsoThermal Wall}
 
-An isothermal wall implies that the temperature of the wall needs to be specified. This wall temperature can be a constant or vary with time. It's important to note that an isothermal wall is only applicable to the Navier-Stokes equations. The Euler equations cannot utilize an isothermal wall because the Euler equations lack the thermal conduction term $\kappa\nabla T$. Therefore, next we only describe the no-slip isothermal wall boundary conditions under the Navier-Stokes equation. Similarly to the farfield boundary, we define a state $\mathbf{u}_{\mathrm{bc}}$ for the boundary, and then compute the boundary flux based on this state.
+An isothermal wall implies that the temperature of the wall needs to be specified. This wall temperature can be a constant or vary with time. It's important to note that an isothermal wall is only applicable to the Navier-Stokes equations. The Euler equations cannot utilize an isothermal wall because the Euler equations lack the thermal conduction term $\kappa\nabla T$. Therefore, next we only describe the no-slip isothermal wall boundary conditions under the Navier-Stokes equation. Note that the no-slip here means that the fluid has no slip relative to the wall, but the wall itself can have velocity. Similarly to the farfield boundary, we define a state $\mathbf{u}_{\mathrm{bc}}$ for the boundary, and then compute the boundary flux based on this state.
 \begin{equation}
-  \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}_{\mathrm{w}};\mathbf{n})=\mathbf{F}_{\mathrm{e},n}(\mathbf{u}_{\mathrm{bc}}).
+  \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\mathbf{F}_{\mathrm{e},n}(\mathbf{u}_{\mathrm{bc}}).
 \end{equation}
-For a no-slip wall, that is to say, the velocity on the wall is zero.
+For a no-slip wall, that is to say, the velocity on the wall is equal to the wall velocity, the boundary state can be calculated as
 \begin{equation}
   \mathbf{u}_{\mathrm{bc}}=\begin{bNiceMatrix}
     \rho_{\mathrm{bc}}\\
@@ -765,13 +803,77 @@ For a no-slip wall, that is to say, the velocity on the wall is zero.
     \rho_{\mathrm{bc}}w_{\mathrm{bc}}\\
     \rho_{\mathrm{bc}}E_{\mathrm{bc}}
   \end{bNiceMatrix}=\begin{bNiceMatrix}
-    \rho_{\mathrm{bc}}\\
-    0\\
-    0\\
-    0\\
-    \dfrac{\rho_{\mathrm{bc}}R T_{\mathrm{w}}}{\gamma-1}
-  \end{bNiceMatrix}
+    \rho^{-}\\
+    \rho^{-}u_{\mathrm{w}}\\
+    \rho^{-}v_{\mathrm{w}}\\
+    \rho^{-}w_{\mathrm{w}}\\
+    \rho^{-}\left(C_{v}T_{\mathrm{w}}+\dfrac{1}{2}(u_{\mathrm{w}}^{2}+v_{\mathrm{w}}^{2}+w_{\mathrm{w}}^{2})\right)
+  \end{bNiceMatrix}.
 \end{equation}
+
+Since we force the temperature on the isothermal boundary, here we do not force the temperature gradient, that is, the heat flow.
+\begin{equation}
+  \begin{aligned}
+  &\mathbf{h}^{\mathrm{vol}}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\mathbf{u}_{\mathrm{bc}}\otimes\mathbf{n},\\
+  &\mathbf{h}^{\mathrm{int}}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\left(\mathbf{u}_{\mathrm{bc}}-\mathbf{u}^{-}\right)\otimes\mathbf{n}.
+  \end{aligned}
+\end{equation}
+The viscous flux at the boundary can be calculated as
+\begin{equation}
+  \mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-},\mathbf{u}^{+},\mathbf{w}^{+};\mathbf{n})=\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{\mathrm{bc}},\mathbf{w}^{-})\cdot\mathbf{n}.
+\end{equation}
+
+\subsection*{Adiabatic Wall}
+
+An adiabatic wall means that the heat transferred to the fluid through the wall is zero, which means that the temperature gradient of the wall is zero. For an adiabatic wall, we can directly set the heat conduction term $\kappa\nabla T$ in the viscous flux to zero. The adiabatic wall itself is applicable to both the Euler equation and the Navier-Stokes equation, but in the Euler equation, our boundary condition is slipping, which means that the tangential velocity on the boundary is not zero. Similarly, we also define a boundary state $\mathbf{u}_{\mathrm{bc}}$.
+\begin{equation}
+  \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\mathbf{F}_{\mathrm{e},n}(\mathbf{u}_{\mathrm{bc}}).
+\end{equation}
+For the slip wall in the Euler equation, the velocity just normal to the wall is zero, the boundary state can be calculated as
+\begin{equation}
+  \mathbf{u}_{\mathrm{bc}}=\begin{bNiceMatrix}
+    \rho_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}u_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}v_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}w_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}E_{\mathrm{bc}}
+  \end{bNiceMatrix}=\begin{bNiceMatrix}
+    \rho^{-}\\
+    \rho^{-}(u^{-}-V^{-}n_{x})\\
+    \rho^{-}(v^{-}-V^{-}n_{y})\\
+    \rho^{-}(w^{-}-V^{-}n_{z})\\
+    \rho^{-}(e^{-}+\dfrac{1}{2}(u^{-}-V^{-}n_{x})^{2}+\dfrac{1}{2}(v^{-}-V^{-}n_{y})^{2}+\dfrac{1}{2}(w^{-}-V^{-}n_{z})^{2})
+  \end{bNiceMatrix}.
+\end{equation}
+For the no-slip wall in the Navier-Stokes equation, the velocity on the wall is equal to the wall velocity, the boundary state can be calculated as
+\begin{equation}
+  \mathbf{u}_{\mathrm{bc}}=\begin{bNiceMatrix}
+    \rho_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}u_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}v_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}w_{\mathrm{bc}}\\
+    \rho_{\mathrm{bc}}E_{\mathrm{bc}}
+  \end{bNiceMatrix}=\begin{bNiceMatrix}
+    \rho^{-}\\
+    \rho^{-}u_{\mathrm{w}}\\
+    \rho^{-}v_{\mathrm{w}}\\
+    \rho^{-}w_{\mathrm{w}}\\
+    \rho^{-}\left(e^{-}+\dfrac{1}{2}(u_{\mathrm{w}}^{2}+v_{\mathrm{w}}^{2}+w_{\mathrm{w}}^{2})\right)
+  \end{bNiceMatrix}.
+\end{equation}
+
+Here we need to make the heat flow on the boundary zero, that is, we need to set the heat conduction term $\kappa\nabla T$ in the viscous flux to zero, but the calculation of the auxiliary variables here is consistent with the isothermal wall
+\begin{equation}
+  \begin{aligned}
+  &\mathbf{h}^{\mathrm{vol}}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\mathbf{u}_{\mathrm{bc}}\otimes\mathbf{n},\\
+  &\mathbf{h}^{\mathrm{int}}_{\mathrm{w}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\left(\mathbf{u}_{\mathrm{bc}}-\mathbf{u}^{-}\right)\otimes\mathbf{n}.
+  \end{aligned}
+\end{equation}
+The viscous flux at the boundary can be calculated as
+\begin{equation}
+  \mathbf{h}_{\mathrm{v}}(\mathbf{u}^{-},\mathbf{w}^{-},\mathbf{u}^{+},\mathbf{w}^{+};\mathbf{n})=\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{\mathrm{bc}},\mathbf{w}^{-})\cdot\mathbf{n},
+\end{equation}
+and set the $\nabla T$ term in $\mathbf{w}^{-}$ to 0.
 
 \section{Post Processing}
 

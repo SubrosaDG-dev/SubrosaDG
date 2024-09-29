@@ -24,7 +24,7 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
     SubrosaDG::NavierStokesVariable<SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::Tait,
                                     SubrosaDG::TransportModelEnum::Constant,
-                                    SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs, SubrosaDG::ViscousFluxEnum::BR1>>;
+                                    SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs, SubrosaDG::ViscousFluxEnum::BR2>>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
@@ -194,7 +194,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     for (std::ptrdiff_t j = 0; j < 2; j++) {
-      gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(j, i), 6, "Progression", 1.1);
+      gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(j, i), 12, "Progression", 1.1);
     }
   }
   for (std::ptrdiff_t i = 0; i < 3; i++) {

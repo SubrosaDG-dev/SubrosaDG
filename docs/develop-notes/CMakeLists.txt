@@ -25,8 +25,8 @@ function(add_develop_note notename notefile)
     file(MAKE_DIRECTORY ${NOTE_OUTPUT_DIRECTORY})
     file(COPY ${DEVELOP_NOTES_OUTPUT_DIRECTORY}/develop-note.cls DESTINATION ${NOTE_OUTPUT_DIRECTORY})
     add_custom_target(${notename}
-        COMMAND ${PDFLATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${NOTE_OUTPUT_DIRECTORY} ${notefile}
-        COMMAND ${PDFLATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${NOTE_OUTPUT_DIRECTORY} ${notefile}
+        COMMAND ${XELATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${NOTE_OUTPUT_DIRECTORY} ${notefile}
+        COMMAND ${XELATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${NOTE_OUTPUT_DIRECTORY} ${notefile}
         WORKING_DIRECTORY ${NOTE_OUTPUT_DIRECTORY}
     )
     add_dependencies(all_develop_notes ${notename})
@@ -38,10 +38,10 @@ function(add_develop_note_with_bib notename notefile)
     file(COPY ${DEVELOP_NOTES_OUTPUT_DIRECTORY}/develop-note.cls DESTINATION ${NOTE_OUTPUT_DIRECTORY})
     file(COPY ${CMAKE_CURRENT_LIST_DIR}/references.bib DESTINATION ${NOTE_OUTPUT_DIRECTORY})
     add_custom_target(${notename}
-        COMMAND ${PDFLATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${NOTE_OUTPUT_DIRECTORY} ${notefile}
+        COMMAND ${XELATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${NOTE_OUTPUT_DIRECTORY} ${notefile}
         COMMAND ${BIBTEX_COMPILER} ${notename}.aux
-        COMMAND ${PDFLATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${NOTE_OUTPUT_DIRECTORY} ${notefile}
-        COMMAND ${PDFLATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${NOTE_OUTPUT_DIRECTORY} ${notefile}
+        COMMAND ${XELATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${NOTE_OUTPUT_DIRECTORY} ${notefile}
+        COMMAND ${XELATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${NOTE_OUTPUT_DIRECTORY} ${notefile}
         WORKING_DIRECTORY ${NOTE_OUTPUT_DIRECTORY}
     )
     add_dependencies(all_develop_notes ${notename})
