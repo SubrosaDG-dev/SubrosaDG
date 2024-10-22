@@ -134,7 +134,8 @@ struct System {
     this->physical_model_.calculateThermalConductivityFromDynamicViscosity();
   }
 
-  inline void setArtificialViscosity(const Real artificial_viscosity_factor) {
+  inline void setArtificialViscosity(const Real empirical_tolerance, const Real artificial_viscosity_factor = 1.0_r) {
+    this->solver_.empirical_tolerance_ = empirical_tolerance;
     this->solver_.artificial_viscosity_factor_ = artificial_viscosity_factor;
   }
 

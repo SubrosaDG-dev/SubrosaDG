@@ -59,14 +59,15 @@ struct EquationOfState<EquationOfStateEnum::Tait> {
   inline static constexpr Real kReferenceSoundSpeed = 15.0_r;
   Real reference_pressure_addition_;
 
-  [[nodiscard]] inline Real calculatePressureFormDensityInternalEnergy(const Real density,
-                                                                       const Real internal_energy) const {
+  [[nodiscard]] inline Real calculatePressureFormDensityInternalEnergy(
+      const Real density, [[maybe_unused]] const Real internal_energy) const {
     return this->kReferenceSoundSpeed * this->kReferenceSoundSpeed *
                (std::pow(density, this->kSpecificHeatRatio) - 1.0_r) / this->kSpecificHeatRatio +
            this->reference_pressure_addition_;
   }
 
-  [[nodiscard]] inline Real calculateSoundSpeedFromDensityPressure(const Real density, const Real pressure) const {
+  [[nodiscard]] inline Real calculateSoundSpeedFromDensityPressure([[maybe_unused]] const Real density,
+                                                                   [[maybe_unused]] const Real pressure) const {
     return this->kReferenceSoundSpeed;
   }
 };

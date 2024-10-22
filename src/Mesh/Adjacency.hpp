@@ -13,6 +13,7 @@
 #ifndef SUBROSA_DG_ADJACENCY_HPP_
 #define SUBROSA_DG_ADJACENCY_HPP_
 
+#include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <gmsh.h>
 

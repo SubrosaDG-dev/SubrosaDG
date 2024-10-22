@@ -24,7 +24,7 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
     SubrosaDG::NavierStokesVariable<SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::Tait,
                                     SubrosaDG::TransportModelEnum::Constant,
-                                    SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs, SubrosaDG::ViscousFluxEnum::BR2>>;
+                                    SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs, SubrosaDG::ViscousFluxEnum::BR1>>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);

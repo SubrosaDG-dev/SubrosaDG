@@ -544,8 +544,10 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl,
       variable_gradient_basis_function_coefficient;
   Eigen::Vector<Real, AdjacencyElementTrait::kBasicNodeNumber> variable_artificial_viscosity;
   for (Isize i = 0; i < adjacency_element_mesh.boundary_number_; i++) {
-    const Isize adjacency_sequence_in_parent = adjacency_element_mesh.element_(i).adjacency_sequence_in_parent_(0);
-    const Isize parent_gmsh_type_number = adjacency_element_mesh.element_(i).parent_gmsh_type_number_(0);
+    const Isize adjacency_sequence_in_parent =
+        adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).adjacency_sequence_in_parent_(0);
+    const Isize parent_gmsh_type_number =
+        adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).parent_gmsh_type_number_(0);
     const std::array<
         int, getElementBasisFunctionNumber<AdjacencyElementTrait::kElementType, SimulationControl::kPolynomialOrder>()>
         adjacency_element_view_node_parent_sequence{

@@ -887,8 +887,10 @@ getAdjacencyElementViewNodeParentSequence([[maybe_unused]] int parent, int seque
 }
 
 // NOTE: https://doi.org/10.1016/j.compfluid.2018.11.008
-inline constexpr std::array<Real, 5> kArtificialViscosityTolerance{
-    -3.030112443794603, -3.6501669200214115, -4.308112155742919, -5.132752028352565, -5.373451541179087};
+// inline constexpr std::array<Real, 5> kArtificialViscosityTolerance{
+//     -3.030112443794603, -3.6501669200214115, -4.308112155742919, -5.132752028352565, -5.373451541179087};
+inline constexpr std::array<Real, 5> kArtificialViscosityTolerance{0.0, -1.20411998266, -1.90848501888, -2.40823996531,
+                                                                   -2.79588001734};
 
 template <int PolynomialOrder>
 inline consteval Real getPolynomialOrderArtificialViscosityTolerance() {

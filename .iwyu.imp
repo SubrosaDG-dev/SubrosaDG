@@ -23,5 +23,6 @@
     { "symbol": ["free", "private", "<cstdlib>", "public"] },
     { "symbol": ["EXIT_SUCCESS", "private", "<cstdlib>", "public"] },
     { "symbol": ["EXIT_FAILURE", "private", "<cstdlib>", "public"] },
-    { "symbol": ["fmt::join", "private", "<fmt/format.h>", "public"] },
+    { "symbol": ["fmt::format", "private", "<fmt/format.h>", "public"] },
+    { "symbol": ["fmt::join", "private", "<fmt/ranges.h>", "public"] },
 ]

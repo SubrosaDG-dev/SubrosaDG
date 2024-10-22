@@ -16,8 +16,6 @@ inline const std::string kExampleName{"sphere_3d_ns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-// inline const std::filesystem::path kExampleDirectory{"/data/" + kExampleName};
-
 using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P1,
                             SubrosaDG::SourceTermEnum::None>,
@@ -26,7 +24,7 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
     SubrosaDG::NavierStokesVariable<SubrosaDG::ThermodynamicModelEnum::ConstantE,
                                     SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::TransportModelEnum::Constant,
-                                    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2>>;
+                                    SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR1>>;
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);

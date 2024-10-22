@@ -162,8 +162,7 @@ struct ElementSolverBase {
   inline void copyElementBasisFunctionCoefficient();
 
   inline void calculateElementArtificialViscosity(const ElementMesh<ElementTrait>& element_mesh,
-                                                  const PhysicalModel<SimulationControl>& physical_model,
-                                                  Real artificial_viscosity_factor);
+                                                  Real empirical_tolerance, Real artificial_viscosity_factor);
 
   inline void maxElementArtificialViscosity(const ElementMesh<ElementTrait>& element_mesh,
                                             Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity);
@@ -299,6 +298,7 @@ struct AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equation
 
 template <typename SimulationControl>
 struct SolverBase {
+  Real empirical_tolerance_{0.0_r};
   Real artificial_viscosity_factor_{1.0_r};
 
   std::stringstream raw_binary_ss_;
@@ -419,8 +419,7 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
   inline void calculateVariableGardient(const Mesh<SimulationControl>& mesh,
                                         const PhysicalModel<SimulationControl>& physical_model);
 
-  inline void calculateArtificialViscosity(const Mesh<SimulationControl>& mesh,
-                                           const PhysicalModel<SimulationControl>& physical_model);
+  inline void calculateArtificialViscosity(const Mesh<SimulationControl>& mesh);
 
   inline void calculateQuadrature(const Mesh<SimulationControl>& mesh,
                                   [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,

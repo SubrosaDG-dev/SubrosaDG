@@ -140,7 +140,15 @@ inline void Solver<SimulationControl>::calculateDeltaTime(const Mesh<SimulationC
                                                           const PhysicalModel<SimulationControl>& physical_model,
                                                           TimeIntegration<SimulationControl>& time_integration) {
   time_integration.delta_time_ = kRealMax;
-  if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
+  if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LastStep) {
+    this->error_finout_.seekg(0, std::ios::beg);
+    std::string line;
+    for (int i = 0; i < 3; i++) {
+      std::getline(this->error_finout_, line);
+    }
+    std::stringstream ss(line);
+    ss.ignore(2) >> time_integration.delta_time_;
+  } else {
     if constexpr (SimulationControl::kDimension == 1) {
       time_integration.delta_time_ =
           std::min(time_integration.delta_time_,
@@ -179,14 +187,6 @@ inline void Solver<SimulationControl>::calculateDeltaTime(const Mesh<SimulationC
                                                                  time_integration.courant_friedrichs_lewy_number_));
       }
     }
-  } else {
-    this->error_finout_.seekg(0, std::ios::beg);
-    std::string line;
-    for (int i = 0; i < 3; i++) {
-      std::getline(this->error_finout_, line);
-    }
-    std::stringstream ss(line);
-    ss.ignore(2) >> time_integration.delta_time_;
   }
 }
 
@@ -305,11 +305,9 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     local_error.array() +=
-        ((this->element_(i).variable_residual_ * element_mesh.basis_function_.modal_value_.transpose()).array() /
-         ((this->element_(i).variable_basis_function_coefficient_(1) *
-           element_mesh.basis_function_.modal_value_.transpose())
-              .array()))
-            .square()
+        (this->element_(i).variable_residual_ * element_mesh.basis_function_.modal_value_.transpose())
+            .array()
+            .abs()
             .rowwise()
             .mean();
   }
@@ -339,7 +337,7 @@ inline void Solver<SimulationControl>::calculateRelativeError(const Mesh<Simulat
       this->hexahedron_.calculateElementRelativeError(mesh.hexahedron_, this->relative_error_);
     }
   }
-  this->relative_error_ = (this->relative_error_ / static_cast<Real>(mesh.element_number_)).array().sqrt().matrix();
+  this->relative_error_ = this->relative_error_ / static_cast<Real>(mesh.element_number_);
 }
 
 template <typename SimulationControl>
@@ -350,7 +348,7 @@ inline void Solver<SimulationControl>::stepSolver(
     const TimeIntegration<SimulationControl>& time_integration) {
   this->copyBasisFunctionCoefficient();
   if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
-    this->calculateArtificialViscosity(mesh, physical_model);
+    this->calculateArtificialViscosity(mesh);
   }
   for (int i = 0; i < time_integration.kStep; i++) {
     this->calculateGardientQuadrature(mesh);

@@ -1048,7 +1048,7 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Eule
       return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column)) /
              physical_model.calculateSoundSpeedFromDensityPressure(
                  this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
-                  this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
+                 this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::Entropy:
       return physical_model.calculateEntropyFromDensityPressure(
           this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
@@ -1065,17 +1065,17 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Eule
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column) /
              physical_model.calculateSoundSpeedFromDensityPressure(
                  this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
-                  this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
+                 this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::MachNumberY:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>(column) /
              physical_model.calculateSoundSpeedFromDensityPressure(
                  this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
-                  this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
+                 this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::MachNumberZ:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column) /
              physical_model.calculateSoundSpeedFromDensityPressure(
                  this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
-                  this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
+                 this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     default:
       return 0.0_r;
     }
@@ -1114,7 +1114,7 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
       return std::sqrt(this->variable_.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column)) /
              physical_model.calculateSoundSpeedFromDensityPressure(
                  this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
-                  this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
+                 this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::Entropy:
       return physical_model.calculateEntropyFromDensityPressure(
           this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
@@ -1165,17 +1165,17 @@ struct ViewVariableBase<ElementTrait, SimulationControl, EquationModelEnum::Navi
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityX>(column) /
              physical_model.calculateSoundSpeedFromDensityPressure(
                  this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
-                  this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
+                 this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::MachNumberY:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityY>(column) /
              physical_model.calculateSoundSpeedFromDensityPressure(
                  this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
-                  this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
+                 this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::MachNumberZ:
       return this->variable_.template getScalar<ComputationalVariableEnum::VelocityZ>(column) /
              physical_model.calculateSoundSpeedFromDensityPressure(
                  this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
-                  this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
+                 this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::VorticityX:
       return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>(
                  column) -

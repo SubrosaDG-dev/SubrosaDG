@@ -17,11 +17,11 @@ inline const std::string kExampleName{"periodic_1d_euler"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D1, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D1, SubrosaDG::PolynomialOrderEnum::P3,
                             SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Line, SubrosaDG::ShockCapturingEnum::None,
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
-                                SubrosaDG::TimeIntegrationEnum::SSPRK3>,
+                                SubrosaDG::TimeIntegrationEnum::ForwardEuler>,
     SubrosaDG::EulerVariable<SubrosaDG::ThermodynamicModelEnum::ConstantE, SubrosaDG::EquationOfStateEnum::IdealGas,
                              SubrosaDG::ConvectiveFluxEnum::HLLC>>;
 
@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "periodic_1d_euler.msh", generateMesh);
-  system.addInitialCondition([]([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, 1>& coordinate)
+  system.addInitialCondition([](const Eigen::Vector<SubrosaDG::Real, 1>& coordinate)
                                  -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
         1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * coordinate.x()), 1.0_r,
@@ -38,8 +38,9 @@ int main(int argc, char* argv[]) {
   });
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
-  system.setTimeIntegration(1.0_r);
-  system.setViewConfig(kExampleDirectory, kExampleName);
+  system.setTimeIntegration(0.01_r, {0, 20000});
+  system.setDeltaTime(1.0e-04_r);
+  system.setViewConfig(kExampleDirectory, kExampleName, 200);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});
   system.synchronize();
@@ -53,7 +54,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   gmsh::model::geo::addPoint(2.0, 0.0, 0.0);
   gmsh::model::geo::addLine(1, 2);
-  gmsh::model::geo::mesh::setTransfiniteCurve(1, 101);
+  gmsh::model::geo::mesh::setTransfiniteCurve(1, 81);
   gmsh::model::geo::synchronize();
   gmsh::model::addPhysicalGroup(0, {1, 2}, -1, "bc-1");
   gmsh::model::addPhysicalGroup(1, {1}, -1, "vc-1");
