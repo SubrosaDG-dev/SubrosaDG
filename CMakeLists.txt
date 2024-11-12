@@ -10,7 +10,7 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.30)
 
 # add cmake module path
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/GlobFiles.cmake)
@@ -98,8 +98,8 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
     set(VCPKG_HOST_TRIPLET "x64-linux-dynamic")
     set(VCPKG_TARGET_TRIPLET "x64-linux-dynamic")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    set(VCPKG_HOST_TRIPLET "arm64-osx-dynamic-llvm")
-    set(VCPKG_TARGET_TRIPLET "arm64-osx-dynamic-llvm")
+    set(VCPKG_HOST_TRIPLET "arm64-osx-dynamic")
+    set(VCPKG_TARGET_TRIPLET "arm64-osx-dynamic")
 endif()
 
 # add vcpkg cmake
@@ -118,17 +118,17 @@ message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 # add cmake check
 include(CheckCXXCompilerFlag)
 
-# check cxx20 support
-check_cxx_compiler_flag(-std=c++20 cxx_std_20_support)
-if(NOT cxx_std_20_support)
-    message(FATAL_ERROR "SubrosaDG requires C++20 to compile.")
+# check cxx23 support
+check_cxx_compiler_flag(-std=c++23 cxx_std_23_support)
+if(NOT cxx_std_23_support)
+    message(FATAL_ERROR "SubrosaDG requires C++23 to compile.")
 endif()
 
 # set c and cxx standard for all target
-set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 

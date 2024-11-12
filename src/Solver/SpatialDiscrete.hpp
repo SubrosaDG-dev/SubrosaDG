@@ -213,7 +213,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Eu
     const ElementMesh<ElementTrait>& element_mesh, [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
     const PhysicalModel<SimulationControl>& physical_model) {
   ElementVariable<ElementTrait, SimulationControl> quadrature_node_variable;
-  ElementVariableGradient<ElementTrait, SimulationControl> quadrature_node_variable_volumn_gradient;
+  ElementVariableGradient<ElementTrait, SimulationControl> quadrature_node_variable_volume_gradient;
   FluxVariable<SimulationControl> convective_raw_flux;
   FluxVariable<SimulationControl> artificial_viscous_raw_flux;
   [[maybe_unused]] FluxNormalVariable<SimulationControl> source_flux;
@@ -226,7 +226,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Eu
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(                              \
         Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, source_term, \
-            physical_model) private(quadrature_node_variable, quadrature_node_variable_volumn_gradient,   \
+            physical_model) private(quadrature_node_variable, quadrature_node_variable_volume_gradient,   \
                                         convective_raw_flux, artificial_viscous_raw_flux, source_flux,    \
                                         quadrature_node_artificial_viscosity,                             \
                                         quadrature_node_jacobian_transpose_inverse,                       \
@@ -235,7 +235,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Eu
   for (Isize i = 0; i < element_mesh.number_; i++) {
     quadrature_node_variable.get(element_mesh, *this, i);
     quadrature_node_variable.calculateComputationalFromConserved(physical_model);
-    quadrature_node_variable_volumn_gradient.template get<ViscousFluxEnum::None>(element_mesh, *this, i);
+    quadrature_node_variable_volume_gradient.template get<ViscousFluxEnum::None>(element_mesh, *this, i);
     if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
       quadrature_node_artificial_viscosity.noalias() =
           element_mesh.basis_function_.nodal_value_ * this->element_(i).variable_artificial_viscosity_;
@@ -244,7 +244,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Eu
       calculateConvectiveRawFlux(quadrature_node_variable, convective_raw_flux, j);
       if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
         calculateArtificialViscousRawFlux(quadrature_node_artificial_viscosity(j),
-                                          quadrature_node_variable_volumn_gradient, artificial_viscous_raw_flux, j);
+                                          quadrature_node_variable_volume_gradient, artificial_viscous_raw_flux, j);
       }
       quadrature_node_jacobian_transpose_inverse.noalias() =
           element_mesh.element_(i).jacobian_transpose_inverse_.col(j).reshaped(ElementTrait::kDimension,
@@ -280,7 +280,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Na
     const PhysicalModel<SimulationControl>& physical_model) {
   ElementVariable<ElementTrait, SimulationControl> quadrature_node_variable;
   ElementVariableGradient<ElementTrait, SimulationControl> quadrature_node_variable_gradient;
-  ElementVariableGradient<ElementTrait, SimulationControl> quadrature_node_variable_volumn_gradient;
+  ElementVariableGradient<ElementTrait, SimulationControl> quadrature_node_variable_volume_gradient;
   FluxVariable<SimulationControl> convective_raw_flux;
   FluxVariable<SimulationControl> viscous_raw_flux;
   FluxVariable<SimulationControl> artificial_viscous_raw_flux;
@@ -295,7 +295,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Na
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(                              \
         Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, source_term, \
             physical_model) private(quadrature_node_variable, quadrature_node_variable_gradient,          \
-                                        quadrature_node_variable_volumn_gradient, convective_raw_flux,    \
+                                        quadrature_node_variable_volume_gradient, convective_raw_flux,    \
                                         viscous_raw_flux, artificial_viscous_raw_flux, source_flux,       \
                                         quadrature_node_artificial_viscosity,                             \
                                         quadrature_node_jacobian_transpose_inverse,                       \
@@ -306,7 +306,7 @@ inline void ElementSolver<ElementTrait, SimulationControl, EquationModelEnum::Na
     quadrature_node_variable.calculateComputationalFromConserved(physical_model);
     quadrature_node_variable_gradient.template get<SimulationControl::kViscousFlux>(element_mesh, *this, i);
     quadrature_node_variable_gradient.calculatePrimitiveFromConserved(physical_model, quadrature_node_variable);
-    quadrature_node_variable_volumn_gradient.template get<ViscousFluxEnum::None>(element_mesh, *this, i);
+    quadrature_node_variable_volume_gradient.template get<ViscousFluxEnum::None>(element_mesh, *this, i);
     if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
       quadrature_node_artificial_viscosity.noalias() =
           element_mesh.basis_function_.nodal_value_ * this->element_(i).variable_artificial_viscosity_;
@@ -724,10 +724,10 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       mesh.*(std::remove_reference<decltype(mesh)>::type::template getAdjacencyElement<AdjacencyElementTrait>());
   AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl> left_quadrature_node_variable;
   AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl>
-      left_quadrature_node_variable_volumn_gradient;
+      left_quadrature_node_variable_volume_gradient;
   AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl> right_quadrature_node_variable;
   AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl>
-      right_quadrature_node_variable_volumn_gradient;
+      right_quadrature_node_variable_volume_gradient;
   Flux<SimulationControl> convective_flux;
   Flux<SimulationControl> artificial_viscous_flux;
   Eigen::Vector<Real, AdjacencyElementTrait::kQuadratureNumber> left_quadrature_node_artificial_viscosity;
@@ -736,8 +736,8 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                             \
     shared(Eigen::Dynamic, mesh, adjacency_element_mesh, physical_model, solver) private(                        \
-            left_quadrature_node_variable, left_quadrature_node_variable_volumn_gradient,                        \
-                right_quadrature_node_variable, right_quadrature_node_variable_volumn_gradient, convective_flux, \
+            left_quadrature_node_variable, left_quadrature_node_variable_volume_gradient,                        \
+                right_quadrature_node_variable, right_quadrature_node_variable_volume_gradient, convective_flux, \
                 artificial_viscous_flux, left_quadrature_node_artificial_viscosity,                              \
                 right_quadrature_node_artificial_viscosity, quadrature_node_temporary_variable)
 #endif  // SUBROSA_DG_DEVELOP
@@ -763,9 +763,9 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
                                        adjacency_sequence_in_parent(1));
     left_quadrature_node_variable.calculateComputationalFromConserved(physical_model);
     right_quadrature_node_variable.calculateComputationalFromConserved(physical_model);
-    left_quadrature_node_variable_volumn_gradient.template get<ViscousFluxEnum::None>(
+    left_quadrature_node_variable_volume_gradient.template get<ViscousFluxEnum::None>(
         mesh, solver, parent_gmsh_type_number(0), parent_index_each_type(0), adjacency_sequence_in_parent(0));
-    right_quadrature_node_variable_volumn_gradient.template get<ViscousFluxEnum::None>(
+    right_quadrature_node_variable_volume_gradient.template get<ViscousFluxEnum::None>(
         mesh, solver, parent_gmsh_type_number(1), parent_index_each_type(1), adjacency_sequence_in_parent(1));
     if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
       this->calculateAdjacencyElementArtificialViscosity(mesh, solver, left_quadrature_node_artificial_viscosity,
@@ -782,8 +782,8 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
         calculateArtificialViscousFlux(
             adjacency_element_mesh.element_(i).normal_vector_.col(j), left_quadrature_node_artificial_viscosity(j),
-            left_quadrature_node_variable_volumn_gradient, right_quadrature_node_artificial_viscosity(j),
-            right_quadrature_node_variable_volumn_gradient, artificial_viscous_flux, j,
+            left_quadrature_node_variable_volume_gradient, right_quadrature_node_artificial_viscosity(j),
+            right_quadrature_node_variable_volume_gradient, artificial_viscous_flux, j,
             adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
       }
       if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
@@ -816,11 +816,11 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
   AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl> left_quadrature_node_variable;
   AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl> left_quadrature_node_variable_gradient;
   AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl>
-      left_quadrature_node_variable_volumn_gradient;
+      left_quadrature_node_variable_volume_gradient;
   AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl> right_quadrature_node_variable;
   AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl> right_quadrature_node_variable_gradient;
   AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl>
-      right_quadrature_node_variable_volumn_gradient;
+      right_quadrature_node_variable_volume_gradient;
   Flux<SimulationControl> convective_flux;
   Flux<SimulationControl> viscous_flux;
   Flux<SimulationControl> artificial_viscous_flux;
@@ -831,8 +831,8 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                               \
     shared(Eigen::Dynamic, mesh, adjacency_element_mesh, physical_model, solver) private(                          \
             left_quadrature_node_variable, left_quadrature_node_variable_gradient,                                 \
-                left_quadrature_node_variable_volumn_gradient, right_quadrature_node_variable,                     \
-                right_quadrature_node_variable_gradient, right_quadrature_node_variable_volumn_gradient,           \
+                left_quadrature_node_variable_volume_gradient, right_quadrature_node_variable,                     \
+                right_quadrature_node_variable_gradient, right_quadrature_node_variable_volume_gradient,           \
                 convective_flux, viscous_flux, artificial_viscous_flux, left_quadrature_node_artificial_viscosity, \
                 right_quadrature_node_artificial_viscosity, quadrature_node_temporary_variable)
 #endif  // SUBROSA_DG_DEVELOP
@@ -866,9 +866,9 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
                                                                            left_quadrature_node_variable);
     right_quadrature_node_variable_gradient.calculatePrimitiveFromConserved(physical_model,
                                                                             right_quadrature_node_variable);
-    left_quadrature_node_variable_volumn_gradient.template get<ViscousFluxEnum::None>(
+    left_quadrature_node_variable_volume_gradient.template get<ViscousFluxEnum::None>(
         mesh, solver, parent_gmsh_type_number(0), parent_index_each_type(0), adjacency_sequence_in_parent(0));
-    right_quadrature_node_variable_volumn_gradient.template get<ViscousFluxEnum::None>(
+    right_quadrature_node_variable_volume_gradient.template get<ViscousFluxEnum::None>(
         mesh, solver, parent_gmsh_type_number(1), parent_index_each_type(1), adjacency_sequence_in_parent(1));
     if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
       this->calculateAdjacencyElementArtificialViscosity(mesh, solver, left_quadrature_node_artificial_viscosity,
@@ -889,8 +889,8 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
         calculateArtificialViscousFlux(
             adjacency_element_mesh.element_(i).normal_vector_.col(j), left_quadrature_node_artificial_viscosity(j),
-            left_quadrature_node_variable_volumn_gradient, right_quadrature_node_artificial_viscosity(j),
-            right_quadrature_node_variable_volumn_gradient, artificial_viscous_flux, j,
+            left_quadrature_node_variable_volume_gradient, right_quadrature_node_artificial_viscosity(j),
+            right_quadrature_node_variable_volume_gradient, artificial_viscous_flux, j,
             adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
       }
       if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
@@ -996,7 +996,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       mesh.*(std::remove_reference<decltype(mesh)>::type::template getAdjacencyElement<AdjacencyElementTrait>());
   AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl> left_quadrature_node_variable;
   AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl>
-      left_quadrature_node_variable_volumn_gradient;
+      left_quadrature_node_variable_volume_gradient;
   Variable<SimulationControl> boundary_quadrature_node_variable;
   Flux<SimulationControl> convective_flux;
   FluxNormalVariable<SimulationControl> artificial_viscous_normal_flux;
@@ -1005,7 +1005,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                          \
     shared(Eigen::Dynamic, mesh, adjacency_element_mesh, physical_model, boundary_condition, solver) private( \
-            left_quadrature_node_variable, left_quadrature_node_variable_volumn_gradient,                     \
+            left_quadrature_node_variable, left_quadrature_node_variable_volume_gradient,                     \
                 boundary_quadrature_node_variable, convective_flux, artificial_viscous_normal_flux,           \
                 left_quadrature_node_artificial_viscosity, quadrature_node_temporary_variable)
 #endif  // SUBROSA_DG_DEVELOP
@@ -1020,7 +1020,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
     left_quadrature_node_variable.get(mesh, solver, parent_gmsh_type_number, parent_index_each_type,
                                       adjacency_sequence_in_parent);
     left_quadrature_node_variable.calculateComputationalFromConserved(physical_model);
-    left_quadrature_node_variable_volumn_gradient.template get<ViscousFluxEnum::None>(
+    left_quadrature_node_variable_volume_gradient.template get<ViscousFluxEnum::None>(
         mesh, solver, parent_gmsh_type_number, parent_index_each_type, adjacency_sequence_in_parent);
     if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
       this->calculateAdjacencyElementArtificialViscosity(mesh, solver, left_quadrature_node_artificial_viscosity,
@@ -1038,7 +1038,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
         calculateArtificialViscousNormalFlux(
             adjacency_element_mesh.element_(i).normal_vector_.col(j), left_quadrature_node_artificial_viscosity(j),
-            left_quadrature_node_variable_volumn_gradient, artificial_viscous_normal_flux, j);
+            left_quadrature_node_variable_volume_gradient, artificial_viscous_normal_flux, j);
       }
       if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
         quadrature_node_temporary_variable.noalias() =
@@ -1067,7 +1067,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
   AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl> left_quadrature_node_variable;
   AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl> left_quadrature_node_variable_gradient;
   AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl>
-      left_quadrature_node_variable_volumn_gradient;
+      left_quadrature_node_variable_volume_gradient;
   Variable<SimulationControl> boundary_quadrature_node_variable;
   VariableGradient<SimulationControl> boundary_quadrature_node_variable_gradient;
   Flux<SimulationControl> convective_flux;
@@ -1079,7 +1079,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                          \
     shared(Eigen::Dynamic, mesh, adjacency_element_mesh, physical_model, boundary_condition, solver) private( \
             left_quadrature_node_variable, left_quadrature_node_variable_gradient,                            \
-                left_quadrature_node_variable_volumn_gradient, boundary_quadrature_node_variable,             \
+                left_quadrature_node_variable_volume_gradient, boundary_quadrature_node_variable,             \
                 boundary_quadrature_node_variable_gradient, convective_flux, viscous_flux,                    \
                 artificial_viscous_normal_flux, left_quadrature_node_artificial_viscosity,                    \
                 quadrature_node_temporary_variable)
@@ -1099,7 +1099,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
         mesh, solver, parent_gmsh_type_number, parent_index_each_type, adjacency_sequence_in_parent);
     left_quadrature_node_variable_gradient.calculatePrimitiveFromConserved(physical_model,
                                                                            left_quadrature_node_variable);
-    left_quadrature_node_variable_volumn_gradient.template get<ViscousFluxEnum::None>(
+    left_quadrature_node_variable_volume_gradient.template get<ViscousFluxEnum::None>(
         mesh, solver, parent_gmsh_type_number, parent_index_each_type, adjacency_sequence_in_parent);
     if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
       this->calculateAdjacencyElementArtificialViscosity(mesh, solver, left_quadrature_node_artificial_viscosity,
@@ -1125,7 +1125,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl, Equ
       if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
         calculateArtificialViscousNormalFlux(
             adjacency_element_mesh.element_(i).normal_vector_.col(j), left_quadrature_node_artificial_viscosity(j),
-            left_quadrature_node_variable_volumn_gradient, artificial_viscous_normal_flux, j);
+            left_quadrature_node_variable_volume_gradient, artificial_viscous_normal_flux, j);
       }
       if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
         quadrature_node_temporary_variable.noalias() =

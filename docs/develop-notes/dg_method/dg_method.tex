@@ -280,7 +280,7 @@ From left to right, the reference element of order 1, order 2, and order 3 and t
   \includegraphics[width=1.00\textwidth]{figures/quad-basis-fun.pdf}
 \end{figure}
 
-For the Lagrange basis functions, it is easy to construct their interpolation functions, and we can convert straight-line elements to curved elements by coordinate transformation. However, this type of element has certain disadvantages, mainly because of the internal nodes that increase with the increase of the interpolation function, thereby increasing the number of degrees of freedom of the element. The addition of these degrees of freedom usually does not improve the accuracy of the element, because the accuracy of the element is usually determined by the power of a complete polynomial.
+For the Lagrange basis functions, it is easy to construct their interpolation functions, and we can convert straight-line elements to isoparametric elements by coordinate transformation. However, this type of element has certain disadvantages, mainly because of the internal nodes that increase with the increase of the interpolation function, thereby increasing the number of degrees of freedom of the element. The addition of these degrees of freedom usually does not improve the accuracy of the element, because the accuracy of the element is usually determined by the power of a complete polynomial.
 
 Next, let's discuss how to compute the derivatives of the basis functions at each element. This is necessary as they appear in the volume integration. Obtaining the derivatives of the basis functions concerning the local coordinates is straightforward since they are polynomials. However, what we need are the derivatives of the basis functions concerning the global coordinates, as we require them for computing the volume integration in the global coordinate system. To achieve this, we need to apply the chain rule, i.e.,
 \begin{equation}
@@ -324,10 +324,10 @@ Here we take a 3 order quadrangle element as an example. Its element transformat
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.00\textwidth]{figures/quad-curved.pdf}
+  \includegraphics[width=1.00\textwidth]{figures/quad-isoparametric.pdf}
 \end{figure}
 
-Next we introduce how to solve for the normal vector on the boundary of the curved element. First, let's consider the two-dimensional case, which involves finding the normal vector to a two-dimensional curve at its boundary. Here, the tangent vector to the two-dimensional curve can be directly obtained. The normal vector can be obtained by rotating the tangent vector by 90 degrees. Specifically,
+Next we introduce how to solve for the normal vector on the boundary of the isoparametric element. First, let's consider the two-dimensional case, which involves finding the normal vector to a two-dimensional curve at its boundary. Here, the tangent vector to the two-dimensional curve can be directly obtained. The normal vector can be obtained by rotating the tangent vector by 90 degrees. Specifically,
 \begin{equation}
   \bm{\tau}=\begin{bNiceMatrix}
     \dfrac{\partial x}{\partial \xi}\\

@@ -17,7 +17,7 @@ inline const std::string kExampleName{"naca0012_2d_ns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3,
                             SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
@@ -83,14 +83,14 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       0.594689181 * (0.298222773 * naca0012_point_x.array().sqrt() - 0.127125232 * naca0012_point_x.array() -
                      0.357907906 * naca0012_point_x.array().pow(2) + 0.291984971 * naca0012_point_x.array().pow(3) -
                      0.105174606 * naca0012_point_x.array().pow(4));
-  Eigen::Matrix<double, 6, 3, Eigen::RowMajor> farfield_point;
+  Eigen::Matrix<double, 6, 3, Eigen::RowMajor> farfield_point_coordinate;
   // clang-format off
-  farfield_point <<  1.0,  3.0, 0.0,
-                    -2.0,  0.0, 0.0,
-                     1.0, -3.0, 0.0,
-                     3.0, -3.0, 0.0,
-                     3.0,  0.0, 0.0,
-                     3.0,  3.0, 0.0;
+  farfield_point_coordinate <<  1.0,   10.0, 0.0,
+                               -9.0,   0.0,  0.0,
+                                1.0,  -10.0, 0.0,
+                                10.0, -10.0, 0.0,
+                                10.0,  0.0,  0.0,
+                                10.0,  10.0, 0.0;
   // clang-format on
   Eigen::Array<int, 6, 1> farfield_point_tag;
   std::array<std::vector<int>, 2> naca0012_point_tag;
@@ -105,7 +105,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   const int naca0012_trailing_edge_point_tag = gmsh::model::geo::addPoint(1.0, 0.0, 0.0);
   for (std::ptrdiff_t i = 0; i < 6; i++) {
     farfield_point_tag(i) =
-        gmsh::model::geo::addPoint(farfield_point(i, 0), farfield_point(i, 1), farfield_point(i, 2));
+        gmsh::model::geo::addPoint(farfield_point_coordinate(i, 0), farfield_point_coordinate(i, 1), farfield_point_coordinate(i, 2));
   }
   for (std::size_t i = 0; i < 2; i++) {
     naca0012_point_tag[i].emplace_back(naca0012_leading_edge_point_tag);
@@ -144,19 +144,19 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     plane_surface_tag(i) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i)});
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
-    gmsh::model::geo::mesh::setTransfiniteCurve(naca0012_line_tag(i), 60, "Progression", 1.05);
+    gmsh::model::geo::mesh::setTransfiniteCurve(naca0012_line_tag(i), 60, "Bump", 0.20);
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(i), 60);
   }
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 20, "Progression", 1.1);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 30, "Progression", -1.25);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 30, "Progression", 1.25);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 20, "Progression", -1.1);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 30, "Progression", -1.25);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 30, "Progression", -1.25);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 30, "Progression", -1.25);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 20, "Progression", -1.1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 40, "Progression", 1.15);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 40, "Progression", -1.2);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 40, "Progression", 1.2);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 40, "Progression", -1.15);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 40, "Progression", -1.2);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 40, "Progression", -1.2);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 40, "Progression", -1.2);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 40, "Progression", -1.15);
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
     gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i));

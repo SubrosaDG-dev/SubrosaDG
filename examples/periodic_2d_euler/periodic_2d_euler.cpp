@@ -17,7 +17,7 @@ inline const std::string kExampleName{"periodic_2d_euler"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3,
                             SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
@@ -39,6 +39,7 @@ int main(int argc, char* argv[]) {
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(25.0_r / 14.0_r);
   system.setTimeIntegration(1.0_r);
+  system.setDeltaTime(1.0e-03_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});
@@ -59,10 +60,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::addLine(1, 4);
   gmsh::model::geo::addCurveLoop({1, 2, -3, -4});
   gmsh::model::geo::addPlaneSurface({1});
-  gmsh::model::geo::mesh::setTransfiniteCurve(1, 21);
-  gmsh::model::geo::mesh::setTransfiniteCurve(2, 21);
-  gmsh::model::geo::mesh::setTransfiniteCurve(3, 21);
-  gmsh::model::geo::mesh::setTransfiniteCurve(4, 21);
+  gmsh::model::geo::mesh::setTransfiniteCurve(1, 11);
+  gmsh::model::geo::mesh::setTransfiniteCurve(2, 11);
+  gmsh::model::geo::mesh::setTransfiniteCurve(3, 11);
+  gmsh::model::geo::mesh::setTransfiniteCurve(4, 11);
   gmsh::model::geo::mesh::setTransfiniteSurface(1);
   gmsh::model::geo::mesh::setRecombine(2, 1);
   gmsh::model::geo::synchronize();

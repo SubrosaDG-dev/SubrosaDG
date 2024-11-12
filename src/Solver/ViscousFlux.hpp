@@ -83,11 +83,11 @@ inline void calculateViscousRawFlux(const PhysicalModel<SimulationControl>& phys
 
 template <typename SimulationControl>
 inline void calculateArtificialViscousRawFlux(const Real artificial_viscosity,
-                                              const VariableGradient<SimulationControl>& variable_volumn_gradient,
+                                              const VariableGradient<SimulationControl>& variable_volume_gradient,
                                               FluxVariable<SimulationControl>& artificial_viscous_raw_flux,
                                               const Isize column) {
   artificial_viscous_raw_flux.variable_.noalias() =
-      artificial_viscosity * variable_volumn_gradient.conserved_.col(column).reshaped(
+      artificial_viscosity * variable_volume_gradient.conserved_.col(column).reshaped(
                                  SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
 }
 
@@ -105,10 +105,10 @@ inline void calculateViscousNormalFlux(const PhysicalModel<SimulationControl>& p
 template <typename SimulationControl>
 inline void calculateArtificialViscousNormalFlux(
     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Real artificial_viscosity,
-    const VariableGradient<SimulationControl>& variable_volumn_gradient,
+    const VariableGradient<SimulationControl>& variable_volume_gradient,
     FluxNormalVariable<SimulationControl>& artificial_viscous_normal_flux, const Isize column) {
   FluxVariable<SimulationControl> artificial_viscous_raw_flux;
-  calculateArtificialViscousRawFlux(artificial_viscosity, variable_volumn_gradient, artificial_viscous_raw_flux,
+  calculateArtificialViscousRawFlux(artificial_viscosity, variable_volume_gradient, artificial_viscous_raw_flux,
                                     column);
   artificial_viscous_normal_flux.normal_variable_.noalias() =
       artificial_viscous_raw_flux.variable_.transpose() * normal_vector;
@@ -134,15 +134,15 @@ inline void calculateViscousFlux(const PhysicalModel<SimulationControl>& physica
 template <typename SimulationControl>
 inline void calculateArtificialViscousFlux(
     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Real left_artificial_viscosity,
-    const VariableGradient<SimulationControl>& left_quadrature_node_variable_volumn_gradient,
+    const VariableGradient<SimulationControl>& left_quadrature_node_variable_volume_gradient,
     const Real right_artificial_viscosity,
-    const VariableGradient<SimulationControl>& right_quadrature_node_variable_volumn_gradient,
+    const VariableGradient<SimulationControl>& right_quadrature_node_variable_volume_gradient,
     Flux<SimulationControl>& artificial_viscous_flux, const Isize left_column, const Isize right_column) {
   calculateArtificialViscousNormalFlux(normal_vector, left_artificial_viscosity,
-                                       left_quadrature_node_variable_volumn_gradient, artificial_viscous_flux.left_,
+                                       left_quadrature_node_variable_volume_gradient, artificial_viscous_flux.left_,
                                        left_column);
   calculateArtificialViscousNormalFlux(normal_vector, right_artificial_viscosity,
-                                       right_quadrature_node_variable_volumn_gradient, artificial_viscous_flux.right_,
+                                       right_quadrature_node_variable_volume_gradient, artificial_viscous_flux.right_,
                                        right_column);
   artificial_viscous_flux.result_.normal_variable_.noalias() =
       (artificial_viscous_flux.left_.normal_variable_ + artificial_viscous_flux.right_.normal_variable_) / 2.0_r;

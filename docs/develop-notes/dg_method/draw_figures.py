@@ -263,4 +263,4 @@ plt.text(0.445, 0.6, r'$\displaystyle\mathbf{x}=\sum_{i=1}^{N_{k}}\phi_{i}^{k}(\
 ax1.set_aspect('equal', adjustable='box')
 ax2.set_aspect('equal', adjustable='box')
 
-plt.savefig('build/docs/develop-notes/dg_method/figures/quad-curved.pdf')
+plt.savefig('build/docs/develop-notes/dg_method/figures/quad-isoparametric.pdf')

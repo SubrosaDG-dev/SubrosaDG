@@ -95,7 +95,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Tensor<int, 3> surface_filling_y_tag(4, 3, 5);
   Eigen::Tensor<int, 3> surface_filling_z_tag(3, 4, 5);
   Eigen::Tensor<int, 3> surface_loop_tag(5, 4, 3);
-  Eigen::Tensor<int, 3> volumn_tag(5, 4, 3);
+  Eigen::Tensor<int, 3> volume_tag(5, 4, 3);
   std::array<std::vector<int>, 3> physical_group_tag;
   gmsh::model::add("delta_3d");
   for (std::ptrdiff_t i = 0; i < 4; i++) {
@@ -480,29 +480,29 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 3; i++) {
     for (std::ptrdiff_t j = 0; j < 4; j++) {
       if (j == 0) {
-        volumn_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
-        volumn_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
+        volume_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
+        volume_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
       } else if (j == 1) {
-        volumn_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
+        volume_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
         if (i != 1) {
-          volumn_tag(2, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(2, j, i)});
+          volume_tag(2, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(2, j, i)});
         }
-        volumn_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
+        volume_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
       } else if (j == 2) {
         if (i == 1) {
-          volumn_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
-          volumn_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
+          volume_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
+          volume_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
         } else {
-          volumn_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
-          volumn_tag(1, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(1, j, i)});
-          volumn_tag(3, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(3, j, i)});
-          volumn_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
+          volume_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
+          volume_tag(1, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(1, j, i)});
+          volume_tag(3, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(3, j, i)});
+          volume_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
         }
       } else {
-        volumn_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
-        volumn_tag(1, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(1, j, i)});
-        volumn_tag(3, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(3, j, i)});
-        volumn_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
+        volume_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
+        volume_tag(1, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(1, j, i)});
+        volume_tag(3, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(3, j, i)});
+        volume_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
       }
     }
   }
@@ -670,44 +670,44 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 3; i++) {
     for (std::ptrdiff_t j = 0; j < 4; j++) {
       if (j == 0) {
-        gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(0, j, i));
-        gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(4, j, i));
-        gmsh::model::geo::mesh::setRecombine(3, volumn_tag(0, j, i));
-        gmsh::model::geo::mesh::setRecombine(3, volumn_tag(4, j, i));
+        gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(0, j, i));
+        gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(4, j, i));
+        gmsh::model::geo::mesh::setRecombine(3, volume_tag(0, j, i));
+        gmsh::model::geo::mesh::setRecombine(3, volume_tag(4, j, i));
       } else if (j == 1) {
-        gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(0, j, i));
-        gmsh::model::geo::mesh::setRecombine(3, volumn_tag(0, j, i));
+        gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(0, j, i));
+        gmsh::model::geo::mesh::setRecombine(3, volume_tag(0, j, i));
         if (i != 1) {
-          gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(2, j, i));
-          gmsh::model::geo::mesh::setRecombine(3, volumn_tag(2, j, i));
+          gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(2, j, i));
+          gmsh::model::geo::mesh::setRecombine(3, volume_tag(2, j, i));
         }
-        gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(4, j, i));
-        gmsh::model::geo::mesh::setRecombine(3, volumn_tag(4, j, i));
+        gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(4, j, i));
+        gmsh::model::geo::mesh::setRecombine(3, volume_tag(4, j, i));
       } else if (j == 2) {
         if (i == 1) {
-          gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(0, j, i));
-          gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(4, j, i));
-          gmsh::model::geo::mesh::setRecombine(3, volumn_tag(0, j, i));
-          gmsh::model::geo::mesh::setRecombine(3, volumn_tag(4, j, i));
+          gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(0, j, i));
+          gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(4, j, i));
+          gmsh::model::geo::mesh::setRecombine(3, volume_tag(0, j, i));
+          gmsh::model::geo::mesh::setRecombine(3, volume_tag(4, j, i));
         } else {
-          gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(0, j, i));
-          gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(1, j, i));
-          gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(3, j, i));
-          gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(4, j, i));
-          gmsh::model::geo::mesh::setRecombine(3, volumn_tag(0, j, i));
-          gmsh::model::geo::mesh::setRecombine(3, volumn_tag(1, j, i));
-          gmsh::model::geo::mesh::setRecombine(3, volumn_tag(3, j, i));
-          gmsh::model::geo::mesh::setRecombine(3, volumn_tag(4, j, i));
+          gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(0, j, i));
+          gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(1, j, i));
+          gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(3, j, i));
+          gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(4, j, i));
+          gmsh::model::geo::mesh::setRecombine(3, volume_tag(0, j, i));
+          gmsh::model::geo::mesh::setRecombine(3, volume_tag(1, j, i));
+          gmsh::model::geo::mesh::setRecombine(3, volume_tag(3, j, i));
+          gmsh::model::geo::mesh::setRecombine(3, volume_tag(4, j, i));
         }
       } else {
-        gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(0, j, i));
-        gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(1, j, i));
-        gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(3, j, i));
-        gmsh::model::geo::mesh::setTransfiniteVolume(volumn_tag(4, j, i));
-        gmsh::model::geo::mesh::setRecombine(3, volumn_tag(0, j, i));
-        gmsh::model::geo::mesh::setRecombine(3, volumn_tag(1, j, i));
-        gmsh::model::geo::mesh::setRecombine(3, volumn_tag(3, j, i));
-        gmsh::model::geo::mesh::setRecombine(3, volumn_tag(4, j, i));
+        gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(0, j, i));
+        gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(1, j, i));
+        gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(3, j, i));
+        gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(4, j, i));
+        gmsh::model::geo::mesh::setRecombine(3, volume_tag(0, j, i));
+        gmsh::model::geo::mesh::setRecombine(3, volume_tag(1, j, i));
+        gmsh::model::geo::mesh::setRecombine(3, volume_tag(3, j, i));
+        gmsh::model::geo::mesh::setRecombine(3, volume_tag(4, j, i));
       }
     }
   }
@@ -797,29 +797,29 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 3; i++) {
     for (std::ptrdiff_t j = 0; j < 4; j++) {
       if (j == 0) {
-        physical_group_tag[2].emplace_back(volumn_tag(0, j, i));
-        physical_group_tag[2].emplace_back(volumn_tag(4, j, i));
+        physical_group_tag[2].emplace_back(volume_tag(0, j, i));
+        physical_group_tag[2].emplace_back(volume_tag(4, j, i));
       } else if (j == 1) {
-        physical_group_tag[2].emplace_back(volumn_tag(0, j, i));
+        physical_group_tag[2].emplace_back(volume_tag(0, j, i));
         if (i != 1) {
-          physical_group_tag[2].emplace_back(volumn_tag(2, j, i));
+          physical_group_tag[2].emplace_back(volume_tag(2, j, i));
         }
-        physical_group_tag[2].emplace_back(volumn_tag(4, j, i));
+        physical_group_tag[2].emplace_back(volume_tag(4, j, i));
       } else if (j == 2) {
         if (i == 1) {
-          physical_group_tag[2].emplace_back(volumn_tag(0, j, i));
-          physical_group_tag[2].emplace_back(volumn_tag(4, j, i));
+          physical_group_tag[2].emplace_back(volume_tag(0, j, i));
+          physical_group_tag[2].emplace_back(volume_tag(4, j, i));
         } else {
-          physical_group_tag[2].emplace_back(volumn_tag(0, j, i));
-          physical_group_tag[2].emplace_back(volumn_tag(1, j, i));
-          physical_group_tag[2].emplace_back(volumn_tag(3, j, i));
-          physical_group_tag[2].emplace_back(volumn_tag(4, j, i));
+          physical_group_tag[2].emplace_back(volume_tag(0, j, i));
+          physical_group_tag[2].emplace_back(volume_tag(1, j, i));
+          physical_group_tag[2].emplace_back(volume_tag(3, j, i));
+          physical_group_tag[2].emplace_back(volume_tag(4, j, i));
         }
       } else {
-        physical_group_tag[2].emplace_back(volumn_tag(0, j, i));
-        physical_group_tag[2].emplace_back(volumn_tag(1, j, i));
-        physical_group_tag[2].emplace_back(volumn_tag(3, j, i));
-        physical_group_tag[2].emplace_back(volumn_tag(4, j, i));
+        physical_group_tag[2].emplace_back(volume_tag(0, j, i));
+        physical_group_tag[2].emplace_back(volume_tag(1, j, i));
+        physical_group_tag[2].emplace_back(volume_tag(3, j, i));
+        physical_group_tag[2].emplace_back(volume_tag(4, j, i));
       }
     }
   }
