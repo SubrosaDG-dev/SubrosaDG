@@ -18,7 +18,7 @@
 #include <Eigen/Core>
 #include <cstddef>
 #include <format>
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -45,7 +45,7 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).gmsh_tag_ = static_cast<Isize>(element_tags[static_cast<Usize>(i)]);
     this->element_(i).gmsh_physical_index_ =
-        information.gmsh_tag_to_element_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_index_;
+        information.gmsh_tag_to_element_physical_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_index_;
     this->element_(i).element_index_ = i;
     const std::string gmsh_physical_name =
         information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_)];
@@ -60,7 +60,7 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
         ElementTrait::kAllNodeNumber;
     information.physical_information_[this->element_(i).gmsh_physical_index_].vtk_node_number_ +=
         ElementTrait::kVtkAllNodeNumber;
-    information.gmsh_tag_to_element_information_[this->element_(i).gmsh_tag_].element_index_ = i;
+    information.gmsh_tag_to_element_physical_information_[this->element_(i).gmsh_tag_].element_index_ = i;
     for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {
       const auto node_tag = static_cast<Isize>(node_tags[static_cast<Usize>(i * ElementTrait::kAllNodeNumber + j)]);
       this->element_(i).node_coordinate_.col(j) = node_coordinate.col(node_tag - 1);

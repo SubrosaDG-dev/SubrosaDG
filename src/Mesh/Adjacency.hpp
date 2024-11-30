@@ -374,7 +374,7 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
       std::cout << "Check your physical group definition or computational mesh type." << '\n';
     }
     this->element_(i).gmsh_physical_index_ =
-        information.gmsh_tag_to_element_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_index_;
+        information.gmsh_tag_to_element_physical_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_index_;
     this->element_(i).element_index_ = i;
     boundary_gmsh_tag.emplace_back(max_tag + static_cast<Usize>(i) + 1);
     this->element_(i).gmsh_jacobian_tag_ = static_cast<Isize>(max_tag) + i + 1;
@@ -391,10 +391,10 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
         AdjacencyElementTrait::kAllNodeNumber;
     information.physical_information_[this->element_(i).gmsh_physical_index_].vtk_node_number_ +=
         AdjacencyElementTrait::kVtkAllNodeNumber;
-    information.gmsh_tag_to_element_information_[this->element_(i).gmsh_tag_].element_index_ = i;
-    this->element_(i).parent_index_each_type_(0) =
-        information.gmsh_tag_to_element_information_.at(adjacency_element_mesh_supplemental.parent_gmsh_tag_[0])
-            .element_index_;
+    information.gmsh_tag_to_element_physical_information_[this->element_(i).gmsh_tag_].element_index_ = i;
+    this->element_(i).parent_index_each_type_(0) = information.gmsh_tag_to_element_physical_information_
+                                                       .at(adjacency_element_mesh_supplemental.parent_gmsh_tag_[0])
+                                                       .element_index_;
     this->element_(i).adjacency_sequence_in_parent_(0) =
         adjacency_element_mesh_supplemental.adjacency_sequence_in_parent_[0];
     this->element_(i).parent_gmsh_type_number_(0) = adjacency_element_mesh_supplemental.parent_gmsh_type_number_[0];
@@ -427,11 +427,11 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementInte
       this->element_(i).node_tag_(j) = adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)];
       interior_node_tag.emplace_back(adjacency_element_mesh_supplemental.node_tag_[static_cast<Usize>(j)]);
     }
-    information.gmsh_tag_to_element_information_[this->element_(i).gmsh_tag_].element_index_ = i;
+    information.gmsh_tag_to_element_physical_information_[this->element_(i).gmsh_tag_].element_index_ = i;
     this->element_(i).adjacency_right_rotation_ = adjacency_element_mesh_supplemental.right_rotation_;
     for (Isize j = 0; j < 2; j++) {
       this->element_(i).parent_index_each_type_(j) =
-          information.gmsh_tag_to_element_information_
+          information.gmsh_tag_to_element_physical_information_
               .at(adjacency_element_mesh_supplemental.parent_gmsh_tag_[static_cast<Usize>(j)])
               .element_index_;
       this->element_(i).adjacency_sequence_in_parent_(j) =

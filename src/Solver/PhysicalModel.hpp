@@ -24,15 +24,16 @@ template <ThermodynamicModelEnum ThermodynamicModelType>
 struct ThermodynamicModel;
 
 template <>
-struct ThermodynamicModel<ThermodynamicModelEnum::ConstantE> {
-  Real specific_heat_constant_volume_;
+struct ThermodynamicModel<ThermodynamicModelEnum::Constant> {
+  inline static Real specific_heat_constant_pressure;
+  inline static Real specific_heat_constant_volume;
 
   [[nodiscard]] inline Real calculateInternalEnergyFromTemperature(const Real temperature) const {
-    return this->specific_heat_constant_volume_ * temperature;
+    return this->specific_heat_constant_volume * temperature;
   }
 
   [[nodiscard]] inline Real calculateTemperatureFormInternalEnergy(const Real internal_energy) const {
-    return internal_energy / this->specific_heat_constant_volume_;
+    return internal_energy / this->specific_heat_constant_volume;
   }
 };
 
@@ -54,21 +55,25 @@ struct EquationOfState<EquationOfStateEnum::IdealGas> {
 };
 
 template <>
-struct EquationOfState<EquationOfStateEnum::Tait> {
-  inline static constexpr Real kSpecificHeatRatio = 7.0_r;
-  inline static constexpr Real kReferenceSoundSpeed = 15.0_r;
-  Real reference_pressure_addition_;
+struct EquationOfState<EquationOfStateEnum::WeakCompressibleFluid> {
+  inline static Real reference_sound_speed;
+  inline static Real reference_density;
+  inline static Real reference_pressure_addition;
+
+  inline void calculatePressureAdditionFromSoundSpeedDensity() {
+    this->reference_pressure_addition =
+        0.01 * this->reference_density * this->reference_sound_speed * this->reference_sound_speed;
+  }
 
   [[nodiscard]] inline Real calculatePressureFormDensityInternalEnergy(
       const Real density, [[maybe_unused]] const Real internal_energy) const {
-    return this->kReferenceSoundSpeed * this->kReferenceSoundSpeed *
-               (std::pow(density, this->kSpecificHeatRatio) - 1.0_r) / this->kSpecificHeatRatio +
-           this->reference_pressure_addition_;
+    return this->reference_sound_speed * this->reference_sound_speed * (density - this->reference_density) +
+           this->reference_pressure_addition;
   }
 
   [[nodiscard]] inline Real calculateSoundSpeedFromDensityPressure([[maybe_unused]] const Real density,
                                                                    [[maybe_unused]] const Real pressure) const {
-    return this->kReferenceSoundSpeed;
+    return this->reference_sound_speed;
   }
 };
 
@@ -80,24 +85,24 @@ struct TransportModel<TransportModelEnum::None> {};
 
 template <>
 struct TransportModel<TransportModelEnum::Constant> {
-  Real dynamic_viscosity_;
-  Real thermal_conductivity_;
+  inline static Real dynamic_viscosity;
+  inline static Real thermal_conductivity;
 
   inline static constexpr Real kPrandtlNumber = 0.71_r;
 
   [[nodiscard]] inline Real calculateDynamicViscosity([[maybe_unused]] const Real temperature) const {
-    return this->dynamic_viscosity_;
+    return this->dynamic_viscosity;
   }
 
   [[nodiscard]] inline Real calculateThermalConductivity([[maybe_unused]] const Real temperature) const {
-    return this->thermal_conductivity_;
+    return this->thermal_conductivity;
   }
 };
 
 template <>
 struct TransportModel<TransportModelEnum::Sutherland> {
-  Real dynamic_viscosity_;
-  Real thermal_conductivity_;
+  inline static Real dynamic_viscosity;
+  inline static Real thermal_conductivity;
 
   inline static constexpr Real kPrandtlNumber = 0.71_r;
 
@@ -109,11 +114,11 @@ struct TransportModel<TransportModelEnum::Sutherland> {
   }
 
   [[nodiscard]] inline Real calculateDynamicViscosity(const Real temperature) const {
-    return this->dynamic_viscosity_ * this->calculateSutherlandRatio(temperature);
+    return this->dynamic_viscosity * this->calculateSutherlandRatio(temperature);
   }
 
   [[nodiscard]] inline Real calculateThermalConductivity(const Real temperature) const {
-    return this->thermal_conductivity_ * this->calculateSutherlandRatio(temperature);
+    return this->thermal_conductivity * this->calculateSutherlandRatio(temperature);
   }
 };
 
@@ -145,9 +150,9 @@ struct PhysicalModel {
   }
 
   inline void calculateThermalConductivityFromDynamicViscosity() {
-    this->transport_model_.thermal_conductivity_ =
-        (this->thermodynamic_model_.specific_heat_constant_volume_ + this->equation_of_state_.kSpecificHeatRatio) *
-        this->transport_model_.dynamic_viscosity_ / this->transport_model_.kPrandtlNumber;
+    this->transport_model_.thermal_conductivity = this->thermodynamic_model_.specific_heat_constant_pressure *
+                                                  this->transport_model_.dynamic_viscosity /
+                                                  this->transport_model_.kPrandtlNumber;
   }
 
   [[nodiscard]] inline Real calculateDynamicViscosity([[maybe_unused]] const Real temperature) const {

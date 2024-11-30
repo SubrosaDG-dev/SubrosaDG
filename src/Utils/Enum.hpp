@@ -13,7 +13,7 @@
 #ifndef SUBROSA_DG_ENUM_HPP_
 #define SUBROSA_DG_ENUM_HPP_
 
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 
 using namespace magic_enum::bitwise_operators;
 
@@ -54,9 +54,13 @@ enum class PolynomialOrderEnum {
 };
 
 enum class EquationModelEnum {
-  Euler = 1,
-  NavierStokes,
-  RANS,
+  CompresibleEuler = 1,
+  CompresibleNS,
+  IncompresibleEuler,
+  IncompresibleNS,
+  CompresibleRANS,
+  IdealMHD,
+  ViscousMHD,
 };
 
 enum class BasisFunctionEnum {
@@ -66,7 +70,7 @@ enum class BasisFunctionEnum {
 
 enum class SourceTermEnum {
   None = 1,
-  Gravity,
+  Boussinesq,
 };
 
 enum class ShockCapturingEnum {
@@ -87,12 +91,15 @@ enum class InitialConditionEnum {
 
 enum class BoundaryConditionEnum {
   RiemannFarfield = 1,
-  VelocityInflow,
-  PressureOutflow,
   IsoThermalNonSlipWall,
   AdiabaticSlipWall,
   AdiabaticNonSlipWall,
   Periodic,
+};
+
+enum class BoundaryTimeEnum {
+  Steady = 1,
+  TimeVarying,
 };
 
 enum class ConvectiveFluxEnum {
@@ -100,6 +107,7 @@ enum class ConvectiveFluxEnum {
   LaxFriedrichs,
   HLLC,
   Roe,
+  Exact,
 };
 
 enum class ViscousFluxEnum {
@@ -109,12 +117,12 @@ enum class ViscousFluxEnum {
 };
 
 enum class ThermodynamicModelEnum {
-  ConstantE = 1,
+  Constant = 1,
 };
 
 enum class EquationOfStateEnum {
   IdealGas = 1,
-  Tait,
+  WeakCompressibleFluid,
 };
 
 enum class TransportModelEnum {
@@ -134,15 +142,25 @@ enum class TurbulenceModelEnum {
 };
 
 enum class ConservedVariableEnum {
+  // Compresible Euler/Navier-Stokes
   Density = 1,
   Momentum,
   MomentumX,
   MomentumY,
   MomentumZ,
   DensityTotalEnergy,
+
+  // Incompressible Euler/Navier-Stokes
+  // Density,
+  // Momentum,
+  // MomentumX,
+  // MomentumY,
+  // MomentumZ,
+  DensityInternalEnergy,
 };
 
 enum class ComputationalVariableEnum {
+  // Compresible Euler/Navier-Stokes
   Density = 1,
   Velocity,
   VelocityX,
@@ -151,15 +169,34 @@ enum class ComputationalVariableEnum {
   VelocitySquaredNorm,
   InternalEnergy,
   Pressure,
+
+  // Incompressible Euler/Navier-Stokes
+  // Density,
+  // Velocity,
+  // VelocityX,
+  // VelocityY,
+  // VelocityZ,
+  // VelocitySquaredNorm,
+  // InternalEnergy,
+  // Pressure,
 };
 
 enum class PrimitiveVariableEnum {
+  // Compresible Euler/Navier-Stokes
   Density = 1,
   Velocity,
   VelocityX,
   VelocityY,
   VelocityZ,
   Temperature,
+
+  // Incompressible Euler/Navier-Stokes
+  // Density,
+  // Velocity,
+  // VelocityX,
+  // VelocityY,
+  // VelocityZ,
+  // Temperature,
 };
 
 enum class VariableGradientEnum {

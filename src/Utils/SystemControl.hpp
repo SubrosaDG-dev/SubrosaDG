@@ -60,9 +60,11 @@ struct System {
     this->mesh_.initializeMesh(mesh_file_path, generate_mesh_function);
   }
 
-  inline void setSourceTerm(const Real reference_density, const Real gravity) {
-    this->source_term_.reference_density = reference_density;
-    this->source_term_.gravity = gravity;
+  template <SourceTermEnum SourceTermType>
+    requires(SourceTermType == SourceTermEnum::Boussinesq)
+  inline void setSourceTerm(const Real thermal_expansion_coefficient, const Real reference_temperature) {
+    this->source_term_.thermal_expansion_coefficient = thermal_expansion_coefficient;
+    this->source_term_.reference_temperature = reference_temperature;
   }
 
   inline void addInitialCondition(
@@ -81,14 +83,28 @@ struct System {
 
   template <BoundaryConditionEnum BoundaryConditionType>
     requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
-             BoundaryConditionType == BoundaryConditionEnum::VelocityInflow ||
-             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow ||
              BoundaryConditionType == BoundaryConditionEnum::IsoThermalNonSlipWall ||
              BoundaryConditionType == BoundaryConditionEnum::AdiabaticNonSlipWall)
   inline void addBoundaryCondition(
       const std::string& boundary_condition_name,
       const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
           const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>& boundary_condition_function) {
+    const auto boundary_condition_index =
+        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
+    this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
+    this->boundary_condition_[boundary_condition_index] =
+        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
+    this->boundary_condition_[boundary_condition_index]->function_ = boundary_condition_function;
+  }
+
+  template <BoundaryConditionEnum BoundaryConditionType>
+    requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
+             BoundaryConditionType == BoundaryConditionEnum::IsoThermalNonSlipWall ||
+             BoundaryConditionType == BoundaryConditionEnum::AdiabaticNonSlipWall)
+  inline void addBoundaryCondition(const std::string& boundary_condition_name,
+                                   const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
+                                       const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate,
+                                       const Real time)>& boundary_condition_function) {
     const auto boundary_condition_index =
         static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
     this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
@@ -116,21 +132,25 @@ struct System {
   }
 
   template <ThermodynamicModelEnum ThermodynamicModelType>
-    requires(ThermodynamicModelType == ThermodynamicModelEnum::ConstantE)
-  inline void setThermodynamicModel(const Real specific_heat_constant_volume) {
-    this->physical_model_.thermodynamic_model_.specific_heat_constant_volume_ = specific_heat_constant_volume;
+    requires(ThermodynamicModelType == ThermodynamicModelEnum::Constant)
+  inline void setThermodynamicModel(const Real specific_heat_constant_pressure,
+                                    const Real specific_heat_constant_volume) {
+    this->physical_model_.thermodynamic_model_.specific_heat_constant_pressure = specific_heat_constant_pressure;
+    this->physical_model_.thermodynamic_model_.specific_heat_constant_volume = specific_heat_constant_volume;
   }
 
   template <EquationOfStateEnum EquationOfStateType>
-    requires(EquationOfStateType == EquationOfStateEnum::Tait)
-  inline void setEquationOfState(const Real reference_pressure_addition) {
-    this->physical_model_.equation_of_state_.reference_pressure_addition_ = reference_pressure_addition;
+    requires(EquationOfStateType == EquationOfStateEnum::WeakCompressibleFluid)
+  inline void setEquationOfState(const Real reference_sound_speed, const Real reference_density) {
+    this->physical_model_.equation_of_state_.reference_sound_speed = reference_sound_speed;
+    this->physical_model_.equation_of_state_.reference_density = reference_density;
+    this->physical_model_.equation_of_state_.calculatePressureAdditionFromSoundSpeedDensity();
   }
 
   template <TransportModelEnum TransportModelType>
     requires(TransportModelType == TransportModelEnum::Constant || TransportModelType == TransportModelEnum::Sutherland)
   inline void setTransportModel(const Real dynamic_viscosity) {
-    this->physical_model_.transport_model_.dynamic_viscosity_ = dynamic_viscosity;
+    this->physical_model_.transport_model_.dynamic_viscosity = dynamic_viscosity;
     this->physical_model_.calculateThermalConductivityFromDynamicViscosity();
   }
 
@@ -201,11 +221,11 @@ struct System {
     } else {
       this->solver_.write_raw_binary_future_ = std::async(std::launch::async, []() {});
     }
-    this->command_line_.initializeSolver(this->time_integration_.delta_time_, this->time_integration_.iteration_start_,
-                                         this->time_integration_.iteration_end_, this->solver_.error_finout_);
+    this->command_line_.initializeSolver(this->time_integration_, this->solver_.error_finout_);
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
       this->solver_.stepSolver(this->mesh_, this->source_term_, this->physical_model_, this->boundary_condition_,
                                this->time_integration_);
+      this->time_integration_.iteration_ = i;
       if (i % this->view_.io_interval_ == 0) [[unlikely]] {
         this->solver_.write_raw_binary_future_.get();
         this->solver_.writeRawBinary(

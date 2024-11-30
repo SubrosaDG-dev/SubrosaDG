@@ -36,6 +36,7 @@ namespace SubrosaDG {
 struct TimeIntegrationBase {
   int iteration_start_{0};
   int iteration_end_;
+  int iteration_{0};
   Real courant_friedrichs_lewy_number_;
   Real delta_time_{0.0};
 };
@@ -53,7 +54,7 @@ template <>
 struct TimeIntegrationData<TimeIntegrationEnum::HeunRK2> : TimeIntegrationBase {
   inline static constexpr int kStep = 2;
   inline static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{
-      {{1.0_r, 0.0_r, 1.0_r}, {0.5_r, 0.0_r, 0.5_r}}};
+      {{1.0_r, 0.0_r, 1.0_r}, {0.5_r, 0.5_r, 0.5_r}}};
 };
 
 template <>
@@ -69,7 +70,7 @@ template <typename SimulationControl>
 struct TimeIntegration : TimeIntegrationData<SimulationControl::kTimeIntegration> {};
 
 template <typename ElementTrait, typename SimulationControl>
-inline void ElementSolverBase<ElementTrait, SimulationControl>::copyElementBasisFunctionCoefficient() {
+inline void ElementSolver<ElementTrait, SimulationControl>::copyElementBasisFunctionCoefficient() {
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto)
 #endif  // SUBROSA_DG_DEVELOP
@@ -104,7 +105,7 @@ inline void Solver<SimulationControl>::copyBasisFunctionCoefficient() {
 }
 
 template <typename ElementTrait, typename SimulationControl>
-inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElementDeltaTime(
+inline Real ElementSolver<ElementTrait, SimulationControl>::calculateElementDeltaTime(
     const ElementMesh<ElementTrait>& element_mesh, const PhysicalModel<SimulationControl>& physical_model,
     const Real courant_friedrichs_lewy_number) {
   ElementVariable<ElementTrait, SimulationControl> quadrature_node_variable;
@@ -126,7 +127,7 @@ inline Real ElementSolverBase<ElementTrait, SimulationControl>::calculateElement
           std::sqrt(quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(j)) +
           sound_speed;
       // NOTE: https://arxiv.org/pdf/2008.12044
-      delta_time(j) = courant_friedrichs_lewy_number * element_mesh.element_(i).minimum_characteristic_length_ /
+      delta_time(j) = courant_friedrichs_lewy_number * element_mesh.element_(i).minimum_edge_ /
                       (spectral_radius * (SimulationControl::kPolynomialOrder + 1.0_r) *
                        (SimulationControl::kPolynomialOrder + 1.0_r));
     }
@@ -191,51 +192,52 @@ inline void Solver<SimulationControl>::calculateDeltaTime(const Mesh<SimulationC
 }
 
 template <typename ElementTrait, typename SimulationControl>
-inline void ElementSolverBase<ElementTrait, SimulationControl>::updateElementBasisFunctionCoefficient(
-    const int step, const ElementMesh<ElementTrait>& element_mesh,
+inline void ElementSolver<ElementTrait, SimulationControl>::updateElementBasisFunctionCoefficient(
+    const int rk_step, const ElementMesh<ElementTrait>& element_mesh,
     const TimeIntegration<SimulationControl>& time_integration) {
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, step, element_mesh, time_integration)
+    shared(Eigen::Dynamic, rk_step, element_mesh, time_integration)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     // NOTE: Here we split the calculation to trigger eigen's noalias to avoid intermediate variables.
     this->element_(i).variable_basis_function_coefficient_(1) *=
-        time_integration.kStepCoefficients[static_cast<Usize>(step)][1];
+        time_integration.kStepCoefficients[static_cast<Usize>(rk_step)][1];
     this->element_(i).variable_basis_function_coefficient_(1).noalias() +=
-        time_integration.kStepCoefficients[static_cast<Usize>(step)][0] *
+        time_integration.kStepCoefficients[static_cast<Usize>(rk_step)][0] *
         this->element_(i).variable_basis_function_coefficient_(0);
     this->element_(i).variable_basis_function_coefficient_(1).noalias() +=
-        time_integration.kStepCoefficients[static_cast<Usize>(step)][2] * time_integration.delta_time_ *
+        time_integration.kStepCoefficients[static_cast<Usize>(rk_step)][2] * time_integration.delta_time_ *
         this->element_(i).variable_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
   }
 }
 
 template <typename ElementTrait, typename SimulationControl>
-inline void ElementSolverBase<ElementTrait, SimulationControl>::updateElementGardientBasisFunctionCoefficient(
+inline void ElementSolver<ElementTrait, SimulationControl>::updateElementGardientBasisFunctionCoefficient(
     const ElementMesh<ElementTrait>& element_mesh) {
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    this->element_(i).variable_gradient_volume_basis_function_coefficient_.noalias() =
-        this->element_(i).variable_gradient_volume_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
+    this->element_(i).variable_volume_gradient_basis_function_coefficient_.noalias() =
+        this->element_(i).variable_volume_gradient_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
+    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
+                  SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
       this->element_(i).variable_gradient_basis_function_coefficient_.noalias() =
-          this->element_(i).variable_gradient_volume_basis_function_coefficient_;
+          this->element_(i).variable_volume_gradient_basis_function_coefficient_;
       if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
-        this->element_(i).variable_gradient_interface_basis_function_coefficient_.noalias() =
-            this->element_(i).variable_gradient_interface_residual_ *
+        this->element_(i).variable_interface_gradient_basis_function_coefficient_.noalias() =
+            this->element_(i).variable_interface_gradient_residual_ *
             element_mesh.element_(i).local_mass_matrix_inverse_;
         this->element_(i).variable_gradient_basis_function_coefficient_.noalias() +=
-            this->element_(i).variable_gradient_interface_basis_function_coefficient_;
+            this->element_(i).variable_interface_gradient_basis_function_coefficient_;
       } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
         for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
-          this->element_(i).variable_gradient_interface_basis_function_coefficient_(j).noalias() =
-              this->element_(i).variable_gradient_interface_residual_(j) *
+          this->element_(i).variable_interface_gradient_basis_function_coefficient_(j).noalias() =
+              this->element_(i).variable_interface_gradient_residual_(j) *
               element_mesh.element_(i).local_mass_matrix_inverse_;
           this->element_(i).variable_gradient_basis_function_coefficient_.noalias() +=
-              this->element_(i).variable_gradient_interface_basis_function_coefficient_(j);
+              this->element_(i).variable_interface_gradient_basis_function_coefficient_(j);
         }
       }
     }
@@ -244,25 +246,25 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::updateElementGar
 
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::updateBasisFunctionCoefficient(
-    int step, const Mesh<SimulationControl>& mesh, const TimeIntegration<SimulationControl>& time_integration) {
+    int rk_step, const Mesh<SimulationControl>& mesh, const TimeIntegration<SimulationControl>& time_integration) {
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.updateElementBasisFunctionCoefficient(step, mesh.line_, time_integration);
+    this->line_.updateElementBasisFunctionCoefficient(rk_step, mesh.line_, time_integration);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.updateElementBasisFunctionCoefficient(step, mesh.triangle_, time_integration);
+      this->triangle_.updateElementBasisFunctionCoefficient(rk_step, mesh.triangle_, time_integration);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.updateElementBasisFunctionCoefficient(step, mesh.quadrangle_, time_integration);
+      this->quadrangle_.updateElementBasisFunctionCoefficient(rk_step, mesh.quadrangle_, time_integration);
     }
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-      this->tetrahedron_.updateElementBasisFunctionCoefficient(step, mesh.tetrahedron_, time_integration);
+      this->tetrahedron_.updateElementBasisFunctionCoefficient(rk_step, mesh.tetrahedron_, time_integration);
     }
     if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-      this->pyramid_.updateElementBasisFunctionCoefficient(step, mesh.pyramid_, time_integration);
+      this->pyramid_.updateElementBasisFunctionCoefficient(rk_step, mesh.pyramid_, time_integration);
     }
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-      this->hexahedron_.updateElementBasisFunctionCoefficient(step, mesh.hexahedron_, time_integration);
+      this->hexahedron_.updateElementBasisFunctionCoefficient(rk_step, mesh.hexahedron_, time_integration);
     }
   }
 }
@@ -292,7 +294,7 @@ inline void Solver<SimulationControl>::updateGardientBasisFunctionCoefficient(co
 }
 
 template <typename ElementTrait, typename SimulationControl>
-inline void ElementSolverBase<ElementTrait, SimulationControl>::calculateElementRelativeError(
+inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementRelativeError(
     const ElementMesh<ElementTrait>& element_mesh,
     Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error) {
   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> local_error{
@@ -347,6 +349,9 @@ inline void Solver<SimulationControl>::stepSolver(
     const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
     const TimeIntegration<SimulationControl>& time_integration) {
   this->copyBasisFunctionCoefficient();
+  if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::TimeVarying) {
+    this->updateBoundaryVariable(mesh, physical_model, boundary_condition, time_integration);
+  }
   if constexpr (SimulationControl::kShockCapturing == ShockCapturingEnum::ArtificialViscosity) {
     this->calculateArtificialViscosity(mesh);
   }

@@ -27,18 +27,35 @@ namespace SubrosaDG {
 template <typename SimulationControl>
 inline void calculateConvectiveRawFlux(const Variable<SimulationControl>& variable,
                                        FluxVariable<SimulationControl>& convective_raw_flux, const Isize column) {
-  const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
-  const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
-      variable.template getVector<ComputationalVariableEnum::Velocity>(column);
-  convective_raw_flux.template setVector<ConservedVariableEnum::Density>(density * velocity);
-  const Real pressure = variable.template getScalar<ComputationalVariableEnum::Pressure>(column);
-  convective_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(
-      density * velocity * velocity.transpose() +
-      pressure * Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity());
-  const Real total_energy = variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) +
-                            variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column) / 2.0_r;
-  convective_raw_flux.template setVector<ConservedVariableEnum::DensityTotalEnergy>(
-      (density * total_energy + pressure) * velocity);
+  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
+                SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+    const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
+    const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
+        variable.template getVector<ComputationalVariableEnum::Velocity>(column);
+    convective_raw_flux.template setVector<ConservedVariableEnum::Density>(density * velocity);
+    const Real pressure = variable.template getScalar<ComputationalVariableEnum::Pressure>(column);
+    convective_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(
+        density * velocity * velocity.transpose() +
+        pressure * Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity());
+    const Real total_energy =
+        variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) +
+        variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column) / 2.0_r;
+    convective_raw_flux.template setVector<ConservedVariableEnum::DensityTotalEnergy>(
+        (density * total_energy + pressure) * velocity);
+  }
+  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
+                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+    const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
+    const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
+        variable.template getVector<ComputationalVariableEnum::Velocity>(column);
+    convective_raw_flux.template setVector<ConservedVariableEnum::Density>(density * velocity);
+    const Real pressure = variable.template getScalar<ComputationalVariableEnum::Pressure>(column);
+    convective_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(
+        density * velocity * velocity.transpose() +
+        pressure * Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity());
+    convective_raw_flux.template setVector<ConservedVariableEnum::DensityInternalEnergy>(
+        density * variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) * velocity);
+  }
 }
 
 template <typename SimulationControl>
@@ -46,18 +63,35 @@ inline void calculateConvectiveNormalFlux(const Eigen::Vector<Real, SimulationCo
                                           const Variable<SimulationControl>& variable,
                                           FluxNormalVariable<SimulationControl>& convective_normal_flux,
                                           const Isize column) {
-  const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
-  const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
-      variable.template getVector<ComputationalVariableEnum::Velocity>(column);
-  const Real normal_velocity = velocity.transpose() * normal_vector;
-  convective_normal_flux.template setScalar<ConservedVariableEnum::Density>(density * normal_velocity);
-  const Real pressure = variable.template getScalar<ComputationalVariableEnum::Pressure>(column);
-  convective_normal_flux.template setVector<ConservedVariableEnum::Momentum>(density * normal_velocity * velocity +
-                                                                             pressure * normal_vector);
-  const Real total_energy = variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) +
-                            variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column) / 2.0_r;
-  convective_normal_flux.template setScalar<ConservedVariableEnum::DensityTotalEnergy>(
-      (density * total_energy + pressure) * normal_velocity);
+  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
+                SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+    const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
+    const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
+        variable.template getVector<ComputationalVariableEnum::Velocity>(column);
+    const Real normal_velocity = velocity.transpose() * normal_vector;
+    convective_normal_flux.template setScalar<ConservedVariableEnum::Density>(density * normal_velocity);
+    const Real pressure = variable.template getScalar<ComputationalVariableEnum::Pressure>(column);
+    convective_normal_flux.template setVector<ConservedVariableEnum::Momentum>(density * normal_velocity * velocity +
+                                                                               pressure * normal_vector);
+    const Real total_energy =
+        variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) +
+        variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column) / 2.0_r;
+    convective_normal_flux.template setScalar<ConservedVariableEnum::DensityTotalEnergy>(
+        (density * total_energy + pressure) * normal_velocity);
+  }
+  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
+                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+    const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
+    const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
+        variable.template getVector<ComputationalVariableEnum::Velocity>(column);
+    const Real normal_velocity = velocity.transpose() * normal_vector;
+    convective_normal_flux.template setScalar<ConservedVariableEnum::Density>(density * normal_velocity);
+    const Real pressure = variable.template getScalar<ComputationalVariableEnum::Pressure>(column);
+    convective_normal_flux.template setVector<ConservedVariableEnum::Momentum>(density * normal_velocity * velocity +
+                                                                               pressure * normal_vector);
+    convective_normal_flux.template setScalar<ConservedVariableEnum::DensityInternalEnergy>(
+        density * variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) * normal_velocity);
+  }
 }
 
 template <typename SimulationControl>
@@ -320,6 +354,66 @@ inline void calculateConvectiveRoeFlux(const PhysicalModel<SimulationControl>& p
 }
 
 template <typename SimulationControl>
+inline void calculateConvectiveExactFlux(const PhysicalModel<SimulationControl>& physical_model,
+                                         const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                         const Variable<SimulationControl>& left_quadrature_node_variable,
+                                         const Variable<SimulationControl>& right_quadrature_node_variable,
+                                         Flux<SimulationControl>& convective_flux, const Isize left_column,
+                                         const Isize right_column) {
+  Variable<SimulationControl> exact_variable;
+  Real exact_internal_energy;
+  Eigen::Vector<Real, SimulationControl::kDimension> exact_velocity;
+  const Real sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
+  const Real left_normal_velocity =
+      left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column).transpose() *
+      normal_vector;
+  const Real right_normal_velocity =
+      right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column).transpose() *
+      normal_vector;
+  const Real exact_density =
+      std::sqrt(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column) *
+                right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column) *
+                std::exp((left_normal_velocity - right_normal_velocity) / sound_speed));
+  const Real exact_normal_velocity =
+      (left_normal_velocity + right_normal_velocity) / 2.0_r +
+      std::log(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column) /
+               right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column)) *
+          sound_speed / 2.0_r;
+  if (exact_normal_velocity < 0.0_r) {
+    exact_internal_energy =
+        right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(right_column) *
+        right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column) /
+        exact_density;
+    exact_velocity =
+        right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column) +
+        (exact_normal_velocity -
+         right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column)
+                 .transpose() *
+             normal_vector) *
+            normal_vector;
+  } else {
+    exact_internal_energy =
+        left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(left_column) *
+        left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column) /
+        exact_density;
+    exact_velocity =
+        left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column) +
+        (exact_normal_velocity -
+         left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column)
+                 .transpose() *
+             normal_vector) *
+            normal_vector;
+  }
+  const Real exact_pressure =
+      physical_model.calculatePressureFormDensityInternalEnergy(exact_density, exact_internal_energy);
+  exact_variable.template setScalar<ComputationalVariableEnum::Density>(exact_density, 0);
+  exact_variable.template setVector<ComputationalVariableEnum::Velocity>(exact_velocity, 0);
+  exact_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(exact_internal_energy, 0);
+  exact_variable.template setScalar<ComputationalVariableEnum::Pressure>(exact_pressure, 0);
+  calculateConvectiveNormalFlux(normal_vector, exact_variable, convective_flux.result_, 0);
+}
+
+template <typename SimulationControl>
 inline void calculateConvectiveFlux(const PhysicalModel<SimulationControl>& physical_model,
                                     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
                                     const Variable<SimulationControl>& left_quadrature_node_variable,
@@ -338,6 +432,9 @@ inline void calculateConvectiveFlux(const PhysicalModel<SimulationControl>& phys
   } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Roe) {
     calculateConvectiveRoeFlux(physical_model, normal_vector, left_quadrature_node_variable,
                                right_quadrature_node_variable, convective_flux, left_column, right_column);
+  } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Exact) {
+    calculateConvectiveExactFlux(physical_model, normal_vector, left_quadrature_node_variable,
+                                 right_quadrature_node_variable, convective_flux, left_column, right_column);
   }
 }
 

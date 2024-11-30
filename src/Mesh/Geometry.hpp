@@ -32,16 +32,13 @@ inline void ElementMesh<ElementTrait>::getElementQuality() {
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
-    std::vector<double> element_volumes;
-    std::vector<double> element_max_edges;
+    std::vector<double> element_min_edge;
     std::vector<double> element_inner_radius;
-    gmsh::model::mesh::getElementQualities({static_cast<std::size_t>(this->element_(i).gmsh_tag_)}, element_volumes,
-                                           "volume");
-    gmsh::model::mesh::getElementQualities({static_cast<std::size_t>(this->element_(i).gmsh_tag_)}, element_max_edges,
-                                           "maxEdge");
+    gmsh::model::mesh::getElementQualities({static_cast<std::size_t>(this->element_(i).gmsh_tag_)}, element_min_edge,
+                                           "minEdge");
     gmsh::model::mesh::getElementQualities({static_cast<std::size_t>(this->element_(i).gmsh_tag_)},
                                            element_inner_radius, "innerRadius");
-    this->element_(i).minimum_characteristic_length_ = static_cast<Real>(element_volumes[0] / element_max_edges[0]);
+    this->element_(i).minimum_edge_ = static_cast<Real>(element_min_edge[0]);
     this->element_(i).inner_radius_ = static_cast<Real>(element_inner_radius[0]);
   }
 }

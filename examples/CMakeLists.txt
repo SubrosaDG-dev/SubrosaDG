@@ -18,44 +18,54 @@ set(CMAKE_EXAMPLES_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$
 
 add_custom_target(all_examples)
 
-add_subdirectory(blasius_3d_ns)
+add_subdirectory(blasius_3d_cns)
 
-add_subdirectory(cylinder_2d_euler)
+add_subdirectory(cylinder_2d_ceuler)
 
-add_subdirectory(delta_3d_ns)
+add_subdirectory(cylinder_2d_incns)
 
-add_subdirectory(explosion_2d_euler)
+add_subdirectory(cylinder_3d_incns)
 
-add_subdirectory(gravity_2d_ns)
+add_subdirectory(delta_3d_cns)
 
-add_subdirectory(instability_2d_euler)
+add_subdirectory(explosion_2d_ceuler)
 
-add_subdirectory(lidcavity_2d_ns)
+add_subdirectory(instability_2d_ceuler)
 
-add_subdirectory(naca0012_2d_euler)
+add_subdirectory(kovasznay_2d_incns)
 
-add_subdirectory(naca0012_2d_ns)
+add_subdirectory(lidcavity_2d_incns)
 
-add_subdirectory(periodic_1d_euler)
+add_subdirectory(lidcavity_3d_incns)
 
-add_subdirectory(periodic_2d_euler)
+add_subdirectory(naca0010_2d_incns)
 
-add_subdirectory(periodic_3d_euler)
+add_subdirectory(naca0012_2d_ceuler)
 
-add_subdirectory(pipe_2d_ns)
+add_subdirectory(naca0012_2d_cns)
 
-add_subdirectory(protuberance_3d_euler)
+add_subdirectory(periodic_1d_ceuler)
 
-add_subdirectory(rae2822_2d_ns)
+add_subdirectory(periodic_2d_ceuler)
 
-add_subdirectory(sedovblast_2d_euler)
+add_subdirectory(periodic_3d_ceuler)
 
-add_subdirectory(shuosher_1d_euler)
+add_subdirectory(protuberance_3d_ceuler)
 
-add_subdirectory(sod_1d_euler)
+add_subdirectory(rae2822_2d_cns)
 
-add_subdirectory(sphere_3d_ns)
+add_subdirectory(sedovblast_2d_ceuler)
 
-add_subdirectory(vortex_2d_ns)
+add_subdirectory(shearlayer_2d_inceuler)
+
+add_subdirectory(shuosher_1d_ceuler)
+
+add_subdirectory(sod_1d_ceuler)
+
+add_subdirectory(sphere_3d_cns)
+
+add_subdirectory(thermalcavity_2d_incns)
+
+add_subdirectory(vortex_2d_cns)
 
 add_dependencies(all_ci all_examples)

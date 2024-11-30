@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "Cmake.hpp"
+#include "Solver/TimeIntegration.hpp"
 #include "Utils/BasicDataType.hpp"
 #include "Utils/Constant.hpp"
 #include "Utils/Enum.hpp"
@@ -49,13 +50,27 @@ struct CommandLine {
   std::deque<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> error_deque_;
 
   inline std::string getVariableList() {
-    if constexpr (SimulationControl::kDimension == 1) {
-      return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*E");
-    } else if constexpr (SimulationControl::kDimension == 2) {
-      return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*v", "rho*E");
-    } else if constexpr (SimulationControl::kDimension == 3) {
-      return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*v", "rho*w",
-                         "rho*E");
+    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
+                  SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+      if constexpr (SimulationControl::kDimension == 1) {
+        return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*E");
+      } else if constexpr (SimulationControl::kDimension == 2) {
+        return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*v", "rho*E");
+      } else if constexpr (SimulationControl::kDimension == 3) {
+        return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*v", "rho*w",
+                           "rho*E");
+      }
+    }
+    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
+                  SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (SimulationControl::kDimension == 1) {
+        return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*e");
+      } else if constexpr (SimulationControl::kDimension == 2) {
+        return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*v", "rho*e");
+      } else if constexpr (SimulationControl::kDimension == 3) {
+        return std::format(R"(|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|{:^13}|)", "Time", "rho", "rho*u", "rho*v", "rho*w",
+                           "rho*e");
+      }
     }
   }
 
@@ -72,13 +87,13 @@ struct CommandLine {
     }
   }
 
-  inline void initializeSolver(const Real delta_time, const int iteration_start, const int iteration_end,
-                               std::fstream& error_finout) {
-    this->delta_time_ = delta_time;
+  inline void initializeSolver(const TimeIntegration<SimulationControl>& time_integration, std::fstream& error_finout) {
+    this->delta_time_ = time_integration.delta_time_;
     if (this->is_open_) {
       std::cout << '\n';
       this->solver_progress_bar_.restart();
-      this->solver_progress_bar_.initialize(iteration_start, iteration_end, this->line_number_ + 2);
+      this->solver_progress_bar_.initialize(time_integration.iteration_start_, time_integration.iteration_end_,
+                                            this->line_number_ + 2);
     }
     if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       error_finout << this->getVariableList() << '\n'
@@ -88,7 +103,7 @@ struct CommandLine {
     } else {
       error_finout.seekg(0, std::ios::beg);
       std::string line;
-      for (int i = 0; i < iteration_start + 2 && std::getline(error_finout, line); i++) {
+      for (int i = 0; i < time_integration.iteration_start_ + 2 && std::getline(error_finout, line); i++) {
         ;
       }
     }

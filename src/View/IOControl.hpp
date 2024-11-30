@@ -93,11 +93,8 @@ struct ElementViewBasisFunction {
   }
 };
 
-template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-struct ElementViewSolver;
-
 template <typename ElementTrait, typename SimulationControl>
-struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Euler> {
+struct ElementViewSolver {
   ElementViewBasisFunction<ElementTrait> basis_function_;
   Eigen::Array<ViewVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
 
@@ -107,39 +104,20 @@ struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::Eul
                                            std::stringstream& raw_binary_ss);
 };
 
-template <typename ElementTrait, typename SimulationControl>
-struct ElementViewSolver<ElementTrait, SimulationControl, EquationModelEnum::NavierStokes> {
-  ElementViewBasisFunction<ElementTrait> basis_function_;
-  Eigen::Array<ViewVariable<ElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
-
-  inline void calcluateElementViewVariable(const ElementMesh<ElementTrait>& element_mesh,
-                                           const PhysicalModel<SimulationControl>& physical_model,
-                                           const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity,
-                                           std::stringstream& raw_binary_ss);
-};
-
-template <typename AdjacencyElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-struct AdjacencyElementViewSolver;
-
 template <typename AdjacencyElementTrait, typename SimulationControl>
-struct AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::Euler> {
+struct AdjacencyElementViewSolver {
   AdjacencyElementViewBasisFunction<AdjacencyElementTrait> basis_function_;
   Eigen::Array<ViewVariable<AdjacencyElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
 
-  inline void calcluateAdjacencyElementViewVariable(
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const PhysicalModel<SimulationControl>& physical_model, const ViewSolver<SimulationControl>& solver,
-      const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity, std::stringstream& raw_binary_ss);
-};
-
-template <typename AdjacencyElementTrait, typename SimulationControl>
-struct AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, EquationModelEnum::NavierStokes> {
-  AdjacencyElementViewBasisFunction<AdjacencyElementTrait> basis_function_;
-  Eigen::Array<ViewVariable<AdjacencyElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
+  template <typename ElementTrait>
+  inline void calcluateAdjacencyPerElementViewVariable(
+      const PhysicalModel<SimulationControl>& physical_model,
+      const ElementViewSolver<ElementTrait, SimulationControl>& element_view_solver, std::stringstream& raw_binary_ss,
+      Isize adjacency_sequence_in_parent, Isize parent_gmsh_type_number, Isize column);
 
   inline void calcluateAdjacencyElementViewVariable(
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const PhysicalModel<SimulationControl>& physical_model, const ViewSolver<SimulationControl>& solver,
+      const PhysicalModel<SimulationControl>& physical_model, const ViewSolver<SimulationControl>& view_solver,
       const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity, std::stringstream& raw_binary_ss);
 };
 
@@ -148,51 +126,31 @@ struct ViewSolverData;
 
 template <typename SimulationControl>
 struct ViewSolverData<SimulationControl, 1> {
-  AdjacencyElementViewSolver<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                             SimulationControl::kEquationModel>
-      point_;
-  ElementViewSolver<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                    SimulationControl::kEquationModel>
-      line_;
+  AdjacencyElementViewSolver<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl> point_;
+  ElementViewSolver<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
 };
 
 template <typename SimulationControl>
 struct ViewSolverData<SimulationControl, 2> {
-  AdjacencyElementViewSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                             SimulationControl::kEquationModel>
-      line_;
-  ElementViewSolver<TriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                    SimulationControl::kEquationModel>
-      triangle_;
-  ElementViewSolver<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                    SimulationControl::kEquationModel>
-      quadrangle_;
+  AdjacencyElementViewSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
+  ElementViewSolver<TriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> triangle_;
+  ElementViewSolver<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> quadrangle_;
 };
 
 template <typename SimulationControl>
 struct ViewSolverData<SimulationControl, 3> {
-  AdjacencyElementViewSolver<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                             SimulationControl::kEquationModel>
-      triangle_;
-  AdjacencyElementViewSolver<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                             SimulationControl::kEquationModel>
+  AdjacencyElementViewSolver<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> triangle_;
+  AdjacencyElementViewSolver<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl>
       quadrangle_;
-  ElementViewSolver<TetrahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                    SimulationControl::kEquationModel>
-      tetrahedron_;
-  ElementViewSolver<PyramidTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                    SimulationControl::kEquationModel>
-      pyramid_;
-  ElementViewSolver<HexahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl,
-                    SimulationControl::kEquationModel>
-      hexahedron_;
+  ElementViewSolver<TetrahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl> tetrahedron_;
+  ElementViewSolver<PyramidTrait<SimulationControl::kPolynomialOrder>, SimulationControl> pyramid_;
+  ElementViewSolver<HexahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl> hexahedron_;
 };
 
 template <typename SimulationControl>
 struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimension> {
   template <typename ElementTrait>
-  inline static ElementViewSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel> ViewSolver::*
-  getElement() {
+  inline static ElementViewSolver<ElementTrait, SimulationControl> ViewSolver::*getElement() {
     if constexpr (SimulationControl::kDimension == 1) {
       if constexpr (ElementTrait::kElementType == ElementEnum::Line) {
         return &ViewSolver::line_;
@@ -219,8 +177,8 @@ struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimens
   }
 
   template <typename AdjacencyElementTrait>
-  inline static AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, SimulationControl::kEquationModel>
-      ViewSolver::*getAdjacencyElement() {
+  inline static AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl> ViewSolver::*
+  getAdjacencyElement() {
     if constexpr (SimulationControl::kDimension == 1) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
         return &ViewSolver::point_;

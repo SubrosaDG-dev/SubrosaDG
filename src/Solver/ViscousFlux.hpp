@@ -60,25 +60,46 @@ inline void calculateViscousRawFlux(const PhysicalModel<SimulationControl>& phys
                                     const Variable<SimulationControl>& variable,
                                     const VariableGradient<SimulationControl>& variable_gradient,
                                     FluxVariable<SimulationControl>& viscous_raw_flux, const Isize column) {
-  viscous_raw_flux.template setVector<ConservedVariableEnum::Density>(
-      Eigen::Vector<Real, SimulationControl::kDimension>::Zero());
-  const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
-      variable_gradient.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
-  const Real tempurature = physical_model.calculateTemperatureFromInternalEnergy(
-      variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
-  const Real dynamic_viscosity = physical_model.calculateDynamicViscosity(tempurature);
-  const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
-      dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
-      2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient.trace() *
-          Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
-  viscous_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(viscous_stress);
-  const Eigen::Vector<Real, SimulationControl::kDimension>& velocity =
-      variable.template getVector<ComputationalVariableEnum::Velocity>(column);
-  const Real thermal_conductivity = physical_model.calculateThermalConductivity(tempurature);
-  const Eigen::Vector<Real, SimulationControl::kDimension>& tempurature_gradient =
-      variable_gradient.template getVector<PrimitiveVariableEnum::Temperature>(column);
-  viscous_raw_flux.template setVector<ConservedVariableEnum::DensityTotalEnergy>(
-      viscous_stress * velocity + thermal_conductivity * tempurature_gradient);
+  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+    viscous_raw_flux.template setVector<ConservedVariableEnum::Density>(
+        Eigen::Vector<Real, SimulationControl::kDimension>::Zero());
+    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
+        variable_gradient.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
+    const Real tempurature = physical_model.calculateTemperatureFromInternalEnergy(
+        variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
+    const Real dynamic_viscosity = physical_model.calculateDynamicViscosity(tempurature);
+    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
+        dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
+        2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient.trace() *
+            Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
+    viscous_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(viscous_stress);
+    const Eigen::Vector<Real, SimulationControl::kDimension>& velocity =
+        variable.template getVector<ComputationalVariableEnum::Velocity>(column);
+    const Real thermal_conductivity = physical_model.calculateThermalConductivity(tempurature);
+    const Eigen::Vector<Real, SimulationControl::kDimension>& tempurature_gradient =
+        variable_gradient.template getVector<PrimitiveVariableEnum::Temperature>(column);
+    viscous_raw_flux.template setVector<ConservedVariableEnum::DensityTotalEnergy>(
+        viscous_stress * velocity + thermal_conductivity * tempurature_gradient);
+  }
+  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+    viscous_raw_flux.template setVector<ConservedVariableEnum::Density>(
+        Eigen::Vector<Real, SimulationControl::kDimension>::Zero());
+    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
+        variable_gradient.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
+    const Real tempurature = physical_model.calculateTemperatureFromInternalEnergy(
+        variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
+    const Real dynamic_viscosity = physical_model.calculateDynamicViscosity(tempurature);
+    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
+        dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
+        2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient.trace() *
+            Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
+    viscous_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(viscous_stress);
+    const Real thermal_conductivity = physical_model.calculateThermalConductivity(tempurature);
+    const Eigen::Vector<Real, SimulationControl::kDimension>& tempurature_gradient =
+        variable_gradient.template getVector<PrimitiveVariableEnum::Temperature>(column);
+    viscous_raw_flux.template setVector<ConservedVariableEnum::DensityInternalEnergy>(thermal_conductivity *
+                                                                                      tempurature_gradient);
+  }
 }
 
 template <typename SimulationControl>

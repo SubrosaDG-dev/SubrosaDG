@@ -75,7 +75,8 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::SpecificFil
     for (Isize i = 0; i < element_mesh.number_; i++) {
       this->raw_binary_ss_.read(reinterpret_cast<char*>(initial_variable.data()),
                                 SimulationControl::kConservedVariableNumber * kBasisFunctionNumber * kRealSize);
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
+                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
         Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                       kBasisFunctionNumber>
             variable_gradient_basis_function_coefficient;
@@ -103,7 +104,8 @@ struct InitialConditionBase<SimulationControl, InitialConditionEnum::LastStep> {
       this->raw_binary_ss_.read(
           reinterpret_cast<char*>(variable(i).data()),
           SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber * kRealSize);
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::NavierStokes) {
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
+                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
         Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                       ElementTrait::kBasisFunctionNumber>
             variable_gradient_basis_function_coefficient;
@@ -119,7 +121,7 @@ template <typename SimulationControl>
 struct InitialCondition : InitialConditionBase<SimulationControl, SimulationControl::kInitialCondition> {};
 
 template <typename ElementTrait, typename SimulationControl>
-inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElementSolver(
+inline void ElementSolver<ElementTrait, SimulationControl>::initializeElementSolver(
     const ElementMesh<ElementTrait>& element_mesh, const PhysicalModel<SimulationControl>& physical_model,
     InitialCondition<SimulationControl>& initial_condition) {
   this->number_ = element_mesh.number_;
@@ -150,20 +152,33 @@ inline void ElementSolverBase<ElementTrait, SimulationControl>::initializeElemen
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
-inline void AdjacencyElementSolverBase<AdjacencyElementTrait, SimulationControl>::initializeAdjacencyElementSolver(
+inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::initializeAdjacencyElementSolver(
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
     const PhysicalModel<SimulationControl>& physical_model,
     const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition) {
   this->interior_number_ = adjacency_element_mesh.interior_number_;
   this->boundary_number_ = adjacency_element_mesh.boundary_number_;
   this->boundary_dummy_variable_.resize(this->boundary_number_);
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
+    shared(Eigen::Dynamic, adjacency_element_mesh, physical_model, boundary_condition)
+#endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < adjacency_element_mesh.boundary_number_; i++) {
     for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-      this->boundary_dummy_variable_(i).primitive_.col(j) =
-          boundary_condition
-              .at(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).gmsh_physical_index_)
-              ->function_(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_)
-                              .quadrature_node_coordinate_.col(j));
+      if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::Steady) {
+        this->boundary_dummy_variable_(i).primitive_.col(j) =
+            boundary_condition
+                .at(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).gmsh_physical_index_)
+                ->function_(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_)
+                                .quadrature_node_coordinate_.col(j));
+      } else if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::TimeVarying) {
+        this->boundary_dummy_variable_(i).primitive_.col(j) =
+            boundary_condition
+                .at(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).gmsh_physical_index_)
+                ->function_(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_)
+                                .quadrature_node_coordinate_.col(j),
+                            0.0_r);
+      }
     }
     this->boundary_dummy_variable_(i).calculateConservedFromPrimitive(physical_model);
     this->boundary_dummy_variable_(i).calculateComputationalFromPrimitive(physical_model);

@@ -16,7 +16,7 @@
 #include <Eigen/Core>
 #include <array>
 #include <format>
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -112,9 +112,8 @@ inline void View<SimulationControl>::writeAdjacencyElement(
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
     const PhysicalModel<SimulationControl>& physical_model, const ViewData<SimulationControl>& view_data,
     const Isize element_index, ViewSupplemental<SimulationControl>& view_supplemental) {
-  const AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl, SimulationControl::kEquationModel>&
-      adjacency_element_view_solver =
-          view_data.solver_.*(decltype(view_data.solver_)::template getAdjacencyElement<AdjacencyElementTrait>());
+  const AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>& adjacency_element_view_solver =
+      view_data.solver_.*(decltype(view_data.solver_)::template getAdjacencyElement<AdjacencyElementTrait>());
   constexpr std::array<int, AdjacencyElementTrait::kVtkElementNumber> kVtkTypeNumber{
       getElementVtkTypeNumber<AdjacencyElementTrait::kElementType>()};
   constexpr std::array<int, AdjacencyElementTrait::kVtkElementNumber> kVtkPerNodeNumber{
@@ -124,7 +123,7 @@ inline void View<SimulationControl>::writeAdjacencyElement(
   const Isize adjacency_element_gmsh_tag =
       mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize adjacency_element_index_per_type =
-      mesh_information.gmsh_tag_to_element_information_.at(adjacency_element_gmsh_tag).element_index_;
+      mesh_information.gmsh_tag_to_element_physical_information_.at(adjacency_element_gmsh_tag).element_index_;
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
@@ -159,7 +158,7 @@ inline void View<SimulationControl>::writeElement(const Isize physical_index, co
                                                   const ViewData<SimulationControl>& view_data,
                                                   const Isize element_index,
                                                   ViewSupplemental<SimulationControl>& view_supplemental) {
-  const ElementViewSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel>& element_view_solver =
+  const ElementViewSolver<ElementTrait, SimulationControl>& element_view_solver =
       view_data.solver_.*(decltype(view_data.solver_)::template getElement<ElementTrait>());
   constexpr std::array<int, ElementTrait::kVtkElementNumber> kVtkTypeNumber{
       getElementVtkTypeNumber<ElementTrait::kElementType>()};
@@ -170,7 +169,7 @@ inline void View<SimulationControl>::writeElement(const Isize physical_index, co
   const Isize element_gmsh_tag =
       mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
-      mesh_information.gmsh_tag_to_element_information_.at(element_gmsh_tag).element_index_;
+      mesh_information.gmsh_tag_to_element_physical_information_.at(element_gmsh_tag).element_index_;
   for (Isize i = 0; i < ElementTrait::kAllNodeNumber; i++) {
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =

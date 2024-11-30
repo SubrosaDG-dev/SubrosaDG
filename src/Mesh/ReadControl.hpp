@@ -44,7 +44,7 @@ struct PhysicalInformation {
   Isize vtk_node_number_{0};
 };
 
-struct ElementPhysicalInformation {
+struct PerElementPhysicalInformation {
   Isize gmsh_physical_index_;
   Isize element_index_;
 };
@@ -54,19 +54,16 @@ struct MeshInformation {
   std::vector<Isize> physical_dimension_;
   std::unordered_map<Isize, BoundaryConditionEnum> boundary_condition_type_;
   std::unordered_map<Isize, PhysicalInformation> physical_information_;
-  std::unordered_map<Isize, ElementPhysicalInformation> gmsh_tag_to_element_information_;
+  std::unordered_map<Isize, PerElementPhysicalInformation> gmsh_tag_to_element_physical_information_;
 };
 
-struct PerElementInformation {
+template <typename BaseTrait>
+struct PerElementMeshBase {
   Isize gmsh_tag_;
   Isize gmsh_physical_index_;
   Isize element_index_;
-};
-
-template <typename ElementTrait>
-struct PerElementMeshBase : PerElementInformation {
-  Eigen::Vector<Isize, ElementTrait::kAllNodeNumber> node_tag_;
-  Eigen::Vector<Real, ElementTrait::kQuadratureNumber> jacobian_determinant_;
+  Eigen::Vector<Isize, BaseTrait::kAllNodeNumber> node_tag_;
+  Eigen::Vector<Real, BaseTrait::kQuadratureNumber> jacobian_determinant_;
 };
 
 template <typename AdjacencyElementTrait>
@@ -90,7 +87,7 @@ struct PerElementMesh : PerElementMeshBase<ElementTrait> {
       local_mass_matrix_inverse_;
   Eigen::Matrix<Real, ElementTrait::kDimension * ElementTrait::kDimension, ElementTrait::kQuadratureNumber>
       jacobian_transpose_inverse_;
-  Real minimum_characteristic_length_;
+  Real minimum_edge_;
   Real inner_radius_;
 };
 
@@ -277,8 +274,8 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
         gmsh::model::mesh::getElements(element_types, element_tags, node_tags, physical_dimension, entity_tag);
         for (Usize j = 0; j < element_types.size(); j++) {
           for (const auto element_tag : element_tags[j]) {
-            this->information_.gmsh_tag_to_element_information_[static_cast<Isize>(element_tag)].gmsh_physical_index_ =
-                static_cast<Isize>(i);
+            this->information_.gmsh_tag_to_element_physical_information_[static_cast<Isize>(element_tag)]
+                .gmsh_physical_index_ = static_cast<Isize>(i);
           }
         }
       }

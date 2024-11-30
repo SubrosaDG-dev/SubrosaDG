@@ -14,7 +14,7 @@
 #define SUBROSA_DG_SIMULATION_CONTROL_HPP_
 
 #include <array>
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 #include <numeric>
 
 #include "Utils/BasicDataType.hpp"
@@ -1142,16 +1142,16 @@ using AdjacencyQuadrangleTrait = AdjacencyElementTrait<ElementEnum::Quadrangle, 
 
 template <int Dimension, EquationModelEnum EquationModelType>
 inline consteval int getConservedVariableNumber() {
-  if constexpr (EquationModelType == EquationModelEnum::Euler) {
-    return Dimension + 2;
-  }
-  if constexpr (EquationModelType == EquationModelEnum::NavierStokes) {
+  if constexpr (EquationModelType == EquationModelEnum::CompresibleEuler ||
+                EquationModelType == EquationModelEnum::CompresibleNS ||
+                EquationModelType == EquationModelEnum::IncompresibleEuler ||
+                EquationModelType == EquationModelEnum::IncompresibleNS) {
     return Dimension + 2;
   }
 }
 
 template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
-  requires(EquationModelType == EquationModelEnum::RANS)
+  requires(EquationModelType == EquationModelEnum::CompresibleRANS)
 inline consteval int getConservedVariableNumber() {
   if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
     return Dimension + 3;
@@ -1160,16 +1160,16 @@ inline consteval int getConservedVariableNumber() {
 
 template <int Dimension, EquationModelEnum EquationModelType>
 inline consteval int getComputationalVariableNumber() {
-  if constexpr (EquationModelType == EquationModelEnum::Euler) {
-    return Dimension + 3;
-  }
-  if constexpr (EquationModelType == EquationModelEnum::NavierStokes) {
+  if constexpr (EquationModelType == EquationModelEnum::CompresibleEuler ||
+                EquationModelType == EquationModelEnum::CompresibleNS ||
+                EquationModelType == EquationModelEnum::IncompresibleEuler ||
+                EquationModelType == EquationModelEnum::IncompresibleNS) {
     return Dimension + 3;
   }
 }
 
 template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
-  requires(EquationModelType == EquationModelEnum::RANS)
+  requires(EquationModelType == EquationModelEnum::CompresibleRANS)
 inline consteval int getComputationalVariableNumber() {
   if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
     return Dimension + 4;
@@ -1178,26 +1178,28 @@ inline consteval int getComputationalVariableNumber() {
 
 template <int Dimension, EquationModelEnum EquationModelType>
 inline consteval int getPrimitiveVariableNumber() {
-  if constexpr (EquationModelType == EquationModelEnum::Euler) {
-    return Dimension + 2;
-  }
-  if constexpr (EquationModelType == EquationModelEnum::NavierStokes) {
+  if constexpr (EquationModelType == EquationModelEnum::CompresibleEuler ||
+                EquationModelType == EquationModelEnum::CompresibleNS ||
+                EquationModelType == EquationModelEnum::IncompresibleEuler ||
+                EquationModelType == EquationModelEnum::IncompresibleNS) {
     return Dimension + 2;
   }
 }
 
 template <int Dimension, EquationModelEnum EquationModelType, TurbulenceModelEnum TurbulenceModelType>
-  requires(EquationModelType == EquationModelEnum::RANS)
+  requires(EquationModelType == EquationModelEnum::CompresibleRANS)
 inline consteval int getPrimitiveVariableNumber() {
   if constexpr (TurbulenceModelType == TurbulenceModelEnum::SA) {
     return Dimension + 3;
   }
 }
 
-template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, SourceTermEnum SourceTermType>
+template <DimensionEnum Dimension, PolynomialOrderEnum PolynomialOrder, BoundaryTimeEnum BoundaryTimeType,
+          SourceTermEnum SourceTermType>
 struct SolveControl {
   inline static constexpr int kDimension{magic_enum::enum_integer(Dimension)};
   inline static constexpr int kPolynomialOrder{magic_enum::enum_integer(PolynomialOrder)};
+  inline static constexpr BoundaryTimeEnum kBoundaryTime{BoundaryTimeType};
   inline static constexpr SourceTermEnum kSourceTerm{SourceTermType};
 };
 
@@ -1213,8 +1215,8 @@ struct NumericalControl {
 
 template <ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
           ConvectiveFluxEnum ConvectiveFluxType>
-struct EulerVariable {
-  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::Euler};
+struct CompresibleEulerVariable {
+  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::CompresibleEuler};
   inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
   inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
   inline static constexpr TransportModelEnum kTransportModel{TransportModelEnum::None};
@@ -1223,8 +1225,29 @@ struct EulerVariable {
 
 template <ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
           TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType>
-struct NavierStokesVariable {
-  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::NavierStokes};
+struct CompresibleNSVariable {
+  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::CompresibleNS};
+  inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
+  inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
+  inline static constexpr TransportModelEnum kTransportModel{TransportModelType};
+  inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
+  inline static constexpr ViscousFluxEnum kViscousFlux{ViscousFluxType};
+};
+
+template <ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          ConvectiveFluxEnum ConvectiveFluxType>
+struct IncompresibleEulerVariable {
+  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::IncompresibleEuler};
+  inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
+  inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
+  inline static constexpr TransportModelEnum kTransportModel{TransportModelEnum::None};
+  inline static constexpr ConvectiveFluxEnum kConvectiveFlux{ConvectiveFluxType};
+};
+
+template <ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
+          TransportModelEnum TransportModelType, ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType>
+struct IncompresibleNSVariable {
+  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::IncompresibleNS};
   inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
   inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
   inline static constexpr TransportModelEnum kTransportModel{TransportModelType};
@@ -1235,8 +1258,8 @@ struct NavierStokesVariable {
 template <ThermodynamicModelEnum ThermodynamicModelType, EquationOfStateEnum EquationOfStateType,
           TransportModelEnum TransportModelType, TurbulenceModelEnum TurbulenceModelType,
           ConvectiveFluxEnum ConvectiveFluxType, ViscousFluxEnum ViscousFluxType>
-struct RANSVariable {
-  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::RANS};
+struct CompresibleRANSVariable {
+  inline static constexpr EquationModelEnum kEquationModel{EquationModelEnum::CompresibleRANS};
   inline static constexpr ThermodynamicModelEnum kThermodynamicModel{ThermodynamicModelType};
   inline static constexpr EquationOfStateEnum kEquationOfState{EquationOfStateType};
   inline static constexpr TransportModelEnum kTransportModel{TransportModelType};
