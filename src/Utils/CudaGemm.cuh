@@ -17,16 +17,18 @@
 #include <Eigen/Core>
 #include <cuda/api.hpp>
 
-using real = float;
-// using real = double;
+// using real = float;
+using real = double;
 
-constexpr int kN = 128;
+constexpr int kN = 32;
 constexpr int kBatchSize = 10000;
 
+constexpr int kThreadsPerBlock = 32;
+
 struct Matrix {
-  cuda::memory::device::unique_span<real> d_a_{cuda::memory::device::make_unique_span<real>(kBatchSize * kN * kN)};
+  cuda::memory::device::unique_span<real> d_a_{cuda::memory::device::make_unique_span<real>(kBatchSize * 4 * kN)};
   cuda::memory::device::unique_span<real> d_b_{cuda::memory::device::make_unique_span<real>(kN * kN)};
-  cuda::memory::device::unique_span<real> d_c_{cuda::memory::device::make_unique_span<real>(kBatchSize * kN * kN)};
+  cuda::memory::device::unique_span<real> d_c_{cuda::memory::device::make_unique_span<real>(kBatchSize * 4 * kN)};
 
   Matrix();
 };

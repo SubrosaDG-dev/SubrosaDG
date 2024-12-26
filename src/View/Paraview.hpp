@@ -47,6 +47,7 @@ inline void View<SimulationControl>::getDataSetInfomatoin(std::vector<vtu11::Dat
   for (const auto variable : this->variable_type_) {
     if ((SimulationControl::kDimension >= 2) &&
         (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
+         variable == ViewVariableEnum::HeatFlux ||
          (variable == ViewVariableEnum::Vorticity && SimulationControl::kDimension == 3))) {
       data_set_information.emplace_back(magic_enum::enum_name(variable), vtu11::DataSetType::PointData, 3, 0);
     } else {
@@ -85,6 +86,8 @@ inline void View<SimulationControl>::calculateViewVariable(
     } else if (this->variable_type_[static_cast<Usize>(i)] == ViewVariableEnum::Vorticity &&
                SimulationControl::kDimension == 3) {
       handle_variable(i, ViewVariableEnum::VorticityX, ViewVariableEnum::VorticityY, ViewVariableEnum::VorticityZ);
+    } else if (this->variable_type_[static_cast<Usize>(i)] == ViewVariableEnum::HeatFlux) {
+      handle_variable(i, ViewVariableEnum::HeatFluxX, ViewVariableEnum::HeatFluxY, ViewVariableEnum::HeatFluxZ);
     } else {
       node_variable(i)(node_index) =
           view_variable.get(physical_model, this->variable_type_[static_cast<Usize>(i)], column);
@@ -127,7 +130,7 @@ inline void View<SimulationControl>::writeAdjacencyElement(
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
-        adjacency_element_mesh.element_(adjacency_element_index_per_type).node_coordinate_(Eigen::all, i);
+        adjacency_element_mesh.element_(adjacency_element_index_per_type).node_coordinate_(Eigen::placeholders::all, i);
     this->calculateViewVariable(physical_model,
                                 adjacency_element_view_solver.view_variable_(adjacency_element_index_per_type -
                                                                              adjacency_element_mesh.interior_number_),
@@ -173,7 +176,7 @@ inline void View<SimulationControl>::writeElement(const Isize physical_index, co
   for (Isize i = 0; i < ElementTrait::kAllNodeNumber; i++) {
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
-        element_mesh.element_(element_index_per_type).node_coordinate_(Eigen::all, i);
+        element_mesh.element_(element_index_per_type).node_coordinate_(Eigen::placeholders::all, i);
     this->calculateViewVariable(physical_model, element_view_solver.view_variable_(element_index_per_type),
                                 view_supplemental.node_variable_, i, view_supplemental.node_index_ + i);
   }

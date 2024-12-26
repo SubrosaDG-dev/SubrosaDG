@@ -30,7 +30,9 @@ add_subdirectory(delta_3d_cns)
 
 add_subdirectory(explosion_2d_ceuler)
 
-add_subdirectory(instability_2d_ceuler)
+add_subdirectory(karmanvortex_2d_cns)
+
+add_subdirectory(khinstability_2d_ceuler)
 
 add_subdirectory(kovasznay_2d_incns)
 
@@ -64,8 +66,14 @@ add_subdirectory(sod_1d_ceuler)
 
 add_subdirectory(sphere_3d_cns)
 
+add_subdirectory(square_3d_incns)
+
+add_subdirectory(taylorvortex_2d_incns)
+
 add_subdirectory(thermalcavity_2d_incns)
 
-add_subdirectory(vortex_2d_cns)
+add_subdirectory(thermalcavity_3d_incns)
+
+add_subdirectory(unsteadycavity_2d_incns)
 
 add_dependencies(all_ci all_examples)

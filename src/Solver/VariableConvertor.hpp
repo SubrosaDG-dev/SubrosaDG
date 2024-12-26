@@ -188,7 +188,7 @@ struct FluxVariable {
   template <ConservedVariableEnum ConservedVariableType>
   inline void setMatrix(
       const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value) {
-    this->variable_(Eigen::all,
+    this->variable_(Eigen::placeholders::all,
                     Eigen::seqN(Eigen::fix<getConservedVariableIndex<SimulationControl, ConservedVariableType>()>,
                                 Eigen::fix<SimulationControl::kDimension>)) = value;
   }
@@ -486,7 +486,7 @@ struct AdjacencyElementVariable : Variable<SimulationControl> {
                     kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                     kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                         1),
-                Eigen::all)
+                Eigen::placeholders::all)
             .transpose();
   }
 
@@ -717,7 +717,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
                       kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
                                                                   1] -
                           1),
-                  Eigen::all)
+                  Eigen::placeholders::all)
               .transpose();
     } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR1) {
       this->conserved_.noalias() =
@@ -729,7 +729,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
                       kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
                                                                   1] -
                           1),
-                  Eigen::all)
+                  Eigen::placeholders::all)
               .transpose();
     } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR2) {
       this->conserved_.noalias() =
@@ -743,7 +743,7 @@ struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
                       kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
                                                                   1] -
                           1),
-                  Eigen::all)
+                  Eigen::placeholders::all)
               .transpose();
     }
   }
@@ -924,6 +924,24 @@ struct ViewVariable : ViewVariableData<ElementTrait, SimulationControl, Simulati
                    column) -
                this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(
                    column);
+      }
+    case ViewVariableEnum::HeatFluxX:
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
+                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+        return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::Temperature, VariableGradientEnum::X>(
+            column);
+      }
+    case ViewVariableEnum::HeatFluxY:
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
+                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+        return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::Temperature, VariableGradientEnum::Y>(
+            column);
+      }
+    case ViewVariableEnum::HeatFluxZ:
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
+                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+        return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::Temperature, VariableGradientEnum::Z>(
+            column);
       }
     default:
       return 0.0_r;

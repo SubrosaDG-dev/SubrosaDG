@@ -362,6 +362,98 @@ struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::RiemannFarfie
 };
 
 template <typename SimulationControl>
+struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::VelocityInflow>
+    : BoundaryConditionBase<SimulationControl> {
+  inline void calculateBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
+                                        const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                        const Variable<SimulationControl>& left_quadrature_node_variable,
+                                        const Variable<SimulationControl>& right_quadrature_node_variable,
+                                        Variable<SimulationControl>& boundary_quadrature_node_variable,
+                                        const Isize column) const override {
+    const Real normal_velocity =
+        left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
+        normal_vector;
+    const Real normal_mach_number =
+        normal_velocity /
+        physical_model.calculateSoundSpeedFromDensityPressure(
+            left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
+            left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
+    boundary_quadrature_node_variable.computational_ = right_quadrature_node_variable.computational_.col(column);
+    if (normal_mach_number > -1.0_r) {  // Subsonic inflow
+      boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(
+          left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column), 0);
+    }
+  }
+
+  inline void calculateBoundaryGradientVariable(
+      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      [[maybe_unused]] const Variable<SimulationControl>& right_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable,
+      const Isize column) const override {
+    boundary_quadrature_node_volume_gradient_variable.conserved_ = left_quadrature_node_variable.conserved_.col(column);
+    boundary_quadrature_node_interface_gradient_variable.conserved_.setZero();
+  }
+
+  inline void modifyBoundaryVariable([[maybe_unused]] Variable<SimulationControl>& left_quadrature_node_variable,
+                                     VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
+                                     [[maybe_unused]] Variable<SimulationControl>& boundary_quadrature_node_variable,
+                                     VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient,
+                                     const Isize column) const override {
+    boundary_quadrature_node_variable_gradient.primitive_ =
+        left_quadrature_node_variable_gradient.primitive_.col(column);
+  }
+};
+
+template <typename SimulationControl>
+struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::PressureOutflow>
+    : BoundaryConditionBase<SimulationControl> {
+  inline void calculateBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
+                                        const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                        const Variable<SimulationControl>& left_quadrature_node_variable,
+                                        const Variable<SimulationControl>& right_quadrature_node_variable,
+                                        Variable<SimulationControl>& boundary_quadrature_node_variable,
+                                        const Isize column) const override {
+    const Real normal_velocity =
+        left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
+        normal_vector;
+    const Real normal_mach_number =
+        normal_velocity /
+        physical_model.calculateSoundSpeedFromDensityPressure(
+            left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
+            left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
+    boundary_quadrature_node_variable.computational_ = left_quadrature_node_variable.computational_.col(column);
+    if (normal_mach_number < 1.0_r) {  // Subsonic outflow
+      boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(
+          right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column), 0);
+    }
+  }
+
+  inline void calculateBoundaryGradientVariable(
+      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Variable<SimulationControl>& left_quadrature_node_variable,
+      [[maybe_unused]] const Variable<SimulationControl>& right_quadrature_node_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_volume_gradient_variable,
+      Variable<SimulationControl>& boundary_quadrature_node_interface_gradient_variable,
+      const Isize column) const override {
+    boundary_quadrature_node_volume_gradient_variable.conserved_ = left_quadrature_node_variable.conserved_.col(column);
+    boundary_quadrature_node_interface_gradient_variable.conserved_.setZero();
+  }
+
+  inline void modifyBoundaryVariable([[maybe_unused]] Variable<SimulationControl>& left_quadrature_node_variable,
+                                     VariableGradient<SimulationControl>& left_quadrature_node_variable_gradient,
+                                     [[maybe_unused]] Variable<SimulationControl>& boundary_quadrature_node_variable,
+                                     VariableGradient<SimulationControl>& boundary_quadrature_node_variable_gradient,
+                                     const Isize column) const override {
+    boundary_quadrature_node_variable_gradient.primitive_ =
+        left_quadrature_node_variable_gradient.primitive_.col(column);
+  }
+};
+
+template <typename SimulationControl>
 struct BoundaryCondition<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>
     : BoundaryConditionBase<SimulationControl> {
   inline void calculateBoundaryVariable(

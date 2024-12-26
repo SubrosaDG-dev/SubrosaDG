@@ -17,7 +17,7 @@ inline const std::string kExampleName{"naca0010_2d_incns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
@@ -35,15 +35,13 @@ int main(int argc, char* argv[]) {
   system.addInitialCondition(
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.0_r, 0.2_r * std::cos(30.0_deg), 0.2_r * std::sin(30.0_deg), 1.0_r};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.5_r, 0.0_r, 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
       "bc-1",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.0_r, 0.2_r * std::cos(30.0_deg), 0.2_r * std::sin(30.0_deg), 1.0_r};
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.5_r, 0.0_r, 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
       "bc-2",
@@ -53,8 +51,9 @@ int main(int argc, char* argv[]) {
       });
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
   system.setEquationOfState<SimulationControl::kEquationOfState>(10.0_r, 1.0_r);
-  system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 0.2_r / 1400.0_r);
+  system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 0.5_r / 900.0_r);
   system.setTimeIntegration(0.5_r);
+  system.setDeltaTime(2.5e-5_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
@@ -90,17 +89,36 @@ inline std::array<double, 99> naca0010_point_y_array{
 };
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
-  Eigen::Matrix<double, 2, 99, Eigen::RowMajor> naca0010_point;
-  naca0010_point.row(0) = Eigen::Map<Eigen::Matrix<double, 1, 99, Eigen::RowMajor>>(naca0010_point_x_array.data());
-  naca0010_point.row(1) = Eigen::Map<Eigen::Matrix<double, 1, 99, Eigen::RowMajor>>(naca0010_point_y_array.data());
+  Eigen::Matrix<double, 2, 2, Eigen::RowMajor> naca0010_edge_point_coordinate;
+  Eigen::Rotation2D<double> rotation(-30.0_deg);
+  naca0010_edge_point_coordinate << -0.5, 0.5, 0.0, 0.0;
+  naca0010_edge_point_coordinate = rotation.toRotationMatrix() * naca0010_edge_point_coordinate;
+  Eigen::Matrix<double, 2, 99, Eigen::RowMajor> naca0010_upper_point_coordinate;
+  naca0010_upper_point_coordinate.row(0) =
+      (Eigen::Map<Eigen::Matrix<double, 1, 99, Eigen::RowMajor>>(naca0010_point_x_array.data()).array() - 0.5).matrix();
+  naca0010_upper_point_coordinate.row(1) =
+      Eigen::Map<Eigen::Matrix<double, 1, 99, Eigen::RowMajor>>(naca0010_point_y_array.data());
+  naca0010_upper_point_coordinate = rotation.toRotationMatrix() * naca0010_upper_point_coordinate;
+  naca0010_upper_point_coordinate.row(0).array() += 1.0 - naca0010_edge_point_coordinate(0, 1);
+  naca0010_upper_point_coordinate.row(1).array() -= naca0010_edge_point_coordinate(1, 1);
+  Eigen::Matrix<double, 2, 99, Eigen::RowMajor> naca0010_lower_point_coordinate;
+  naca0010_lower_point_coordinate.row(0) =
+      (Eigen::Map<Eigen::Matrix<double, 1, 99, Eigen::RowMajor>>(naca0010_point_x_array.data()).array() - 0.5).matrix();
+  naca0010_lower_point_coordinate.row(1) =
+      -Eigen::Map<Eigen::Matrix<double, 1, 99, Eigen::RowMajor>>(naca0010_point_y_array.data());
+  naca0010_lower_point_coordinate = rotation.toRotationMatrix() * naca0010_lower_point_coordinate;
+  naca0010_lower_point_coordinate.row(0).array() += 1.0 - naca0010_edge_point_coordinate(0, 1);
+  naca0010_lower_point_coordinate.row(1).array() -= naca0010_edge_point_coordinate(1, 1);
+  naca0010_edge_point_coordinate.row(0).array() += 1.0 - naca0010_edge_point_coordinate(0, 1);
+  naca0010_edge_point_coordinate.row(1).array() -= naca0010_edge_point_coordinate(1, 1);
   Eigen::Matrix<double, 6, 3, Eigen::RowMajor> farfield_point_coordinate;
   // clang-format off
-  farfield_point_coordinate <<  1.0,   10.0, 0.0,
-                               -9.0,   0.0,  0.0,
-                                1.0,  -10.0, 0.0,
-                                10.0, -10.0, 0.0,
-                                10.0,  0.0,  0.0,
-                                10.0,  10.0, 0.0;
+  farfield_point_coordinate <<  1.0,                                 10.0,                         0.0,
+                               -10.0 * std::cos(30.0_deg) + 1.0,  10.0 * std::sin(30.0_deg), 0.0,
+                                1.0,                                -10.0,                         0.0,
+                                10.0,                               -10.0,                         0.0,
+                                10.0,                                0.0,                          0.0,
+                                10.0,                                10.0,                         0.0;
   // clang-format on
   Eigen::Array<int, 6, 1> farfield_point_tag;
   std::array<std::vector<int>, 2> naca0010_point_tag;
@@ -111,8 +129,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 4, 1> plane_surface_tag;
   std::array<std::vector<int>, 3> physical_group_tag;
   gmsh::model::add("naca0010_2d");
-  const int naca0010_leading_edge_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
-  const int naca0010_trailing_edge_point_tag = gmsh::model::geo::addPoint(1.0, 0.0, 0.0);
+  const int naca0010_leading_edge_point_tag =
+      gmsh::model::geo::addPoint(naca0010_edge_point_coordinate(0, 0), naca0010_edge_point_coordinate(1, 0), 0.0);
+  const int naca0010_trailing_edge_point_tag =
+      gmsh::model::geo::addPoint(naca0010_edge_point_coordinate(0, 1), naca0010_edge_point_coordinate(1, 1), 0.0);
   for (std::ptrdiff_t i = 0; i < 6; i++) {
     farfield_point_tag(i) = gmsh::model::geo::addPoint(farfield_point_coordinate(i, 0), farfield_point_coordinate(i, 1),
                                                        farfield_point_coordinate(i, 2));
@@ -121,8 +141,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     naca0010_point_tag[i].emplace_back(naca0010_leading_edge_point_tag);
   }
   for (std::ptrdiff_t i = 0; i < 99; i++) {
-    naca0010_point_tag[0].emplace_back(gmsh::model::geo::addPoint(naca0010_point(0, i), naca0010_point(1, i), 0.0));
-    naca0010_point_tag[1].emplace_back(gmsh::model::geo::addPoint(naca0010_point(0, i), -naca0010_point(1, i), 0.0));
+    naca0010_point_tag[0].emplace_back(
+        gmsh::model::geo::addPoint(naca0010_upper_point_coordinate(0, i), naca0010_upper_point_coordinate(1, i), 0.0));
+    naca0010_point_tag[1].emplace_back(
+        gmsh::model::geo::addPoint(naca0010_lower_point_coordinate(0, i), naca0010_lower_point_coordinate(1, i), 0.0));
   }
   for (std::size_t i = 0; i < 2; i++) {
     naca0010_point_tag[i].emplace_back(naca0010_trailing_edge_point_tag);
@@ -154,19 +176,19 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     plane_surface_tag(i) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i)});
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
-    gmsh::model::geo::mesh::setTransfiniteCurve(naca0010_line_tag(i), 60, "Bump", 0.20);
+    gmsh::model::geo::mesh::setTransfiniteCurve(naca0010_line_tag(i), 60, "Bump", 0.30);
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(i), 60);
   }
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 40, "Progression", 1.15);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 40, "Progression", -1.2);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 40, "Progression", 1.2);
-  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 40, "Progression", -1.15);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 40, "Progression", -1.2);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 40, "Progression", -1.2);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 40, "Progression", -1.2);
-  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 40, "Progression", -1.15);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 48, "Progression", 1.1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(3), 48, "Progression", -1.1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(4), 48, "Progression", 1.1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(5), 48, "Progression", -1.1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(0), 48, "Progression", -1.1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 48, "Progression", -1.1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 48, "Progression", -1.1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 48, "Progression", -1.1);
   for (std::ptrdiff_t i = 0; i < 4; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
     gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i));

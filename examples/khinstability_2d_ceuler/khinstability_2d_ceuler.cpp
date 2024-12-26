@@ -1,6 +1,6 @@
 /**
- * @file instability_2d_ceuler.cpp
- * @brief The source file for SubrosaDG example instability_2d_ceuler.
+ * @file khinstability_2d_ceuler.cpp
+ * @brief The source file for SubrosaDG example khinstability_2d_ceuler.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2024-06-06
@@ -12,7 +12,7 @@
 
 #include "SubrosaDG"
 
-inline const std::string kExampleName{"instability_2d_ceuler"};
+inline const std::string kExampleName{"khinstability_2d_ceuler"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
-  system.setMesh(kExampleDirectory / "instability_2d_ceuler.msh", generateMesh);
+  system.setMesh(kExampleDirectory / "khinstability_2d_ceuler.msh", generateMesh);
   // NOTE: https://arxiv.org/pdf/1704.04549
   system.addInitialCondition([](const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
                                  -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
 }
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
-  gmsh::model::add("instability_2d");
+  gmsh::model::add("khinstability_2d");
   gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   gmsh::model::geo::addPoint(1.0, 0.0, 0.0);
   gmsh::model::geo::addPoint(1.0, 1.0, 0.0);

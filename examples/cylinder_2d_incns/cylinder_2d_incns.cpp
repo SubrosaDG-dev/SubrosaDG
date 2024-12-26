@@ -16,16 +16,17 @@ inline const std::string kExampleName{"cylinder_2d_incns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
-using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3,
-                            SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
-    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
-                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
-                                SubrosaDG::TimeIntegrationEnum::SSPRK3>,
-    SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
-                                       SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
-                                       SubrosaDG::TransportModelEnum::Constant,
-                                       SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs, SubrosaDG::ViscousFluxEnum::BR2>>;
+// using SimulationControl = SubrosaDG::SimulationControl<
+//     SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3,
+//                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
+//     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
+//                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
+//                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
+//     SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
+//                                        SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
+//                                        SubrosaDG::TransportModelEnum::Constant,
+//                                        SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs,
+//                                        SubrosaDG::ViscousFluxEnum::BR2>>;
 
 // int main(int argc, char* argv[]) {
 //   static_cast<void>(argc);
@@ -93,21 +94,28 @@ int main(int argc, char* argv[]) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
         1.0_r, 4.0_r * 1.5_r * coordinate.y() * (0.41_r - coordinate.y()) / (0.41_r * 0.41_r), 0.0_r, 1.0_r};
   });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::VelocityInflow>(
       "bc-1",
       [](const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
             1.0_r, 4.0_r * 1.5_r * coordinate.y() * (0.41_r - coordinate.y()) / (0.41_r * 0.41_r), 0.0_r, 1.0_r};
       });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>(
       "bc-2",
+      [](const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
+          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
+        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+            1.0_r, 4.0_r * 1.5_r * coordinate.y() * (0.41_r - coordinate.y()) / (0.41_r * 0.41_r), 0.0_r, 1.0_r};
+      });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
+      "bc-3",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 1.0_r};
       });
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
-      "bc-3",
+      "bc-4",
       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 1.0_r};
@@ -116,6 +124,7 @@ int main(int argc, char* argv[]) {
   system.setEquationOfState<SimulationControl::kEquationOfState>(10.0_r, 1.0_r);
   system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 0.1_r / 100.0_r);
   system.setTimeIntegration(1.0_r);
+  system.setDeltaTime(1e-5_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
@@ -127,7 +136,7 @@ int main(int argc, char* argv[]) {
 }
 
 // using SimulationControl = SubrosaDG::SimulationControl<
-//     SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
+//     SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3,
 //                             SubrosaDG::BoundaryTimeEnum::TimeVarying, SubrosaDG::SourceTermEnum::None>,
 //     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
 //                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
@@ -149,7 +158,7 @@ int main(int argc, char* argv[]) {
 //         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r,
 //         0.0_r, 1.0_r};
 //       });
-//   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
+//   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::VelocityInflow>(
 //       "bc-1",
 //       [](const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
 //          const SubrosaDG::Real time) -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
@@ -159,8 +168,18 @@ int main(int argc, char* argv[]) {
 //                 (0.41_r * 0.41_r),
 //             0.0_r, 1.0_r};
 //       });
-//   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
+//   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::PressureOutflow>(
 //       "bc-2",
+//       [](const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+//          const SubrosaDG::Real time) -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
+//         return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+//             1.0_r,
+//             4.0_r * 1.5_r * std::sin(SubrosaDG::kPi * time / 8.0_r) * coordinate.y() * (0.41_r - coordinate.y()) /
+//                 (0.41_r * 0.41_r),
+//             0.0_r, 1.0_r};
+//       });
+//   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
+//       "bc-3",
 //       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
 //          [[maybe_unused]] const SubrosaDG::Real time)
 //           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
@@ -168,7 +187,7 @@ int main(int argc, char* argv[]) {
 //         0.0_r, 1.0_r};
 //       });
 //   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
-//       "bc-3",
+//       "bc-4",
 //       []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
 //          [[maybe_unused]] const SubrosaDG::Real time)
 //           -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
@@ -179,6 +198,7 @@ int main(int argc, char* argv[]) {
 //   system.setEquationOfState<SimulationControl::kEquationOfState>(10.0_r, 1.0_r);
 //   system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 0.1_r / 100.0_r);
 //   system.setTimeIntegration(1.0_r);
+//   system.setDeltaTime(2e-5_r);
 //   system.setViewConfig(kExampleDirectory, kExampleName);
 //   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
 //                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
@@ -207,7 +227,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Tensor<int, 2> cylinder_curve_loop_tag(2, 2);
   Eigen::Tensor<int, 2> farfield_plane_surface_tag(3, 3);
   Eigen::Tensor<int, 2> cylinder_plane_surface_tag(2, 2);
-  std::array<std::vector<int>, 4> physical_group_tag;
+  std::array<std::vector<int>, 5> physical_group_tag;
   gmsh::model::add("cylinder_2d");
   const int center_point_tag = gmsh::model::geo::addPoint(0.2, 0.2, 0.0);
   for (std::ptrdiff_t i = 0; i < 4; i++) {
@@ -328,11 +348,14 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     for (std::ptrdiff_t j = 0; j < 4; j++) {
       for (std::ptrdiff_t k = 0; k < 3; k++) {
-        if (i == 1 && (j == 0 || j == 3)) {
+        if (i == 1 && j == 0) {
           physical_group_tag[0].emplace_back(farfield_line_tag(k, j, i));
         }
-        if (i == 0 && (j == 0 || j == 3)) {
+        if (i == 1 && j == 3) {
           physical_group_tag[1].emplace_back(farfield_line_tag(k, j, i));
+        }
+        if ((i == 0) && (j == 0 || j == 3)) {
+          physical_group_tag[2].emplace_back(farfield_line_tag(k, j, i));
         }
       }
     }
@@ -340,7 +363,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     for (std::ptrdiff_t j = 0; j < 2; j++) {
       for (std::ptrdiff_t k = 0; k < 1; k++) {
-        physical_group_tag[2].emplace_back(cylinder_line_tag(k, j, i));
+        physical_group_tag[3].emplace_back(cylinder_line_tag(k, j, i));
       }
     }
   }
@@ -349,18 +372,19 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       if (i == 1 && j == 1) {
         continue;
       }
-      physical_group_tag[3].emplace_back(farfield_plane_surface_tag(j, i));
+      physical_group_tag[4].emplace_back(farfield_plane_surface_tag(j, i));
     }
   }
   for (std::ptrdiff_t i = 0; i < 2; i++) {
     for (std::ptrdiff_t j = 0; j < 2; j++) {
-      physical_group_tag[3].emplace_back(cylinder_plane_surface_tag(j, i));
+      physical_group_tag[4].emplace_back(cylinder_plane_surface_tag(j, i));
     }
   }
   gmsh::model::addPhysicalGroup(1, physical_group_tag[0], -1, "bc-1");
   gmsh::model::addPhysicalGroup(1, physical_group_tag[1], -1, "bc-2");
   gmsh::model::addPhysicalGroup(1, physical_group_tag[2], -1, "bc-3");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[3], -1, "vc-1");
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[3], -1, "bc-4");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[4], -1, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

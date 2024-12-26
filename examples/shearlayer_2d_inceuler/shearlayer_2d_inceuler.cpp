@@ -17,7 +17,7 @@ inline const std::string kExampleName{"shearlayer_2d_inceuler"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
@@ -45,6 +45,7 @@ int main(int argc, char* argv[]) {
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
   system.setEquationOfState<SimulationControl::kEquationOfState>(10.0_r, 1.0_r);
   system.setTimeIntegration(1.0_r);
+  system.setDeltaTime(5e-04_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});
@@ -66,10 +67,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::addLine(1, 4);
   gmsh::model::geo::addCurveLoop({1, 2, -3, -4});
   gmsh::model::geo::addPlaneSurface({1});
-  gmsh::model::geo::mesh::setTransfiniteCurve(1, 51);
-  gmsh::model::geo::mesh::setTransfiniteCurve(2, 51);
-  gmsh::model::geo::mesh::setTransfiniteCurve(3, 51);
-  gmsh::model::geo::mesh::setTransfiniteCurve(4, 51);
+  gmsh::model::geo::mesh::setTransfiniteCurve(1, 41);
+  gmsh::model::geo::mesh::setTransfiniteCurve(2, 41);
+  gmsh::model::geo::mesh::setTransfiniteCurve(3, 41);
+  gmsh::model::geo::mesh::setTransfiniteCurve(4, 41);
   gmsh::model::geo::mesh::setTransfiniteSurface(1);
   gmsh::model::geo::mesh::setRecombine(2, 1);
   gmsh::model::geo::synchronize();

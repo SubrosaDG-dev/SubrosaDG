@@ -1,6 +1,6 @@
 /**
- * @file vortex_2d_cns.cpp
- * @brief The main file of SubrosaDG vortex_2d_cns.
+ * @file karmanvortex_2d_cns.cpp
+ * @brief The main file of SubrosaDG karmanvortex_2d_cns.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2024-04-29
@@ -12,7 +12,7 @@
 
 #include "SubrosaDG"
 
-inline const std::string kExampleName{"vortex_2d_cns"};
+inline const std::string kExampleName{"karmanvortex_2d_cns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
@@ -92,7 +92,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 6, 1> curve_loop_tag;
   Eigen::Array<int, 6, 1> plane_surface_tag;
   std::array<std::vector<int>, 3> physical_group_tag;
-  gmsh::model::add("vortex_2d");
+  gmsh::model::add("karmanvortex_2d");
   const int center_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   for (std::ptrdiff_t i = 0; i < 6; i++) {
     farfield_point_tag(i) = gmsh::model::geo::addPoint(farfield_point_coordinate(i, 0), farfield_point_coordinate(i, 1),

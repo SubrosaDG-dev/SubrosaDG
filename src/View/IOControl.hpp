@@ -45,8 +45,8 @@ struct AdjacencyElementViewBasisFunction {
             .data()};
     Eigen::Matrix<double, 3, AdjacencyElementTrait::kAllNodeNumber> local_coord_gmsh_matrix{
         Eigen::Matrix<double, 3, AdjacencyElementTrait::kAllNodeNumber>::Zero()};
-    local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<AdjacencyElementTrait::kDimension>), Eigen::all) =
-        all_node_coordinate;
+    local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<AdjacencyElementTrait::kDimension>),
+                            Eigen::placeholders::all) = all_node_coordinate;
     std::vector<double> local_coord(local_coord_gmsh_matrix.data(),
                                     local_coord_gmsh_matrix.data() + local_coord_gmsh_matrix.size());
     std::vector<double> nodal_basis_functions{
@@ -70,8 +70,8 @@ struct ElementViewBasisFunction {
         getElementNodeCoordinate<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>().data()};
     Eigen::Matrix<double, 3, ElementTrait::kAllNodeNumber> local_coord_gmsh_matrix{
         Eigen::Matrix<double, 3, ElementTrait::kAllNodeNumber>::Zero()};
-    local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>), Eigen::all) =
-        all_node_coordinate;
+    local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>),
+                            Eigen::placeholders::all) = all_node_coordinate;
     std::vector<double> local_coord(local_coord_gmsh_matrix.data(),
                                     local_coord_gmsh_matrix.data() + local_coord_gmsh_matrix.size());
     std::vector<double> nodal_basis_functions{
@@ -204,6 +204,9 @@ struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimens
   inline void initialViewSolver(const Mesh<SimulationControl>& mesh);
 
   inline void initialViewSolver(const ViewSolver<SimulationControl>& view_solver);
+
+  inline void updateRawBinaryVersion(const Mesh<SimulationControl>& mesh, const std::filesystem::path& raw_binary_path,
+                                     std::stringstream& raw_binary_ss);
 };
 
 template <typename SimulationControl>
@@ -243,6 +246,7 @@ struct ViewSupplemental {
     for (Isize i = 0; const auto variable : variable_type) {
       if ((SimulationControl::kDimension >= 2) &&
           (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
+           variable == ViewVariableEnum::HeatFlux ||
            (variable == ViewVariableEnum::Vorticity && SimulationControl::kDimension == 3))) {
         this->node_variable_(i++).resize(3 * node_number);
       } else {

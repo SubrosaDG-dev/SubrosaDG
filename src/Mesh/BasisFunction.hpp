@@ -93,7 +93,7 @@ inline std::vector<double> getElementPerAdjacencyBasisFunction(
   }
   Eigen::Matrix<Real, 3, AdjacencyElementTrait::kQuadratureNumber> adjacency_local_coord =
       Eigen::Matrix<Real, 3, AdjacencyElementTrait::kQuadratureNumber>::Zero();
-  adjacency_local_coord(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>), Eigen::all) =
+  adjacency_local_coord(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>), Eigen::placeholders::all) =
       adjacency_basic_node_coordinate * basis_function_value.transpose();
   Eigen::Matrix<double, 3, AdjacencyElementTrait::kQuadratureNumber> adjacency_local_coord_double =
       adjacency_local_coord.template cast<double>();

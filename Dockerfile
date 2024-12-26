@@ -14,4 +14,4 @@ VCPKG_ROOT="/root/vcpkg"
 
 RUN git clone --depth 1 https://github.com/microsoft/vcpkg /root/vcpkg && \
 /root/vcpkg/bootstrap-vcpkg.sh && \
-/root/vcpkg/vcpkg install fmt magic-enum eigen3 zlib dbg-macro cuda-api-wrappers gtest
+/root/vcpkg/vcpkg install dbg-macro fmt magic-enum zlib cuda-api-wrappers gtest

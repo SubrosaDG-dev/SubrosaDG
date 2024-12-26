@@ -19,7 +19,6 @@
 #include <array>
 #include <cstddef>
 #include <filesystem>
-#include <functional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -282,10 +281,7 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
     }
   }
 
-  inline void initializeMesh(
-      const std::filesystem::path& mesh_file_path,
-      const std::function<void(const std::filesystem::path& mesh_file_path)>& generate_mesh_function) {
-    generate_mesh_function(mesh_file_path);
+  inline void initializeMesh(const std::filesystem::path& mesh_file_path) {
     gmsh::clear();
     gmsh::open(mesh_file_path);
     this->getNode();

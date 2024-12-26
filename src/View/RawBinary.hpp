@@ -23,6 +23,7 @@
 #include <fstream>
 #include <functional>
 #include <future>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -60,7 +61,7 @@ struct RawBinaryCompress {
     uLongf dest_len;
     raw_binary_fin.read(reinterpret_cast<char*>(&dest_len), static_cast<std::streamsize>(sizeof(uLongf)));
     raw_binary_fin.seekg(0, std::ios::end);
-    auto size = raw_binary_fin.tellg() - static_cast<std::streamoff>(sizeof(uLongf));
+    std::streamoff size = raw_binary_fin.tellg() - static_cast<std::streamoff>(sizeof(uLongf));
     raw_binary_fin.seekg(static_cast<std::streamoff>(sizeof(uLongf)));
     std::vector<Bytef> source(static_cast<std::size_t>(size));
     raw_binary_fin.read(reinterpret_cast<char*>(source.data()), size);
@@ -158,8 +159,6 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::wr
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::writeRawBinary(const Mesh<SimulationControl>& mesh,
                                                       const std::filesystem::path& raw_binary_path) {
-  this->raw_binary_ss_.write(reinterpret_cast<const char*>(this->node_artificial_viscosity_.data()),
-                             mesh.node_number_ * kRealSize);
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.writeElementRawBinary(this->raw_binary_ss_);
     this->point_.writeBoundaryAdjacencyElementRawBinary(mesh.point_, *this, this->raw_binary_ss_);
@@ -188,6 +187,8 @@ inline void Solver<SimulationControl>::writeRawBinary(const Mesh<SimulationContr
       this->quadrangle_.writeBoundaryAdjacencyElementRawBinary(mesh.quadrangle_, *this, this->raw_binary_ss_);
     }
   }
+  this->raw_binary_ss_.write(reinterpret_cast<const char*>(this->node_artificial_viscosity_.data()),
+                             mesh.node_number_ * kRealSize);
   this->write_raw_binary_future_ =
       std::async(std::launch::async, RawBinaryCompress::write, raw_binary_path, std::ref(this->raw_binary_ss_));
 }
@@ -357,7 +358,9 @@ inline void ViewSolver<SimulationControl>::calcluateViewVariable(const Mesh<Simu
                                                                  std::stringstream& raw_binary_ss) {
   RawBinaryCompress::read(raw_binary_path, raw_binary_ss);
   Eigen::Vector<Real, Eigen::Dynamic> node_artificial_viscosity(mesh.node_number_);
+  raw_binary_ss.seekg(-mesh.node_number_ * kRealSize, std::ios::end);
   raw_binary_ss.read(reinterpret_cast<char*>(node_artificial_viscosity.data()), mesh.node_number_ * kRealSize);
+  raw_binary_ss.seekg(0, std::ios::beg);
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.calcluateElementViewVariable(mesh.line_, physical_model, node_artificial_viscosity, raw_binary_ss);
     this->point_.calcluateAdjacencyElementViewVariable(mesh.point_, physical_model, *this, node_artificial_viscosity,
@@ -459,6 +462,22 @@ inline void ViewSolver<SimulationControl>::initialViewSolver(const ViewSolver<Si
       this->quadrangle_.view_variable_.resize(view_solver.quadrangle_.view_variable_.size());
     }
   }
+}
+
+template <typename SimulationControl>
+inline void ViewSolver<SimulationControl>::updateRawBinaryVersion(const Mesh<SimulationControl>& mesh,
+                                                                  const std::filesystem::path& raw_binary_path,
+                                                                  std::stringstream& raw_binary_ss) {
+  RawBinaryCompress::read(raw_binary_path, raw_binary_ss);
+  const std::streamsize num_chars_to_move = mesh.node_number_ * kRealSize;
+  std::vector<char> buffer(static_cast<Usize>(num_chars_to_move));
+  raw_binary_ss.read(buffer.data(), num_chars_to_move);
+  std::string remaining_content((std::istreambuf_iterator<char>(raw_binary_ss)), std::istreambuf_iterator<char>());
+  raw_binary_ss.str("");
+  raw_binary_ss.clear();
+  raw_binary_ss << remaining_content;
+  raw_binary_ss.write(buffer.data(), num_chars_to_move);
+  RawBinaryCompress::write(raw_binary_path, raw_binary_ss);
 }
 
 }  // namespace SubrosaDG

@@ -385,12 +385,6 @@ if(SUBROSA_DG_CUDA)
     list(APPEND SUBROSA_DG_LINK_LIBRARIES cuda-api-wrappers::runtime-and-driver)
 endif()
 
-# set for nvidia-cutlass
-if(SUBROSA_DG_CUDA)
-    find_package(NvidiaCutlass CONFIG REQUIRED)
-    list(APPEND SUBROSA_DG_LINK_LIBRARIES nvidia::cutlass::cutlass)
-endif()
-
 # set compilation definitions
 foreach(SUBROSA_DG_OPTION IN ITEMS
         SUBROSA_DG_DEVELOP

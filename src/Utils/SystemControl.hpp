@@ -57,7 +57,10 @@ struct System {
 
   inline void setMesh(const std::filesystem::path& mesh_file_path,
                       const std::function<void(const std::filesystem::path& mesh_file_path)>& generate_mesh_function) {
-    this->mesh_.initializeMesh(mesh_file_path, generate_mesh_function);
+    if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
+      generate_mesh_function(mesh_file_path);
+    }
+    this->mesh_.initializeMesh(mesh_file_path);
   }
 
   template <SourceTermEnum SourceTermType>
@@ -77,12 +80,10 @@ struct System {
     this->initial_condition_.raw_binary_path_ = initial_condition_file;
   }
 
-  inline void addInitialCondition(const int initial_condition_step) {
-    this->time_integration_.iteration_start_ = initial_condition_step;
-  }
-
   template <BoundaryConditionEnum BoundaryConditionType>
     requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
+             BoundaryConditionType == BoundaryConditionEnum::VelocityInflow ||
+             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow ||
              BoundaryConditionType == BoundaryConditionEnum::IsoThermalNonSlipWall ||
              BoundaryConditionType == BoundaryConditionEnum::AdiabaticNonSlipWall)
   inline void addBoundaryCondition(
@@ -99,6 +100,8 @@ struct System {
 
   template <BoundaryConditionEnum BoundaryConditionType>
     requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
+             BoundaryConditionType == BoundaryConditionEnum::VelocityInflow ||
+             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow ||
              BoundaryConditionType == BoundaryConditionEnum::IsoThermalNonSlipWall ||
              BoundaryConditionType == BoundaryConditionEnum::AdiabaticNonSlipWall)
   inline void addBoundaryCondition(const std::string& boundary_condition_name,
@@ -270,6 +273,26 @@ struct System {
       }
     }
     this->view_.finalizeViewFin();
+  }
+
+  inline void updateRawBinaryVersion() {
+    this->command_line_.initializeView(this->time_integration_.iteration_end_ / this->view_.io_interval_ -
+                                       this->time_integration_.iteration_start_ / this->view_.io_interval_);
+    ViewData<SimulationControl> view_data(this->mesh_);
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp parallel for num_threads(8) default(none) schedule(nonmonotonic : auto) firstprivate(view_data)
+#endif  // SUBROSA_DG_DEVELOP
+    for (int i = this->time_integration_.iteration_start_; i <= this->time_integration_.iteration_end_; i++) {
+      if (i % this->view_.io_interval_ == 0) {
+        view_data.raw_binary_path_ =
+            this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i);
+        view_data.solver_.updateRawBinaryVersion(this->mesh_, view_data.raw_binary_path_, view_data.raw_binary_ss_);
+#ifndef SUBROSA_DG_DEVELOP
+#pragma omp critical
+#endif  // SUBROSA_DG_DEVELOP
+        { this->command_line_.updateView(); }
+      }
+    }
   }
 
   explicit inline System() : command_line_(true) {}

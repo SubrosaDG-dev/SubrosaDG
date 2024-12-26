@@ -16,7 +16,7 @@ SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (DG) 
 - [x] Auto RawBinary File initialization
 - [x] Parallel Post-processing acceleration
 - [x] Compress RawBinary output(use zlib and async io)
-- [ ] Cuda gemm acceleration(use cutlass)
+- [ ] Cuda gemm acceleration
 - [x] Add SourceTerm (e.g. Boussinesq approximation)
 - [x] 3D Euler/Navier-Stokes equation
 - [x] Change modal basis function to Legendre polynomial

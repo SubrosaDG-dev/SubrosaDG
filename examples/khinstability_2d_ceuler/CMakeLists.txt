@@ -12,11 +12,11 @@
 
 cmake_minimum_required(VERSION 3.30)
 
-project(instability_2d_ceuler)
+project(khinstability_2d_ceuler)
 
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/instability_2d_ceuler)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/khinstability_2d_ceuler)
 
-add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/instability_2d_ceuler.cpp)
+add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/khinstability_2d_ceuler.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_EXAMPLES_RUNTIME_OUTPUT_DIRECTORY}"
 )

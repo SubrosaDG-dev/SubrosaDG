@@ -36,13 +36,23 @@ struct SourceTermBase<SimulationControl, SourceTermEnum::Boussinesq> {
                                   const Variable<SimulationControl>& quadrature_node_variable,
                                   FluxNormalVariable<SimulationControl>& source_flux, const Isize column) const {
     source_flux.normal_variable_.setZero();
-    source_flux.template setScalar<ConservedVariableEnum::MomentumY>(
-        quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) *
-        this->thermal_expansion_coefficient *
-        (physical_model.calculateTemperatureFromInternalEnergy(
-             quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column)) -
-         this->reference_temperature) *
-        this->kGravity);
+    if constexpr (SimulationControl::kDimension == 2) {
+      source_flux.template setScalar<ConservedVariableEnum::MomentumY>(
+          quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) *
+          this->thermal_expansion_coefficient *
+          (physical_model.calculateTemperatureFromInternalEnergy(
+               quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column)) -
+           this->reference_temperature) *
+          this->kGravity);
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      source_flux.template setScalar<ConservedVariableEnum::MomentumZ>(
+          quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) *
+          this->thermal_expansion_coefficient *
+          (physical_model.calculateTemperatureFromInternalEnergy(
+               quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column)) -
+           this->reference_temperature) *
+          this->kGravity);
+    }
   }
 };
 

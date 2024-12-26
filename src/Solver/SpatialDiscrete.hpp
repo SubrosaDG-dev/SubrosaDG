@@ -47,10 +47,10 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementArti
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> variable_density_high_order;
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> variable_density_all_order;
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                   \
-    shared(Eigen::all, Eigen::Dynamic, element_mesh, empirical_tolerance, artificial_viscosity_factor, \
-               kBasisFunctionNumber,                                                                   \
-               kPolynomialOrderArtificialViscosityTolerance) private(variable_density_high_order,      \
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                                 \
+    shared(Eigen::placeholders::all, Eigen::Dynamic, element_mesh, empirical_tolerance, artificial_viscosity_factor, \
+               kBasisFunctionNumber,                                                                                 \
+               kPolynomialOrderArtificialViscosityTolerance) private(variable_density_high_order,                    \
                                                                          variable_density_all_order)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
@@ -61,7 +61,7 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementArti
     } else {
       variable_density_high_order.noalias() =
           element_mesh.basis_function_.modal_value_(
-              Eigen::all, Eigen::seq(kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber - 1)) *
+              Eigen::placeholders::all, Eigen::seq(kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber - 1)) *
           this->element_(i)
               .variable_basis_function_coefficient_(1)(
                   0, Eigen::seq(kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber - 1))
@@ -127,7 +127,7 @@ inline void ElementSolver<ElementTrait, SimulationControl>::storeElementArtifici
     const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity) {
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::all, element_mesh, node_artificial_viscosity)
+    shared(Eigen::placeholders::all, element_mesh, node_artificial_viscosity)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
     for (Isize j = 0; j < ElementTrait::kBasicNodeNumber; j++) {
@@ -226,13 +226,14 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementQuad
     [[maybe_unused]] Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
         quadrature_node_source_temporary_variable;
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(                              \
-        Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, source_term, \
-            physical_model) private(quadrature_node_variable, quadrature_node_variable_volume_gradient,   \
-                                        convective_raw_flux, artificial_viscous_raw_flux, source_flux,    \
-                                        quadrature_node_artificial_viscosity,                             \
-                                        quadrature_node_jacobian_transpose_inverse,                       \
-                                        quadrature_node_temporary_variable, quadrature_node_source_temporary_variable)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(                                         \
+        Eigen::placeholders::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh,           \
+            source_term, physical_model) private(quadrature_node_variable, quadrature_node_variable_volume_gradient, \
+                                                     convective_raw_flux, artificial_viscous_raw_flux, source_flux,  \
+                                                     quadrature_node_artificial_viscosity,                           \
+                                                     quadrature_node_jacobian_transpose_inverse,                     \
+                                                     quadrature_node_temporary_variable,                             \
+                                                     quadrature_node_source_temporary_variable)
 #endif  // SUBROSA_DG_DEVELOP
     for (Isize i = 0; i < element_mesh.number_; i++) {
       quadrature_node_variable.get(element_mesh, *this, i);
@@ -262,7 +263,8 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementQuad
               element_mesh.element_(i).jacobian_determinant_(j) * element_mesh.quadrature_.weight_(j);
         }
         this->element_(i).variable_quadrature_(
-            Eigen::all, Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
+            Eigen::placeholders::all,
+            Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
             quadrature_node_temporary_variable;
         if constexpr (SimulationControl::kSourceTerm != SourceTermEnum::None) {
           source_term.calculateSourceTerm(physical_model, quadrature_node_variable, source_flux, j);
@@ -290,14 +292,15 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementQuad
     [[maybe_unused]] Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
         quadrature_node_source_temporary_variable;
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(                              \
-        Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh, source_term, \
-            physical_model) private(quadrature_node_variable, quadrature_node_variable_gradient,          \
-                                        quadrature_node_variable_volume_gradient, convective_raw_flux,    \
-                                        viscous_raw_flux, artificial_viscous_raw_flux, source_flux,       \
-                                        quadrature_node_artificial_viscosity,                             \
-                                        quadrature_node_jacobian_transpose_inverse,                       \
-                                        quadrature_node_temporary_variable, quadrature_node_source_temporary_variable)
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                                   \
+    shared(Eigen::placeholders::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh,          \
+               source_term, physical_model) private(quadrature_node_variable, quadrature_node_variable_gradient,       \
+                                                        quadrature_node_variable_volume_gradient, convective_raw_flux, \
+                                                        viscous_raw_flux, artificial_viscous_raw_flux, source_flux,    \
+                                                        quadrature_node_artificial_viscosity,                          \
+                                                        quadrature_node_jacobian_transpose_inverse,                    \
+                                                        quadrature_node_temporary_variable,                            \
+                                                        quadrature_node_source_temporary_variable)
 #endif  // SUBROSA_DG_DEVELOP
     for (Isize i = 0; i < element_mesh.number_; i++) {
       quadrature_node_variable.get(element_mesh, *this, i);
@@ -333,7 +336,8 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementQuad
               element_mesh.quadrature_.weight_(j);
         }
         this->element_(i).variable_quadrature_(
-            Eigen::all, Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
+            Eigen::placeholders::all,
+            Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
             quadrature_node_temporary_variable;
         if constexpr (SimulationControl::kSourceTerm != SourceTermEnum::None) {
           source_term.calculateSourceTerm(physical_model, quadrature_node_variable, source_flux, j);
@@ -382,8 +386,8 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementGard
                 SimulationControl::kDimension>
       quadrature_node_temporary_variable;
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                     \
-    shared(Eigen::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh) private( \
+#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                                   \
+    shared(Eigen::placeholders::all, Eigen::fix<SimulationControl::kDimension>, Eigen::Dynamic, element_mesh) private( \
             quadrature_node_variable, quadrature_node_jacobian_transpose_inverse, quadrature_node_temporary_variable)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < element_mesh.number_; i++) {
@@ -394,12 +398,14 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementGard
                                                                                ElementTrait::kDimension);
       for (Isize k = 0; k < SimulationControl::kConservedVariableNumber; k++) {
         quadrature_node_temporary_variable(
-            Eigen::seqN(k * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>), Eigen::all) =
+            Eigen::seqN(k * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>),
+            Eigen::placeholders::all) =
             quadrature_node_variable.conserved_(k, j) * quadrature_node_jacobian_transpose_inverse *
             element_mesh.element_(i).jacobian_determinant_(j) * element_mesh.quadrature_.weight_(j);
       }
       this->element_(i).variable_volume_gradient_quadrature_(
-          Eigen::all, Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
+          Eigen::placeholders::all,
+          Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
           quadrature_node_temporary_variable;
     }
   }
@@ -625,7 +631,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
             Eigen::seq(
                 kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                 kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] - 1),
-            Eigen::all) *
+            Eigen::placeholders::all) *
         solver.line_.element_(parent_index_each_type).variable_artificial_viscosity_;
   } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
     if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
@@ -639,7 +645,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::all) *
+              Eigen::placeholders::all) *
           solver.triangle_.element_(parent_index_each_type).variable_artificial_viscosity_;
     } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
       constexpr std::array<int, QuadrangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
@@ -652,7 +658,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::all) *
+              Eigen::placeholders::all) *
           solver.quadrangle_.element_(parent_index_each_type).variable_artificial_viscosity_;
     }
   } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
@@ -667,7 +673,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::all) *
+              Eigen::placeholders::all) *
           solver.tetrahedron_.element_(parent_index_each_type).variable_artificial_viscosity_;
     } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
       constexpr std::array<int, PyramidTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
@@ -680,7 +686,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::all) *
+              Eigen::placeholders::all) *
           solver.pyramid_.element_(parent_index_each_type).variable_artificial_viscosity_;
     }
   } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
@@ -695,7 +701,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::all) *
+              Eigen::placeholders::all) *
           solver.pyramid_.element_(parent_index_each_type).variable_artificial_viscosity_;
     } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
       constexpr std::array<int, HexahedronTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
@@ -708,7 +714,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::all) *
+              Eigen::placeholders::all) *
           solver.hexahedron_.element_(parent_index_each_type).variable_artificial_viscosity_;
     }
   }
@@ -1289,7 +1295,7 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementGard
       getElementAccumulateAdjacencyQuadratureNumber<ElementTrait::kElementType, SimulationControl::kPolynomialOrder>()};
 #ifndef SUBROSA_DG_DEVELOP
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, Eigen::all, element_mesh, kElementAccumulateAdjacencyQuadratureNumber)
+    shared(Eigen::Dynamic, Eigen::placeholders::all, element_mesh, kElementAccumulateAdjacencyQuadratureNumber)
 #endif  // SUBROSA_DG_DEVELOP
   for (Isize i = 0; i < this->number_; i++) {
     this->element_(i).variable_volume_gradient_residual_.noalias() =
@@ -1307,12 +1313,13 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementGard
         for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
           this->element_(i).variable_interface_gradient_residual_(j).noalias() =
               this->element_(i).variable_interface_gradient_adjacency_quadrature_(
-                  Eigen::all, Eigen::seq(kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j)],
-                                         kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j + 1)] - 1)) *
+                  Eigen::placeholders::all,
+                  Eigen::seq(kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j)],
+                             kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j + 1)] - 1)) *
               element_mesh.basis_function_.modal_adjacency_value_(
                   Eigen::seq(kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j)],
                              kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j + 1)] - 1),
-                  Eigen::all);
+                  Eigen::placeholders::all);
         }
       }
     }
