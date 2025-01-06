@@ -12,68 +12,14 @@
 
 cmake_minimum_required(VERSION 3.30)
 
-project(subrosa_dg_examples)
-
-set(CMAKE_EXAMPLES_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}")
+project(subrosa_dg_examples LANGUAGES CXX)
 
 add_custom_target(all_examples)
 
-add_subdirectory(blasius_3d_cns)
-
-add_subdirectory(cylinder_2d_ceuler)
-
-add_subdirectory(cylinder_2d_incns)
-
-add_subdirectory(cylinder_3d_incns)
-
-add_subdirectory(delta_3d_cns)
-
-add_subdirectory(explosion_2d_ceuler)
-
-add_subdirectory(karmanvortex_2d_cns)
-
-add_subdirectory(khinstability_2d_ceuler)
-
-add_subdirectory(kovasznay_2d_incns)
-
-add_subdirectory(lidcavity_2d_incns)
-
-add_subdirectory(lidcavity_3d_incns)
-
-add_subdirectory(naca0010_2d_incns)
-
-add_subdirectory(naca0012_2d_ceuler)
-
-add_subdirectory(naca0012_2d_cns)
-
-add_subdirectory(periodic_1d_ceuler)
-
-add_subdirectory(periodic_2d_ceuler)
-
-add_subdirectory(periodic_3d_ceuler)
-
-add_subdirectory(protuberance_3d_ceuler)
-
-add_subdirectory(rae2822_2d_cns)
-
-add_subdirectory(sedovblast_2d_ceuler)
-
-add_subdirectory(shearlayer_2d_inceuler)
-
-add_subdirectory(shuosher_1d_ceuler)
-
-add_subdirectory(sod_1d_ceuler)
-
-add_subdirectory(sphere_3d_cns)
-
-add_subdirectory(square_3d_incns)
-
-add_subdirectory(taylorvortex_2d_incns)
-
-add_subdirectory(thermalcavity_2d_incns)
-
-add_subdirectory(thermalcavity_3d_incns)
-
-add_subdirectory(unsteadycavity_2d_incns)
-
-add_dependencies(all_ci all_examples)
+foreach(FILE ${SUBROSA_DG_EXAMPLES})
+    get_filename_component(example_name ${FILE} NAME_WE)
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/${example_name})
+    add_executable(${example_name} ${FILE})
+    target_link_libraries(${example_name} lib::subrosa_dg)
+    add_dependencies(all_examples ${example_name})
+endforeach()

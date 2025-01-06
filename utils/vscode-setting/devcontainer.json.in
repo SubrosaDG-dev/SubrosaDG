@@ -13,12 +13,13 @@
         "subrosadg",
         "--network=bridge",
         "--runtime=nvidia",
-        "--gpus=\"device=0\"",
+        "--gpus=all",
         "--cap-add=SYS_PTRACE",
         "--security-opt",
         "seccomp=unconfined"
     ],
+    "remoteUser": "user"
     "shutdownAction": "none",
-    "workspaceFolder": "/root/SubrosaDG",
-    "workspaceMount": "source=${localWorkspaceFolder},target=/root/SubrosaDG,type=bind,consistency=delegated"
+    "workspaceFolder": "/home/user/SubrosaDG",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/user/SubrosaDG,type=bind,consistency=delegated"
 }

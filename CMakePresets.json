@@ -10,66 +10,89 @@
             "name": "Base",
             "hidden": true,
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build"
-        },
-        {
-            "name": "Build minimum in debug",
-            "displayName": "Build minimum in debug",
-            "description": "Build minimum in debug",
-            "inherits": "Base",
+            "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "SUBROSA_DG_BUILD_ALL": false,
-                "SUBROSA_DG_DEVELOP": true,
-                "SUBROSA_DG_CUDA": false
+                "SUBROSA_DG_DEVELOP": false,
+                "SUBROSA_DG_ONEAPI": false,
+                "SUBROSA_DG_CUDA": false,
+                "SUBROSA_DG_ROCM": false,
+                "SUBROSA_DG_BUILD_EXAMPLES": false,
+                "SUBROSA_DG_BUILD_DOCS": false
             }
         },
         {
-            "name": "Build all in debug",
-            "displayName": "Build all in debug",
-            "description": "Build all in debug",
+            "name": "Build develop in debug",
+            "displayName": "Build develop in debug",
+            "description": "Build develop in debug",
             "inherits": "Base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "SUBROSA_DG_BUILD_ALL": true,
-                "SUBROSA_DG_DEVELOP": true,
-                "SUBROSA_DG_CUDA": false
+                "SUBROSA_DG_DEVELOP": true
             }
         },
         {
-            "name": "Build all in release with debug info",
-            "displayName": "Build all in release with debug info",
-            "description": "Build all in release with debug info",
+            "name": "Build examples in debug",
+            "displayName": "Build examples in debug",
+            "description": "Build examples in debug",
+            "inherits": "Base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SUBROSA_DG_DEVELOP": true,
+                "SUBROSA_DG_BUILD_EXAMPLES": true
+            }
+        },
+        {
+            "name": "Build examples in release with debug info",
+            "displayName": "Build examples in release with debug info",
+            "description": "Build examples in release with debug info",
             "inherits": "Base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "SUBROSA_DG_BUILD_ALL": true,
-                "SUBROSA_DG_DEVELOP": false,
-                "SUBROSA_DG_CUDA": false
+                "SUBROSA_DG_BUILD_EXAMPLES": true
             }
         },
         {
-            "name": "Build all in release",
-            "displayName": "Build all in release",
-            "description": "Build all in release",
+            "name": "Build examples in release",
+            "displayName": "Build examples in release",
+            "description": "Build examples in release",
             "inherits": "Base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "SUBROSA_DG_BUILD_ALL": true,
-                "SUBROSA_DG_DEVELOP": false,
-                "SUBROSA_DG_CUDA": false
+                "SUBROSA_DG_BUILD_EXAMPLES": true
             }
         },
         {
-            "name": "Build all in cuda release",
-            "displayName": "Build all in cuda release",
-            "description": "Build all in cuda release",
+            "name": "Build examples in oneAPI release",
+            "displayName": "Build examples in oneAPI release",
+            "description": "Build examples in oneAPI release",
             "inherits": "Base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "SUBROSA_DG_BUILD_ALL": true,
-                "SUBROSA_DG_DEVELOP": false,
-                "SUBROSA_DG_CUDA": true
+                "SUBROSA_DG_ONEAPI": true,
+                "SUBROSA_DG_BUILD_EXAMPLES": true
+            }
+        },
+        {
+            "name": "Build examples in CUDA release",
+            "displayName": "Build examples in CUDA release",
+            "description": "Build examples in CUDA release",
+            "inherits": "Base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SUBROSA_DG_CUDA": true,
+                "SUBROSA_DG_BUILD_EXAMPLES": true
+            }
+        },
+        {
+            "name": "Build examples in ROCm release",
+            "displayName": "Build examples in ROCm release",
+            "description": "Build examples in ROCm release",
+            "inherits": "Base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SUBROSA_DG_ROCM": true,
+                "SUBROSA_DG_BUILD_EXAMPLES": true
             }
         },
         {

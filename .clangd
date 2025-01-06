@@ -6,7 +6,7 @@ If:
 CompileFlags:
   Remove: [
     -W*,
-    ]
+  ]
 Diagnostics:
   ClangTidy:
     Remove: [
@@ -19,3 +19,13 @@ Diagnostics:
       mpi-*,
       openmp-*,
     ]
+
+---
+
+CompileFlags:
+  Remove: [
+    -fsycl-targets=spir64_x86_64,
+    -fsycl-targets=spir64_gen,
+    -fsycl-targets=nvptx64-nvidia-cuda,
+    -fsycl-targets=amdgcn-amd-amdhsa
+  ]

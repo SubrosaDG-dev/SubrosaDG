@@ -15,20 +15,6 @@
         "magic-enum",
         "zlib"
     ],
-    "features": {
-        "cuda": {
-            "description": "Build with CUDA support",
-            "dependencies": [
-                "cuda-api-wrappers"
-            ]
-        },
-        "tests": {
-            "description": "Build tests",
-            "dependencies": [
-                "gtest"
-            ]
-        }
-    },
     "vcpkg-configuration": {
         "overlay-ports": [
             "cmake/vcpkg-ports/eigen3",

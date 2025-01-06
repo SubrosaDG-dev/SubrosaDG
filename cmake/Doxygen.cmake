@@ -1,6 +1,6 @@
 #[[
 # @file Doxygen.cmake
-# @brief The cmake file for generate doxygen document.
+# @brief The cmake file for generate Doxygen document.
 #
 # @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
 # @date 2022-11-01
@@ -15,9 +15,9 @@ set(DOXYGEN_OUT "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile")
 
 configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
 
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/doxygen)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/Doxygen)
 
-add_custom_target(doxygen-doc ALL
+add_custom_target(Doxygen-doc ALL
     COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Generating API documentation with Doxygen"

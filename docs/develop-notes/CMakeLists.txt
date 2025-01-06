@@ -12,7 +12,7 @@
 
 cmake_minimum_required(VERSION 3.30)
 
-project(subrosa_dg_develop_notes)
+project(subrosa_dg_develop_notes LANGUAGES NONE)
 
 set(DEVELOP_NOTES_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/docs/develop-notes")
 file(MAKE_DIRECTORY ${DEVELOP_NOTES_OUTPUT_DIRECTORY})
@@ -46,7 +46,5 @@ function(add_develop_note_with_bib notename notefile)
     )
     add_dependencies(all_develop_notes ${notename})
 endfunction()
-
-add_dependencies(all_docs all_develop_notes)
 
 add_subdirectory(dg_method)

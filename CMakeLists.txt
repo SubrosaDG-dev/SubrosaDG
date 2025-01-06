@@ -23,10 +23,6 @@ get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 string(SUBSTRING ${GIT_SHA1} 0 8 SHORT_SHA1)
 git_local_changes(GIT_CHANGE)
 
-# define color
-# NOTE: vscode output do not support ansi color until now
-define_colors()
-
 # extract version from version.h and set version string
 subrosa_dg_extract_version()
 set(SUBROSA_DG_VERSION_STRING "${SUBROSA_DG_VERSION} - ${SHORT_SHA1} - ${GIT_CHANGE}")
@@ -34,57 +30,31 @@ set(SUBROSA_DG_VERSION_STRING "${SUBROSA_DG_VERSION} - ${SHORT_SHA1} - ${GIT_CHA
 # set option for develop build
 option(SUBROSA_DG_DEVELOP "Build SubrosaDG in Develop" OFF)
 
-# set option for cuda
+# set option for gpu vendor
+option(SUBROSA_DG_ONEAPI "Build SubrosaDG with oneAPI" OFF)
 option(SUBROSA_DG_CUDA "Build SubrosaDG with CUDA" OFF)
+option(SUBROSA_DG_ROCM "Build SubrosaDG with ROCm" OFF)
 
 # set option to build different target
-option(SUBROSA_DG_BUILD_ALL "Build all artifacts" OFF)
 option(SUBROSA_DG_BUILD_EXAMPLES "Build SubrosaDG example cases" OFF)
-option(SUBROSA_DG_BUILD_TESTS "Build SubrosaDG tests" OFF)
 option(SUBROSA_DG_BUILD_DOCS "Build SubrosaDG document" OFF)
-
-#set vcpkg feature cuda
-if(SUBROSA_DG_CUDA)
-    list(APPEND VCPKG_MANIFEST_FEATURES "cuda")
-endif()
-
-# set vcpkg feature tests
-if(SUBROSA_DG_BUILD_TESTS OR SUBROSA_DG_BUILD_ALL)
-    list(APPEND VCPKG_MANIFEST_FEATURES "tests")
-endif()
 
 # set compiler
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    set(CMAKE_C_COMPILER "/usr/bin/clang")
-    set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+    set(COMPILER_PATH "/opt/intel/oneapi/compiler/latest/bin/compiler")
+    set(CMAKE_CXX_COMPILER "/opt/intel/oneapi/compiler/latest/bin/icpx")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm/bin/clang")
+    set(COMPILER_PATH "/opt/homebrew/opt/llvm/bin")
     set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm/bin/clang++")
 endif()
 
-# set cuda compiler
-if(SUBROSA_DG_CUDA)
-    set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
-    set(CMAKE_CUDA_HOST_COMPILER "/usr/bin/clang")
-endif()
-
 # set project
-project(subrosa_dg LANGUAGES C CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
-
-# enable cuda
-if(SUBROSA_DG_CUDA)
-    enable_language(CUDA)
-endif()
+project(subrosa_dg LANGUAGES CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
 
 # message error if build in source dir
 if(${PROJECT_SOURCE_DIR} STREQUAL ${PROJECT_BINARY_DIR})
     message(FATAL_ERROR "In-source builds not allowed. Please make a new directory (called a build directory) and run \
             CMake from there.")
-endif()
-
-# message error if not build with clang
-if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    message(FATAL_ERROR "This project is build with clang.")
 endif()
 
 # set vcpkg overlay ports path
@@ -95,11 +65,11 @@ set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_CURRENT_LIST_DIR}/cmake/vcpkg-triplets")
 
 # set vcpkg triplet
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    set(VCPKG_HOST_TRIPLET "x64-linux-dynamic")
-    set(VCPKG_TARGET_TRIPLET "x64-linux-dynamic")
+    set(VCPKG_HOST_TRIPLET "x64-linux-static")
+    set(VCPKG_TARGET_TRIPLET "x64-linux-static")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    set(VCPKG_HOST_TRIPLET "arm64-osx-dynamic")
-    set(VCPKG_TARGET_TRIPLET "arm64-osx-dynamic")
+    set(VCPKG_HOST_TRIPLET "arm64-osx-static")
+    set(VCPKG_TARGET_TRIPLET "arm64-osx-static")
 endif()
 
 # add vcpkg cmake
@@ -124,27 +94,10 @@ if(NOT cxx_std_23_support)
     message(FATAL_ERROR "SubrosaDG requires C++23 to compile.")
 endif()
 
-# set c and cxx standard for all target
-set(CMAKE_C_STANDARD 23)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS OFF)
+# set cxx standard for all target
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
-# set cuda standard
-if(SUBROSA_DG_CUDA)
-    set(CMAKE_CUDA_STANDARD 20)
-    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-    set(CMAKE_CUDA_EXTENSIONS OFF)
-    set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-    set(CMAKE_CUDA_ARCHITECTURES native)
-endif()
-
-# open color compiler information
-# NOTE: the output still not colorized due to ninja
-# https://github.com/ninja-build/ninja/wiki/FAQ#why-does-my-program-with-colored-output-not-have-color-under-ninja
-set(CMAKE_COLOR_DIAGNOSTICS ON)
 
 # set cmake output verbose on
 set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
@@ -152,8 +105,6 @@ set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
 # create .gdbinit and .lldbinit file
 configure_file(${PROJECT_SOURCE_DIR}/cmake/debuginit/.gdbinit.in
     ${PROJECT_SOURCE_DIR}/utils/gdb-pretty-print/.gdbinit @ONLY)
-configure_file(${PROJECT_SOURCE_DIR}/cmake/debuginit/.lldbinit.in
-    ${PROJECT_SOURCE_DIR}/utils/lldb-pretty-print/.lldbinit @ONLY)
 
 # create vscode launch.json and settings.json
 file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/.vscode)
@@ -169,60 +120,30 @@ configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/devcontainer.json.in
 configure_file(${PROJECT_SOURCE_DIR}/Dockerfile ${PROJECT_SOURCE_DIR}/.devcontainer/Dockerfile @ONLY)
 
 # use clang-tidy to check file
-if(SUBROSA_DG_DEVELOP)
-    find_program(CLANG_TIDY NAMES clang-tidy)
-    if(CLANG_TIDY)
-        include(${PROJECT_SOURCE_DIR}/cmake/ClangTidy.cmake)
-        message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
-    else()
-        message(WARNING "clang-tidy not found. Please install clang-tidy.")
-    endif()
+find_program(CLANG_TIDY NAMES clang-tidy PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
+if(CLANG_TIDY)
+    include(${PROJECT_SOURCE_DIR}/cmake/ClangTidy.cmake)
+    message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
+else()
+    message(WARNING "clang-tidy not found. Please install clang-tidy.")
 endif()
 
 # use clang-format to format file
-if(SUBROSA_DG_DEVELOP)
-    find_program(CLANG_FORMAT NAMES clang-format)
-    if(CLANG_FORMAT)
-        include(${PROJECT_SOURCE_DIR}/cmake/ClangFormat.cmake)
-        message_tool_version(clang-format "${CLANG_FORMAT}")
-    else()
-        message(WARNING "clang-format not found. Please install clang-format.")
-    endif()
+find_program(CLANG_FORMAT NAMES clang-format PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
+if(CLANG_FORMAT)
+    include(${PROJECT_SOURCE_DIR}/cmake/ClangFormat.cmake)
+    message(STATUS "Enable clang-format in ${CLANG_FORMAT}")
+else()
+    message(WARNING "clang-format not found. Please install clang-format.")
 endif()
 
 # use clangd for intellisense
-find_program(CLANGD NAMES clangd)
+find_program(CLANGD NAMES clangd PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
 if(CLANGD)
-    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-    message_tool_version(clangd "${CLANGD}")
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile commands" FORCE)
+    message(STATUS "Enable clangd in ${CLANGD}")
 else()
     message(WARNING "clangd not found. Please install clangd.")
-endif()
-
-# use iwyu to check header file
-if(SUBROSA_DG_DEVELOP)
-    find_program(IWYU NAMES include-what-you-use iwyu)
-    if(IWYU)
-        message_tool_version(include-what-you-use "${IWYU}")
-    else()
-        message(WARNING "include-what-you-use not found. Please install include-what-you-use.")
-    endif()
-    find_program(IWYU_TOOL NAMES iwyu_tool.py)
-    find_program(IWYU_FIX_TOOL NAMES fix_includes.py)
-    if(IWYU_TOOL AND IWYU_FIX_TOOL)
-        include(${PROJECT_SOURCE_DIR}/cmake/Iwyu.cmake)
-    endif()
-endif()
-
-# use gcovr to check coverage
-if(SUBROSA_DG_DEVELOP)
-    find_program(GCOVR NAMES gcovr)
-    if(GCOVR)
-        include(${PROJECT_SOURCE_DIR}/cmake/Gcovr.cmake)
-        message_tool_version(gcovr "${GCOVR}")
-    else()
-        message(WARNING "gcovr not found. Please install gcovr.")
-    endif()
 endif()
 
 # use ccache to speed up compilation
@@ -230,18 +151,9 @@ find_program(CCACHE NAMES ccache)
 if(CCACHE)
     set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE}")
     set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE}")
-    message_tool_version(ccache "${CCACHE}")
+    message(STATUS "Enable ccache in ${CCACHE}")
 else()
     message(WARNING "ccache not found. Please install ccache.")
-endif()
-
-# use clang lld to link
-find_program(LLD NAMES ld.lld)
-if(LLD)
-    set(CMAKE_LINKER "${LLD}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
-else()
-    message(FATAL_ERROR "lld not found. Please install lld.")
 endif()
 
 # set output path
@@ -254,89 +166,66 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(SUBROSA_DG_INCLUDE_DIRS)
 set(SUBROSA_DG_INCLUDE_SYSTEM_DIRS)
 set(SUBROSA_DG_LINK_LIBRARIES)
-set(SUBROSA_DG_CXX_COMPILE_OPTIONS)
-if(SUBROSA_DG_CUDA)
-    set(SUBROSA_DG_CUDA_COMPILE_OPTIONS)
-endif()
+set(SUBROSA_DG_LINK_OPTIONS)
+set(SUBROSA_DG_COMPILE_OPTIONS)
 set(SUBROSA_DG_COMPILE_DEFINITIONS)
 
 # set library
 add_library(${PROJECT_NAME} INTERFACE)
 add_library(lib::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
-# set source directory
-if(SUBROSA_DG_CUDA)
-    target_sources(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_CUDA_SOURCES})
-    set_property(TARGET ${PROJECT_NAME} PROPERTY INTERFACE_LINK_LIBRARIES "")
-endif()
-
-# check for interprocedural optimization
-if(NOT SUBROSA_DG_DEVELOP)
-    include(CheckIPOSupported)
-    check_ipo_supported(RESULT IPO_SUPPORT)
-    if(IPO_SUPPORT)
-        message(STATUS "Enable interprocedural optimization")
-        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
-    endif()
-endif()
-
 # set compilation flags
-set(SUBROSA_DG_WARNING_FLAGS)
-set(SUBROSA_DG_COVER_FLAGS)
+set(SUBROSA_DG_DEBUG_FLAGS)
+set(SUBROSA_DG_RELEASE_FLAGS)
+set(SUBROSA_DG_FLAGS)
 
-# set cxx compilation option
-set(SUBROSA_DG_CXX_DEBUG_FLAGS)
-set(SUBROSA_DG_CXX_RELEASE_FLAGS)
+# add compilation flags
+string(APPEND SUBROSA_DG_DEBUG_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation -Wno-narrowing ")
+string(APPEND SUBROSA_DG_RELEASE_FLAGS "-march=native ")
 
-# set cuda compilation option
-set(SUBROSA_DG_CUDA_DEBUG_FLAGS)
-set(SUBROSA_DG_CUDA_RELEASE_FLAGS)
-
-# add compilation option
-string(APPEND SUBROSA_DG_WARNING_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation -Wno-narrowing")
-# string(APPEND SUBROSA_DG_COVER_FLAGS "-fprofile-arcs -ftest-coverage")
-
-# add coverage compilation option
-# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
-
-# add cxx compilation option
-string(APPEND SUBROSA_DG_CXX_DEBUG_FLAGS "${SUBROSA_DG_WARNING_FLAGS} ${SUBROSA_DG_COVER_FLAGS}")
-string(APPEND SUBROSA_DG_CXX_RELEASE_FLAGS "-march=native")
-
-# add cuda compilation option
-if(SUBROSA_DG_CUDA)
-    string(APPEND SUBROSA_DG_CUDA_DEBUG_FLAGS "${SUBROSA_DG_WARNING_FLAGS}")
-    string(APPEND SUBROSA_DG_CUDA_RELEASE_FLAGS "")
+# add oneapi compilation flags
+if(SUBROSA_DG_ONEAPI)
+    string(APPEND SUBROSA_DG_DEBUG_FLAGS "-fsycl-targets=spir64_gen ")
+    string(APPEND SUBROSA_DG_RELEASE_FLAGS "-fsycl-targets=spir64_gen ")
+    list(APPEND SUBROSA_DG_LINK_OPTIONS -fsycl-targets=spir64_gen)
 endif()
 
-# set cxx compile option
-set(SUBROSA_DG_CXX_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CXX_DEBUG_FLAGS}> \
-    $<$<CONFIG:Release>:${SUBROSA_DG_CXX_RELEASE_FLAGS}>")
-string(REPLACE " " ";" SUBROSA_DG_CXX_FLAGS ${SUBROSA_DG_CXX_FLAGS})
-
-# set cuda compile option
+# add cuda compilation flags
 if(SUBROSA_DG_CUDA)
-    set(SUBROSA_DG_CUDA_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_CUDA_DEBUG_FLAGS}> \
-        $<$<CONFIG:Release>:${SUBROSA_DG_CUDA_RELEASE_FLAGS}>")
-    string(REPLACE " " ";" SUBROSA_DG_CUDA_FLAGS ${SUBROSA_DG_CUDA_FLAGS})
+    string(APPEND SUBROSA_DG_DEBUG_FLAGS "-fsycl-targets=nvptx64-nvidia-cuda ")
+    string(APPEND SUBROSA_DG_RELEASE_FLAGS "-fsycl-targets=nvptx64-nvidia-cuda ")
+    list(APPEND SUBROSA_DG_LINK_OPTIONS -fsycl-targets=nvptx64-nvidia-cuda)
 endif()
+
+# add rocm compilation flags
+if(SUBROSA_DG_ROCM)
+    string(APPEND SUBROSA_DG_DEBUG_FLAGS "-fsycl-targets=amdgcn-amd-amdhsa ")
+    string(APPEND SUBROSA_DG_RELEASE_FLAGS "-fsycl-targets=amdgcn-amd-amdhsa ")
+    list(APPEND SUBROSA_DG_LINK_OPTIONS -fsycl-targets=amdgcn-amd-amdhsa)
+endif()
+
+# set compile flags
+set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_DEBUG_FLAGS}> \
+    $<$<CONFIG:Release>:${SUBROSA_DG_RELEASE_FLAGS}>")
+string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
+
+# add compile option
+list(APPEND SUBROSA_DG_COMPILE_OPTIONS ${SUBROSA_DG_FLAGS})
 
 # create and include the cmake header
-configure_file(${PROJECT_SOURCE_DIR}/cmake/source/Cmake.hpp.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/Cmake.hpp @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/cmake/source/Cmake.cpp.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/Cmake.cpp @ONLY)
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
 
 # create and include the SubrosaDG header
-configure_file(${PROJECT_SOURCE_DIR}/cmake/source/SubrosaDG.in ${SUBROSA_DG_SOURCES_DIR}/SubrosaDG @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/cmake/source/SubrosaDG.cpp.in ${SUBROSA_DG_SOURCES_DIR}/SubrosaDG.cpp @ONLY)
 
 # add include directory
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/src)
 
-# add cxx compile option
-list(APPEND SUBROSA_DG_CXX_COMPILE_OPTIONS ${SUBROSA_DG_CXX_FLAGS})
-
-# add cuda compile option
-if(SUBROSA_DG_CUDA)
-    list(APPEND SUBROSA_DG_CUDA_COMPILE_OPTIONS ${SUBROSA_DG_CUDA_FLAGS})
+# find sycl
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    find_package(IntelSYCL REQUIRED PATHS /opt/intel/oneapi/compiler/latest/lib/cmake/IntelSYCL)
+    list(APPEND SUBROSA_DG_LINK_LIBRARIES IntelSYCL::SYCL_CXX)
 endif()
 
 # find tqdm-cpp
@@ -348,12 +237,20 @@ find_path(VTU11_DIR NAMES vtu11-cpp17.hpp PATHS ${PROJECT_SOURCE_DIR}/libs/vtu11
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${VTU11_DIR})
 
 # find dbg-macro
-find_path(DBG_MACRO_DIR NAMES dbg.h)
+find_path(DBG_MACRO_DIR NAMES dbg-macro/dbg.h)
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${DBG_MACRO_DIR})
+
+# find eigen3
+find_package(Eigen3 CONFIG REQUIRED)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES Eigen3::Eigen)
 
 # find fmt
 find_package(fmt CONFIG REQUIRED)
-list(APPEND SUBROSA_DG_LINK_LIBRARIES fmt::fmt-header-only)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES fmt::fmt)
+
+# find gmsh
+find_package(unofficial-gmsh CONFIG REQUIRED)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES unofficial::gmsh::lib)
 
 # find magic_enum
 find_package(magic_enum CONFIG REQUIRED)
@@ -363,32 +260,16 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES magic_enum::magic_enum)
 find_package(ZLIB REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES ZLIB::ZLIB)
 
-# find eigen3
-find_package(Eigen3 CONFIG REQUIRED)
-list(APPEND SUBROSA_DG_LINK_LIBRARIES Eigen3::Eigen)
-
-# find gmsh
-find_program(GMSH NAMES gmsh)
-find_path(GMSH_DIR NAMES gmsh.h)
-find_library(GMSH_LIBRARY NAMES libgmsh${CMAKE_SHARED_LIBRARY_SUFFIX})
-message_tool_version(Gmsh "${GMSH}")
-list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${GMSH_DIR})
-list(APPEND SUBROSA_DG_LINK_LIBRARIES ${GMSH_LIBRARY})
-
 # set for openmp
 find_package(OpenMP REQUIRED)
-list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_C OpenMP::OpenMP_CXX)
-
-# set for cuda-api-wrappers
-if(SUBROSA_DG_CUDA)
-    find_package(cuda-api-wrappers CONFIG REQUIRED)
-    list(APPEND SUBROSA_DG_LINK_LIBRARIES cuda-api-wrappers::runtime-and-driver)
-endif()
+list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
 
 # set compilation definitions
 foreach(SUBROSA_DG_OPTION IN ITEMS
         SUBROSA_DG_DEVELOP
-        SUBROSA_DG_CUDA)
+        SUBROSA_DG_ONEAPI
+        SUBROSA_DG_CUDA
+        SUBROSA_DG_ROCM)
     if(${SUBROSA_DG_OPTION})
         list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS ${SUBROSA_DG_OPTION})
         message(STATUS "Option: ${SUBROSA_DG_OPTION}: ON")
@@ -401,10 +282,8 @@ endforeach()
 target_include_directories(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME} SYSTEM INTERFACE ${SUBROSA_DG_INCLUDE_SYSTEM_DIRS})
 target_link_libraries(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_LINK_LIBRARIES})
-target_compile_options(${PROJECT_NAME} INTERFACE "$<$<COMPILE_LANGUAGE:CXX>:${SUBROSA_DG_CXX_COMPILE_OPTIONS}>")
-if(SUBROSA_DG_CUDA)
-    target_compile_options(${PROJECT_NAME} INTERFACE "$<$<COMPILE_LANGUAGE:CUDA>:${SUBROSA_DG_CUDA_COMPILE_OPTIONS}>")
-endif()
+target_link_options(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_LINK_OPTIONS})
+target_compile_options(${PROJECT_NAME} INTERFACE "${SUBROSA_DG_COMPILE_OPTIONS}")
 target_compile_definitions(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_DEFINITIONS})
 
 # TODO: use cmake install and XXXXConfig.cmake to link
@@ -418,20 +297,10 @@ if(SUBROSA_DG_DEVELOP)
     target_link_libraries(develop lib::subrosa_dg)
 endif()
 
-# all_ci = all_examples + all_tests
-add_custom_target(all_ci COMMENT "Build all examples and tests")
-
 # build examples
-if(SUBROSA_DG_BUILD_EXAMPLES OR SUBROSA_DG_BUILD_ALL)
+if(SUBROSA_DG_BUILD_EXAMPLES)
     add_subdirectory(examples)
     message(STATUS "Generating examples")
-endif()
-
-# build tests
-if(SUBROSA_DG_BUILD_TESTS OR SUBROSA_DG_BUILD_ALL)
-    enable_testing()
-    add_subdirectory(tests)
-    message(STATUS "Generating tests")
 endif()
 
 # build documents

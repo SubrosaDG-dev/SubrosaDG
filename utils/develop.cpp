@@ -10,7 +10,7 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#include "SubrosaDG"  // IWYU pragma: keep
+#include "SubrosaDG.cpp"
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
