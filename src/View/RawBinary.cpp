@@ -432,38 +432,6 @@ inline void ViewSolver<SimulationControl>::initialViewSolver(const Mesh<Simulati
 }
 
 template <typename SimulationControl>
-inline void ViewSolver<SimulationControl>::initialViewSolver(const ViewSolver<SimulationControl>& view_solver) {
-  if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.view_variable_.resize(view_solver.line_.view_variable_.size());
-    this->point_.view_variable_.resize(view_solver.point_.view_variable_.size());
-  } else if constexpr (SimulationControl::kDimension == 2) {
-    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.view_variable_.resize(view_solver.triangle_.view_variable_.size());
-    }
-    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.view_variable_.resize(view_solver.quadrangle_.view_variable_.size());
-    }
-    this->line_.view_variable_.resize(view_solver.line_.view_variable_.size());
-  } else if constexpr (SimulationControl::kDimension == 3) {
-    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-      this->tetrahedron_.view_variable_.resize(view_solver.tetrahedron_.view_variable_.size());
-    }
-    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-      this->pyramid_.view_variable_.resize(view_solver.pyramid_.view_variable_.size());
-    }
-    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-      this->hexahedron_.view_variable_.resize(view_solver.hexahedron_.view_variable_.size());
-    }
-    if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.view_variable_.resize(view_solver.triangle_.view_variable_.size());
-    }
-    if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.view_variable_.resize(view_solver.quadrangle_.view_variable_.size());
-    }
-  }
-}
-
-template <typename SimulationControl>
 inline void ViewSolver<SimulationControl>::updateRawBinaryVersion(const Mesh<SimulationControl>& mesh,
                                                                   const std::filesystem::path& raw_binary_path,
                                                                   std::stringstream& raw_binary_ss) {

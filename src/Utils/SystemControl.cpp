@@ -19,10 +19,7 @@
 #include <functional>
 #include <future>
 #include <iostream>
-#include <memory>
-#include <string>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -49,7 +46,7 @@ struct System {
   Mesh<SimulationControl> mesh_;
   SourceTerm<SimulationControl> source_term_;
   PhysicalModel<SimulationControl> physical_model_;
-  std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>> boundary_condition_;
+  BoundaryCondition<SimulationControl> boundary_condition_;
   InitialCondition<SimulationControl> initial_condition_;
   TimeIntegration<SimulationControl> time_integration_;
   Solver<SimulationControl> solver_;
@@ -70,68 +67,14 @@ struct System {
     this->source_term_.reference_temperature = reference_temperature;
   }
 
-  inline void addInitialCondition(
-      const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
-          const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>& initial_condition_function) {
-    this->initial_condition_.function_ = initial_condition_function;
-  }
-
   inline void addInitialCondition(const std::filesystem::path& initial_condition_file) {
     this->initial_condition_.raw_binary_path_ = initial_condition_file;
   }
 
   template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
-             BoundaryConditionType == BoundaryConditionEnum::VelocityInflow ||
-             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow ||
-             BoundaryConditionType == BoundaryConditionEnum::IsoThermalNonSlipWall ||
-             BoundaryConditionType == BoundaryConditionEnum::AdiabaticNonSlipWall)
-  inline void addBoundaryCondition(
-      const std::string& boundary_condition_name,
-      const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
-          const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>& boundary_condition_function) {
-    const auto boundary_condition_index =
-        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
-    this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
-    this->boundary_condition_[boundary_condition_index] =
-        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
-    this->boundary_condition_[boundary_condition_index]->function_ = boundary_condition_function;
-  }
-
-  template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::RiemannFarfield ||
-             BoundaryConditionType == BoundaryConditionEnum::VelocityInflow ||
-             BoundaryConditionType == BoundaryConditionEnum::PressureOutflow ||
-             BoundaryConditionType == BoundaryConditionEnum::IsoThermalNonSlipWall ||
-             BoundaryConditionType == BoundaryConditionEnum::AdiabaticNonSlipWall)
-  inline void addBoundaryCondition(const std::string& boundary_condition_name,
-                                   const std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
-                                       const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate,
-                                       const Real time)>& boundary_condition_function) {
-    const auto boundary_condition_index =
-        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
-    this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
-    this->boundary_condition_[boundary_condition_index] =
-        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
-    this->boundary_condition_[boundary_condition_index]->function_ = boundary_condition_function;
-  }
-
-  template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::AdiabaticSlipWall)
-  inline void addBoundaryCondition(const std::string& boundary_condition_name) {
-    const auto boundary_condition_index =
-        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
-    this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
-    this->boundary_condition_[boundary_condition_index] =
-        std::make_unique<BoundaryCondition<SimulationControl, BoundaryConditionType>>();
-  }
-
-  template <BoundaryConditionEnum BoundaryConditionType>
-    requires(BoundaryConditionType == BoundaryConditionEnum::Periodic)
-  inline void addBoundaryCondition(const std::string& boundary_condition_name) {
-    const auto boundary_condition_index =
-        static_cast<Isize>(this->mesh_.information_.physical_.find_index(boundary_condition_name));
-    this->mesh_.information_.boundary_condition_type_[boundary_condition_index] = BoundaryConditionType;
+  inline void addBoundaryCondition(const Isize physical_index) {
+    this->mesh_.information_.physical_[static_cast<Usize>(physical_index) - 1].boundary_condition_type_ =
+        BoundaryConditionType;
   }
 
   template <ThermodynamicModelEnum ThermodynamicModelType>
@@ -250,54 +193,68 @@ struct System {
   }
 
   inline void view(const bool delete_dir = true) {
-    this->command_line_.initializeView(this->time_integration_.iteration_end_ / this->view_.io_interval_ -
-                                       this->time_integration_.iteration_start_ / this->view_.io_interval_);
+    this->command_line_.initializeView(
+        (this->time_integration_.iteration_end_ - this->time_integration_.iteration_start_) / this->view_.io_interval_ +
+        1);
     this->view_.initializeViewFin(delete_dir, this->time_integration_.iteration_end_);
-    ViewData<SimulationControl> view_data(this->mesh_);
-    if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
-      view_data.raw_binary_path_ =
-          this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, 0);
-      this->view_.stepView(0, this->mesh_, this->physical_model_, view_data);
-    }
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for num_threads(8) default(none) schedule(nonmonotonic : auto) firstprivate(view_data)
+    oneapi::tbb::task_arena arena(10);
+#else   // SUBROSA_DG_DEVELOP
+    oneapi::tbb::task_arena arena(1);
 #endif  // SUBROSA_DG_DEVELOP
-    for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
-      if (i % this->view_.io_interval_ == 0) {
-        view_data.raw_binary_path_ =
-            this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i);
-        this->view_.stepView(i, this->mesh_, this->physical_model_, view_data);
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp critical
-#endif  // SUBROSA_DG_DEVELOP
-        {
-          this->command_line_.updateView();
-        }
-      }
-    }
+    arena.execute([&] {
+      tbb::spin_mutex mtx;
+      tbb::parallel_for(tbb::blocked_range<Isize>(this->time_integration_.iteration_start_,
+                                                  this->time_integration_.iteration_end_ + 1),
+                        [&](const tbb::blocked_range<Isize>& range) {
+                          for (Isize i = range.begin(); i != range.end(); i++) {
+                            ViewData<SimulationControl> view_data(this->mesh_);
+                            if (i % this->view_.io_interval_ == 0) {
+                              view_data.raw_binary_path_ =
+                                  this->view_.output_directory_ /
+                                  std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i);
+                              this->view_.stepView(i, this->mesh_, this->physical_model_, view_data);
+                              {
+                                tbb::spin_mutex::scoped_lock lock(mtx);
+                                this->command_line_.updateView();
+                              }
+                            }
+                          }
+                        });
+    });
     this->view_.finalizeViewFin();
   }
 
   inline void updateRawBinaryVersion() {
-    this->command_line_.initializeView(this->time_integration_.iteration_end_ / this->view_.io_interval_ -
-                                       this->time_integration_.iteration_start_ / this->view_.io_interval_);
-    ViewData<SimulationControl> view_data(this->mesh_);
+    this->command_line_.initializeView(
+        (this->time_integration_.iteration_end_ - this->time_integration_.iteration_start_) / this->view_.io_interval_ +
+        1);
 #ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for num_threads(8) default(none) schedule(nonmonotonic : auto) firstprivate(view_data)
+    oneapi::tbb::task_arena arena(10);
+#else   // SUBROSA_DG_DEVELOP
+    oneapi::tbb::task_arena arena(1);
 #endif  // SUBROSA_DG_DEVELOP
-    for (int i = this->time_integration_.iteration_start_; i <= this->time_integration_.iteration_end_; i++) {
-      if (i % this->view_.io_interval_ == 0) {
-        view_data.raw_binary_path_ =
-            this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i);
-        view_data.solver_.updateRawBinaryVersion(this->mesh_, view_data.raw_binary_path_, view_data.raw_binary_ss_);
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp critical
-#endif  // SUBROSA_DG_DEVELOP
-        {
-          this->command_line_.updateView();
-        }
-      }
-    }
+    arena.execute([&] {
+      tbb::spin_mutex mtx;
+      tbb::parallel_for(tbb::blocked_range<Isize>(this->time_integration_.iteration_start_,
+                                                  this->time_integration_.iteration_end_ + 1),
+                        [&](const tbb::blocked_range<Isize>& range) {
+                          for (Isize i = range.begin(); i != range.end(); i++) {
+                            ViewData<SimulationControl> view_data(this->mesh_);
+                            if (i % this->view_.io_interval_ == 0) {
+                              view_data.raw_binary_path_ =
+                                  this->view_.output_directory_ /
+                                  std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i);
+                              view_data.solver_.updateRawBinaryVersion(this->mesh_, view_data.raw_binary_path_,
+                                                                       view_data.raw_binary_ss_);
+                              {
+                                tbb::spin_mutex::scoped_lock lock(mtx);
+                                this->command_line_.updateView();
+                              }
+                            }
+                          }
+                        });
+    });
   }
 
   explicit inline System() : command_line_(true) {}

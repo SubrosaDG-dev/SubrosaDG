@@ -7,7 +7,7 @@ SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (DG) 
 - [x] Gmsh mesh reader(Reconstruct adjacencies)
 - [x] 1D Euler equation(Central scheme)
 - [x] Refactor all operators to Gemm-like form(Use Eigen)
-- [x] CPU acceleration(Use OpenMP)
+- [x] CPU acceleration(Use TBB)
 - [x] 2D Euler equation(Roe scheme)
 - [x] 2D Euler equation(Lax-Friedrichs scheme and HLLC scheme)
 - [x] Riemann invariant for boundary condition

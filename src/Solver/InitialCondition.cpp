@@ -15,10 +15,7 @@
 
 #include <Eigen/Core>
 #include <filesystem>
-#include <functional>
-#include <memory>
 #include <sstream>
-#include <unordered_map>
 
 #include "Mesh/ReadControl.cpp"
 #include "Solver/BoundaryCondition.cpp"
@@ -35,11 +32,11 @@ namespace SubrosaDG {
 
 template <typename SimulationControl>
 struct InitialCondition {
-  std::function<Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate)>
-      function_;
   std::filesystem::path raw_binary_path_;
   std::stringstream raw_binary_ss_;
+
+  inline Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber> calculatePrimitiveFromCoordinate(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const;
 
   template <typename ElementTrait>
   void getVariableBasisFunctionCoefficient(
@@ -94,33 +91,29 @@ inline void ElementSolver<ElementTrait, SimulationControl>::initializeElementSol
   this->number_ = element_mesh.number_;
   this->element_.resize(this->number_);
   if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::Function) {
-    ElementVariable<ElementTrait, SimulationControl> variable;
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, element_mesh, physical_model, initial_condition) private(variable)
-#endif  // SUBROSA_DG_DEVELOP
-    for (Isize i = 0; i < this->number_; i++) {
-      for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-        variable.primitive_.col(j) =
-            initial_condition.function_(element_mesh.element_(i).quadrature_node_coordinate_.col(j));
+    tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) {
+      for (Isize i = range.begin(); i != range.end(); i++) {
+        ElementVariable<ElementTrait, SimulationControl> variable;
+        for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
+          variable.primitive_.col(j) = initial_condition.calculatePrimitiveFromCoordinate(
+              element_mesh.element_(i).quadrature_node_coordinate_.col(j));
+        }
+        variable.calculateConservedFromPrimitive(physical_model);
+        this->element_(i).variable_basis_function_coefficient_.noalias() =
+            variable.conserved_ * element_mesh.basis_function_.modal_value_ *
+            element_mesh.basis_function_.modal_least_squares_inverse_;
       }
-      variable.calculateConservedFromPrimitive(physical_model);
-      this->element_(i).variable_basis_function_coefficient_.noalias() =
-          variable.conserved_ * element_mesh.basis_function_.modal_value_ *
-          element_mesh.basis_function_.modal_least_squares_inverse_;
-    }
+    });
   } else {
     Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
                  Eigen::Dynamic, 1>
         variable_basis_function_coefficient(this->number_);
     initial_condition.getVariableBasisFunctionCoefficient(element_mesh, variable_basis_function_coefficient);
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, variable_basis_function_coefficient)
-#endif  // SUBROSA_DG_DEVELOP
-    for (Isize i = 0; i < this->number_; i++) {
-      this->element_(i).variable_basis_function_coefficient_.noalias() = variable_basis_function_coefficient(i);
-    }
+    tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) {
+      for (Isize i = range.begin(); i != range.end(); i++) {
+        this->element_(i).variable_basis_function_coefficient_.noalias() = variable_basis_function_coefficient(i);
+      }
+    });
   }
 }
 
@@ -128,41 +121,40 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::initializeAdjacencyElementSolver(
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
     const PhysicalModel<SimulationControl>& physical_model,
-    const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition) {
+    const BoundaryCondition<SimulationControl>& boundary_condition) {
   this->interior_number_ = adjacency_element_mesh.interior_number_;
   this->boundary_number_ = adjacency_element_mesh.boundary_number_;
   this->boundary_dummy_variable_.resize(this->boundary_number_);
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, adjacency_element_mesh, physical_model, boundary_condition)
-#endif  // SUBROSA_DG_DEVELOP
-  for (Isize i = 0; i < adjacency_element_mesh.boundary_number_; i++) {
-    for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-      if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::Steady) {
-        this->boundary_dummy_variable_(i).primitive_.col(j) =
-            boundary_condition
-                .at(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).gmsh_physical_index_)
-                ->function_(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_)
-                                .quadrature_node_coordinate_.col(j));
-      } else if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::TimeVarying) {
-        this->boundary_dummy_variable_(i).primitive_.col(j) =
-            boundary_condition
-                .at(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).gmsh_physical_index_)
-                ->function_(adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_)
-                                .quadrature_node_coordinate_.col(j),
-                            0.0_r);
-      }
-    }
-    this->boundary_dummy_variable_(i).calculateConservedFromPrimitive(physical_model);
-    this->boundary_dummy_variable_(i).calculateComputationalFromPrimitive(physical_model);
-  }
+  tbb::parallel_for(
+      tbb::blocked_range<Isize>(0, adjacency_element_mesh.boundary_number_),
+      [&](const tbb::blocked_range<Isize>& range) {
+        for (Isize i = range.begin(); i != range.end(); i++) {
+          const Isize gmsh_physical_index =
+              adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).gmsh_physical_index_;
+          for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+            if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::Steady) {
+              this->boundary_dummy_variable_(i).primitive_.col(j) = boundary_condition.calculatePrimitiveFromCoordinate(
+                  adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_)
+                      .quadrature_node_coordinate_.col(j),
+                  gmsh_physical_index);
+            } else if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::TimeVarying) {
+              this->boundary_dummy_variable_(i).primitive_.col(j) = boundary_condition.calculatePrimitiveFromCoordinate(
+                  adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_)
+                      .quadrature_node_coordinate_.col(j),
+                  0.0_r, gmsh_physical_index);
+            }
+          }
+          this->boundary_dummy_variable_(i).calculateConservedFromPrimitive(physical_model);
+          this->boundary_dummy_variable_(i).calculateComputationalFromPrimitive(physical_model);
+        }
+      });
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl>::initializeSolver(
-    const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
-    const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-    InitialCondition<SimulationControl>& initial_condition) {
+inline void Solver<SimulationControl>::initializeSolver(const Mesh<SimulationControl>& mesh,
+                                                        const PhysicalModel<SimulationControl>& physical_model,
+                                                        const BoundaryCondition<SimulationControl>& boundary_condition,
+                                                        InitialCondition<SimulationControl>& initial_condition) {
   this->node_artificial_viscosity_.resize(mesh.node_number_);
   this->node_artificial_viscosity_.setZero();
   if constexpr (SimulationControl::kDimension == 1) {

@@ -31,7 +31,7 @@ set(SUBROSA_DG_VERSION_STRING "${SUBROSA_DG_VERSION} - ${SHORT_SHA1} - ${GIT_CHA
 option(SUBROSA_DG_DEVELOP "Build SubrosaDG in Develop" OFF)
 
 # set option for gpu vendor
-option(SUBROSA_DG_ONEAPI "Build SubrosaDG with oneAPI" OFF)
+option(SUBROSA_DG_SYCL "Build SubrosaDG with oneAPI" OFF)
 option(SUBROSA_DG_CUDA "Build SubrosaDG with CUDA" OFF)
 option(SUBROSA_DG_ROCM "Build SubrosaDG with ROCm" OFF)
 
@@ -50,6 +50,12 @@ endif()
 
 # set project
 project(subrosa_dg LANGUAGES CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "SubrosaDG")
+
+# message error if not fedora
+cmake_host_system_information(RESULT DISTRO_ID QUERY DISTRIB_ID)
+if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND NOT DISTRO_ID STREQUAL "fedora")
+    message(FATAL_ERROR "SubrosaDG requires Fedora to compile.")
+endif()
 
 # message error if build in source dir
 if(${PROJECT_SOURCE_DIR} STREQUAL ${PROJECT_BINARY_DIR})
@@ -83,7 +89,6 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # query the system cores number
 cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
-message(STATUS "Number of physical cores: ${NUMBER_OF_PHYSICAL_CORES}")
 
 # add cmake check
 include(CheckCXXCompilerFlag)
@@ -121,35 +126,22 @@ configure_file(${PROJECT_SOURCE_DIR}/Dockerfile ${PROJECT_SOURCE_DIR}/.devcontai
 
 # use clang-tidy to check file
 find_program(CLANG_TIDY NAMES clang-tidy PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
-if(CLANG_TIDY)
-    include(${PROJECT_SOURCE_DIR}/cmake/ClangTidy.cmake)
-    message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
-else()
-    message(WARNING "clang-tidy not found. Please install clang-tidy.")
-endif()
+include(${PROJECT_SOURCE_DIR}/cmake/ClangTidy.cmake)
+message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
 
 # use clang-format to format file
 find_program(CLANG_FORMAT NAMES clang-format PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
-if(CLANG_FORMAT)
-    include(${PROJECT_SOURCE_DIR}/cmake/ClangFormat.cmake)
-    message(STATUS "Enable clang-format in ${CLANG_FORMAT}")
-else()
-    message(WARNING "clang-format not found. Please install clang-format.")
-endif()
+include(${PROJECT_SOURCE_DIR}/cmake/ClangFormat.cmake)
+message(STATUS "Enable clang-format in ${CLANG_FORMAT}")
 
 # use clangd for intellisense
 find_program(CLANGD NAMES clangd PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
-if(CLANGD)
-    set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile commands" FORCE)
-    message(STATUS "Enable clangd in ${CLANGD}")
-else()
-    message(WARNING "clangd not found. Please install clangd.")
-endif()
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile commands" FORCE)
+message(STATUS "Enable clangd in ${CLANGD}")
 
 # use ccache to speed up compilation
 find_program(CCACHE NAMES ccache)
 if(CCACHE)
-    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE}")
     set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE}")
     message(STATUS "Enable ccache in ${CCACHE}")
 else()
@@ -177,40 +169,46 @@ add_library(lib::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 # set compilation flags
 set(SUBROSA_DG_DEBUG_FLAGS)
 set(SUBROSA_DG_RELEASE_FLAGS)
+set(SUBROSA_DG_DEVICE_FLAGS) # https://intel.github.io/llvm/UsersManual.html
 set(SUBROSA_DG_FLAGS)
 
 # add compilation flags
 string(APPEND SUBROSA_DG_DEBUG_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation -Wno-narrowing ")
 string(APPEND SUBROSA_DG_RELEASE_FLAGS "-march=native ")
 
-# add oneapi compilation flags
-if(SUBROSA_DG_ONEAPI)
-    string(APPEND SUBROSA_DG_DEBUG_FLAGS "-fsycl-targets=spir64_gen ")
-    string(APPEND SUBROSA_DG_RELEASE_FLAGS "-fsycl-targets=spir64_gen ")
-    list(APPEND SUBROSA_DG_LINK_OPTIONS -fsycl-targets=spir64_gen)
+# add cpu compilation flags
+if(NOT SUBROSA_DG_SYCL AND NOT SUBROSA_DG_CUDA AND NOT SUBROSA_DG_ROCM)
+    set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=spir64_x86_64 ")
+endif()
+
+# add sycl compilation flags
+if(SUBROSA_DG_SYCL)
+    set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=intel_gpu_bmg_g21 ")
 endif()
 
 # add cuda compilation flags
 if(SUBROSA_DG_CUDA)
-    string(APPEND SUBROSA_DG_DEBUG_FLAGS "-fsycl-targets=nvptx64-nvidia-cuda ")
-    string(APPEND SUBROSA_DG_RELEASE_FLAGS "-fsycl-targets=nvptx64-nvidia-cuda ")
-    list(APPEND SUBROSA_DG_LINK_OPTIONS -fsycl-targets=nvptx64-nvidia-cuda)
+    set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=nvidia_gpu_sm_89 ")
 endif()
 
 # add rocm compilation flags
 if(SUBROSA_DG_ROCM)
-    string(APPEND SUBROSA_DG_DEBUG_FLAGS "-fsycl-targets=amdgcn-amd-amdhsa ")
-    string(APPEND SUBROSA_DG_RELEASE_FLAGS "-fsycl-targets=amdgcn-amd-amdhsa ")
-    list(APPEND SUBROSA_DG_LINK_OPTIONS -fsycl-targets=amdgcn-amd-amdhsa)
+    set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=amd_gpu_gfx908 \
+        --rocm-device-lib-path=/usr/lib/clang/18/amdgcn/bitcode ")
 endif()
 
-# set compile flags
-set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_DEBUG_FLAGS}> \
-    $<$<CONFIG:Release>:${SUBROSA_DG_RELEASE_FLAGS}>")
-string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
+# add device flags
+string(APPEND SUBROSA_DG_DEBUG_FLAGS "${SUBROSA_DG_DEVICE_FLAGS}")
+string(APPEND SUBROSA_DG_RELEASE_FLAGS "${SUBROSA_DG_DEVICE_FLAGS}")
 
-# add compile option
+# set compile flags
+set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_DEBUG_FLAGS}> $<$<CONFIG:Release>:${SUBROSA_DG_RELEASE_FLAGS}>")
+string(REPLACE " " ";" SUBROSA_DG_FLAGS ${SUBROSA_DG_FLAGS})
 list(APPEND SUBROSA_DG_COMPILE_OPTIONS ${SUBROSA_DG_FLAGS})
+
+# set link options
+string(REPLACE " " ";" SUBROSA_DG_DEVICE_FLAGS ${SUBROSA_DG_DEVICE_FLAGS})
+list(APPEND SUBROSA_DG_LINK_OPTIONS ${SUBROSA_DG_DEVICE_FLAGS})
 
 # create and include the cmake header
 configure_file(${PROJECT_SOURCE_DIR}/cmake/source/Cmake.cpp.in ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/Cmake.cpp @ONLY)
@@ -224,7 +222,7 @@ list(APPEND SUBROSA_DG_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/src)
 
 # find sycl
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    find_package(IntelSYCL REQUIRED PATHS /opt/intel/oneapi/compiler/latest/lib/cmake/IntelSYCL)
+    find_package(IntelSYCL CONFIG REQUIRED PATHS /opt/intel/oneapi/compiler/latest/lib/cmake/IntelSYCL)
     list(APPEND SUBROSA_DG_LINK_LIBRARIES IntelSYCL::SYCL_CXX)
 endif()
 
@@ -260,6 +258,12 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES magic_enum::magic_enum)
 find_package(ZLIB REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES ZLIB::ZLIB)
 
+# find tbb
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    find_package(TBB CONFIG REQUIRED PATHS /opt/intel/oneapi/tbb/latest/lib/cmake/tbb)
+    list(APPEND SUBROSA_DG_LINK_LIBRARIES TBB::tbb)
+endif()
+
 # set for openmp
 find_package(OpenMP REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
@@ -267,7 +271,7 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
 # set compilation definitions
 foreach(SUBROSA_DG_OPTION IN ITEMS
         SUBROSA_DG_DEVELOP
-        SUBROSA_DG_ONEAPI
+        SUBROSA_DG_SYCL
         SUBROSA_DG_CUDA
         SUBROSA_DG_ROCM)
     if(${SUBROSA_DG_OPTION})
@@ -285,6 +289,10 @@ target_link_libraries(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_LINK_LIBRARIES})
 target_link_options(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_LINK_OPTIONS})
 target_compile_options(${PROJECT_NAME} INTERFACE "${SUBROSA_DG_COMPILE_OPTIONS}")
 target_compile_definitions(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_DEFINITIONS})
+
+# message the compile definitions
+list(GET SUBROSA_DG_DEVICE_FLAGS 0 SUBROSA_DG_DEVICE_FLAGS)
+message(STATUS "SYCL Target: ${SUBROSA_DG_DEVICE_FLAGS}")
 
 # TODO: use cmake install and XXXXConfig.cmake to link
 

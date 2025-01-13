@@ -13,11 +13,9 @@
 #ifndef SUBROSA_DG_ENVIRONMENT_CPP_
 #define SUBROSA_DG_ENVIRONMENT_CPP_
 
-#ifndef SUBROSA_DG_DEVELOP
 #include <../opt/compiler/include/omp.h>
-#endif  // SUBROSA_DG_DEVELOP
-
 #include <gmsh.h>
+#include <oneapi/tbb/global_control.h>
 
 #include "Cmake.cpp"
 
@@ -31,7 +29,13 @@ struct Environment {
 
 inline Environment::Environment() {
   gmsh::initialize();
-#ifndef SUBROSA_DG_DEVELOP
+#ifdef SUBROSA_DG_DEVELOP
+  oneapi::tbb::global_control global_limit(oneapi::tbb::global_control::max_allowed_parallelism, 1);
+  omp_set_num_threads(1);
+  gmsh::option::setNumber("General.NumThreads", 1);
+#else   // SUBROSA_DG_DEVELOP
+  oneapi::tbb::global_control global_limit(oneapi::tbb::global_control::max_allowed_parallelism,
+                                           kNumberOfPhysicalCores - 1);
   omp_set_num_threads(kNumberOfPhysicalCores - 1);
   gmsh::option::setNumber("General.NumThreads", kNumberOfPhysicalCores - 1);
 #endif  // SUBROSA_DG_DEVELOP

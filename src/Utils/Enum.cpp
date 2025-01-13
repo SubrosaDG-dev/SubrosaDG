@@ -26,7 +26,7 @@ enum class DimensionEnum {
 };
 
 enum class ElementEnum {
-  Point = 1,
+  Point,
   Line,
   Triangle,
   Quadrangle,
@@ -36,7 +36,7 @@ enum class ElementEnum {
 };
 
 enum class MeshModelEnum {
-  Line = 1,
+  Line,
   Triangle,
   Quadrangle,
   TriangleQuadrangle,
@@ -54,7 +54,7 @@ enum class PolynomialOrderEnum {
 };
 
 enum class EquationModelEnum {
-  CompresibleEuler = 1,
+  CompresibleEuler,
   CompresibleNS,
   IncompresibleEuler,
   IncompresibleNS,
@@ -64,33 +64,33 @@ enum class EquationModelEnum {
 };
 
 enum class BasisFunctionEnum {
-  Nodal = 1,
+  Nodal,
   Modal,
 };
 
 enum class SourceTermEnum {
-  None = 1,
+  None,
   Boussinesq,
 };
 
 enum class ShockCapturingEnum {
-  None = 1,
+  None,
   ArtificialViscosity,
 };
 
 enum class LimiterEnum {
-  None = 1,
+  None,
   PositivityPreserving,
 };
 
 enum class InitialConditionEnum {
-  Function = 1,
+  Function,
   SpecificFile,
   LastStep,
 };
 
 enum class BoundaryConditionEnum {
-  RiemannFarfield = 1,
+  RiemannFarfield,
   VelocityInflow,
   PressureOutflow,
   IsoThermalNonSlipWall,
@@ -100,12 +100,12 @@ enum class BoundaryConditionEnum {
 };
 
 enum class BoundaryTimeEnum {
-  Steady = 1,
+  Steady,
   TimeVarying,
 };
 
 enum class ConvectiveFluxEnum {
-  Central = 1,
+  Central,
   LaxFriedrichs,
   HLLC,
   Roe,
@@ -113,39 +113,39 @@ enum class ConvectiveFluxEnum {
 };
 
 enum class ViscousFluxEnum {
-  None = 1,
+  None,
   BR1,
   BR2,
 };
 
 enum class ThermodynamicModelEnum {
-  Constant = 1,
+  Constant,
 };
 
 enum class EquationOfStateEnum {
-  IdealGas = 1,
+  IdealGas,
   WeakCompressibleFluid,
 };
 
 enum class TransportModelEnum {
   None,
-  Constant = 1,
+  Constant,
   Sutherland,
 };
 
 enum class TimeIntegrationEnum {
-  ForwardEuler = 1,
+  ForwardEuler,
   HeunRK2,
   SSPRK3,
 };
 
 enum class TurbulenceModelEnum {
-  SA = 1,
+  SA,
 };
 
 enum class ConservedVariableEnum {
   // Compresible Euler/Navier-Stokes
-  Density = 1,
+  Density,
   Momentum,
   MomentumX,
   MomentumY,
@@ -163,7 +163,7 @@ enum class ConservedVariableEnum {
 
 enum class ComputationalVariableEnum {
   // Compresible Euler/Navier-Stokes
-  Density = 1,
+  Density,
   Velocity,
   VelocityX,
   VelocityY,
@@ -185,7 +185,7 @@ enum class ComputationalVariableEnum {
 
 enum class PrimitiveVariableEnum {
   // Compresible Euler/Navier-Stokes
-  Density = 1,
+  Density,
   Velocity,
   VelocityX,
   VelocityY,
@@ -202,13 +202,13 @@ enum class PrimitiveVariableEnum {
 };
 
 enum class VariableGradientEnum {
-  X = 1,
+  X,
   Y,
   Z,
 };
 
 enum class ViewVariableEnum {
-  Density = 1,
+  Density,
   Velocity,
   Temperature,
   Pressure,

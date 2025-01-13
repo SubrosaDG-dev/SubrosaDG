@@ -34,7 +34,10 @@
 namespace SubrosaDG {
 
 struct PhysicalInformation {
-  int gmsh_tag_;
+  Isize dimension_;
+  std::string name_;
+  BoundaryConditionEnum boundary_condition_type_;
+
   Isize element_number_{0};
   Isize vtk_element_number_{0};
   std::vector<int> element_gmsh_type_;
@@ -49,10 +52,8 @@ struct PerElementPhysicalInformation {
 };
 
 struct MeshInformation {
-  ordered_set<std::string> physical_;
-  std::vector<Isize> physical_dimension_;
-  std::unordered_map<Isize, BoundaryConditionEnum> boundary_condition_type_;
-  std::unordered_map<Isize, PhysicalInformation> physical_information_;
+  Isize physical_number_{0};
+  std::vector<PhysicalInformation> physical_;
   std::unordered_map<Isize, PerElementPhysicalInformation> gmsh_tag_to_element_physical_information_;
 };
 
@@ -70,8 +71,8 @@ struct PerAdjacencyElementMesh : PerElementMeshBase<AdjacencyElementTrait> {
   Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber> node_coordinate_;
   Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>
       quadrature_node_coordinate_;
-  Isize gmsh_jacobian_tag_;
   Isize adjacency_right_rotation_;
+  BoundaryConditionEnum boundary_condition_type_;
   Eigen::Vector<Isize, 2> parent_index_each_type_;
   Eigen::Vector<Isize, 2> adjacency_sequence_in_parent_;
   Eigen::Vector<Isize, 2> parent_gmsh_type_number_;
@@ -257,13 +258,14 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
   inline void getPhysicalInformation() {
     std::vector<std::pair<int, int>> dim_tags;
     gmsh::model::getPhysicalGroups(dim_tags);
-    for (Usize i = 0; i < dim_tags.size(); i++) {
-      const auto [physical_dimension, physical_tag] = dim_tags[i];
+    this->information_.physical_number_ = static_cast<Isize>(dim_tags.size());
+    this->information_.physical_.resize(static_cast<Usize>(this->information_.physical_number_));
+    for (Isize i = 0; i < this->information_.physical_number_; i++) {
+      const auto [physical_dimension, physical_tag] = dim_tags[static_cast<Usize>(i)];
       std::string name;
       gmsh::model::getPhysicalName(physical_dimension, physical_tag, name);
-      this->information_.physical_.emplace_back(name);
-      this->information_.physical_dimension_.emplace_back(physical_dimension);
-      this->information_.physical_information_[static_cast<Isize>(i)].gmsh_tag_ = physical_tag;
+      this->information_.physical_[static_cast<Usize>(i)].dimension_ = physical_dimension;
+      this->information_.physical_[static_cast<Usize>(i)].name_ = name;
       std::vector<int> entity_tags;
       gmsh::model::getEntitiesForPhysicalGroup(physical_dimension, physical_tag, entity_tags);
       for (const auto entity_tag : entity_tags) {
@@ -274,7 +276,7 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
         for (Usize j = 0; j < element_types.size(); j++) {
           for (const auto element_tag : element_tags[j]) {
             this->information_.gmsh_tag_to_element_physical_information_[static_cast<Isize>(element_tag)]
-                .gmsh_physical_index_ = static_cast<Isize>(i);
+                .gmsh_physical_index_ = physical_tag;
           }
         }
       }

@@ -32,8 +32,9 @@ struct SourceTermBase<SimulationControl, SourceTermEnum::Boussinesq> {
   inline static Real thermal_expansion_coefficient;
   inline static Real reference_temperature;
 
+  template <int N>
   inline void calculateSourceTerm(const PhysicalModel<SimulationControl>& physical_model,
-                                  const Variable<SimulationControl>& quadrature_node_variable,
+                                  const Variable<SimulationControl, N>& quadrature_node_variable,
                                   FluxNormalVariable<SimulationControl>& source_flux, const Isize column) const {
     source_flux.normal_variable_.setZero();
     if constexpr (SimulationControl::kDimension == 2) {

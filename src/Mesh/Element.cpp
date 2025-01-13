@@ -20,7 +20,6 @@
 #include <format>
 #include <magic_enum/magic_enum.hpp>
 #include <stdexcept>
-#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -47,18 +46,16 @@ inline void ElementMesh<ElementTrait>::getElementMesh(
     this->element_(i).gmsh_physical_index_ =
         information.gmsh_tag_to_element_physical_information_.at(this->element_(i).gmsh_tag_).gmsh_physical_index_;
     this->element_(i).element_index_ = i;
-    const std::string gmsh_physical_name =
-        information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_)];
-    information.physical_information_[this->element_(i).gmsh_physical_index_].element_number_++;
-    information.physical_information_[this->element_(i).gmsh_physical_index_].vtk_element_number_ +=
+    information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_) - 1].element_number_++;
+    information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_) - 1].vtk_element_number_ +=
         ElementTrait::kVtkElementNumber;
-    information.physical_information_[this->element_(i).gmsh_physical_index_].element_gmsh_type_.emplace_back(
-        ElementTrait::kGmshTypeNumber);
-    information.physical_information_[this->element_(i).gmsh_physical_index_].element_gmsh_tag_.emplace_back(
-        this->element_(i).gmsh_tag_);
-    information.physical_information_[this->element_(i).gmsh_physical_index_].node_number_ +=
+    information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_) - 1]
+        .element_gmsh_type_.emplace_back(ElementTrait::kGmshTypeNumber);
+    information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_) - 1]
+        .element_gmsh_tag_.emplace_back(this->element_(i).gmsh_tag_);
+    information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_) - 1].node_number_ +=
         ElementTrait::kAllNodeNumber;
-    information.physical_information_[this->element_(i).gmsh_physical_index_].vtk_node_number_ +=
+    information.physical_[static_cast<Usize>(this->element_(i).gmsh_physical_index_) - 1].vtk_node_number_ +=
         ElementTrait::kVtkAllNodeNumber;
     information.gmsh_tag_to_element_physical_information_[this->element_(i).gmsh_tag_].element_index_ = i;
     for (Isize j = 0; j < ElementTrait::kAllNodeNumber; j++) {

@@ -27,32 +27,38 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                      SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC,
                                      SubrosaDG::ViscousFluxEnum::BR2>>;
 
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.2_r, 0.0_r, 1.0_r};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    const SubrosaDG::Isize gmsh_physical_index) const {
+  if (gmsh_physical_index == 1) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.2_r, 0.0_r, 1.0_r};
+  }
+  if (gmsh_physical_index == 2) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
+  }
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
+
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / std::format("{}.msh", kExampleName), generateMesh);
-  system.addInitialCondition(
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.2_r, 0.0_r, 1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.2_r, 0.0_r, 1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
-      "bc-2",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
-      });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(2);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
   system.setTransportModel<SimulationControl::kTransportModel>(1.4_r * 0.2_r / 200.0_r);
-  system.setTimeIntegration(1.0_r, {0, 1000});
-  system.setViewConfig(kExampleDirectory, kExampleName, -1);
+  system.setTimeIntegration(1.0_r);
+  system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
                           SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::Vorticity});
@@ -149,9 +155,9 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (std::ptrdiff_t i = 0; i < 6; i++) {
     physical_group_tag[2].emplace_back(plane_surface_tag(i));
   }
-  gmsh::model::addPhysicalGroup(1, physical_group_tag[0], -1, "bc-1");
-  gmsh::model::addPhysicalGroup(1, physical_group_tag[1], -1, "bc-2");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[0], 1, "bc-1");
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[1], 2, "bc-2");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], 3, "vc-3");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

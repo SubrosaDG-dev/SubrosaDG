@@ -15,10 +15,8 @@
 
 #include <Eigen/Core>
 #include <array>
-#include <memory>
 #include <sstream>
 #include <string>
-#include <unordered_map>
 
 #include "Mesh/ReadControl.cpp"
 #include "Solver/BoundaryCondition.cpp"
@@ -71,13 +69,12 @@ struct TimeIntegration : TimeIntegrationData<SimulationControl::kTimeIntegration
 
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolver<ElementTrait, SimulationControl>::copyElementBasisFunctionCoefficient() {
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto)
-#endif  // SUBROSA_DG_DEVELOP
-  for (Isize i = 0; i < this->number_; i++) {
-    this->element_(i).variable_basis_function_coefficient_last_.noalias() =
-        this->element_(i).variable_basis_function_coefficient_;
-  }
+  tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) {
+    for (Isize i = range.begin(); i != range.end(); i++) {
+      this->element_(i).variable_basis_function_coefficient_last_.noalias() =
+          this->element_(i).variable_basis_function_coefficient_;
+    }
+  });
 }
 
 template <typename SimulationControl>
@@ -105,35 +102,32 @@ inline void Solver<SimulationControl>::copyBasisFunctionCoefficient() {
 }
 
 template <typename ElementTrait, typename SimulationControl>
-inline Real ElementSolver<ElementTrait, SimulationControl>::calculateElementDeltaTime(
+inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementDeltaTime(
     const ElementMesh<ElementTrait>& element_mesh, const PhysicalModel<SimulationControl>& physical_model,
-    const Real courant_friedrichs_lewy_number) {
-  ElementVariable<ElementTrait, SimulationControl> quadrature_node_variable;
-  Eigen::Vector<Real, ElementTrait::kQuadratureNumber> delta_time;
-  Real min_delta_time{kRealMax};
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto)                                                   \
-    shared(element_mesh, physical_model, courant_friedrichs_lewy_number) private(quadrature_node_variable, delta_time) \
-    reduction(min : min_delta_time)
-#endif  // SUBROSA_DG_DEVELOP
-  for (Isize i = 0; i < element_mesh.number_; i++) {
-    quadrature_node_variable.get(element_mesh, *this, i);
-    quadrature_node_variable.calculateComputationalFromConserved(physical_model);
-    for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
-      const Real sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(
-          quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(j),
-          quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(j));
-      const Real spectral_radius =
-          std::sqrt(quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(j)) +
-          sound_speed;
-      // NOTE: https://arxiv.org/pdf/2008.12044
-      delta_time(j) = courant_friedrichs_lewy_number * element_mesh.element_(i).minimum_edge_ /
-                      (spectral_radius * (SimulationControl::kPolynomialOrder + 1.0_r) *
-                       (SimulationControl::kPolynomialOrder + 1.0_r));
+    const Real courant_friedrichs_lewy_number, Real& delta_time) {
+  tbb::combinable<Real> min_delta_time_combinable(kRealMax);
+  tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) {
+    for (Isize i = range.begin(); i != range.end(); i++) {
+      ElementVariable<ElementTrait, SimulationControl> quadrature_node_variable;
+      Eigen::Vector<Real, ElementTrait::kQuadratureNumber> local_delta_time;
+      quadrature_node_variable.get(element_mesh, *this, i);
+      quadrature_node_variable.calculateComputationalFromConserved(physical_model);
+      for (Isize j = 0; j < ElementTrait::kQuadratureNumber; j++) {
+        const Real sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(
+            quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(j),
+            quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(j));
+        const Real spectral_radius =
+            std::sqrt(quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(j)) +
+            sound_speed;
+        // NOTE: https://arxiv.org/pdf/2008.12044
+        local_delta_time(j) = courant_friedrichs_lewy_number * element_mesh.element_(i).minimum_edge_ /
+                              (spectral_radius * (SimulationControl::kPolynomialOrder + 1.0_r) *
+                               (SimulationControl::kPolynomialOrder + 1.0_r));
+      }
+      min_delta_time_combinable.local() = std::min(min_delta_time_combinable.local(), local_delta_time.minCoeff());
     }
-    min_delta_time = std::min(min_delta_time, delta_time.minCoeff());
-  }
-  return min_delta_time;
+  });
+  delta_time = min_delta_time_combinable.combine([](const Real a, const Real b) { return std::min(a, b); });
 }
 
 template <typename SimulationControl>
@@ -151,41 +145,34 @@ inline void Solver<SimulationControl>::calculateDeltaTime(const Mesh<SimulationC
     ss.ignore(2) >> time_integration.delta_time_;
   } else {
     if constexpr (SimulationControl::kDimension == 1) {
-      time_integration.delta_time_ =
-          std::min(time_integration.delta_time_,
-                   this->line_.calculateElementDeltaTime(mesh.line_, physical_model,
-                                                         time_integration.courant_friedrichs_lewy_number_));
+      this->line_.calculateElementDeltaTime(
+          mesh.line_, physical_model, time_integration.courant_friedrichs_lewy_number_, time_integration.delta_time_);
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-        time_integration.delta_time_ =
-            std::min(time_integration.delta_time_,
-                     this->triangle_.calculateElementDeltaTime(mesh.triangle_, physical_model,
-                                                               time_integration.courant_friedrichs_lewy_number_));
+        this->triangle_.calculateElementDeltaTime(mesh.triangle_, physical_model,
+                                                  time_integration.courant_friedrichs_lewy_number_,
+                                                  time_integration.delta_time_);
       }
       if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-        time_integration.delta_time_ =
-            std::min(time_integration.delta_time_,
-                     this->quadrangle_.calculateElementDeltaTime(mesh.quadrangle_, physical_model,
-                                                                 time_integration.courant_friedrichs_lewy_number_));
+        this->quadrangle_.calculateElementDeltaTime(mesh.quadrangle_, physical_model,
+                                                    time_integration.courant_friedrichs_lewy_number_,
+                                                    time_integration.delta_time_);
       }
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-        time_integration.delta_time_ =
-            std::min(time_integration.delta_time_,
-                     this->tetrahedron_.calculateElementDeltaTime(mesh.tetrahedron_, physical_model,
-                                                                  time_integration.courant_friedrichs_lewy_number_));
+        this->tetrahedron_.calculateElementDeltaTime(mesh.tetrahedron_, physical_model,
+                                                     time_integration.courant_friedrichs_lewy_number_,
+                                                     time_integration.delta_time_);
       }
       if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-        time_integration.delta_time_ =
-            std::min(time_integration.delta_time_,
-                     this->pyramid_.calculateElementDeltaTime(mesh.pyramid_, physical_model,
-                                                              time_integration.courant_friedrichs_lewy_number_));
+        this->pyramid_.calculateElementDeltaTime(mesh.pyramid_, physical_model,
+                                                 time_integration.courant_friedrichs_lewy_number_,
+                                                 time_integration.delta_time_);
       }
       if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-        time_integration.delta_time_ =
-            std::min(time_integration.delta_time_,
-                     this->hexahedron_.calculateElementDeltaTime(mesh.hexahedron_, physical_model,
-                                                                 time_integration.courant_friedrichs_lewy_number_));
+        this->hexahedron_.calculateElementDeltaTime(mesh.hexahedron_, physical_model,
+                                                    time_integration.courant_friedrichs_lewy_number_,
+                                                    time_integration.delta_time_);
       }
     }
   }
@@ -195,53 +182,50 @@ template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolver<ElementTrait, SimulationControl>::updateElementBasisFunctionCoefficient(
     const int rk_step, const ElementMesh<ElementTrait>& element_mesh,
     const TimeIntegration<SimulationControl>& time_integration) {
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, rk_step, element_mesh, time_integration)
-#endif  // SUBROSA_DG_DEVELOP
-  for (Isize i = 0; i < this->number_; i++) {
-    // NOTE: Here we split the calculation to trigger eigen's noalias to avoid intermediate variables.
-    this->element_(i).variable_basis_function_coefficient_ *=
-        time_integration.kStepCoefficients[static_cast<Usize>(rk_step)][1];
-    this->element_(i).variable_basis_function_coefficient_.noalias() +=
-        time_integration.kStepCoefficients[static_cast<Usize>(rk_step)][0] *
-        this->element_(i).variable_basis_function_coefficient_last_;
-    this->element_(i).variable_basis_function_coefficient_.noalias() +=
-        time_integration.kStepCoefficients[static_cast<Usize>(rk_step)][2] * time_integration.delta_time_ *
-        this->element_(i).variable_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
-  }
+  tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) {
+    for (Isize i = range.begin(); i != range.end(); i++) {
+      // NOTE: Here we split the calculation to trigger eigen's noalias to avoid intermediate variables.
+      this->element_(i).variable_basis_function_coefficient_ *=
+          time_integration.kStepCoefficients[static_cast<Usize>(rk_step)][1];
+      this->element_(i).variable_basis_function_coefficient_.noalias() +=
+          time_integration.kStepCoefficients[static_cast<Usize>(rk_step)][0] *
+          this->element_(i).variable_basis_function_coefficient_last_;
+      this->element_(i).variable_basis_function_coefficient_.noalias() +=
+          time_integration.kStepCoefficients[static_cast<Usize>(rk_step)][2] * time_integration.delta_time_ *
+          this->element_(i).variable_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
+    }
+  });
 }
 
 template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolver<ElementTrait, SimulationControl>::updateElementGardientBasisFunctionCoefficient(
     const ElementMesh<ElementTrait>& element_mesh) {
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic, element_mesh)
-#endif  // SUBROSA_DG_DEVELOP
-  for (Isize i = 0; i < this->number_; i++) {
-    this->element_(i).variable_volume_gradient_basis_function_coefficient_.noalias() =
-        this->element_(i).variable_volume_gradient_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                  SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
-      this->element_(i).variable_gradient_basis_function_coefficient_.noalias() =
-          this->element_(i).variable_volume_gradient_basis_function_coefficient_;
-      if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
-        this->element_(i).variable_interface_gradient_basis_function_coefficient_.noalias() =
-            this->element_(i).variable_interface_gradient_residual_ *
-            element_mesh.element_(i).local_mass_matrix_inverse_;
-        this->element_(i).variable_gradient_basis_function_coefficient_.noalias() +=
-            this->element_(i).variable_interface_gradient_basis_function_coefficient_;
-      } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
-        for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
-          this->element_(i).variable_interface_gradient_basis_function_coefficient_(j).noalias() =
-              this->element_(i).variable_interface_gradient_residual_(j) *
+  tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) {
+    for (Isize i = range.begin(); i != range.end(); i++) {
+      this->element_(i).variable_volume_gradient_basis_function_coefficient_.noalias() =
+          this->element_(i).variable_volume_gradient_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
+      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
+                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+        this->element_(i).variable_gradient_basis_function_coefficient_.noalias() =
+            this->element_(i).variable_volume_gradient_basis_function_coefficient_;
+        if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
+          this->element_(i).variable_interface_gradient_basis_function_coefficient_.noalias() =
+              this->element_(i).variable_interface_gradient_residual_ *
               element_mesh.element_(i).local_mass_matrix_inverse_;
           this->element_(i).variable_gradient_basis_function_coefficient_.noalias() +=
-              this->element_(i).variable_interface_gradient_basis_function_coefficient_(j);
+              this->element_(i).variable_interface_gradient_basis_function_coefficient_;
+        } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
+          for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
+            this->element_(i).variable_interface_gradient_basis_function_coefficient_(j).noalias() =
+                this->element_(i).variable_interface_gradient_residual_(j) *
+                element_mesh.element_(i).local_mass_matrix_inverse_;
+            this->element_(i).variable_gradient_basis_function_coefficient_.noalias() +=
+                this->element_(i).variable_interface_gradient_basis_function_coefficient_(j);
+          }
         }
       }
     }
-  }
+  });
 }
 
 template <typename SimulationControl>
@@ -297,23 +281,21 @@ template <typename ElementTrait, typename SimulationControl>
 inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementRelativeError(
     const ElementMesh<ElementTrait>& element_mesh,
     Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error) {
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> local_error{
-      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero()};
-#ifndef SUBROSA_DG_DEVELOP
-#pragma omp declare reduction(+ : Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> : omp_out += \
-                                  omp_in) initializer(omp_priv = decltype(omp_orig)::Zero())
-#pragma omp parallel for reduction(+ : local_error) default(none) schedule(nonmonotonic : auto) \
-    shared(Eigen::Dynamic, element_mesh)
-#endif  // SUBROSA_DG_DEVELOP
-  for (Isize i = 0; i < this->number_; i++) {
-    local_error.array() +=
-        (this->element_(i).variable_residual_ * element_mesh.basis_function_.modal_value_.transpose())
-            .array()
-            .abs()
-            .rowwise()
-            .mean();
-  }
-  relative_error += local_error;
+  tbb::combinable<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> relative_error_combinable(
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero());
+  tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) {
+    for (Isize i = range.begin(); i != range.end(); i++) {
+      relative_error_combinable.local().array() +=
+          (this->element_(i).variable_residual_ * element_mesh.basis_function_.modal_value_.transpose())
+              .array()
+              .abs()
+              .rowwise()
+              .mean();
+    }
+  });
+  relative_error = relative_error_combinable.combine(
+      [](const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& a,
+         const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& b) { return a + b; });
 }
 
 template <typename SimulationControl>
@@ -343,11 +325,11 @@ inline void Solver<SimulationControl>::calculateRelativeError(const Mesh<Simulat
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl>::stepSolver(
-    const Mesh<SimulationControl>& mesh, [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
-    const PhysicalModel<SimulationControl>& physical_model,
-    const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-    const TimeIntegration<SimulationControl>& time_integration) {
+inline void Solver<SimulationControl>::stepSolver(const Mesh<SimulationControl>& mesh,
+                                                  [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
+                                                  const PhysicalModel<SimulationControl>& physical_model,
+                                                  const BoundaryCondition<SimulationControl>& boundary_condition,
+                                                  const TimeIntegration<SimulationControl>& time_integration) {
   this->copyBasisFunctionCoefficient();
   if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::TimeVarying) {
     this->updateBoundaryVariable(mesh, physical_model, boundary_condition, time_integration);

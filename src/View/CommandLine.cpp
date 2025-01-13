@@ -13,10 +13,6 @@
 #ifndef SUBROSA_DG_COMMAND_LINE_CPP_
 #define SUBROSA_DG_COMMAND_LINE_CPP_
 
-#ifndef SUBROSA_DG_DEVELOP
-#include <../opt/compiler/include/omp.h>
-#endif  // SUBROSA_DG_DEVELOP
-
 #include <gmsh.h>
 
 #include <Eigen/Core>
@@ -166,7 +162,7 @@ struct CommandLine {
       information << std::format("Eigen SIMD Instructions: {}", Eigen::SimdInstructionSetsInUse()) << "\n";
 #else   // SUBROSA_DG_GPU
       information << std::format("GPU Device: {}", kDevice.get_info<sycl::info::device::name>()) << '\n';
-      information << std::format("CUDA Compute Capability: {}", kDevice.get_info<sycl::info::device::backend_version>())
+      information << std::format("Compute Capability: {}", kDevice.get_info<sycl::info::device::backend_version>())
                   << '\n';
 #endif  // SUBROSA_DG_GPU
       std::cout << information.str() << '\n';

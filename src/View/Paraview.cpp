@@ -63,8 +63,7 @@ inline void View<SimulationControl>::calculateViewVariable(
     const ViewVariable<ElementTrait, SimulationControl>& view_variable,
     Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable, const Isize column,
     const Isize node_index) {
-  auto handle_variable = [&view_variable, &physical_model, &node_variable, node_index, column](
-                             Isize i, ViewVariableEnum variable_x, ViewVariableEnum variable_y,
+  auto handle_variable = [&](Isize i, ViewVariableEnum variable_x, ViewVariableEnum variable_y,
                              ViewVariableEnum variable_z) -> void {
     if constexpr (SimulationControl::kDimension == 1) {
       node_variable(i)(node_index) = view_variable.get(physical_model, variable_x, column);
@@ -110,7 +109,7 @@ inline void View<SimulationControl>::calculateAdjacencyForce(
 template <typename SimulationControl>
 template <typename AdjacencyElementTrait>
 inline void View<SimulationControl>::writeAdjacencyElement(
-    const Isize physical_index, const MeshInformation& mesh_information,
+    const Isize physical_index, const MeshInformation& information,
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
     const PhysicalModel<SimulationControl>& physical_model, const ViewData<SimulationControl>& view_data,
     const Isize element_index, ViewSupplemental<SimulationControl>& view_supplemental) {
@@ -123,9 +122,9 @@ inline void View<SimulationControl>::writeAdjacencyElement(
   constexpr std::array<int, AdjacencyElementTrait::kAllNodeNumber> kVtkConnectivity{
       getElementVTKConnectivity<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>()};
   const Isize adjacency_element_gmsh_tag =
-      mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
+      information.physical_[static_cast<Usize>(physical_index)].element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize adjacency_element_index_per_type =
-      mesh_information.gmsh_tag_to_element_physical_information_.at(adjacency_element_gmsh_tag).element_index_;
+      information.gmsh_tag_to_element_physical_information_.at(adjacency_element_gmsh_tag).element_index_;
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
@@ -154,7 +153,7 @@ inline void View<SimulationControl>::writeAdjacencyElement(
 
 template <typename SimulationControl>
 template <typename ElementTrait>
-inline void View<SimulationControl>::writeElement(const Isize physical_index, const MeshInformation& mesh_information,
+inline void View<SimulationControl>::writeElement(const Isize physical_index, const MeshInformation& information,
                                                   const ElementMesh<ElementTrait>& element_mesh,
                                                   const PhysicalModel<SimulationControl>& physical_model,
                                                   const ViewData<SimulationControl>& view_data,
@@ -169,9 +168,9 @@ inline void View<SimulationControl>::writeElement(const Isize physical_index, co
   constexpr std::array<int, ElementTrait::kVtkAllNodeNumber> kVtkConnectivity{
       getElementVTKConnectivity<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>()};
   const Isize element_gmsh_tag =
-      mesh_information.physical_information_.at(physical_index).element_gmsh_tag_[static_cast<Usize>(element_index)];
+      information.physical_[static_cast<Usize>(physical_index)].element_gmsh_tag_[static_cast<Usize>(element_index)];
   const Isize element_index_per_type =
-      mesh_information.gmsh_tag_to_element_physical_information_.at(element_gmsh_tag).element_index_;
+      information.gmsh_tag_to_element_physical_information_.at(element_gmsh_tag).element_index_;
   for (Isize i = 0; i < ElementTrait::kAllNodeNumber; i++) {
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
@@ -198,10 +197,10 @@ inline void View<SimulationControl>::writeField(const Isize physical_index, cons
                                                 const PhysicalModel<SimulationControl>& physical_model,
                                                 const ViewData<SimulationControl>& view_data,
                                                 ViewSupplemental<SimulationControl>& view_supplemental) {
-  const Isize element_number = mesh.information_.physical_information_.at(physical_index).element_number_;
+  const Isize element_number = mesh.information_.physical_[static_cast<Usize>(physical_index)].element_number_;
   for (Isize i = 0; i < element_number; i++) {
     const Isize element_gmsh_type =
-        mesh.information_.physical_information_.at(physical_index).element_gmsh_type_[static_cast<Usize>(i)];
+        mesh.information_.physical_[static_cast<Usize>(physical_index)].element_gmsh_type_[static_cast<Usize>(i)];
     if constexpr (Dimension == 1) {
       if constexpr (IsAdjacency) {
         this->writeAdjacencyElement<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
@@ -283,26 +282,26 @@ inline void View<SimulationControl>::stepView(const int step, const Mesh<Simulat
                                               const PhysicalModel<SimulationControl>& physical_model,
                                               ViewData<SimulationControl>& view_data) {
   view_data.solver_.calcluateViewVariable(mesh, physical_model, view_data.raw_binary_path_, view_data.raw_binary_ss_);
-  for (Isize i = 0; i < static_cast<Isize>(mesh.information_.physical_.size()); i++) {
-    if (mesh.information_.boundary_condition_type_.contains(i) &&
-        !isWall(mesh.information_.boundary_condition_type_.at(i))) {
+  for (Isize i = 0; i < mesh.information_.physical_number_; i++) {
+    if ((mesh.information_.physical_[static_cast<Usize>(i)].dimension_ == SimulationControl::kDimension - 1) &&
+        !isWall(mesh.information_.physical_[static_cast<Usize>(i)].boundary_condition_type_)) {
       continue;
     }
-    const std::string base_name = this->getBaseName(step, mesh.information_.physical_[static_cast<Usize>(i)]);
+    const std::string base_name = this->getBaseName(step, mesh.information_.physical_[static_cast<Usize>(i)].name_);
     if constexpr (SimulationControl::kDimension == 1) {
-      if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 1) {
+      if (mesh.information_.physical_[static_cast<Usize>(i)].dimension_ == 1) {
         this->writeView<1, false>(step, i, mesh, physical_model, view_data, base_name);
       }
     } else if constexpr (SimulationControl::kDimension == 2) {
-      if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 1) {
+      if (mesh.information_.physical_[static_cast<Usize>(i)].dimension_ == 1) {
         this->writeView<1, true>(step, i, mesh, physical_model, view_data, base_name);
-      } else if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 2) {
+      } else if (mesh.information_.physical_[static_cast<Usize>(i)].dimension_ == 2) {
         this->writeView<2, false>(step, i, mesh, physical_model, view_data, base_name);
       }
     } else if constexpr (SimulationControl::kDimension == 3) {
-      if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 2) {
+      if (mesh.information_.physical_[static_cast<Usize>(i)].dimension_ == 2) {
         this->writeView<2, true>(step, i, mesh, physical_model, view_data, base_name);
-      } else if (mesh.information_.physical_dimension_[static_cast<Usize>(i)] == 3) {
+      } else if (mesh.information_.physical_[static_cast<Usize>(i)].dimension_ == 3) {
         this->writeView<3, false>(step, i, mesh, physical_model, view_data, base_name);
       }
     }

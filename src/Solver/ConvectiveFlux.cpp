@@ -24,8 +24,8 @@
 
 namespace SubrosaDG {
 
-template <typename SimulationControl>
-inline void calculateConvectiveRawFlux(const Variable<SimulationControl>& variable,
+template <typename SimulationControl, int N>
+inline void calculateConvectiveRawFlux(const Variable<SimulationControl, N>& variable,
                                        FluxVariable<SimulationControl>& convective_raw_flux, const Isize column) {
   if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
                 SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
@@ -58,9 +58,9 @@ inline void calculateConvectiveRawFlux(const Variable<SimulationControl>& variab
   }
 }
 
-template <typename SimulationControl>
+template <typename SimulationControl, int N>
 inline void calculateConvectiveNormalFlux(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                          const Variable<SimulationControl>& variable,
+                                          const Variable<SimulationControl, N>& variable,
                                           FluxNormalVariable<SimulationControl>& convective_normal_flux,
                                           const Isize column) {
   if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
@@ -94,11 +94,11 @@ inline void calculateConvectiveNormalFlux(const Eigen::Vector<Real, SimulationCo
   }
 }
 
-template <typename SimulationControl>
+template <typename SimulationControl, int N>
 inline void calculateConvectiveCentralFlux([[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
                                            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                           const Variable<SimulationControl>& left_quadrature_node_variable,
-                                           const Variable<SimulationControl>& right_quadrature_node_variable,
+                                           const Variable<SimulationControl, N>& left_quadrature_node_variable,
+                                           const Variable<SimulationControl, N>& right_quadrature_node_variable,
                                            Flux<SimulationControl>& convective_flux, const Isize left_column,
                                            const Isize right_column) {
   calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_, left_column);
@@ -107,12 +107,12 @@ inline void calculateConvectiveCentralFlux([[maybe_unused]] const PhysicalModel<
       (convective_flux.left_.normal_variable_ + convective_flux.right_.normal_variable_) / 2.0_r;
 }
 
-template <typename SimulationControl>
+template <typename SimulationControl, int N>
 inline void calculateConvectiveLaxFriedrichsFlux(
     const PhysicalModel<SimulationControl>& physical_model,
     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-    const Variable<SimulationControl>& left_quadrature_node_variable,
-    const Variable<SimulationControl>& right_quadrature_node_variable, Flux<SimulationControl>& convective_flux,
+    const Variable<SimulationControl, N>& left_quadrature_node_variable,
+    const Variable<SimulationControl, N>& right_quadrature_node_variable, Flux<SimulationControl>& convective_flux,
     const Isize left_column, const Isize right_column) {
   calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_, left_column);
   calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_, right_column);
@@ -137,14 +137,14 @@ inline void calculateConvectiveLaxFriedrichsFlux(
       2.0_r;
 }
 
-template <typename SimulationControl>
+template <typename SimulationControl, int N>
 inline void calculateConvectiveHLLCFlux(const PhysicalModel<SimulationControl>& physical_model,
                                         const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                        const Variable<SimulationControl>& left_quadrature_node_variable,
-                                        const Variable<SimulationControl>& right_quadrature_node_variable,
+                                        const Variable<SimulationControl, N>& left_quadrature_node_variable,
+                                        const Variable<SimulationControl, N>& right_quadrature_node_variable,
                                         Flux<SimulationControl>& convective_flux, const Isize left_column,
                                         const Isize right_column) {
-  Variable<SimulationControl> contact_variable;
+  Variable<SimulationControl, 1> contact_variable;
   const Real left_density =
       left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column);
   const Real right_density =
@@ -241,15 +241,15 @@ inline void calculateConvectiveHLLCFlux(const PhysicalModel<SimulationControl>& 
   }
 }
 
-template <typename SimulationControl>
+template <typename SimulationControl, int N>
 inline void calculateConvectiveRoeFlux(const PhysicalModel<SimulationControl>& physical_model,
                                        const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                       const Variable<SimulationControl>& left_quadrature_node_variable,
-                                       const Variable<SimulationControl>& right_quadrature_node_variable,
+                                       const Variable<SimulationControl, N>& left_quadrature_node_variable,
+                                       const Variable<SimulationControl, N>& right_quadrature_node_variable,
                                        Flux<SimulationControl>& convective_flux, const Isize left_column,
                                        const Isize right_column) {
-  Variable<SimulationControl> roe_variable;
-  Variable<SimulationControl> delta_variable;
+  Variable<SimulationControl, 1> roe_variable;
+  Variable<SimulationControl, 1> delta_variable;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kConservedVariableNumber>
       roe_matrix = Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
                                  SimulationControl::kConservedVariableNumber>::Zero();
@@ -353,14 +353,14 @@ inline void calculateConvectiveRoeFlux(const PhysicalModel<SimulationControl>& p
       2.0_r;
 }
 
-template <typename SimulationControl>
+template <typename SimulationControl, int N>
 inline void calculateConvectiveExactFlux(const PhysicalModel<SimulationControl>& physical_model,
                                          const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                         const Variable<SimulationControl>& left_quadrature_node_variable,
-                                         const Variable<SimulationControl>& right_quadrature_node_variable,
+                                         const Variable<SimulationControl, N>& left_quadrature_node_variable,
+                                         const Variable<SimulationControl, N>& right_quadrature_node_variable,
                                          Flux<SimulationControl>& convective_flux, const Isize left_column,
                                          const Isize right_column) {
-  Variable<SimulationControl> exact_variable;
+  Variable<SimulationControl, 1> exact_variable;
   Real exact_internal_energy;
   Eigen::Vector<Real, SimulationControl::kDimension> exact_velocity;
   const Real sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
@@ -413,11 +413,11 @@ inline void calculateConvectiveExactFlux(const PhysicalModel<SimulationControl>&
   calculateConvectiveNormalFlux(normal_vector, exact_variable, convective_flux.result_, 0);
 }
 
-template <typename SimulationControl>
+template <typename SimulationControl, int N>
 inline void calculateConvectiveFlux(const PhysicalModel<SimulationControl>& physical_model,
                                     const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                    const Variable<SimulationControl>& left_quadrature_node_variable,
-                                    const Variable<SimulationControl>& right_quadrature_node_variable,
+                                    const Variable<SimulationControl, N>& left_quadrature_node_variable,
+                                    const Variable<SimulationControl, N>& right_quadrature_node_variable,
                                     Flux<SimulationControl>& convective_flux, const Isize left_column,
                                     const Isize right_column) {
   if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Central) {

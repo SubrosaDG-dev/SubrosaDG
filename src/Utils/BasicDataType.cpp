@@ -14,6 +14,8 @@
 #define SUBROSA_DG_BASIC_DATA_TYPE_CPP_
 
 #include <dbg-macro/dbg.h>
+#include <oneapi/tbb.h>
+#include <oneapi/tbb/task_arena.h>
 
 #include <array>
 #include <cstddef>
@@ -25,12 +27,18 @@
 
 namespace SubrosaDG {
 
-#if defined(SUBROSA_DG_ONEAPI) || defined(SUBROSA_DG_CUDA) || defined(SUBROSA_DG_HIP)
+#if defined(SUBROSA_DG_ONEAPI) || defined(SUBROSA_DG_CUDA) || defined(SUBROSA_DG_ROCM)
 #define SUBROSA_DG_GPU
-#endif  // SUBROSA_DG_ONEAPI || SUBROSA_DG_CUDA || SUBROSA_DG_HIP
+#endif  // SUBROSA_DG_ONEAPI || SUBROSA_DG_CUDA || SUBROSA_DG_ROCM
 
-using Usize = std::size_t;
-using Isize = std::ptrdiff_t;
+#ifndef SUBROSA_DG_GPU
+#define __kernel__
+#else  // SUBROSA_DG_GPU
+#define __kernel__ __attribute__((sycl_kernel))
+#endif  // SUBROSA_DG_GPU
+
+using Usize = unsigned int;
+using Isize = int;
 
 #ifdef SUBROSA_DG_SINGLE_PRECISION
 using Real = float;

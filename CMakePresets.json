@@ -63,13 +63,13 @@
             }
         },
         {
-            "name": "Build examples in oneAPI release",
-            "displayName": "Build examples in oneAPI release",
-            "description": "Build examples in oneAPI release",
+            "name": "Build examples in SYCL release",
+            "displayName": "Build examples in SYCL release",
+            "description": "Build examples in SYCL release",
             "inherits": "Base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "SUBROSA_DG_ONEAPI": true,
+                "SUBROSA_DG_SYCL": true,
                 "SUBROSA_DG_BUILD_EXAMPLES": true
             }
         },

@@ -17,9 +17,7 @@
 #include <filesystem>
 #include <fstream>
 #include <future>
-#include <memory>
 #include <sstream>
-#include <unordered_map>
 
 #include "Mesh/ReadControl.cpp"
 #include "Solver/PhysicalModel.cpp"
@@ -34,7 +32,7 @@ struct AdjacencyElementVariable;
 template <typename SimulationControl>
 struct SourceTerm;
 template <typename SimulationControl>
-struct BoundaryConditionBase;
+struct BoundaryCondition;
 template <typename SimulationControl>
 struct InitialCondition;
 template <typename SimulationControl>
@@ -202,9 +200,9 @@ struct ElementSolver {
 
   inline void calculateElementGardientQuadrature(const ElementMesh<ElementTrait>& element_mesh);
 
-  inline Real calculateElementDeltaTime(const ElementMesh<ElementTrait>& element_mesh,
+  inline void calculateElementDeltaTime(const ElementMesh<ElementTrait>& element_mesh,
                                         const PhysicalModel<SimulationControl>& physical_model,
-                                        Real courant_friedrichs_lewy_number);
+                                        Real courant_friedrichs_lewy_number, Real& delta_time);
 
   inline void calculateElementResidual(const ElementMesh<ElementTrait>& element_mesh);
 
@@ -232,12 +230,12 @@ struct AdjacencyElementSolver {
   inline void initializeAdjacencyElementSolver(
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
       const PhysicalModel<SimulationControl>& physical_model,
-      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
+      const BoundaryCondition<SimulationControl>& boundary_condition);
 
   inline void updateAdjacencyElementBoundaryVariable(
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
       const PhysicalModel<SimulationControl>& physical_model,
-      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
+      const BoundaryCondition<SimulationControl>& boundary_condition,
       const TimeIntegration<SimulationControl>& time_integration);
 
   [[nodiscard]] inline Isize getAdjacencyParentElementAccumulateAdjacencyQuadratureNumber(
@@ -254,16 +252,14 @@ struct AdjacencyElementSolver {
 
   inline void calculateBoundaryAdjacencyElementQuadrature(
       const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
-      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-      Solver<SimulationControl>& solver);
+      const BoundaryCondition<SimulationControl>& boundary_condition, Solver<SimulationControl>& solver);
 
   inline void calculateInteriorAdjacencyElementGardientQuadrature(const Mesh<SimulationControl>& mesh,
                                                                   Solver<SimulationControl>& solver);
 
   inline void calculateBoundaryAdjacencyElementGardientQuadrature(
       const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
-      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-      Solver<SimulationControl>& solver);
+      const BoundaryCondition<SimulationControl>& boundary_condition, Solver<SimulationControl>& solver);
 
   inline void storeAdjacencyElementNodeQuadrature(
       Isize parent_gmsh_type_number, Isize parent_index, Isize quadrature_node_sequence_in_parent,
@@ -378,15 +374,15 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
     return nullptr;
   }
 
-  inline void initializeSolver(
-      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
-      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-      InitialCondition<SimulationControl>& initial_condition);
+  inline void initializeSolver(const Mesh<SimulationControl>& mesh,
+                               const PhysicalModel<SimulationControl>& physical_model,
+                               const BoundaryCondition<SimulationControl>& boundary_condition,
+                               InitialCondition<SimulationControl>& initial_condition);
 
-  inline void updateBoundaryVariable(
-      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
-      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-      const TimeIntegration<SimulationControl>& time_integration);
+  inline void updateBoundaryVariable(const Mesh<SimulationControl>& mesh,
+                                     const PhysicalModel<SimulationControl>& physical_model,
+                                     const BoundaryCondition<SimulationControl>& boundary_condition,
+                                     const TimeIntegration<SimulationControl>& time_integration);
 
   inline void copyBasisFunctionCoefficient();
 
@@ -408,13 +404,13 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void calculateGardientQuadrature(const Mesh<SimulationControl>& mesh);
 
-  inline void calculateAdjacencyQuadrature(
-      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
-      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
+  inline void calculateAdjacencyQuadrature(const Mesh<SimulationControl>& mesh,
+                                           const PhysicalModel<SimulationControl>& physical_model,
+                                           const BoundaryCondition<SimulationControl>& boundary_condition);
 
-  inline void calculateAdjacencyGardientQuadrature(
-      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
-      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition);
+  inline void calculateAdjacencyGardientQuadrature(const Mesh<SimulationControl>& mesh,
+                                                   const PhysicalModel<SimulationControl>& physical_model,
+                                                   const BoundaryCondition<SimulationControl>& boundary_condition);
 
   inline void calculateBoundaryAdjacencyForce(const Mesh<SimulationControl>& mesh,
                                               const PhysicalModel<SimulationControl>& physical_model);
@@ -428,11 +424,11 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 
   inline void updateGardientBasisFunctionCoefficient(const Mesh<SimulationControl>& mesh);
 
-  inline void stepSolver(
-      const Mesh<SimulationControl>& mesh, [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
-      const PhysicalModel<SimulationControl>& physical_model,
-      const std::unordered_map<Isize, std::unique_ptr<BoundaryConditionBase<SimulationControl>>>& boundary_condition,
-      const TimeIntegration<SimulationControl>& time_integration);
+  inline void stepSolver(const Mesh<SimulationControl>& mesh,
+                         [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
+                         const PhysicalModel<SimulationControl>& physical_model,
+                         const BoundaryCondition<SimulationControl>& boundary_condition,
+                         const TimeIntegration<SimulationControl>& time_integration);
 
   inline void calculateRelativeError(const Mesh<SimulationControl>& mesh);
 

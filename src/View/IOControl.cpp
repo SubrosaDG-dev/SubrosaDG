@@ -237,9 +237,10 @@ struct ViewSupplemental {
   ViewSupplemental(Isize physical_index, const Mesh<SimulationControl>& mesh,
                    const std::vector<ViewVariableEnum>& variable_type) {
     this->data_set_data_.resize(variable_type.size() + 3);
-    const Isize node_number = mesh.information_.physical_information_.at(physical_index).node_number_;
-    const Isize vtk_node_number = mesh.information_.physical_information_.at(physical_index).vtk_node_number_;
-    const Isize vtk_element_number = mesh.information_.physical_information_.at(physical_index).vtk_element_number_;
+    const Isize node_number = mesh.information_.physical_[static_cast<Usize>(physical_index)].node_number_;
+    const Isize vtk_node_number = mesh.information_.physical_[static_cast<Usize>(physical_index)].vtk_node_number_;
+    const Isize vtk_element_number =
+        mesh.information_.physical_[static_cast<Usize>(physical_index)].vtk_element_number_;
     this->node_coordinate_.resize(Eigen::NoChange, node_number);
     this->node_coordinate_.setZero();
     this->node_variable_.resize(static_cast<Isize>(variable_type.size()));

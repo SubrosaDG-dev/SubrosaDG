@@ -208,26 +208,11 @@ struct FluxGradient {
   FluxVariable<SimulationControl> result_;
 };
 
-template <typename SimulationControl>
+template <typename SimulationControl, int N>
 struct Variable {
-  Isize column_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, Eigen::Dynamic> conserved_;
-  Eigen::Matrix<Real, SimulationControl::kComputationalVariableNumber, Eigen::Dynamic> computational_;
-  Eigen::Matrix<Real, SimulationControl::kPrimitiveVariableNumber, Eigen::Dynamic> primitive_;
-
-  Variable() {
-    this->column_ = 1;
-    this->conserved_.resize(Eigen::NoChange, 1);
-    this->computational_.resize(Eigen::NoChange, 1);
-    this->primitive_.resize(Eigen::NoChange, 1);
-  }
-
-  Variable(const Isize column) {
-    this->column_ = column;
-    this->conserved_.resize(Eigen::NoChange, column);
-    this->computational_.resize(Eigen::NoChange, column);
-    this->primitive_.resize(Eigen::NoChange, column);
-  }
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, N> conserved_;
+  Eigen::Matrix<Real, SimulationControl::kComputationalVariableNumber, N> computational_;
+  Eigen::Matrix<Real, SimulationControl::kPrimitiveVariableNumber, N> primitive_;
 
   template <ConservedVariableEnum ConservedVariableType>
   [[nodiscard]] inline Real getScalar(const Isize column) const {
@@ -313,7 +298,7 @@ struct Variable {
   inline void calculateConservedFromComputational() {
     if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
                   SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
-      for (Isize i = 0; i < this->column_; i++) {
+      for (Isize i = 0; i < N; i++) {
         const Real density = this->getScalar<ComputationalVariableEnum::Density>(i);
         this->setScalar<ConservedVariableEnum::Density>(density, i);
         this->setVector<ConservedVariableEnum::Momentum>(
@@ -325,7 +310,7 @@ struct Variable {
     }
     if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
                   SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
-      for (Isize i = 0; i < this->column_; i++) {
+      for (Isize i = 0; i < N; i++) {
         const Real density = this->getScalar<ComputationalVariableEnum::Density>(i);
         this->setScalar<ConservedVariableEnum::Density>(density, i);
         this->setVector<ConservedVariableEnum::Momentum>(
@@ -337,7 +322,7 @@ struct Variable {
   }
 
   inline void calculateComputationalFromConserved(const PhysicalModel<SimulationControl>& physical_model) {
-    for (Isize i = 0; i < this->column_; i++) {
+    for (Isize i = 0; i < N; i++) {
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
                     SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
         const Real density = this->getScalar<ConservedVariableEnum::Density>(i);
@@ -365,7 +350,7 @@ struct Variable {
   }
 
   inline void calculateConservedFromPrimitive(const PhysicalModel<SimulationControl>& physical_model) {
-    for (Isize i = 0; i < this->column_; i++) {
+    for (Isize i = 0; i < N; i++) {
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
                     SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
         const Real density = this->getScalar<PrimitiveVariableEnum::Density>(i);
@@ -394,7 +379,7 @@ struct Variable {
   }
 
   inline void calculateComputationalFromPrimitive(const PhysicalModel<SimulationControl>& physical_model) {
-    for (Isize i = 0; i < this->column_; i++) {
+    for (Isize i = 0; i < N; i++) {
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
                     SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
                     SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
@@ -412,7 +397,7 @@ struct Variable {
   }
 
   inline void calculatePrimitiveFromConserved(const PhysicalModel<SimulationControl>& physical_model) {
-    for (Isize i = 0; i < this->column_; i++) {
+    for (Isize i = 0; i < N; i++) {
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
                     SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
         const Real density = this->getScalar<ConservedVariableEnum::Density>(i);
@@ -440,7 +425,7 @@ struct Variable {
   }
 
   inline void calculatePrimitiveFromComputational(const PhysicalModel<SimulationControl>& physical_model) {
-    for (Isize i = 0; i < this->column_; i++) {
+    for (Isize i = 0; i < N; i++) {
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
                     SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
                     SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
@@ -457,9 +442,7 @@ struct Variable {
 };
 
 template <typename ElementTrait, typename SimulationControl>
-struct ElementVariable : Variable<SimulationControl> {
-  ElementVariable() : Variable<SimulationControl>(ElementTrait::kQuadratureNumber) {}
-
+struct ElementVariable : Variable<SimulationControl, ElementTrait::kQuadratureNumber> {
   inline void get(const ElementMesh<ElementTrait>& element_mesh,
                   const ElementSolver<ElementTrait, SimulationControl>& element_solver, const Isize element_index) {
     this->conserved_.noalias() = element_solver.element_(element_index).variable_basis_function_coefficient_ *
@@ -468,9 +451,7 @@ struct ElementVariable : Variable<SimulationControl> {
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
-struct AdjacencyElementVariable : Variable<SimulationControl> {
-  AdjacencyElementVariable() : Variable<SimulationControl>(AdjacencyElementTrait::kQuadratureNumber) {}
-
+struct AdjacencyElementVariable : Variable<SimulationControl, AdjacencyElementTrait::kQuadratureNumber> {
   template <typename ElementTrait>
   void compute(const ElementMesh<ElementTrait>& element_mesh,
                const ElementSolver<ElementTrait, SimulationControl>& element_solver, const Isize parent_index_each_type,
@@ -524,25 +505,10 @@ struct AdjacencyElementVariable : Variable<SimulationControl> {
   }
 };
 
-template <typename SimulationControl>
+template <typename SimulationControl, int N>
 struct VariableGradient {
-  Isize column_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension, Eigen::Dynamic>
-      conserved_;
-  Eigen::Matrix<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension, Eigen::Dynamic>
-      primitive_;
-
-  VariableGradient() {
-    this->column_ = 1;
-    this->conserved_.resize(Eigen::NoChange, 1);
-    this->primitive_.resize(Eigen::NoChange, 1);
-  }
-
-  VariableGradient(const Isize column) {
-    this->column_ = column;
-    this->conserved_.resize(Eigen::NoChange, column);
-    this->primitive_.resize(Eigen::NoChange, column);
-  }
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension, N> conserved_;
+  Eigen::Matrix<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension, N> primitive_;
 
   template <ConservedVariableEnum ConservedVariableType>
   [[nodiscard]] inline Eigen::Vector<Real, SimulationControl::kDimension> getVector(const Isize column) const {
@@ -627,8 +593,8 @@ struct VariableGradient {
   }
 
   inline void calculatePrimitiveFromConserved(const PhysicalModel<SimulationControl>& physical_model,
-                                              const Variable<SimulationControl>& variable) {
-    for (Isize i = 0; i < this->column_; i++) {
+                                              const Variable<SimulationControl, N>& variable) {
+    for (Isize i = 0; i < N; i++) {
       if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
                     SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
         const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(i);
@@ -678,9 +644,7 @@ struct VariableGradient {
 };
 
 template <typename ElementTrait, typename SimulationControl>
-struct ElementVariableGradient : VariableGradient<SimulationControl> {
-  ElementVariableGradient() : VariableGradient<SimulationControl>(ElementTrait::kQuadratureNumber) {}
-
+struct ElementVariableGradient : VariableGradient<SimulationControl, ElementTrait::kQuadratureNumber> {
   template <ViscousFluxEnum ViscousFluxType>
   inline void get(const ElementMesh<ElementTrait>& element_mesh,
                   const ElementSolver<ElementTrait, SimulationControl>& element_solver, Isize element_index) {
@@ -697,9 +661,8 @@ struct ElementVariableGradient : VariableGradient<SimulationControl> {
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
-struct AdjacencyElementVariableGradient : VariableGradient<SimulationControl> {
-  AdjacencyElementVariableGradient() : VariableGradient<SimulationControl>(AdjacencyElementTrait::kQuadratureNumber) {}
-
+struct AdjacencyElementVariableGradient
+    : VariableGradient<SimulationControl, AdjacencyElementTrait::kQuadratureNumber> {
   template <typename ElementTrait, ViscousFluxEnum ViscousFluxType>
   void compute(const ElementMesh<ElementTrait>& element_mesh,
                const ElementSolver<ElementTrait, SimulationControl>& element_solver, const Isize parent_index_each_type,
@@ -787,27 +750,27 @@ struct ViewVariableData;
 
 template <typename ElementTrait, typename SimulationControl>
 struct ViewVariableData<ElementTrait, SimulationControl, EquationModelEnum::CompresibleEuler> {
-  Variable<SimulationControl> variable_{ElementTrait::kBasisFunctionNumber};
+  Variable<SimulationControl, ElementTrait::kBasisFunctionNumber> variable_;
   Eigen::Vector<Real, ElementTrait::kBasisFunctionNumber> artificial_viscosity_;
 };
 
 template <typename ElementTrait, typename SimulationControl>
 struct ViewVariableData<ElementTrait, SimulationControl, EquationModelEnum::CompresibleNS> {
-  Variable<SimulationControl> variable_{ElementTrait::kBasisFunctionNumber};
-  VariableGradient<SimulationControl> variable_gradient_{ElementTrait::kBasisFunctionNumber};
+  Variable<SimulationControl, ElementTrait::kBasisFunctionNumber> variable_;
+  VariableGradient<SimulationControl, ElementTrait::kBasisFunctionNumber> variable_gradient_;
   Eigen::Vector<Real, ElementTrait::kBasisFunctionNumber> artificial_viscosity_;
 };
 
 template <typename ElementTrait, typename SimulationControl>
 struct ViewVariableData<ElementTrait, SimulationControl, EquationModelEnum::IncompresibleEuler> {
-  Variable<SimulationControl> variable_{ElementTrait::kBasisFunctionNumber};
+  Variable<SimulationControl, ElementTrait::kBasisFunctionNumber> variable_;
   Eigen::Vector<Real, ElementTrait::kBasisFunctionNumber> artificial_viscosity_;
 };
 
 template <typename ElementTrait, typename SimulationControl>
 struct ViewVariableData<ElementTrait, SimulationControl, EquationModelEnum::IncompresibleNS> {
-  Variable<SimulationControl> variable_{ElementTrait::kBasisFunctionNumber};
-  VariableGradient<SimulationControl> variable_gradient_{ElementTrait::kBasisFunctionNumber};
+  Variable<SimulationControl, ElementTrait::kBasisFunctionNumber> variable_;
+  VariableGradient<SimulationControl, ElementTrait::kBasisFunctionNumber> variable_gradient_;
   Eigen::Vector<Real, ElementTrait::kBasisFunctionNumber> artificial_viscosity_;
 };
 
