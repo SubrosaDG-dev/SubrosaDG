@@ -24,7 +24,5 @@ Diagnostics:
 
 CompileFlags:
   Remove: [
-    -fsycl-targets=spir64_gen,
-    -fsycl-targets=nvptx64-nvidia-cuda,
-    -fsycl-targets=amdgcn-amd-amdhsa
+    -fsycl-targets=*,
   ]

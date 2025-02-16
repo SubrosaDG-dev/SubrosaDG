@@ -31,7 +31,7 @@ set(SUBROSA_DG_VERSION_STRING "${SUBROSA_DG_VERSION} - ${SHORT_SHA1} - ${GIT_CHA
 option(SUBROSA_DG_DEVELOP "Build SubrosaDG in Develop" OFF)
 
 # set option for gpu vendor
-option(SUBROSA_DG_SYCL "Build SubrosaDG with oneAPI" OFF)
+option(SUBROSA_DG_SYCL "Build SubrosaDG with SYCL" OFF)
 option(SUBROSA_DG_CUDA "Build SubrosaDG with CUDA" OFF)
 option(SUBROSA_DG_ROCM "Build SubrosaDG with ROCm" OFF)
 
@@ -176,25 +176,16 @@ set(SUBROSA_DG_FLAGS)
 string(APPEND SUBROSA_DG_DEBUG_FLAGS "-Wall -Wshadow -Wextra -Wconversion -Wdocumentation -Wno-narrowing ")
 string(APPEND SUBROSA_DG_RELEASE_FLAGS "-march=native ")
 
-# add cpu compilation flags
-if(NOT SUBROSA_DG_SYCL AND NOT SUBROSA_DG_CUDA AND NOT SUBROSA_DG_ROCM)
-    set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=spir64_x86_64 ")
-endif()
-
-# add sycl compilation flags
+# add device compilation flags
 if(SUBROSA_DG_SYCL)
     set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=intel_gpu_bmg_g21 ")
-endif()
-
-# add cuda compilation flags
-if(SUBROSA_DG_CUDA)
+elseif(SUBROSA_DG_CUDA)
     set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=nvidia_gpu_sm_89 ")
-endif()
-
-# add rocm compilation flags
-if(SUBROSA_DG_ROCM)
+elseif(SUBROSA_DG_ROCM)
     set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=amd_gpu_gfx908 \
         --rocm-device-lib-path=/usr/lib/clang/18/amdgcn/bitcode ")
+else()
+    set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=spir64_x86_64 ")
 endif()
 
 # add device flags

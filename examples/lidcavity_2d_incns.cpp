@@ -27,28 +27,34 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                        SubrosaDG::TransportModelEnum::Constant,
                                        SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs, SubrosaDG::ViscousFluxEnum::BR2>>;
 
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 1.0_r};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    const SubrosaDG::Isize gmsh_physical_index) const {
+  if (gmsh_physical_index == 1) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 1.0_r};
+  }
+  if (gmsh_physical_index == 2) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 1.0_r, 0.0_r, 1.0_r};
+  }
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
+
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "lidcavity_2d_incns.msh", generateMesh);
-  system.addInitialCondition(
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
-      "bc-1",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
-      "bc-2",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 1.0_r, 0.0_r, 1.0_r};
-      });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(2);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
   system.setEquationOfState<SimulationControl::kEquationOfState>(10.0_r, 1.0_r);
   system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 1.0_r / 5000.0_r);
@@ -82,9 +88,9 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::mesh::setTransfiniteSurface(1);
   gmsh::model::geo::mesh::setRecombine(2, 1);
   gmsh::model::geo::synchronize();
-  gmsh::model::addPhysicalGroup(1, {1, 2, 4}, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(1, {3}, -1, "bc-2");
-  gmsh::model::addPhysicalGroup(2, {1}, -1, "vc-1");
+  gmsh::model::addPhysicalGroup(1, {1, 2, 4}, 1, "bc-1");
+  gmsh::model::addPhysicalGroup(1, {3}, 2, "bc-2");
+  gmsh::model::addPhysicalGroup(2, {1}, 3, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

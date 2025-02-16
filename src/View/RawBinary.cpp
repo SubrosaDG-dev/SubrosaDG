@@ -78,8 +78,7 @@ inline void ElementSolver<ElementTrait, SimulationControl>::writeElementRawBinar
   for (Isize i = 0; i < this->number_; i++) {
     raw_binary_ss.write(reinterpret_cast<const char*>(this->element_(i).variable_basis_function_coefficient_.data()),
                         SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber * kRealSize);
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                  SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+    if constexpr (IsNS<SimulationControl::kEquationModel>) {
       raw_binary_ss.write(
           reinterpret_cast<const char*>(this->element_(i).variable_gradient_basis_function_coefficient_.data()),
           SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
@@ -95,8 +94,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::wr
   raw_binary_ss.write(reinterpret_cast<const char*>(
                           element_solver.element_(parent_index_each_type).variable_basis_function_coefficient_.data()),
                       SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber * kRealSize);
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+  if constexpr (IsNS<SimulationControl::kEquationModel>) {
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                   ElementTrait::kBasisFunctionNumber>
         variable_gradient_basis_function_coefficient;
@@ -196,8 +194,7 @@ template <typename ElementTrait, typename SimulationControl>
 inline void ElementViewSolver<ElementTrait, SimulationControl>::calcluateElementViewVariable(
     const ElementMesh<ElementTrait>& element_mesh, const PhysicalModel<SimulationControl>& physical_model,
     const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity, std::stringstream& raw_binary_ss) {
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler) {
+  if constexpr (IsEuler<SimulationControl::kEquationModel>) {
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
         variable_basis_function_coefficient;
     Eigen::Vector<Real, ElementTrait::kBasicNodeNumber> variable_artificial_viscosity;
@@ -214,8 +211,7 @@ inline void ElementViewSolver<ElementTrait, SimulationControl>::calcluateElement
           this->basis_function_.nodal_value_.transpose() * variable_artificial_viscosity;
     }
   }
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+  if constexpr (IsNS<SimulationControl::kEquationModel>) {
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
         variable_basis_function_coefficient;
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
@@ -257,8 +253,7 @@ AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>::calcluateA
           getAdjacencyElementViewNodeParentSequence<AdjacencyElementTrait::kElementType,
                                                     SimulationControl::kPolynomialOrder>(
               static_cast<int>(parent_gmsh_type_number), static_cast<int>(adjacency_sequence_in_parent))};
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler) {
+  if constexpr (IsEuler<SimulationControl::kEquationModel>) {
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
         variable_basis_function_coefficient;
     raw_binary_ss.read(reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
@@ -270,8 +265,7 @@ AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>::calcluateA
     }
     this->view_variable_(column).variable_.calculateComputationalFromConserved(physical_model);
   }
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+  if constexpr (IsNS<SimulationControl::kEquationModel>) {
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
         variable_basis_function_coefficient;
     Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,

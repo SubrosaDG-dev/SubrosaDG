@@ -101,8 +101,7 @@ struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFa
       }
     } else {
       if (normal_mach_number < 0.0_r) {  // Subsonic inflow
-        if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                      SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+        if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
           const Real left_toward_riemann_invariant =
               right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
                       .transpose() *
@@ -151,8 +150,7 @@ struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFa
           boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(boundary_pressure,
                                                                                                     0);
         }
-        if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                      SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+        if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
           const Real sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
           const Real left_normal_velocity =
               left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
@@ -193,8 +191,7 @@ struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFa
                                                                                                     0);
         }
       } else {  // Subsonic outflow
-        if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                      SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+        if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
           const Real left_toward_riemann_invariant =
               right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
                       .transpose() *
@@ -243,8 +240,7 @@ struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFa
           boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(boundary_pressure,
                                                                                                     0);
         }
-        if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                      SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+        if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
           const Real sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
           const Real left_normal_velocity =
               left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)

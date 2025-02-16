@@ -17,7 +17,7 @@ inline const std::string kExampleName{"rae2822_2d_cns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P5,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
@@ -27,30 +27,36 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                      SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC,
                                      SubrosaDG::ViscousFluxEnum::BR2>>;
 
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.4_r * std::cos(2.79_deg),
+                                                                                     0.4_r * std::sin(2.79_deg), 1.0_r};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    const SubrosaDG::Isize gmsh_physical_index) const {
+  if (gmsh_physical_index == 1) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+        1.4_r, 0.4_r * std::cos(2.79_deg), 0.4_r * std::sin(2.79_deg), 1.0_r};
+  }
+  if (gmsh_physical_index == 2) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
+  }
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
+
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
-  system.setMesh(kExampleDirectory / "rae2822_2d.msh", generateMesh);
-  system.addInitialCondition(
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4_r, 0.4_r * std::cos(2.79_deg), 0.4_r * std::sin(2.79_deg), 1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4_r, 0.4_r * std::cos(2.79_deg), 0.4_r * std::sin(2.79_deg), 1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
-      "bc-2",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
-      });
+  system.setMesh(kExampleDirectory / "rae2822_2d_cns.msh", generateMesh);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(2);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
   system.setTransportModel<SimulationControl::kTransportModel>(1.4_r * 0.4_r / 6.5e6_r);
   system.setTimeIntegration(1.0_r);
@@ -114,21 +120,21 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::add("rae2822_2d");
   const int rae2822_leading_edge_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   const int rae2822_trailing_edge_point_tag = gmsh::model::geo::addPoint(1.0, 0.0, 0.0);
-  for (std::ptrdiff_t i = 0; i < 6; i++) {
+  for (int i = 0; i < 6; i++) {
     farfield_point_tag(i) =
         gmsh::model::geo::addPoint(farfield_point(i, 0), farfield_point(i, 1), farfield_point(i, 2));
   }
   for (std::size_t i = 0; i < 2; i++) {
     rae2822_point_tag[i].emplace_back(rae2822_leading_edge_point_tag);
   }
-  for (std::ptrdiff_t i = 0; i < 63; i++) {
+  for (int i = 0; i < 63; i++) {
     rae2822_point_tag[0].emplace_back(gmsh::model::geo::addPoint(rae2822_point(0, i), rae2822_point(1, i), 0.0));
     rae2822_point_tag[1].emplace_back(gmsh::model::geo::addPoint(rae2822_point(0, i), rae2822_point(2, i), 0.0));
   }
   for (std::size_t i = 0; i < 2; i++) {
     rae2822_point_tag[i].emplace_back(rae2822_trailing_edge_point_tag);
   }
-  for (std::ptrdiff_t i = 0; i < 6; i++) {
+  for (int i = 0; i < 6; i++) {
     if (i < 2) {
       farfield_line_tag(i) = gmsh::model::geo::addCircleArc(farfield_point_tag(i), rae2822_trailing_edge_point_tag,
                                                             farfield_point_tag(i + 1));
@@ -140,7 +146,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   connection_line_tag(1) = gmsh::model::geo::addLine(farfield_point_tag(1), rae2822_leading_edge_point_tag);
   connection_line_tag(2) = gmsh::model::geo::addLine(farfield_point_tag(2), rae2822_trailing_edge_point_tag);
   connection_line_tag(3) = gmsh::model::geo::addLine(farfield_point_tag(4), rae2822_trailing_edge_point_tag);
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     rae2822_line_tag(i) = gmsh::model::geo::addSpline(rae2822_point_tag[static_cast<std::size_t>(i)]);
   }
   curve_loop_tag(0) = gmsh::model::geo::addCurveLoop(
@@ -151,13 +157,13 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       {-connection_line_tag(2), farfield_line_tag(2), farfield_line_tag(3), connection_line_tag(3)});
   curve_loop_tag(3) = gmsh::model::geo::addCurveLoop(
       {-connection_line_tag(3), farfield_line_tag(4), farfield_line_tag(5), connection_line_tag(0)});
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
     plane_surface_tag(i) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i)});
   }
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     gmsh::model::geo::mesh::setTransfiniteCurve(rae2822_line_tag(i), 40, "Progression", 1.08);
   }
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(i), 40);
   }
   gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 20);
@@ -168,23 +174,23 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 20, "Progression", -1.65);
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 20, "Progression", -1.7);
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 20);
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
     gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i));
   }
   gmsh::model::geo::synchronize();
-  for (std::ptrdiff_t i = 0; i < 6; i++) {
+  for (int i = 0; i < 6; i++) {
     physical_group_tag[0].emplace_back(farfield_line_tag(i));
   }
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     physical_group_tag[1].emplace_back(rae2822_line_tag(i));
   }
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
     physical_group_tag[2].emplace_back(plane_surface_tag(i));
   }
-  gmsh::model::addPhysicalGroup(1, physical_group_tag[0], -1, "bc-1");
-  gmsh::model::addPhysicalGroup(1, physical_group_tag[1], -1, "bc-2");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[0], 1, "bc-1");
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[1], 2, "bc-2");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], 3, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

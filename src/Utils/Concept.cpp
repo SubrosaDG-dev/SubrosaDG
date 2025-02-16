@@ -71,6 +71,22 @@ bool isWall(const BoundaryConditionEnum boundary_condition_type) {
          boundary_condition_type == BoundaryConditionEnum::AdiabaticNonSlipWall;
 }
 
+template <EquationModelEnum EquationModelType>
+concept IsEuler = EquationModelType == EquationModelEnum::CompresibleEuler ||
+                  EquationModelType == EquationModelEnum::IncompresibleEuler;
+
+template <EquationModelEnum EquationModelType>
+concept IsNS =
+    EquationModelType == EquationModelEnum::CompresibleNS || EquationModelType == EquationModelEnum::IncompresibleNS;
+
+template <EquationModelEnum EquationModelType>
+concept IsCompresible =
+    EquationModelType == EquationModelEnum::CompresibleEuler || EquationModelType == EquationModelEnum::CompresibleNS;
+
+template <EquationModelEnum EquationModelType>
+concept IsIncompresible = EquationModelType == EquationModelEnum::IncompresibleEuler ||
+                          EquationModelType == EquationModelEnum::IncompresibleNS;
+
 }  // namespace SubrosaDG
 
 #endif  // SUBROSA_DG_CONCEPT_CPP_

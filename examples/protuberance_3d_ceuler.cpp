@@ -25,26 +25,33 @@ using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::CompresibleEulerVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
                                         SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC>>;
 
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r, 1.0_r};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    const SubrosaDG::Isize gmsh_physical_index) const {
+  if (gmsh_physical_index == 1) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r,
+                                                                                       1.0_r};
+  }
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
+
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "protuberance_3d_ceuler.msh", generateMesh);
-  system.addInitialCondition(
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r,
-                                                                                           1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r,
-                                                                                           1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-2");
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-3");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(2);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>(3);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
   system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
@@ -80,13 +87,13 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 6, 1> surface_filling_tag;
   std::array<std::vector<int>, 3> physical_group_tag;
   gmsh::model::add("protuberance_3d");
-  for (std::ptrdiff_t i = 0; i < 8; i++) {
+  for (int i = 0; i < 8; i++) {
     point_tag(i) = gmsh::model::geo::addPoint(hexahedron_point_coordinate(i, 0), hexahedron_point_coordinate(i, 1),
                                               hexahedron_point_coordinate(i, 2));
   }
   protuberance_point_tag[0].emplace_back(point_tag(0));
   protuberance_point_tag[1].emplace_back(point_tag(1));
-  for (std::ptrdiff_t i = 0; i < 99; i++) {
+  for (int i = 0; i < 99; i++) {
     protuberance_point_tag[0].emplace_back(gmsh::model::geo::addPoint(0.0, protuberance_point_coordinate(0, i + 1),
                                                                       protuberance_point_coordinate(1, i + 1)));
     protuberance_point_tag[1].emplace_back(gmsh::model::geo::addPoint(0.5, protuberance_point_coordinate(0, i + 1),
@@ -112,7 +119,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   curve_loop_tag(3) = gmsh::model::geo::addCurveLoop({line_tag(1), line_tag(10), -line_tag(5), -line_tag(11)});
   curve_loop_tag(4) = gmsh::model::geo::addCurveLoop({-line_tag(2), line_tag(8), line_tag(6), -line_tag(11)});
   curve_loop_tag(5) = gmsh::model::geo::addCurveLoop({line_tag(3), line_tag(10), -line_tag(7), -line_tag(9)});
-  for (std::ptrdiff_t i = 0; i < 6; i++) {
+  for (int i = 0; i < 6; i++) {
     surface_filling_tag(i) = gmsh::model::geo::addSurfaceFilling({curve_loop_tag(i)});
   }
   int surface_loop_tag =
@@ -131,7 +138,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(9), 10, "Progression", 1.3);
   gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(10), 10, "Progression", 1.3);
   gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(11), 10, "Progression", 1.3);
-  for (std::ptrdiff_t i = 0; i < 6; i++) {
+  for (int i = 0; i < 6; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(surface_filling_tag(i));
     gmsh::model::geo::mesh::setRecombine(2, surface_filling_tag(i));
   }
@@ -150,10 +157,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   physical_group_tag[0].emplace_back(surface_filling_tag(3));
   physical_group_tag[1].emplace_back(surface_filling_tag(4));
   physical_group_tag[1].emplace_back(surface_filling_tag(5));
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[0], -1, "bc-1");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[1], -1, "bc-2");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "bc-3");
-  gmsh::model::addPhysicalGroup(3, {volume_tag}, -1, "vc-1");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[0], 1, "bc-1");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[1], 2, "bc-2");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], 3, "bc-3");
+  gmsh::model::addPhysicalGroup(3, {volume_tag}, 4, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

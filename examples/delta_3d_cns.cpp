@@ -26,32 +26,38 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                      SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::TransportModelEnum::Constant,
                                      SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2>>;
 
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  // NOTE: Phd Thesis: Yuchen.Yang, Research on Adaptive Mesh Method for Compressible Flow Simulation, 2023.
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+      1.4_r, 0.0_r, 0.3_r * std::cos(12.5_deg), 0.3_r * std::sin(12.5_deg), 1.0_r};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    const SubrosaDG::Isize gmsh_physical_index) const {
+  if (gmsh_physical_index == 1) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+        1.4_r, 0.0_r, 0.3_r * std::cos(12.5_deg), 0.3_r * std::sin(12.5_deg), 1.0_r};
+  }
+  if (gmsh_physical_index == 2) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 0.0_r,
+                                                                                       1.0_r};
+  }
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
+
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "delta_3d_cns.msh", generateMesh);
-  // NOTE: Phd Thesis: Yuchen.Yang, Research on Adaptive Mesh Method for Compressible Flow Simulation, 2023.
-  system.addInitialCondition(
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4_r, 0.0_r, 0.3_r * std::cos(12.5_deg), 0.3_r * std::sin(12.5_deg), 1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4_r, 0.0_r, 0.3_r * std::cos(12.5_deg), 0.3_r * std::sin(12.5_deg), 1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(
-      "bc-2",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 0.0_r,
-                                                                                           1.0_r};
-      });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(2);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
   system.setTransportModel<SimulationControl::kTransportModel>(1.4_r * 0.3_r / 4000.0_r);
   system.setTimeIntegration(1.0_r);
@@ -98,11 +104,11 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Tensor<int, 3> volume_tag(5, 4, 3);
   std::array<std::vector<int>, 3> physical_group_tag;
   gmsh::model::add("delta_3d");
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
     if (i < 2) {
-      for (std::ptrdiff_t j = 0; j < 5; j++) {
+      for (int j = 0; j < 5; j++) {
         if (j < 2) {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             if (k == 1 || k == 3) {
               continue;
             }
@@ -111,7 +117,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
           point_tag(1, j, i) = point_tag(2, j, i);
           point_tag(3, j, i) = point_tag(2, j, i);
         } else if (j == 2) {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             if (k == 2) {
               point_tag(k, j, i) = gmsh::model::geo::addPoint(coordinate_x(1, k), coordinate_y(1, j), coordinate_z(i));
             } else {
@@ -119,15 +125,15 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
             }
           }
         } else {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             point_tag(k, j, i) = gmsh::model::geo::addPoint(coordinate_x(2, k), coordinate_y(0, j), coordinate_z(i));
           }
         }
       }
     } else {
-      for (std::ptrdiff_t j = 0; j < 5; j++) {
+      for (int j = 0; j < 5; j++) {
         if (j < 2) {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             if (k == 1 || k == 3) {
               continue;
             }
@@ -136,7 +142,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
           point_tag(1, j, i) = point_tag(2, j, i);
           point_tag(3, j, i) = point_tag(2, j, i);
         } else if (j == 2) {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             if (k == 2) {
               point_tag(k, j, i) = gmsh::model::geo::addPoint(coordinate_x(3, k), coordinate_y(3, j), coordinate_z(i));
             } else {
@@ -144,87 +150,87 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
             }
           }
         } else {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             point_tag(k, j, i) = gmsh::model::geo::addPoint(coordinate_x(4, k), coordinate_y(2, j), coordinate_z(i));
           }
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
-    for (std::ptrdiff_t j = 0; j < 5; j++) {
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 5; j++) {
       if (j < 2) {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           if (k == 1 || k == 2) {
             continue;
           }
           line_x_tag(k, j, i) = gmsh::model::geo::addLine(point_tag(k, j, i), point_tag(k + 1, j, i));
         }
       } else {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           line_x_tag(k, j, i) = gmsh::model::geo::addLine(point_tag(k, j, i), point_tag(k + 1, j, i));
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
-    for (std::ptrdiff_t j = 0; j < 5; j++) {
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 5; j++) {
       if (j == 2) {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           if (k == 1) {
             continue;
           }
           line_y_tag(k, j, i) = gmsh::model::geo::addLine(point_tag(j, k, i), point_tag(j, k + 1, i));
         }
       } else if (j == 1 || j == 3) {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           if (k == 0) {
             continue;
           }
           line_y_tag(k, j, i) = gmsh::model::geo::addLine(point_tag(j, k, i), point_tag(j, k + 1, i));
         }
       } else {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           line_y_tag(k, j, i) = gmsh::model::geo::addLine(point_tag(j, k, i), point_tag(j, k + 1, i));
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 5; i++) {
+  for (int i = 0; i < 5; i++) {
     if (i == 0 || i == 1) {
-      for (std::ptrdiff_t j = 0; j < 5; j++) {
+      for (int j = 0; j < 5; j++) {
         if (j == 1 || j == 3) {
           continue;
         }
-        for (std::ptrdiff_t k = 0; k < 3; k++) {
+        for (int k = 0; k < 3; k++) {
           line_z_tag(k, j, i) = gmsh::model::geo::addLine(point_tag(j, i, k), point_tag(j, i, k + 1));
         }
       }
     } else if (i == 2) {
-      for (std::ptrdiff_t j = 0; j < 5; j++) {
+      for (int j = 0; j < 5; j++) {
         if (j == 2) {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             if (k == 1) {
               continue;
             }
             line_z_tag(k, j, i) = gmsh::model::geo::addLine(point_tag(j, i, k), point_tag(j, i, k + 1));
           }
         } else {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             line_z_tag(k, j, i) = gmsh::model::geo::addLine(point_tag(j, i, k), point_tag(j, i, k + 1));
           }
         }
       }
     } else {
-      for (std::ptrdiff_t j = 0; j < 5; j++) {
-        for (std::ptrdiff_t k = 0; k < 3; k++) {
+      for (int j = 0; j < 5; j++) {
+        for (int k = 0; k < 3; k++) {
           line_z_tag(k, j, i) = gmsh::model::geo::addLine(point_tag(j, i, k), point_tag(j, i, k + 1));
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
       if (j == 0) {
         curve_loop_x_tag(0, j, i) = gmsh::model::geo::addCurveLoop(
             {line_x_tag(0, j, i), line_y_tag(j, 2, i), -line_x_tag(0, j + 1, i), -line_y_tag(j, 0, i)});
@@ -249,10 +255,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 5; i++) {
-    for (std::ptrdiff_t j = 0; j < 3; j++) {
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 3; j++) {
       if (i == 1 || i == 3) {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           if (k == 0) {
             continue;
           }
@@ -266,7 +272,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         }
       } else if (i == 2) {
         if (j == 1) {
-          for (std::ptrdiff_t k = 0; k < 4; k++) {
+          for (int k = 0; k < 4; k++) {
             if (k == 1 || k == 2) {
               continue;
             }
@@ -274,7 +280,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
                 {line_y_tag(k, i, j), line_z_tag(j, i, k + 1), -line_y_tag(k, i, j + 1), -line_z_tag(j, i, k)});
           }
         } else {
-          for (std::ptrdiff_t k = 0; k < 4; k++) {
+          for (int k = 0; k < 4; k++) {
             if (k == 1) {
               continue;
             }
@@ -283,23 +289,23 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
           }
         }
       } else {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           curve_loop_y_tag(k, j, i) = gmsh::model::geo::addCurveLoop(
               {line_y_tag(k, i, j), line_z_tag(j, i, k + 1), -line_y_tag(k, i, j + 1), -line_z_tag(j, i, k)});
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 5; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 4; j++) {
       if (i == 0 || i == 1) {
         if (j == 0) {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             curve_loop_z_tag(k, j, i) = gmsh::model::geo::addCurveLoop(
                 {line_z_tag(k, j, i), line_x_tag(j, i, k + 1), -line_z_tag(k, 2, i), -line_x_tag(j, i, k)});
           }
         } else if (j == 3) {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             curve_loop_z_tag(k, j, i) = gmsh::model::geo::addCurveLoop(
                 {line_z_tag(k, 2, i), line_x_tag(j, i, k + 1), -line_z_tag(k, j + 1, i), -line_x_tag(j, i, k)});
           }
@@ -308,7 +314,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         }
       } else if (i == 2) {
         if (j == 1 || j == 2) {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             if (k == 1) {
               continue;
             }
@@ -316,23 +322,23 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
                 {line_z_tag(k, j, i), line_x_tag(j, i, k + 1), -line_z_tag(k, j + 1, i), -line_x_tag(j, i, k)});
           }
         } else {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             curve_loop_z_tag(k, j, i) = gmsh::model::geo::addCurveLoop(
                 {line_z_tag(k, j, i), line_x_tag(j, i, k + 1), -line_z_tag(k, j + 1, i), -line_x_tag(j, i, k)});
           }
         }
       } else {
-        for (std::ptrdiff_t k = 0; k < 3; k++) {
+        for (int k = 0; k < 3; k++) {
           curve_loop_z_tag(k, j, i) = gmsh::model::geo::addCurveLoop(
               {line_z_tag(k, j, i), line_x_tag(j, i, k + 1), -line_z_tag(k, j + 1, i), -line_x_tag(j, i, k)});
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
       if (j == 0) {
-        for (std::ptrdiff_t k = 0; k < 5; k++) {
+        for (int k = 0; k < 5; k++) {
           if (k == 0 || k == 4) {
             surface_filling_x_tag(k, j, i) = gmsh::model::geo::addSurfaceFilling({curve_loop_x_tag(k, j, i)});
           } else {
@@ -340,14 +346,14 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
           }
         }
       } else if (j == 1) {
-        for (std::ptrdiff_t k = 0; k < 5; k++) {
+        for (int k = 0; k < 5; k++) {
           if (k == 1 || k == 3) {
             continue;
           }
           surface_filling_x_tag(k, j, i) = gmsh::model::geo::addSurfaceFilling({curve_loop_x_tag(k, j, i)});
         }
       } else {
-        for (std::ptrdiff_t k = 0; k < 5; k++) {
+        for (int k = 0; k < 5; k++) {
           if (k == 2) {
             continue;
           }
@@ -356,10 +362,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 5; i++) {
-    for (std::ptrdiff_t j = 0; j < 3; j++) {
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 3; j++) {
       if (i == 1 || i == 3) {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           if (k == 0) {
             continue;
           }
@@ -367,14 +373,14 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         }
       } else if (i == 2) {
         if (j == 1) {
-          for (std::ptrdiff_t k = 0; k < 4; k++) {
+          for (int k = 0; k < 4; k++) {
             if (k == 1 || k == 2) {
               continue;
             }
             surface_filling_y_tag(k, j, i) = gmsh::model::geo::addSurfaceFilling({curve_loop_y_tag(k, j, i)});
           }
         } else {
-          for (std::ptrdiff_t k = 0; k < 4; k++) {
+          for (int k = 0; k < 4; k++) {
             if (k == 1) {
               continue;
             }
@@ -382,17 +388,17 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
           }
         }
       } else {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           surface_filling_y_tag(k, j, i) = gmsh::model::geo::addSurfaceFilling({curve_loop_y_tag(k, j, i)});
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 5; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 4; j++) {
       if (i == 0 || i == 1) {
         if (j == 0 || j == 3) {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             surface_filling_z_tag(k, j, i) = gmsh::model::geo::addSurfaceFilling({curve_loop_z_tag(k, j, i)});
           }
         } else {
@@ -400,26 +406,26 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         }
       } else if (i == 2) {
         if (j == 1 || j == 2) {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             if (k == 1) {
               continue;
             }
             surface_filling_z_tag(k, j, i) = gmsh::model::geo::addSurfaceFilling({curve_loop_z_tag(k, j, i)});
           }
         } else {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             surface_filling_z_tag(k, j, i) = gmsh::model::geo::addSurfaceFilling({curve_loop_z_tag(k, j, i)});
           }
         }
       } else {
-        for (std::ptrdiff_t k = 0; k < 3; k++) {
+        for (int k = 0; k < 3; k++) {
           surface_filling_z_tag(k, j, i) = gmsh::model::geo::addSurfaceFilling({curve_loop_z_tag(k, j, i)});
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 3; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 4; j++) {
       if (j == 0) {
         surface_loop_tag(0, j, i) = gmsh::model::geo::addSurfaceLoop(
             {surface_filling_x_tag(0, j, i), surface_filling_x_tag(0, j, i + 1), surface_filling_y_tag(j, i, 0),
@@ -477,8 +483,8 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 3; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 4; j++) {
       if (j == 0) {
         volume_tag(0, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(0, j, i)});
         volume_tag(4, j, i) = gmsh::model::geo::addVolume({surface_loop_tag(4, j, i)});
@@ -506,71 +512,71 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
-    for (std::ptrdiff_t j = 0; j < 5; j++) {
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 5; j++) {
       if (j < 2) {
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(0, j, i), 13, "Progression", -1.55);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(3, j, i), 13, "Progression", 1.55);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(0, j, i), 9, "Progression", -1.55);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(3, j, i), 9, "Progression", 1.55);
       } else {
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(0, j, i), 13, "Progression", -1.55);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(1, j, i), 9);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(2, j, i), 9);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(3, j, i), 13, "Progression", 1.55);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(0, j, i), 9, "Progression", -1.55);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(1, j, i), 7);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(2, j, i), 7);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(3, j, i), 9, "Progression", 1.55);
       }
     }
   }
 
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
-    for (std::ptrdiff_t j = 0; j < 5; j++) {
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 5; j++) {
       if (j == 2) {
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(0, j, i), 13, "Progression", -1.6);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(2, j, i), 9);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(3, j, i), 29, "Progression", 1.2);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(0, j, i), 9, "Progression", -1.6);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(2, j, i), 7);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(3, j, i), 15, "Progression", 1.2);
       } else if (j == 1 || j == 3) {
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(1, j, i), 9);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(2, j, i), 9);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(3, j, i), 29, "Progression", 1.2);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(1, j, i), 7);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(2, j, i), 7);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(3, j, i), 15, "Progression", 1.2);
       } else {
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(0, j, i), 13, "Progression", -1.6);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(1, j, i), 9);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(2, j, i), 9);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(3, j, i), 29, "Progression", 1.2);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(0, j, i), 9, "Progression", -1.6);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(1, j, i), 7);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(2, j, i), 7);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(3, j, i), 15, "Progression", 1.2);
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 5; i++) {
+  for (int i = 0; i < 5; i++) {
     if (i == 0 || i == 1) {
-      for (std::ptrdiff_t j = 0; j < 5; j++) {
+      for (int j = 0; j < 5; j++) {
         if (j == 1 || j == 3) {
           continue;
         }
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(0, j, i), 13, "Progression", -1.6);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(0, j, i), 9, "Progression", -1.6);
         gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(1, j, i), 4);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(2, j, i), 17, "Progression", 1.5);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(2, j, i), 13, "Progression", 1.5);
       }
     } else if (i == 2) {
-      for (std::ptrdiff_t j = 0; j < 5; j++) {
+      for (int j = 0; j < 5; j++) {
         if (j == 2) {
-          gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(0, j, i), 13, "Progression", -1.6);
-          gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(2, j, i), 17, "Progression", 1.5);
+          gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(0, j, i), 9, "Progression", -1.6);
+          gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(2, j, i), 13, "Progression", 1.5);
         } else {
-          gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(0, j, i), 13, "Progression", -1.6);
+          gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(0, j, i), 9, "Progression", -1.6);
           gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(1, j, i), 4);
-          gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(2, j, i), 17, "Progression", 1.5);
+          gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(2, j, i), 13, "Progression", 1.5);
         }
       }
     } else {
-      for (std::ptrdiff_t j = 0; j < 5; j++) {
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(0, j, i), 13, "Progression", -1.6);
+      for (int j = 0; j < 5; j++) {
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(0, j, i), 9, "Progression", -1.6);
         gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(1, j, i), 4);
-        gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(2, j, i), 17, "Progression", 1.5);
+        gmsh::model::geo::mesh::setTransfiniteCurve(line_z_tag(2, j, i), 13, "Progression", 1.5);
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
       if (j == 0) {
-        for (std::ptrdiff_t k = 0; k < 5; k++) {
+        for (int k = 0; k < 5; k++) {
           if (k == 0 || k == 4) {
             gmsh::model::geo::mesh::setTransfiniteSurface(surface_filling_x_tag(k, j, i));
             gmsh::model::geo::mesh::setRecombine(2, surface_filling_x_tag(k, j, i));
@@ -579,7 +585,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
           }
         }
       } else if (j == 1) {
-        for (std::ptrdiff_t k = 0; k < 5; k++) {
+        for (int k = 0; k < 5; k++) {
           if (k == 1 || k == 3) {
             continue;
           }
@@ -587,7 +593,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
           gmsh::model::geo::mesh::setRecombine(2, surface_filling_x_tag(k, j, i));
         }
       } else {
-        for (std::ptrdiff_t k = 0; k < 5; k++) {
+        for (int k = 0; k < 5; k++) {
           if (k == 2) {
             continue;
           }
@@ -597,10 +603,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 5; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 4; j++) {
       if (i == 1 || i == 3) {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           if (k == 0) {
             continue;
           }
@@ -609,7 +615,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         }
       } else if (i == 2) {
         if (j == 1) {
-          for (std::ptrdiff_t k = 0; k < 4; k++) {
+          for (int k = 0; k < 4; k++) {
             if (k == 1 || k == 2) {
               continue;
             }
@@ -617,7 +623,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
             gmsh::model::geo::mesh::setRecombine(2, surface_filling_y_tag(k, j, i));
           }
         } else {
-          for (std::ptrdiff_t k = 0; k < 4; k++) {
+          for (int k = 0; k < 4; k++) {
             if (k == 1) {
               continue;
             }
@@ -626,17 +632,17 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
           }
         }
       } else {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           gmsh::model::geo::mesh::setTransfiniteSurface(surface_filling_y_tag(k, j, i));
           gmsh::model::geo::mesh::setRecombine(2, surface_filling_y_tag(k, j, i));
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 5; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 4; j++) {
       if (i == 0 || i == 3) {
-        for (std::ptrdiff_t k = 0; k < 3; k++) {
+        for (int k = 0; k < 3; k++) {
           if (k == 0 || k == 2) {
             gmsh::model::geo::mesh::setTransfiniteSurface(surface_filling_z_tag(i, k, j));
             gmsh::model::geo::mesh::setRecombine(2, surface_filling_z_tag(i, k, j));
@@ -646,7 +652,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         }
       } else if (i == 2) {
         if (j == 1 || j == 2) {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             if (k == 1) {
               continue;
             }
@@ -654,21 +660,21 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
             gmsh::model::geo::mesh::setRecombine(2, surface_filling_z_tag(i, k, j));
           }
         } else {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             gmsh::model::geo::mesh::setTransfiniteSurface(surface_filling_z_tag(i, k, j));
             gmsh::model::geo::mesh::setRecombine(2, surface_filling_z_tag(i, k, j));
           }
         }
       } else {
-        for (std::ptrdiff_t k = 0; k < 3; k++) {
+        for (int k = 0; k < 3; k++) {
           gmsh::model::geo::mesh::setTransfiniteSurface(surface_filling_z_tag(i, k, j));
           gmsh::model::geo::mesh::setRecombine(2, surface_filling_z_tag(i, k, j));
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 3; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 4; j++) {
       if (j == 0) {
         gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(0, j, i));
         gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(4, j, i));
@@ -712,11 +718,11 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     }
   }
   gmsh::model::geo::synchronize();
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
     if (i == 0 || i == 3) {
-      for (std::ptrdiff_t j = 0; j < 4; j++) {
+      for (int j = 0; j < 4; j++) {
         if (j == 0) {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             if (k == 0 || k == 4) {
               physical_group_tag[0].emplace_back(surface_filling_x_tag(k, j, i));
             } else {
@@ -724,14 +730,14 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
             }
           }
         } else if (j == 1) {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             if (k == 1 || k == 3) {
               continue;
             }
             physical_group_tag[0].emplace_back(surface_filling_x_tag(k, j, i));
           }
         } else {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             if (k == 2) {
               continue;
             }
@@ -740,15 +746,15 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         }
       }
     } else {
-      for (std::ptrdiff_t j = 0; j < 4; j++) {
+      for (int j = 0; j < 4; j++) {
         if (j == 1) {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             if (k == 2) {
               physical_group_tag[1].emplace_back(surface_filling_x_tag(k, j, i));
             }
           }
         } else if (j == 2) {
-          for (std::ptrdiff_t k = 0; k < 5; k++) {
+          for (int k = 0; k < 5; k++) {
             if (k == 1 || k == 3) {
               physical_group_tag[1].emplace_back(surface_filling_x_tag(k, j, i));
             }
@@ -757,8 +763,8 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 5; i++) {
-    for (std::ptrdiff_t j = 0; j < 3; j++) {
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 3; j++) {
       if (i == 1 || i == 3) {
         if (j == 1) {
           physical_group_tag[1].emplace_back(surface_filling_y_tag(1, j, i));
@@ -767,17 +773,17 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       } else if (i == 2) {
         continue;
       } else {
-        for (std::ptrdiff_t k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
           physical_group_tag[0].emplace_back(surface_filling_y_tag(k, j, i));
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 5; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 4; j++) {
       if (i == 0) {
         if (j == 0 || j == 3) {
-          for (std::ptrdiff_t k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) {
             physical_group_tag[0].emplace_back(surface_filling_z_tag(k, j, i));
           }
         } else {
@@ -788,14 +794,14 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
           physical_group_tag[1].emplace_back(surface_filling_z_tag(1, j, i));
         }
       } else if (i == 4) {
-        for (std::ptrdiff_t k = 0; k < 3; k++) {
+        for (int k = 0; k < 3; k++) {
           physical_group_tag[0].emplace_back(surface_filling_z_tag(k, j, i));
         }
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 3; i++) {
-    for (std::ptrdiff_t j = 0; j < 4; j++) {
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 4; j++) {
       if (j == 0) {
         physical_group_tag[2].emplace_back(volume_tag(0, j, i));
         physical_group_tag[2].emplace_back(volume_tag(4, j, i));
@@ -823,9 +829,9 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       }
     }
   }
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[0], -1, "bc-1");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[1], -1, "bc-2");
-  gmsh::model::addPhysicalGroup(3, physical_group_tag[2], -1, "vc-1");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[0], 1, "bc-1");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[1], 2, "bc-2");
+  gmsh::model::addPhysicalGroup(3, physical_group_tag[2], 3, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

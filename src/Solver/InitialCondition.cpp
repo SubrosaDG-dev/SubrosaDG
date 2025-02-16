@@ -51,8 +51,7 @@ struct InitialCondition {
       for (Isize i = 0; i < element_mesh.number_; i++) {
         this->raw_binary_ss_.read(reinterpret_cast<char*>(initial_variable_basis_function_coefficient.data()),
                                   SimulationControl::kConservedVariableNumber * kBasisFunctionNumber * kRealSize);
-        if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                      SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+        if constexpr (IsNS<SimulationControl::kEquationModel>) {
           Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                         kBasisFunctionNumber>
               variable_gradient_basis_function_coefficient;
@@ -70,8 +69,7 @@ struct InitialCondition {
         this->raw_binary_ss_.read(
             reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
             SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber * kRealSize);
-        if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                      SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+        if constexpr (IsNS<SimulationControl::kEquationModel>) {
           Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                         ElementTrait::kBasisFunctionNumber>
               variable_gradient_basis_function_coefficient;

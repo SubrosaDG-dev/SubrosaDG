@@ -20,12 +20,36 @@ using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::Boussinesq>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
-                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::SpecificFile,
+                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::LastStep,
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
     SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
                                        SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
                                        SubrosaDG::TransportModelEnum::Constant, SubrosaDG::ConvectiveFluxEnum::Exact,
                                        SubrosaDG::ViscousFluxEnum::BR2>>;
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 0.0_r};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    const SubrosaDG::Isize gmsh_physical_index) const {
+  if (gmsh_physical_index == 1) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 0.0_r};
+  }
+  if (gmsh_physical_index == 2) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, -0.5_r};
+  }
+  if (gmsh_physical_index == 3) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 0.5_r};
+  }
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
@@ -33,37 +57,16 @@ int main(int argc, char* argv[]) {
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "unsteadycavity_2d_incns.msh", generateMesh);
   system.setSourceTerm<SimulationControl::kSourceTerm>(1.0_r, 0.0_r);
-  // system.addInitialCondition(
-  //     []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-  //         -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-  //       return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r,
-  //       0.0_r};
-  //     });
-  system.addInitialCondition(kExampleDirectory / "unsteadycavity_2d_incns_5000000.raw");
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
-      "bc-1",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 0.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(
-      "bc-2",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, -0.5_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(
-      "bc-3",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 0.5_r};
-      });
+  system.addInitialCondition(kExampleDirectory / "unsteadycavity_2d_incns_8000000.raw");
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(2);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(3);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
   system.setEquationOfState<SimulationControl::kEquationOfState>(10.0_r, 1.0_r);
   system.setTransportModel<SimulationControl::kTransportModel>(std::sqrt(0.71_r / 3.4e5_r));
-  system.setTimeIntegration(1.0_r, {0, 10000000});
+  system.setTimeIntegration(1.0_r, {8000000, 10000000});
   system.setDeltaTime(5e-05_r);
-  system.setViewConfig(kExampleDirectory, kExampleName, 1000);
+  system.setViewConfig(kExampleDirectory, kExampleName, 200);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
                           SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::Vorticity});
@@ -92,10 +95,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::mesh::setTransfiniteSurface(1);
   gmsh::model::geo::mesh::setRecombine(2, 1);
   gmsh::model::geo::synchronize();
-  gmsh::model::addPhysicalGroup(1, {1, 3}, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(1, {2}, -1, "bc-2");
-  gmsh::model::addPhysicalGroup(1, {4}, -1, "bc-3");
-  gmsh::model::addPhysicalGroup(2, {1}, -1, "vc-1");
+  gmsh::model::addPhysicalGroup(1, {1, 3}, 1, "bc-1");
+  gmsh::model::addPhysicalGroup(1, {2}, 2, "bc-2");
+  gmsh::model::addPhysicalGroup(1, {4}, 3, "bc-3");
+  gmsh::model::addPhysicalGroup(2, {1}, 4, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

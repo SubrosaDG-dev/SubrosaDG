@@ -27,31 +27,37 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                      SubrosaDG::TransportModelEnum::Sutherland, SubrosaDG::ConvectiveFluxEnum::HLLC,
                                      SubrosaDG::ViscousFluxEnum::BR2>>;
 
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  // NOTE: https://arxiv.org/pdf/1704.04549
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.2_r * std::cos(30.0_deg),
+                                                                                     0.2_r * std::sin(30.0_deg), 1.0_r};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    const SubrosaDG::Isize gmsh_physical_index) const {
+  if (gmsh_physical_index == 1) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+        1.4_r, 0.2_r * std::cos(30.0_deg), 0.2_r * std::sin(30.0_deg), 1.0_r};
+  }
+  if (gmsh_physical_index == 2) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
+  }
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
+
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "naca0012_2d_cns.msh", generateMesh);
-  // NOTE: https://arxiv.org/pdf/1704.04549
-  system.addInitialCondition(
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4_r, 0.2_r * std::cos(30.0_deg), 0.2_r * std::sin(30.0_deg), 1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.4_r, 0.2_r * std::cos(30.0_deg), 0.2_r * std::sin(30.0_deg), 1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
-      "bc-2",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 1.0_r};
-      });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(2);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
   system.setTransportModel<SimulationControl::kTransportModel>(1.4_r * 0.2_r / 16000.0_r);
   system.setTimeIntegration(0.5_r);
@@ -113,21 +119,21 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::add("naca0012_2d");
   const int naca0012_leading_edge_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   const int naca0012_trailing_edge_point_tag = gmsh::model::geo::addPoint(1.0, 0.0, 0.0);
-  for (std::ptrdiff_t i = 0; i < 6; i++) {
+  for (int i = 0; i < 6; i++) {
     farfield_point_tag(i) = gmsh::model::geo::addPoint(farfield_point_coordinate(i, 0), farfield_point_coordinate(i, 1),
                                                        farfield_point_coordinate(i, 2));
   }
   for (std::size_t i = 0; i < 2; i++) {
     naca0012_point_tag[i].emplace_back(naca0012_leading_edge_point_tag);
   }
-  for (std::ptrdiff_t i = 0; i < 99; i++) {
+  for (int i = 0; i < 99; i++) {
     naca0012_point_tag[0].emplace_back(gmsh::model::geo::addPoint(naca0012_point(0, i), naca0012_point(1, i), 0.0));
     naca0012_point_tag[1].emplace_back(gmsh::model::geo::addPoint(naca0012_point(0, i), -naca0012_point(1, i), 0.0));
   }
   for (std::size_t i = 0; i < 2; i++) {
     naca0012_point_tag[i].emplace_back(naca0012_trailing_edge_point_tag);
   }
-  for (std::ptrdiff_t i = 0; i < 6; i++) {
+  for (int i = 0; i < 6; i++) {
     if (i < 2) {
       farfield_line_tag(i) = gmsh::model::geo::addCircleArc(farfield_point_tag(i), naca0012_trailing_edge_point_tag,
                                                             farfield_point_tag(i + 1));
@@ -139,7 +145,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   connection_line_tag(1) = gmsh::model::geo::addLine(farfield_point_tag(1), naca0012_leading_edge_point_tag);
   connection_line_tag(2) = gmsh::model::geo::addLine(farfield_point_tag(2), naca0012_trailing_edge_point_tag);
   connection_line_tag(3) = gmsh::model::geo::addLine(farfield_point_tag(4), naca0012_trailing_edge_point_tag);
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     naca0012_line_tag(i) = gmsh::model::geo::addSpline(naca0012_point_tag[static_cast<std::size_t>(i)]);
   }
   curve_loop_tag(0) = gmsh::model::geo::addCurveLoop(
@@ -150,13 +156,13 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       {-connection_line_tag(2), farfield_line_tag(2), farfield_line_tag(3), connection_line_tag(3)});
   curve_loop_tag(3) = gmsh::model::geo::addCurveLoop(
       {-connection_line_tag(3), farfield_line_tag(4), farfield_line_tag(5), connection_line_tag(0)});
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
     plane_surface_tag(i) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i)});
   }
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     gmsh::model::geo::mesh::setTransfiniteCurve(naca0012_line_tag(i), 60, "Bump", 0.20);
   }
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(i), 60);
   }
   gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(2), 40, "Progression", 1.15);
@@ -167,23 +173,23 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(1), 40, "Progression", -1.2);
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(2), 40, "Progression", -1.2);
   gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(3), 40, "Progression", -1.15);
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
     gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i));
   }
   gmsh::model::geo::synchronize();
-  for (std::ptrdiff_t i = 0; i < 6; i++) {
+  for (int i = 0; i < 6; i++) {
     physical_group_tag[0].emplace_back(farfield_line_tag(i));
   }
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     physical_group_tag[1].emplace_back(naca0012_line_tag(i));
   }
-  for (std::ptrdiff_t i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
     physical_group_tag[2].emplace_back(plane_surface_tag(i));
   }
-  gmsh::model::addPhysicalGroup(1, physical_group_tag[0], -1, "bc-1");
-  gmsh::model::addPhysicalGroup(1, physical_group_tag[1], -1, "bc-2");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "vc-1");
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[0], 1, "bc-1");
+  gmsh::model::addPhysicalGroup(1, physical_group_tag[1], 2, "bc-2");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], 3, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

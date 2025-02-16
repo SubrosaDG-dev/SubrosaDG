@@ -27,8 +27,7 @@ namespace SubrosaDG {
 template <typename SimulationControl, int N>
 inline void calculateConvectiveRawFlux(const Variable<SimulationControl, N>& variable,
                                        FluxVariable<SimulationControl>& convective_raw_flux, const Isize column) {
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+  if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
     const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
     const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
         variable.template getVector<ComputationalVariableEnum::Velocity>(column);
@@ -43,8 +42,7 @@ inline void calculateConvectiveRawFlux(const Variable<SimulationControl, N>& var
     convective_raw_flux.template setVector<ConservedVariableEnum::DensityTotalEnergy>(
         (density * total_energy + pressure) * velocity);
   }
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+  if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
     const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
     const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
         variable.template getVector<ComputationalVariableEnum::Velocity>(column);
@@ -63,8 +61,7 @@ inline void calculateConvectiveNormalFlux(const Eigen::Vector<Real, SimulationCo
                                           const Variable<SimulationControl, N>& variable,
                                           FluxNormalVariable<SimulationControl>& convective_normal_flux,
                                           const Isize column) {
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+  if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
     const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
     const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
         variable.template getVector<ComputationalVariableEnum::Velocity>(column);
@@ -79,8 +76,7 @@ inline void calculateConvectiveNormalFlux(const Eigen::Vector<Real, SimulationCo
     convective_normal_flux.template setScalar<ConservedVariableEnum::DensityTotalEnergy>(
         (density * total_energy + pressure) * normal_velocity);
   }
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+  if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
     const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
     const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
         variable.template getVector<ComputationalVariableEnum::Velocity>(column);

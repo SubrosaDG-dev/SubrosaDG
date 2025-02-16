@@ -27,8 +27,7 @@ namespace SubrosaDG {
 
 template <typename SimulationControl, ConservedVariableEnum ConservedVariableType>
 inline consteval int getConservedVariableIndex() {
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+  if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
     if constexpr (ConservedVariableType == ConservedVariableEnum::Density) {
       return 0;
     }
@@ -47,8 +46,7 @@ inline consteval int getConservedVariableIndex() {
     }
     return -1;
   }
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+  if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
     if constexpr (ConservedVariableType == ConservedVariableEnum::Density) {
       return 0;
     }
@@ -71,8 +69,7 @@ inline consteval int getConservedVariableIndex() {
 
 template <typename SimulationControl, ComputationalVariableEnum ComputationalVariableType>
 inline consteval int getComputationalVariableIndex() {
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+  if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
     if constexpr (ComputationalVariableType == ComputationalVariableEnum::Density) {
       return 0;
     }
@@ -94,8 +91,7 @@ inline consteval int getComputationalVariableIndex() {
     }
     return -1;
   }
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+  if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
     if constexpr (ComputationalVariableType == ComputationalVariableEnum::Density) {
       return 0;
     }
@@ -121,10 +117,7 @@ inline consteval int getComputationalVariableIndex() {
 
 template <typename SimulationControl, PrimitiveVariableEnum PrimitiveVariableType>
 inline consteval int getPrimitiveVariableIndex() {
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+  if constexpr (IsEuler<SimulationControl::kEquationModel> || IsNS<SimulationControl::kEquationModel>) {
     if constexpr (PrimitiveVariableType == PrimitiveVariableEnum::Density) {
       return 0;
     }
@@ -296,8 +289,7 @@ struct Variable {
   }
 
   inline void calculateConservedFromComputational() {
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                  SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+    if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
       for (Isize i = 0; i < N; i++) {
         const Real density = this->getScalar<ComputationalVariableEnum::Density>(i);
         this->setScalar<ConservedVariableEnum::Density>(density, i);
@@ -308,8 +300,7 @@ struct Variable {
         this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy, i);
       }
     }
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                  SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+    if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
       for (Isize i = 0; i < N; i++) {
         const Real density = this->getScalar<ComputationalVariableEnum::Density>(i);
         this->setScalar<ConservedVariableEnum::Density>(density, i);
@@ -323,8 +314,7 @@ struct Variable {
 
   inline void calculateComputationalFromConserved(const PhysicalModel<SimulationControl>& physical_model) {
     for (Isize i = 0; i < N; i++) {
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+      if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
         const Real density = this->getScalar<ConservedVariableEnum::Density>(i);
         this->setScalar<ComputationalVariableEnum::Density>(density, i);
         this->setVector<ComputationalVariableEnum::Velocity>(
@@ -335,8 +325,7 @@ struct Variable {
         this->setScalar<ComputationalVariableEnum::Pressure>(
             physical_model.calculatePressureFormDensityInternalEnergy(density, internal_energy), i);
       }
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
         const Real density = this->getScalar<ConservedVariableEnum::Density>(i);
         this->setScalar<ComputationalVariableEnum::Density>(density, i);
         this->setVector<ComputationalVariableEnum::Velocity>(
@@ -351,8 +340,7 @@ struct Variable {
 
   inline void calculateConservedFromPrimitive(const PhysicalModel<SimulationControl>& physical_model) {
     for (Isize i = 0; i < N; i++) {
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+      if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
         const Real density = this->getScalar<PrimitiveVariableEnum::Density>(i);
         this->setScalar<ConservedVariableEnum::Density>(density, i);
         this->setVector<ConservedVariableEnum::Momentum>(density * this->getVector<PrimitiveVariableEnum::Velocity>(i),
@@ -363,8 +351,7 @@ struct Variable {
                                   this->getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(i) / 2.0_r;
         this->setScalar<ConservedVariableEnum::DensityTotalEnergy>(density * total_energy, i);
       }
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
         const Real density = this->getScalar<PrimitiveVariableEnum::Density>(i);
         this->setScalar<ConservedVariableEnum::Density>(density, i);
         this->setVector<ConservedVariableEnum::Momentum>(density * this->getVector<PrimitiveVariableEnum::Velocity>(i),
@@ -380,10 +367,7 @@ struct Variable {
 
   inline void calculateComputationalFromPrimitive(const PhysicalModel<SimulationControl>& physical_model) {
     for (Isize i = 0; i < N; i++) {
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsEuler<SimulationControl::kEquationModel> || IsNS<SimulationControl::kEquationModel>) {
         const Real density = this->getScalar<PrimitiveVariableEnum::Density>(i);
         this->setScalar<ComputationalVariableEnum::Density>(density, i);
         this->setVector<ComputationalVariableEnum::Velocity>(this->getVector<PrimitiveVariableEnum::Velocity>(i), i);
@@ -398,8 +382,7 @@ struct Variable {
 
   inline void calculatePrimitiveFromConserved(const PhysicalModel<SimulationControl>& physical_model) {
     for (Isize i = 0; i < N; i++) {
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+      if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
         const Real density = this->getScalar<ConservedVariableEnum::Density>(i);
         this->setScalar<PrimitiveVariableEnum::Density>(density, i);
         const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
@@ -410,8 +393,7 @@ struct Variable {
         this->setScalar<PrimitiveVariableEnum::Temperature>(
             physical_model.calculateTemperatureFromInternalEnergy(internal_energy), i);
       }
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
         const Real density = this->getScalar<ConservedVariableEnum::Density>(i);
         this->setScalar<PrimitiveVariableEnum::Density>(density, i);
         const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
@@ -426,10 +408,7 @@ struct Variable {
 
   inline void calculatePrimitiveFromComputational(const PhysicalModel<SimulationControl>& physical_model) {
     for (Isize i = 0; i < N; i++) {
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsEuler<SimulationControl::kEquationModel> || IsNS<SimulationControl::kEquationModel>) {
         this->setScalar<PrimitiveVariableEnum::Density>(this->getScalar<ComputationalVariableEnum::Density>(i), i);
         this->setVector<PrimitiveVariableEnum::Velocity>(this->getVector<ComputationalVariableEnum::Velocity>(i), i);
         this->setScalar<PrimitiveVariableEnum::Temperature>(
@@ -595,8 +574,7 @@ struct VariableGradient {
   inline void calculatePrimitiveFromConserved(const PhysicalModel<SimulationControl>& physical_model,
                                               const Variable<SimulationControl, N>& variable) {
     for (Isize i = 0; i < N; i++) {
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+      if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
         const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(i);
         const Eigen::Vector<Real, SimulationControl::kDimension> density_gradient =
             this->getVector<ConservedVariableEnum::Density>(i);
@@ -617,8 +595,7 @@ struct VariableGradient {
         }
         this->setVector<PrimitiveVariableEnum::Temperature>(temperature_gradient, i);
       }
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
         const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(i);
         const Eigen::Vector<Real, SimulationControl::kDimension> density_gradient =
             this->getVector<ConservedVariableEnum::Density>(i);
@@ -798,15 +775,13 @@ struct ViewVariable : ViewVariableData<ElementTrait, SimulationControl, Simulati
                  this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
                  this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::Entropy:
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                    SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
+      if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
         return physical_model.calculateEntropyFromDensityPressure(
             this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
             this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
       }
     case ViewVariableEnum::Vorticity:
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsNS<SimulationControl::kEquationModel>) {
         if constexpr (SimulationControl::kDimension == 2) {
           return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>(
                      column) -
@@ -865,44 +840,38 @@ struct ViewVariable : ViewVariableData<ElementTrait, SimulationControl, Simulati
                  this->variable_.template getScalar<ComputationalVariableEnum::Density>(column),
                  this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column));
     case ViewVariableEnum::VorticityX:
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsNS<SimulationControl::kEquationModel>) {
         return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::Y>(
                    column) -
                this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::Z>(
                    column);
       }
     case ViewVariableEnum::VorticityY:
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsNS<SimulationControl::kEquationModel>) {
         return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Z>(
                    column) -
                this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityZ, VariableGradientEnum::X>(
                    column);
       }
     case ViewVariableEnum::VorticityZ:
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsNS<SimulationControl::kEquationModel>) {
         return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityY, VariableGradientEnum::X>(
                    column) -
                this->variable_gradient_.template getScalar<PrimitiveVariableEnum::VelocityX, VariableGradientEnum::Y>(
                    column);
       }
     case ViewVariableEnum::HeatFluxX:
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsNS<SimulationControl::kEquationModel>) {
         return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::Temperature, VariableGradientEnum::X>(
             column);
       }
     case ViewVariableEnum::HeatFluxY:
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsNS<SimulationControl::kEquationModel>) {
         return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::Temperature, VariableGradientEnum::Y>(
             column);
       }
     case ViewVariableEnum::HeatFluxZ:
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsNS<SimulationControl::kEquationModel>) {
         return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::Temperature, VariableGradientEnum::Z>(
             column);
       }
@@ -914,12 +883,10 @@ struct ViewVariable : ViewVariableData<ElementTrait, SimulationControl, Simulati
   inline Eigen::Vector<Real, SimulationControl::kDimension> getForce(
       [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Isize column) const {
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleEuler ||
-                  SimulationControl::kEquationModel == EquationModelEnum::IncompresibleEuler) {
+    if constexpr (IsEuler<SimulationControl::kEquationModel>) {
       return this->variable_.template getScalar<ComputationalVariableEnum::Pressure>(column) * normal_vector;
     }
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                  SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+    if constexpr (IsNS<SimulationControl::kEquationModel>) {
       const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
           this->variable_gradient_.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
       const Real tempurature = physical_model.calculateTemperatureFromInternalEnergy(

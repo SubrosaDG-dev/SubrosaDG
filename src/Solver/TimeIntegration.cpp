@@ -127,7 +127,7 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementDelt
       min_delta_time_combinable.local() = std::min(min_delta_time_combinable.local(), local_delta_time.minCoeff());
     }
   });
-  delta_time = min_delta_time_combinable.combine([](const Real a, const Real b) { return std::min(a, b); });
+  delta_time = min_delta_time_combinable.combine([](const Real a, const Real b) { return std::ranges::min(a, b); });
 }
 
 template <typename SimulationControl>
@@ -204,8 +204,7 @@ inline void ElementSolver<ElementTrait, SimulationControl>::updateElementGardien
     for (Isize i = range.begin(); i != range.end(); i++) {
       this->element_(i).variable_volume_gradient_basis_function_coefficient_.noalias() =
           this->element_(i).variable_volume_gradient_residual_ * element_mesh.element_(i).local_mass_matrix_inverse_;
-      if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS ||
-                    SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
+      if constexpr (IsNS<SimulationControl::kEquationModel>) {
         this->element_(i).variable_gradient_basis_function_coefficient_.noalias() =
             this->element_(i).variable_volume_gradient_basis_function_coefficient_;
         if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {

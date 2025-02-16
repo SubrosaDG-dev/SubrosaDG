@@ -27,22 +27,33 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                        SubrosaDG::TransportModelEnum::Constant,
                                        SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs, SubrosaDG::ViscousFluxEnum::BR2>>;
 
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+      ((std::cos(4.0_r * SubrosaDG::kPi * coordinate.x()) + std::cos(4.0_r * SubrosaDG::kPi * coordinate.y())) /
+       4.0_r) /
+              10000.0_r +
+          0.99_r * 1.0_r,
+      std::sin(2.0_r * SubrosaDG::kPi * coordinate.x()) * std::cos(2.0_r * SubrosaDG::kPi * coordinate.y()),
+      -std::cos(2.0_r * SubrosaDG::kPi * coordinate.x()) * std::sin(2.0_r * SubrosaDG::kPi * coordinate.y()), 1.0_r};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    [[maybe_unused]] const SubrosaDG::Isize gmsh_physical_index) const {
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
+
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "taylorvortex_2d_incns.msh", generateMesh);
-  system.addInitialCondition([](const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-                                 -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        ((std::cos(4.0_r * SubrosaDG::kPi * coordinate.x()) + std::cos(4.0_r * SubrosaDG::kPi * coordinate.y())) /
-         4.0_r) /
-                10000.0_r +
-            0.99_r * 1.0_r,
-        std::sin(2.0_r * SubrosaDG::kPi * coordinate.x()) * std::cos(2.0_r * SubrosaDG::kPi * coordinate.y()),
-        -std::cos(2.0_r * SubrosaDG::kPi * coordinate.x()) * std::sin(2.0_r * SubrosaDG::kPi * coordinate.y()), 1.0_r};
-  });
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
   system.setEquationOfState<SimulationControl::kEquationOfState>(100.0_r, 1.0_r);
   system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 1.0_r / 1000.0_r);
@@ -82,8 +93,8 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
       (Eigen::Transform<double, 3, Eigen::Affine>::Identity() * Eigen::Translation<double, 3>(0, 1.0, 0)).matrix();
   gmsh::model::mesh::setPeriodic(1, {2}, {4}, {transform_x.data(), transform_x.data() + transform_x.size()});
   gmsh::model::mesh::setPeriodic(1, {3}, {1}, {transform_y.data(), transform_y.data() + transform_y.size()});
-  gmsh::model::addPhysicalGroup(1, {1, 2, 3, 4}, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(2, {1}, -1, "vc-1");
+  gmsh::model::addPhysicalGroup(1, {1, 2, 3, 4}, 1, "bc-1");
+  gmsh::model::addPhysicalGroup(2, {1}, 2, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

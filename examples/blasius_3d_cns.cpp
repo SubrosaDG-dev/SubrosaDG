@@ -26,33 +26,38 @@ using SimulationControl = SubrosaDG::SimulationControl<
                                      SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::TransportModelEnum::Constant,
                                      SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2>>;
 
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r, 1.0_r};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    const SubrosaDG::Isize gmsh_physical_index) const {
+  if (gmsh_physical_index == 1) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r,
+                                                                                       1.0_r};
+  }
+  if (gmsh_physical_index == 4) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 0.0_r,
+                                                                                       1.0_r};
+  }
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
+
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "blasius_3d_cns.msh", generateMesh);
-  system.addInitialCondition(
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r,
-                                                                                           1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r,
-                                                                                           1.0_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-2");
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>("bc-3");
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(
-      "bc-4",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 0.0_r,
-                                                                                           1.0_r};
-      });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(2);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticSlipWall>(3);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(4);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
   system.setTransportModel<SimulationControl::kTransportModel>(1.4_r * 0.5_r / 100000.0_r);
   system.setTimeIntegration(1.0_r);
@@ -90,7 +95,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 2, 1> volume_tag;
   std::array<std::vector<int>, 5> physical_group_tag;
   gmsh::model::add("blasius_3d");
-  for (std::ptrdiff_t i = 0; i < 12; i++) {
+  for (int i = 0; i < 12; i++) {
     point_tag(i) = gmsh::model::geo::addPoint(hexahedron_point_coordinate(i, 0), hexahedron_point_coordinate(i, 1),
                                               hexahedron_point_coordinate(i, 2));
   }
@@ -125,7 +130,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   curve_loop_tag(8) = gmsh::model::geo::addCurveLoop({-line_tag(4), line_tag(15), line_tag(11), -line_tag(16)});
   curve_loop_tag(9) = gmsh::model::geo::addCurveLoop({line_tag(5), line_tag(18), -line_tag(12), -line_tag(17)});
   curve_loop_tag(10) = gmsh::model::geo::addCurveLoop({line_tag(6), line_tag(19), -line_tag(13), -line_tag(18)});
-  for (std::ptrdiff_t i = 0; i < 11; i++) {
+  for (int i = 0; i < 11; i++) {
     surface_filling_tag(i) = gmsh::model::geo::addSurfaceFilling({curve_loop_tag(i)});
   }
   surface_loop_tag(0) =
@@ -134,7 +139,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   surface_loop_tag(1) =
       gmsh::model::geo::addSurfaceLoop({surface_filling_tag(1), surface_filling_tag(3), surface_filling_tag(5),
                                         surface_filling_tag(6), surface_filling_tag(8), surface_filling_tag(10)});
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     volume_tag(i) = gmsh::model::geo::addVolume({surface_loop_tag(i)});
   }
   gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(0), 4);
@@ -157,11 +162,11 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(17), 20, "Progression", 1.35);
   gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(18), 20, "Progression", 1.35);
   gmsh::model::geo::mesh::setTransfiniteCurve(line_tag(19), 20, "Progression", 1.35);
-  for (std::ptrdiff_t i = 0; i < 11; i++) {
+  for (int i = 0; i < 11; i++) {
     gmsh::model::geo::mesh::setTransfiniteSurface(surface_filling_tag(i));
     gmsh::model::geo::mesh::setRecombine(2, surface_filling_tag(i));
   }
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     gmsh::model::geo::mesh::setTransfiniteVolume(volume_tag(i));
     gmsh::model::geo::mesh::setRecombine(3, volume_tag(i));
   }
@@ -184,14 +189,14 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   physical_group_tag[1].emplace_back(surface_filling_tag(8));
   physical_group_tag[1].emplace_back(surface_filling_tag(9));
   physical_group_tag[1].emplace_back(surface_filling_tag(10));
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     physical_group_tag[4].emplace_back(volume_tag(i));
   }
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[0], -1, "bc-1");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[1], -1, "bc-2");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], -1, "bc-3");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[3], -1, "bc-4");
-  gmsh::model::addPhysicalGroup(3, physical_group_tag[4], -1, "vc-1");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[0], 1, "bc-1");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[1], 2, "bc-2");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[2], 3, "bc-3");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag[3], 4, "bc-4");
+  gmsh::model::addPhysicalGroup(3, physical_group_tag[4], 5, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

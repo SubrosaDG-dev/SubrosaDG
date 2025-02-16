@@ -22,20 +22,12 @@
 #include <functional>
 #include <iostream>
 #include <sycl/sycl.hpp>
-#include <unordered_map>
-#include <vector>
 
 namespace SubrosaDG {
 
-#if defined(SUBROSA_DG_ONEAPI) || defined(SUBROSA_DG_CUDA) || defined(SUBROSA_DG_ROCM)
+#if defined(SUBROSA_DG_SYCL) || defined(SUBROSA_DG_CUDA) || defined(SUBROSA_DG_ROCM)
 #define SUBROSA_DG_GPU
-#endif  // SUBROSA_DG_ONEAPI || SUBROSA_DG_CUDA || SUBROSA_DG_ROCM
-
-#ifndef SUBROSA_DG_GPU
-#define __kernel__
-#else  // SUBROSA_DG_GPU
-#define __kernel__ __attribute__((sycl_kernel))
-#endif  // SUBROSA_DG_GPU
+#endif  // SUBROSA_DG_SYCL || SUBROSA_DG_CUDA || SUBROSA_DG_ROCM
 
 using Usize = unsigned int;
 using Isize = int;
@@ -62,57 +54,14 @@ inline constexpr Real operator""_r(long double x) { return static_cast<Real>(x);
 
 // NOLINTBEGIN
 
-template <typename T, std::size_t... sizes>
-constexpr auto concatenate(const std::array<T, sizes>&... arrays) {
-  std::array<T, (sizes + ...)> result;
-  std::size_t index{};
-  ((std::copy_n(arrays.begin(), sizes, result.begin() + index), index += sizes), ...);
-  return result;
-}
-
 template <typename T, std::size_t N>
 struct unordered_array : std::array<T, N> {};
-
-template <typename T>
-class ordered_set {
- private:
-  std::vector<T> vec_;
-  std::unordered_map<T, std::size_t> map_;
-
- public:
-  typename std::vector<T>::iterator begin() { return vec_.begin(); }
-  typename std::vector<T>::iterator end() { return vec_.end(); }
-
-  typename std::vector<T>::const_iterator begin() const { return vec_.cbegin(); }
-  typename std::vector<T>::const_iterator end() const { return vec_.cend(); }
-
-  void emplace_back(const T& value) {
-    if (!map_.contains(value)) {
-      vec_.emplace_back(value);
-      map_[value] = vec_.size() - 1;
-    }
-  }
-
-  std::size_t size() const { return vec_.size(); }
-
-  std::size_t find_index(const T& value) const {
-    auto iter = map_.find(value);
-    if (iter != map_.end()) {
-      return iter->second;
-    }
-    return vec_.size();
-  }
-
-  T& operator[](std::size_t index) { return vec_[index]; }
-
-  const T& operator[](std::size_t index) const { return vec_[index]; }
-};
 
 template <typename T, std::size_t N>
 struct std::hash<unordered_array<T, N>> {
   std::size_t operator()(const unordered_array<T, N>& arr) const {
     unordered_array<T, N> sorted_arr = arr;
-    std::sort(sorted_arr.begin(), sorted_arr.end());
+    std::ranges::sort(sorted_arr);
     std::size_t hash_value = 0;
     for (const auto& element : sorted_arr) {
       hash_value ^= std::hash<T>()(element) + 0x9e3779b9 + (hash_value << 6) + (hash_value >> 2);
@@ -126,8 +75,8 @@ struct std::equal_to<unordered_array<T, N>> {
   bool operator()(const unordered_array<T, N>& arr1, const unordered_array<T, N>& arr2) const {
     unordered_array<T, N> sorted_arr1 = arr1;
     unordered_array<T, N> sorted_arr2 = arr2;
-    std::sort(sorted_arr1.begin(), sorted_arr1.end());
-    std::sort(sorted_arr2.begin(), sorted_arr2.end());
+    std::ranges::sort(sorted_arr1);
+    std::ranges::sort(sorted_arr2);
     return sorted_arr1 == sorted_arr2;
   }
 };

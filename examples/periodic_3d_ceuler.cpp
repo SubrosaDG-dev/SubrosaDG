@@ -25,19 +25,30 @@ using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::CompresibleEulerVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
                                         SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC>>;
 
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  // NOTE: https://arxiv.org/pdf/1704.04549
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+      1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y() + coordinate.z())), 0.5_r, 0.3_r,
+      0.2_r, 1.4_r / (1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y() + coordinate.z())))};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    [[maybe_unused]] const SubrosaDG::Isize gmsh_physical_index) const {
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
+
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "periodic_3d_ceuler.msh", generateMesh);
-  // NOTE: https://arxiv.org/pdf/1704.04549
-  system.addInitialCondition([](const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-                                 -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y() + coordinate.z())), 0.5_r, 0.3_r,
-        0.2_r, 1.4_r / (1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * (coordinate.x() + coordinate.y() + coordinate.z())))};
-  });
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>("bc-1");
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
   system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
@@ -60,22 +71,22 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Tensor<int, 2> curve_loop_tag(2, 3);
   Eigen::Tensor<int, 2> surface_filling_tag(2, 3);
   std::vector<int> physical_group_tag;
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
-    for (std::ptrdiff_t j = 0; j < 2; j++) {
-      for (std::ptrdiff_t k = 0; k < 2; k++) {
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 2; j++) {
+      for (int k = 0; k < 2; k++) {
         point_tag(k, j, i) =
             gmsh::model::geo::addPoint(point_coordinate(k), point_coordinate(j), point_coordinate(i), 0.2);
       }
     }
   }
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
-    for (std::ptrdiff_t j = 0; j < 2; j++) {
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 2; j++) {
       line_tag(j, i, 0) = gmsh::model::geo::addLine(point_tag(0, j, i), point_tag(1, j, i));
       line_tag(j, i, 1) = gmsh::model::geo::addLine(point_tag(j, 0, i), point_tag(j, 1, i));
       line_tag(j, i, 2) = gmsh::model::geo::addLine(point_tag(j, i, 0), point_tag(j, i, 1));
     }
   }
-  for (std::ptrdiff_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     curve_loop_tag(i, 0) =
         gmsh::model::geo::addCurveLoop({line_tag(0, i, 0), line_tag(1, i, 1), -line_tag(1, i, 0), -line_tag(0, i, 1)});
     curve_loop_tag(i, 1) =
@@ -83,8 +94,8 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     curve_loop_tag(i, 2) =
         gmsh::model::geo::addCurveLoop({line_tag(0, i, 2), line_tag(i, 1, 0), -line_tag(1, i, 2), -line_tag(i, 0, 0)});
   }
-  for (std::ptrdiff_t i = 0; i < 3; i++) {
-    for (std::ptrdiff_t j = 0; j < 2; j++) {
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 2; j++) {
       surface_filling_tag(j, i) = gmsh::model::geo::addSurfaceFilling({curve_loop_tag(j, i)});
     }
   }
@@ -92,8 +103,8 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
                                                            surface_filling_tag(0, 2), surface_filling_tag(1, 0),
                                                            surface_filling_tag(1, 1), surface_filling_tag(1, 2)});
   int volume_tag = gmsh::model::geo::addVolume({surface_loop_tag});
-  for (std::ptrdiff_t i = 0; i < 3; i++) {
-    for (std::ptrdiff_t j = 0; j < 2; j++) {
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 2; j++) {
       gmsh::model::geo::mesh::setRecombine(2, surface_filling_tag(j, i));
     }
   }
@@ -112,13 +123,13 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
                                  {transform_y.data(), transform_y.data() + transform_y.size()});
   gmsh::model::mesh::setPeriodic(2, {surface_filling_tag(1, 0)}, {surface_filling_tag(0, 0)},
                                  {transform_z.data(), transform_z.data() + transform_z.size()});
-  for (std::ptrdiff_t i = 0; i < 3; i++) {
-    for (std::ptrdiff_t j = 0; j < 2; j++) {
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 2; j++) {
       physical_group_tag.emplace_back(surface_filling_tag(j, i));
     }
   }
-  gmsh::model::addPhysicalGroup(2, physical_group_tag, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(3, {volume_tag}, -1, "vc-1");
+  gmsh::model::addPhysicalGroup(2, physical_group_tag, 1, "bc-1");
+  gmsh::model::addPhysicalGroup(3, {volume_tag}, 2, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

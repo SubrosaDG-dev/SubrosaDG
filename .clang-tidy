@@ -15,13 +15,13 @@ Checks: ' -*
 
 WarningsAsErrors: false
 
-HeaderFilterRegex: 'SubrosaDG\/(src|examples|tests)\/.*?\.(h|hpp|c|cpp)$'
+HeaderFilterRegex: 'SubrosaDG\/(src|examples)\/.*?\.cpp$'
 
 FormatStyle: file
 
 CheckOptions:
-  # - key: readability-identifier-naming.MacroDefinitionCase
-  #   value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
 
   - key: readability-identifier-naming.NamespaceCase
     value: CamelCase
@@ -69,7 +69,3 @@ CheckOptions:
     value: lower_case
   - key: readability-identifier-naming.VariableCase
     value: lower_case
-
-# clang-tidy's bug in https://github.com/llvm/llvm-project/issues/46097
-  - key: readability-identifier-naming.TypeTemplateParameterIgnoredRegexp
-    value: expr-type

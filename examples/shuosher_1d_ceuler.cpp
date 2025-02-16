@@ -25,32 +25,39 @@ using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::CompresibleEulerVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
                                         SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC>>;
 
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+      coordinate.x() <= -4.0_r ? 3.857143_r : 1.0_r + 0.2_r * std::sin(5.0_r * coordinate.x()),
+      coordinate.x() <= -4.0_r ? 2.629369_r : 0.0_r,
+      coordinate.x() <= -4.0_r ? 3.750342_r : 1.4_r / (1.0_r + 0.2_r * std::sin(5.0_r * coordinate.x()))};
+}
+
+template <typename SimulationControl>
+inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
+SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    const SubrosaDG::Isize gmsh_physical_index) const {
+  if (gmsh_physical_index == 1) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{3.857143_r, 2.629369_r,
+                                                                                       3.750342_r};
+  }
+  if (gmsh_physical_index == 2) {
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+        1.0_r + 0.2_r * std::sin(25.0_r), 0.0_r, 1.4_r / (1.0_r + 0.2_r * std::sin(25.0_r))};
+  }
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
+}
+
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "shuosher_1d_ceuler.msh", generateMesh);
-  system.addInitialCondition([](const Eigen::Vector<SubrosaDG::Real, 1>& coordinate)
-                                 -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-        coordinate.x() <= -4.0_r ? 3.857143_r : 1.0_r + 0.2_r * std::sin(5.0_r * coordinate.x()),
-        coordinate.x() <= -4.0_r ? 2.629369_r : 0.0_r,
-        coordinate.x() <= -4.0_r ? 3.750342_r : 1.4_r / (1.0_r + 0.2_r * std::sin(5.0_r * coordinate.x()))};
-  });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-1",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{3.857143_r, 2.629369_r,
-                                                                                           3.750342_r};
-      });
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(
-      "bc-2",
-      []([[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate)
-          -> Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber> {
-        return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-            1.0_r + 0.2_r * std::sin(25.0_r), 0.0_r, 1.4_r / (1.0_r + 0.2_r * std::sin(25.0_r))};
-      });
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(2);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
   system.setArtificialViscosity(3.0_r);
   system.setTimeIntegration(0.01_r);
@@ -70,9 +77,9 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::addLine(1, 2);
   gmsh::model::geo::mesh::setTransfiniteCurve(1, 101);
   gmsh::model::geo::synchronize();
-  gmsh::model::addPhysicalGroup(0, {1}, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(0, {2}, -1, "bc-2");
-  gmsh::model::addPhysicalGroup(1, {1}, -1, "vc-1");
+  gmsh::model::addPhysicalGroup(0, {1}, 1, "bc-1");
+  gmsh::model::addPhysicalGroup(0, {2}, 2, "bc-2");
+  gmsh::model::addPhysicalGroup(1, {1}, 3, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");
