@@ -13,8 +13,7 @@
 #ifndef SUBROSA_DG_RAW_BINARY_CPP_
 #define SUBROSA_DG_RAW_BINARY_CPP_
 
-#include <zconf.h>
-#include <zlib.h>
+#include <zstd.h>
 
 #include <Eigen/Core>
 #include <array>
@@ -45,12 +44,13 @@ struct RawBinaryCompress {
     raw_binary_ss.seekg(0, std::ios::beg);
     raw_binary_ss.seekp(0, std::ios::beg);
     std::fstream raw_binary_fout(raw_binary_path, std::ios::out | std::ios::binary | std::ios::trunc);
-    uLongf dest_len = compressBound(static_cast<uLong>(raw_binary_ss.str().size()));
-    raw_binary_fout.write(reinterpret_cast<const char*>(&dest_len), static_cast<std::streamsize>(sizeof(uLongf)));
-    std::vector<Bytef> dest(dest_len);
-    compress(dest.data(), &dest_len, reinterpret_cast<const Bytef*>(raw_binary_ss.str().c_str()),
-             static_cast<uLong>(raw_binary_ss.str().size()));
-    raw_binary_fout.write(reinterpret_cast<const char*>(dest.data()), static_cast<std::streamsize>(dest_len));
+    std::size_t compressed_size = ZSTD_compressBound(static_cast<std::size_t>(raw_binary_ss.str().size()));
+    raw_binary_fout.write(reinterpret_cast<const char*>(&compressed_size),
+                          static_cast<std::streamsize>(sizeof(std::size_t)));
+    std::vector<char> compressed(compressed_size);
+    std::size_t actual_size =
+        ZSTD_compress(compressed.data(), compressed_size, raw_binary_ss.str().data(), raw_binary_ss.str().size(), 1);
+    raw_binary_fout.write(compressed.data(), static_cast<std::streamsize>(actual_size));
     raw_binary_fout.close();
   }
 
@@ -58,16 +58,16 @@ struct RawBinaryCompress {
     raw_binary_ss.seekg(0, std::ios::beg);
     raw_binary_ss.seekp(0, std::ios::beg);
     std::fstream raw_binary_fin(raw_binary_path, std::ios::in | std::ios::binary);
-    uLongf dest_len;
-    raw_binary_fin.read(reinterpret_cast<char*>(&dest_len), static_cast<std::streamsize>(sizeof(uLongf)));
+    std::size_t original_size;
+    raw_binary_fin.read(reinterpret_cast<char*>(&original_size), static_cast<std::streamsize>(sizeof(std::size_t)));
     raw_binary_fin.seekg(0, std::ios::end);
-    std::streamoff size = raw_binary_fin.tellg() - static_cast<std::streamoff>(sizeof(uLongf));
-    raw_binary_fin.seekg(static_cast<std::streamoff>(sizeof(uLongf)));
-    std::vector<Bytef> source(static_cast<std::size_t>(size));
-    raw_binary_fin.read(reinterpret_cast<char*>(source.data()), size);
-    std::vector<Bytef> dest(dest_len);
-    uncompress(dest.data(), &dest_len, source.data(), static_cast<uLong>(size));
-    raw_binary_ss << std::string(reinterpret_cast<const char*>(dest.data()), dest_len);
+    std::streamoff actual_size = raw_binary_fin.tellg() - static_cast<std::streamoff>(sizeof(std::size_t));
+    raw_binary_fin.seekg(static_cast<std::streamoff>(sizeof(std::size_t)));
+    std::vector<char> compressed(static_cast<std::size_t>(actual_size));
+    raw_binary_fin.read(compressed.data(), actual_size);
+    std::vector<char> decompressed(original_size);
+    ZSTD_decompress(decompressed.data(), original_size, compressed.data(), static_cast<std::size_t>(actual_size));
+    raw_binary_ss << std::string(decompressed.data(), original_size);
     raw_binary_fin.close();
   }
 };
@@ -423,22 +423,6 @@ inline void ViewSolver<SimulationControl>::initialViewSolver(const Mesh<Simulati
       this->quadrangle_.view_variable_.resize(mesh.quadrangle_.boundary_number_);
     }
   }
-}
-
-template <typename SimulationControl>
-inline void ViewSolver<SimulationControl>::updateRawBinaryVersion(const Mesh<SimulationControl>& mesh,
-                                                                  const std::filesystem::path& raw_binary_path,
-                                                                  std::stringstream& raw_binary_ss) {
-  RawBinaryCompress::read(raw_binary_path, raw_binary_ss);
-  const std::streamsize num_chars_to_move = mesh.node_number_ * kRealSize;
-  std::vector<char> buffer(static_cast<Usize>(num_chars_to_move));
-  raw_binary_ss.read(buffer.data(), num_chars_to_move);
-  std::string remaining_content((std::istreambuf_iterator<char>(raw_binary_ss)), std::istreambuf_iterator<char>());
-  raw_binary_ss.str("");
-  raw_binary_ss.clear();
-  raw_binary_ss << remaining_content;
-  raw_binary_ss.write(buffer.data(), num_chars_to_move);
-  RawBinaryCompress::write(raw_binary_path, raw_binary_ss);
 }
 
 }  // namespace SubrosaDG

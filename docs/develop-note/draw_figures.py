@@ -63,7 +63,7 @@ ax.set_ylabel(r'$\eta$')
 ax.spines.right.set_visible(False)
 ax.spines.top.set_visible(False)
 
-plt.savefig('build/docs/develop-notes/dg_method/figures/tri-reference.pdf')
+plt.savefig('figures/tri-reference.pdf')
 
 plt.clf()
 
@@ -119,7 +119,7 @@ ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
 ax.spines.right.set_visible(False)
 ax.spines.top.set_visible(False)
 
-plt.savefig('build/docs/develop-notes/dg_method/figures/quad-reference.pdf')
+plt.savefig('figures/quad-reference.pdf')
 
 plt.clf()
 
@@ -159,7 +159,7 @@ ax.set_xlabel(r'$\xi$')
 ax.set_ylabel(r'$\eta$')
 ax.set_title(r'$\phi_{4}^{2}(\xi,\eta)=4\xi-4\xi^{2}-4\xi\eta$')
 
-plt.savefig('build/docs/develop-notes/dg_method/figures/tri-basis-fun.pdf')
+plt.savefig('figures/tri-basis-fun.pdf')
 
 plt.clf()
 
@@ -199,7 +199,7 @@ ax.xaxis.set_major_locator(ticker.MultipleLocator(0.5))
 ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
 ax.set_title(r'$\phi_{5}^{2}(\xi,\eta)=\dfrac{1}{2}(-\eta+\eta^{2}+\xi^{2}\eta-\xi^{2}\eta^{2})$')
 
-plt.savefig('build/docs/develop-notes/dg_method/figures/quad-basis-fun.pdf')
+plt.savefig('figures/quad-basis-fun.pdf')
 
 plt.clf()
 
@@ -263,4 +263,4 @@ plt.text(0.445, 0.6, r'$\displaystyle\mathbf{x}=\sum_{i=1}^{N_{k}}\phi_{i}^{k}(\
 ax1.set_aspect('equal', adjustable='box')
 ax2.set_aspect('equal', adjustable='box')
 
-plt.savefig('build/docs/develop-notes/dg_method/figures/quad-isoparametric.pdf')
+plt.savefig('figures/quad-isoparametric.pdf')

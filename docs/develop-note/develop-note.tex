@@ -1,5 +1,5 @@
 %%
-% @file dg_method.tex
+% @file develop-note.tex
 % @brief The note of Discontinuous Galerkin Method.
 %
 % @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -101,7 +101,7 @@ By multiplying by a ``test function'' $v$ and integrating over the domain $\Omeg
   \label{eq:4}
   \int_{\Omega}v\mathbf{u}_{,t}\mathrm{d}\Omega+\int_{\Omega}v(\nabla\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u}))\mathrm{d}\Omega=\int_{\Omega}v\mathbf{S}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega\quad\forall v,
 \end{equation}
-where $\mathbf{F}(\mathbf{u},\nabla\mathbf{u})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$, and the integrals over the domain $\Omega$ have been expanded into the sum of integrals over a collection of non-overlapping elements ${E}$, which have been assumed to be triangles and quadrangles.
+where $\mathbf{F}(\mathbf{u},\nabla\mathbf{u})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})-\mathbf{F}_{\mathrm{v}}(\mathbf{u},\nabla\mathbf{u})$, and the integrals over approximate $\Omega_{h}$ of the domain $\Omega$ have been expanded into the sum of integrals over a collection of non-overlapping elements $\mathscr{E}_{h}=\{E\}$.
 \begin{equation}
   \sum_{E}\left(\int_{E}v\mathbf{u}_{,t}\mathrm{d}\Omega+\int_{E}v\nabla\cdot\mathbf{F}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega-\int_{E}v\mathbf{S}(\mathbf{u},\nabla\mathbf{u})\mathrm{d}\Omega\right)=0\quad\forall v,
 \end{equation}
@@ -114,9 +114,9 @@ where $\partial E$ denotes the boundary of element $E$.
 
 A discrete analog of \autoref{eq:6} is obtained by considering, within each element, only the functions $\mathbf{u}_{h,t}$ and $v_{h}$ given by
 \begin{equation}
-  \mathbf{u}_{h,t}(\mathbf{x},t)_{h|E}=\sum_{i=1}^{N_{k}}\mathbf{U}_{i,t}(t)\phi_{i}^{k}(\mathbf{x}),\quad v_{h}(\mathbf{x})_{h|E}=\sum_{i=1}^{N_{k}}V_{i}\phi_{i}^{k}(\mathbf{x}),\quad\forall\mathbf{x}\in E,
+  \mathbf{u}_{h,t}(\mathbf{x},t)_{h|E}=\sum_{i=1}^{N_{k}}\mathbf{a}_{i,t}(t)\phi_{i}^{k}(\mathbf{x}),\quad v_{h}(\mathbf{x})_{h|E}=\sum_{i=1}^{N_{k}}\phi_{i}^{k}(\mathbf{x}),\quad\forall\mathbf{x}\in E,
 \end{equation}
-where the expansion coefficients $\mathbf{U}_{i,t}(t)$ and $V_{i}$ denote the degrees of freedom of the numerical solution and the test function in element $E$, and the $N_{k}$ (shape) functions $\phi_{i}^{k}$ are a base for the polynomial functions $\mathbb{P}^{k}$. Note that there is no global continuity requirement for $\mathbf{u}_{h,t}$ and $v_{h}$, which are therefore discontinuous functions across element interfaces. By admitting only the functions $\mathbf{u}_{h,t|E}$ and $v_{h|E}$, the summation in \autoref{eq:6} can be reduced to
+where the expansion coefficients $\mathbf{a}_{i,t}(t)$ denote the degrees of freedom of the numerical solution in element $E$, and the $N_{k}$ (shape) functions $\phi_{i}^{k}$ are a base for the polynomial functions $\mathbb{P}^{k}$. Note that there is no global continuity requirement for $\mathbf{u}_{h,t}$ and $v_{h}$, which are therefore discontinuous functions across element interfaces. By admitting only the functions $\mathbf{u}_{h,t|E}$ and $v_{h|E}$, the summation in \autoref{eq:6} can be reduced to
 \begin{equation}
   \label{eq:8}
   \int_{E}v_{h}\mathbf{u}_{h,t}\mathrm{d}\Omega+\oint_{\partial E}v_{h}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}\mathrm{d}\sigma-\int_{E}\nabla v_{h}\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\mathrm{d}\Omega=\int_{E}v_{h}\mathbf{S}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\mathrm{d}\Omega\quad\forall v_{h|E}.
@@ -233,16 +233,27 @@ Notice that the following relation between the functions $\mathbf{w}_{h}^{\mathr
 \end{equation}
 With this modification, \autoref{eq:24} becomes
 \begin{equation}
+  \label{eq:27}
   \begin{aligned}
     \int_{E}\phi_{i}^{k}\mathbf{u}_{h,t}\mathrm{d}\Omega &+\oint_{\partial E}\phi_{i}^{k}(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})\cdot\mathbf{n}+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\eta_{e}\mathbf{w}_{h|e}^{\mathrm{int}}+\mathbf{w}_{h}^{\mathrm{vol}})\cdot\mathbf{n})\mathrm{d}\sigma\\
     &-\int_{E}\nabla\phi_{i}^{k}\cdot(\mathbf{F}_{\mathrm{e}}(\mathbf{u}_{h})+\mathbf{F}_{\mathrm{v}}(\mathbf{u}_{h},\mathbf{w}_{h}^{\mathrm{int}}+\mathbf{w}_{h}^{\mathrm{vol}}))\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\mathbf{S}(\mathbf{u}_{h},\mathbf{w}_{h}^{\mathrm{int}}+\mathbf{w}_{h}^{\mathrm{vol}})\mathrm{d}\Omega\quad 1\leqslant i\leqslant N_{k}.
   \end{aligned}
 \end{equation}
-In the formula, $\eta_{e}$ is the stability factor, which is usually taken as the number of interfaces of the element. Of course, you can also directly take it as $3.0$.
+In the formula, $\eta_{e}$ is the stability factor, which is usually taken as the number of interfaces of the element\cite{bassiImplicitHighorderDiscontinuous2007}. In some articles, this value is also directly set to $3.0$, but numerical experiments here show that setting it to $1.0$ is sufficient for stability.
 
 \section{Basis Functions}
 
-For the basis function, our implementation is based on \href{https://gmsh.info}{gmsh}, where the Lagrange basis functions are used, which is defined as
+For the basis functions, the only requirement here is to satisfy completeness on each element, meaning they must be able to span the function space $\mathbb{V}_{h}^{k}$,
+\begin{equation}
+  \mathbb{V}_{h}^{k}=\{\phi^{k}\in L^{2}(\Omega_{h}):\phi^{k}_{|E}\in\mathbb{P}^{k},\quad\forall E\in\mathscr{E}_{h}\},
+\end{equation}
+Under this condition, any set of basis functions that can span this space can be used as basis functions. Examples include Lagrange basis functions, Gauss-Lobatto-Legendre basis functions, Taylor basis functions, and Legendre basis functions. These basis functions can be classified into two categories: nodal basis functions and modal basis functions.
+
+Nodal basis functions are constructed by interpolating based on nodal values within an element, allowing for the rapid retrieval of values at predefined nodes within the element. Different interpolation nodes lead to different basis functions. For instance, the \href{https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_lagrange_variants.html}{Gauss-Lobatto-Legendre} basis functions are constructed using Gauss-Lobatto quadrature points as interpolation nodes. This enables quick evaluation of values at quadrature points within the element. Additionally, since values at interpolation nodes can be obtained, nodal basis functions facilitate h-adaptive methods or DG/FV hybrid methods.
+
+Modal basis functions are generally composed of a hierarchical set of basis functions, and orthogonality is not inherently required. For example, Taylor basis functions do not require orthogonality. Besides, basis functions can be orthogonalized, as in the case of Legendre basis functions. In some implicit methods, this orthogonalization can lead to a stiffness matrix with a better condition number. However, in practice, implicit methods are often paired with preconditioning techniques to reduce the condition number of the matrix.It is important to note that this orthogonalization is only valid on the reference element. High-order curved mesh transformations can break this orthogonality. The hierarchical nature of modal basis functions means that a basis function of order $p+1$ inherently contains the basis functions of order $p$. This property is particularly useful in certain shock-capturing schemes. Furthermore, it allows for cross-order initialization, making modal basis functions well-suited for p-adaptive methods.
+
+The implementation of basis functions here is primarily based on \href{https://gmsh.info}{gmsh}. For nodal basis functions, we directly use Lagrange basis functions for post-processing and output. For modal basis functions, we use the H1Legendre basis functions provided in gmsh, which are essentially Lobatto basis functions \cite{solinHigherOrderFiniteElement2003}. Compared to Legendre basis functions, Lobatto basis functions offer better matrix conditioning. In our computations, we consistently use Lobatto basis functions. Here Lagrange basis functions are defined as
 \begin{equation}
   \phi_{i}^{k}=\prod_{j=1,j\neq i}^{N_{k}}\dfrac{f_{j}(\bm{\xi})}{f_{j}(\bm{\xi}_{i})},\quad 1\leqslant i\leqslant N_{k}.
 \end{equation}
@@ -284,22 +295,26 @@ For the Lagrange basis functions, it is easy to construct their interpolation fu
 
 Next, let's discuss how to compute the derivatives of the basis functions at each element. This is necessary as they appear in the volume integration. Obtaining the derivatives of the basis functions concerning the local coordinates is straightforward since they are polynomials. However, what we need are the derivatives of the basis functions concerning the global coordinates, as we require them for computing the volume integration in the global coordinate system. To achieve this, we need to apply the chain rule, i.e.,
 \begin{equation}
-  \dfrac{\partial\phi_{i}^{k}}{\partial x_{j}}=\dfrac{\partial\phi_{i}^{k}}{\partial\bm{\xi}}\dfrac{\partial\bm{\xi}}{\partial x_{j}},
+  \dfrac{\partial\phi_{i}^{k}}{\partial x_{j}}=\dfrac{\partial\phi_{i}^{k}}{\partial\xi}\dfrac{\partial\xi}{\partial x_{j}}+\dfrac{\partial\phi_{i}^{k}}{\partial\eta}\dfrac{\partial\eta}{\partial x_{j}}+\dfrac{\partial\phi_{i}^{k}}{\partial\zeta}\dfrac{\partial\zeta}{\partial x_{j}},
 \end{equation}
 which can be written in matrix form as
 \begin{equation}
   \begin{bNiceMatrix}
     \dfrac{\partial\phi_{i}^{k}}{\partial x}\\
-    \dfrac{\partial\phi_{i}^{k}}{\partial y}
+    \dfrac{\partial\phi_{i}^{k}}{\partial y}\\
+    \dfrac{\partial\phi_{i}^{k}}{\partial z}
   \end{bNiceMatrix}=\begin{bNiceMatrix}
-    \dfrac{\partial\xi}{\partial x}&\dfrac{\partial\eta}{\partial x}\\
-    \dfrac{\partial\xi}{\partial y}&\dfrac{\partial\eta}{\partial y}
+    \dfrac{\partial\xi}{\partial x}&\dfrac{\partial\eta}{\partial x}&\dfrac{\partial\zeta}{\partial x}\\
+    \dfrac{\partial\xi}{\partial y}&\dfrac{\partial\eta}{\partial y}&\dfrac{\partial\zeta}{\partial y}\\
+    \dfrac{\partial\xi}{\partial z}&\dfrac{\partial\eta}{\partial z}&\dfrac{\partial\zeta}{\partial z}
   \end{bNiceMatrix}\begin{bNiceMatrix}
     \dfrac{\partial\phi_{i}^{k}}{\partial\xi}\\
-    \dfrac{\partial\phi_{i}^{k}}{\partial\eta}
+    \dfrac{\partial\phi_{i}^{k}}{\partial\eta}\\
+    \dfrac{\partial\phi_{i}^{k}}{\partial z}
   \end{bNiceMatrix}=[\mathbf{J}]^{-\mathrm{T}}\begin{bNiceMatrix}
     \dfrac{\partial\phi_{i}^{k}}{\partial\xi}\\
-    \dfrac{\partial\phi_{i}^{k}}{\partial\eta}
+    \dfrac{\partial\phi_{i}^{k}}{\partial\eta}\\
+    \dfrac{\partial\phi_{i}^{k}}{\partial z}
   \end{bNiceMatrix}.
 \end{equation}
 
@@ -659,9 +674,32 @@ The BR2 format is an improvement based on the BR1 format. Its calculation method
 
 \section{Shock Capturing}
 
-
 \section{Time Integration}
 
+After spatial discretization, \autoref{eq:27} can be expressed as a system of linear differential equations through Gaussian quadrature, denoted as
+\begin{equation}
+  \mathbf{M}\dfrac{\mathrm{d}\mathbf{u}}{\mathrm{d}t}=\mathbf{R}(\mathbf{u}).
+\end{equation}
+This system can be solved using either explicit or implicit time integration methods. Explicit time integration methods are subject to time step restrictions but are relatively simple to implement. In contrast, implicit time integration methods allow for larger time steps but require computing the Jacobian matrix and solving a nonlinear system, making them computationally more complex compared to explicit methods. Here, we adopt an explicit multi-step Runge-Kutta method, namely:
+\begin{equation}
+  \begin{aligned}
+    &\mathbf{u}^{0}=\mathbf{u}^{n},\\
+    &\mathbf{u}^{i}=\sum_{j=0}^{i-1}\left(\alpha_{ij}\mathbf{u}^{j}+\beta_{ij}\Delta t\mathbf{M}^{-1}\mathbf{R}(\mathbf{u}^{j})\right),\quad 1\leqslant i\leqslant s,\\
+    &\mathbf{u}^{n+1}=\mathbf{u}^{s},
+  \end{aligned}
+\end{equation}
+where $i$ is the stage counter for the $s$-stage scheme and $\alpha_{ij}$ and $\beta_{ij}$ are the multistage coefficients for the $i$th stage. The coefficients of commonly used SSP-RK3 methods are given by
+\begin{equation}
+  \begin{aligned}
+    &\alpha_{10}=1,\quad\beta_{10}=1,\\
+    &\alpha_{20}=\dfrac{3}{4},\quad\alpha_{21}=\dfrac{1}{4},\quad\beta_{21}=\dfrac{1}{4},\\
+    &\alpha_{30}=\dfrac{1}{3},\quad\alpha_{32}=\dfrac{2}{3},\quad\beta_{32}=\dfrac{2}{3}.
+  \end{aligned}
+\end{equation}
+For explicit schemes, we use a global time step. The calculation method for this time step primarily follows Brazell\cite{brazellHighOrderDiscontinuousGalerkin2015} paper, specifically:
+\begin{equation}
+  \Delta t=\min_{E}\left(\dfrac{\mathrm{CFL}}{h^{-1}(\|\mathbf{u}\|_{2}+c)}\right),\quad h=\dfrac{V}{S(p+1)^{2}}.
+\end{equation}
 
 \section{Boundary Condition}
 

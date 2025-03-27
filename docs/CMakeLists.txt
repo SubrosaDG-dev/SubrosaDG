@@ -17,4 +17,4 @@ project(subrosa_dg_docs LANGUAGES NONE)
 set(LATEX_COMPILER_FLAGS "-interaction=batchmode -file-line-error -halt-on-error -no-shell-escape")
 string(REPLACE " " ";" LATEX_COMPILER_FLAGS ${LATEX_COMPILER_FLAGS})
 
-add_subdirectory(develop-notes)
+add_subdirectory(develop-note)

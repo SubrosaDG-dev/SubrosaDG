@@ -164,7 +164,7 @@ struct System {
     if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       this->solver_.writeRawBinary(
           this->mesh_,
-          this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, 0));
+          this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, 0));
     } else {
       this->solver_.write_raw_binary_future_ = std::async(std::launch::async, []() {});
     }
@@ -177,7 +177,7 @@ struct System {
         this->solver_.write_raw_binary_future_.get();
         this->solver_.writeRawBinary(
             this->mesh_,
-            this->view_.output_directory_ / std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i));
+            this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, i));
       }
       this->command_line_.updateSolver(i, this->solver_.relative_error_, this->solver_.error_finout_);
       if (this->solver_.relative_error_.array().isNaN().all()) [[unlikely]] {
@@ -212,7 +212,7 @@ struct System {
                             if (i % this->view_.io_interval_ == 0) {
                               view_data.raw_binary_path_ =
                                   this->view_.output_directory_ /
-                                  std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i);
+                                  std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, i);
                               this->view_.stepView(i, this->mesh_, this->physical_model_, view_data);
                               {
                                 tbb::spin_mutex::scoped_lock lock(mtx);
@@ -223,38 +223,6 @@ struct System {
                         });
     });
     this->view_.finalizeViewFin();
-  }
-
-  inline void updateRawBinaryVersion() {
-    this->command_line_.initializeView(
-        (this->time_integration_.iteration_end_ - this->time_integration_.iteration_start_) / this->view_.io_interval_ +
-        1);
-#ifndef SUBROSA_DG_DEVELOP
-    oneapi::tbb::task_arena arena(10);
-#else   // SUBROSA_DG_DEVELOP
-    oneapi::tbb::task_arena arena(1);
-#endif  // SUBROSA_DG_DEVELOP
-    arena.execute([&] {
-      tbb::spin_mutex mtx;
-      tbb::parallel_for(tbb::blocked_range<Isize>(this->time_integration_.iteration_start_,
-                                                  this->time_integration_.iteration_end_ + 1),
-                        [&](const tbb::blocked_range<Isize>& range) {
-                          for (Isize i = range.begin(); i != range.end(); i++) {
-                            ViewData<SimulationControl> view_data(this->mesh_);
-                            if (i % this->view_.io_interval_ == 0) {
-                              view_data.raw_binary_path_ =
-                                  this->view_.output_directory_ /
-                                  std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, i);
-                              view_data.solver_.updateRawBinaryVersion(this->mesh_, view_data.raw_binary_path_,
-                                                                       view_data.raw_binary_ss_);
-                              {
-                                tbb::spin_mutex::scoped_lock lock(mtx);
-                                this->command_line_.updateView();
-                              }
-                            }
-                          }
-                        });
-    });
   }
 
   explicit inline System() : command_line_(true) {}

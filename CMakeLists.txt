@@ -15,7 +15,7 @@ cmake_minimum_required(VERSION 3.30)
 # add cmake module path
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/GlobFiles.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/Utils.cmake)
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
 # get git revision
 include(GetGitRevisionDescription)
@@ -40,12 +40,12 @@ option(SUBROSA_DG_BUILD_EXAMPLES "Build SubrosaDG example cases" OFF)
 option(SUBROSA_DG_BUILD_DOCS "Build SubrosaDG document" OFF)
 
 # set compiler
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    set(COMPILER_PATH "/opt/intel/oneapi/compiler/latest/bin/compiler")
-    set(CMAKE_CXX_COMPILER "/opt/intel/oneapi/compiler/latest/bin/icpx")
-elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    set(COMPILER_PATH "/opt/homebrew/opt/llvm/bin")
-    set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm/bin/clang++")
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL Linux)
+    set(COMPILER_PATH /opt/intel/oneapi/compiler/latest/bin/compiler)
+    set(CMAKE_CXX_COMPILER /opt/intel/oneapi/compiler/latest/bin/icpx)
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
+    set(COMPILER_PATH /opt/homebrew/opt/llvm/bin)
+    set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
 endif()
 
 # set project
@@ -53,7 +53,7 @@ project(subrosa_dg LANGUAGES CXX VERSION ${SUBROSA_DG_VERSION} DESCRIPTION "Subr
 
 # message error if not fedora
 cmake_host_system_information(RESULT DISTRO_ID QUERY DISTRIB_ID)
-if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND NOT DISTRO_ID STREQUAL "fedora")
+if (CMAKE_HOST_SYSTEM_NAME STREQUAL Linux AND NOT DISTRO_ID STREQUAL fedora)
     message(FATAL_ERROR "SubrosaDG requires Fedora to compile.")
 endif()
 
@@ -64,18 +64,18 @@ if(${PROJECT_SOURCE_DIR} STREQUAL ${PROJECT_BINARY_DIR})
 endif()
 
 # set vcpkg overlay ports path
-set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_LIST_DIR}/cmake/vcpkg-ports")
+set(VCPKG_OVERLAY_PORTS ${CMAKE_CURRENT_LIST_DIR}/cmake/vcpkg-ports)
 
 # set vcpkg overlay triplets path
-set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_CURRENT_LIST_DIR}/cmake/vcpkg-triplets")
+set(VCPKG_OVERLAY_TRIPLETS ${CMAKE_CURRENT_LIST_DIR}/cmake/vcpkg-triplets)
 
 # set vcpkg triplet
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    set(VCPKG_HOST_TRIPLET "x64-linux-static")
-    set(VCPKG_TARGET_TRIPLET "x64-linux-static")
-elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    set(VCPKG_HOST_TRIPLET "arm64-osx-static")
-    set(VCPKG_TARGET_TRIPLET "arm64-osx-static")
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL Linux)
+    set(VCPKG_HOST_TRIPLET x64-linux-static)
+    set(VCPKG_TARGET_TRIPLET x64-linux-static)
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
+    set(VCPKG_HOST_TRIPLET arm64-osx-static)
+    set(VCPKG_TARGET_TRIPLET arm64-osx-static)
 endif()
 
 # add vcpkg cmake
@@ -93,16 +93,14 @@ cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PH
 # add cmake check
 include(CheckCXXCompilerFlag)
 
-# check cxx23 support
-check_cxx_compiler_flag(-std=c++23 cxx_std_23_support)
-if(NOT cxx_std_23_support)
-    message(FATAL_ERROR "SubrosaDG requires C++23 to compile.")
-endif()
-
 # set cxx standard for all target
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# use lld to link
+set(CMAKE_LINKER_TYPE LLD)
+set(CMAKE_CXX_USING_LINKER_LLD -fuse-ld=lld)
 
 # set cmake output verbose on
 set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
@@ -142,17 +140,17 @@ message(STATUS "Enable clangd in ${CLANGD}")
 # use ccache to speed up compilation
 find_program(CCACHE NAMES ccache)
 if(CCACHE)
-    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
     message(STATUS "Enable ccache in ${CCACHE}")
 else()
     message(WARNING "ccache not found. Please install ccache.")
 endif()
 
 # set output path
-set(CMAKE_INCLUDE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/include")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/libs")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/libs")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set(CMAKE_INCLUDE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/include)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/libs)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/libs)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # set library compiler variable
 set(SUBROSA_DG_INCLUDE_DIRS)
@@ -165,6 +163,11 @@ set(SUBROSA_DG_COMPILE_DEFINITIONS)
 # set library
 add_library(${PROJECT_NAME} INTERFACE)
 add_library(lib::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
+# set interprocedural optimization
+if(NOT SUBROSA_DG_DEVELOP)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+endif()
 
 # set compilation flags
 set(SUBROSA_DG_DEBUG_FLAGS)
@@ -189,8 +192,8 @@ else()
 endif()
 
 # add device flags
-string(APPEND SUBROSA_DG_DEBUG_FLAGS "${SUBROSA_DG_DEVICE_FLAGS}")
-string(APPEND SUBROSA_DG_RELEASE_FLAGS "${SUBROSA_DG_DEVICE_FLAGS}")
+string(APPEND SUBROSA_DG_DEBUG_FLAGS ${SUBROSA_DG_DEVICE_FLAGS})
+string(APPEND SUBROSA_DG_RELEASE_FLAGS ${SUBROSA_DG_DEVICE_FLAGS})
 
 # set compile flags
 set(SUBROSA_DG_FLAGS "$<$<CONFIG:Debug>:${SUBROSA_DG_DEBUG_FLAGS}> $<$<CONFIG:Release>:${SUBROSA_DG_RELEASE_FLAGS}>")
@@ -212,8 +215,8 @@ configure_file(${PROJECT_SOURCE_DIR}/cmake/source/SubrosaDG.cpp.in ${SUBROSA_DG_
 list(APPEND SUBROSA_DG_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/src)
 
 # find sycl
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    find_package(IntelSYCL CONFIG REQUIRED PATHS /opt/intel/oneapi/compiler/latest/lib/cmake/IntelSYCL)
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL Linux)
+    find_package(IntelSYCL CONFIG REQUIRED PATHS /opt/intel/oneapi/latest/lib/cmake/IntelSYCL)
     list(APPEND SUBROSA_DG_LINK_LIBRARIES IntelSYCL::SYCL_CXX)
 endif()
 
@@ -249,9 +252,13 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES magic_enum::magic_enum)
 find_package(ZLIB REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES ZLIB::ZLIB)
 
+# find zstd
+find_package(zstd CONFIG REQUIRED)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES zstd::libzstd)
+
 # find tbb
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    find_package(TBB CONFIG REQUIRED PATHS /opt/intel/oneapi/tbb/latest/lib/cmake/tbb)
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL Linux)
+    find_package(TBB CONFIG REQUIRED PATHS /opt/intel/oneapi/latest/lib/cmake/tbb)
     list(APPEND SUBROSA_DG_LINK_LIBRARIES TBB::tbb)
 endif()
 
@@ -278,7 +285,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME} SYSTEM INTERFACE ${SUBROSA_DG_INCLUDE_SYSTEM_DIRS})
 target_link_libraries(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_LINK_LIBRARIES})
 target_link_options(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_LINK_OPTIONS})
-target_compile_options(${PROJECT_NAME} INTERFACE "${SUBROSA_DG_COMPILE_OPTIONS}")
+target_compile_options(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_OPTIONS})
 target_compile_definitions(${PROJECT_NAME} INTERFACE ${SUBROSA_DG_COMPILE_DEFINITIONS})
 
 # message the compile definitions
@@ -288,7 +295,7 @@ message(STATUS "SYCL Target: ${SUBROSA_DG_DEVICE_FLAGS}")
 # TODO: use cmake install and XXXXConfig.cmake to link
 
 # modify the compile definitions to string for doxygen
-string(REPLACE ";" " " SUBROSA_DG_COMPILE_DEFINITIONS "${SUBROSA_DG_COMPILE_DEFINITIONS}")
+string(REPLACE ";" " " SUBROSA_DG_COMPILE_DEFINITIONS ${SUBROSA_DG_COMPILE_DEFINITIONS})
 
 # add develop target
 if(SUBROSA_DG_DEVELOP)
@@ -311,6 +318,10 @@ if(SUBROSA_DG_BUILD_DOCS)
         message(STATUS "Generating documents")
     else()
         message(WARNING "Doxygen not found. Please install doxygen.")
+    endif()
+    find_package (Python COMPONENTS Interpreter)
+    if(NOT Python_FOUND)
+        message(WARNING "Python not found. Please install python.")
     endif()
     find_package(LATEX COMPONENTS XELATEX BIBTEX)
     if(LATEX_XELATEX_FOUND)

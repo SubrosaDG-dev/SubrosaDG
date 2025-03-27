@@ -13,7 +13,8 @@
         "fmt",
         "gmsh",
         "magic-enum",
-        "zlib"
+        "zlib",
+        "zstd"
     ],
     "vcpkg-configuration": {
         "overlay-ports": [

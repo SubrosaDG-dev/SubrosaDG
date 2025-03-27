@@ -29,7 +29,7 @@ template <typename SimulationControl>
 inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
 SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
     [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
-  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.5_r, 0.0_r, 1.0_r};
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.38_r, 0.0_r, 1.0_r};
 }
 
 template <typename SimulationControl>

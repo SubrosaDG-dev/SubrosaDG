@@ -19,7 +19,7 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
 using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
-    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::TriangleQuadrangle, SubrosaDG::ShockCapturingEnum::None,
+    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
     SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
@@ -77,93 +77,26 @@ int main(int argc, char* argv[]) {
 }
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
-  Eigen::Vector<double, 3> point_coordinate;
-  Eigen::Matrix<double, 2, 201, Eigen::RowMajor> connection_point_coordinate;
-  connection_point_coordinate.row(0) = Eigen::Array<double, 1, 201>::LinSpaced(201, -0.5, 1.5);
-  connection_point_coordinate.row(1) =
-      Eigen::cos(SubrosaDG::kPi * connection_point_coordinate.row(0).array()) * 0.25 + 0.5;
-  // clang-format off
-  point_coordinate << -0.5, 0.5, 1.5;
-  // clang-format on
-  Eigen::Array<int, 3, 3, Eigen::RowMajor> farfield_point_tag;
-  std::array<std::vector<int>, 4> connection_point_tag;
-  Eigen::Array<int, 2, 3, Eigen::RowMajor> line_x_tag;
-  Eigen::Array<int, 2, 3, Eigen::RowMajor> line_y_tag;
-  Eigen::Array<int, 4, 1> curve_loop_tag;
-  Eigen::Array<int, 4, 1> plane_surface_tag;
-  std::array<std::vector<int>, 2> physical_group_tag;
   gmsh::model::add("kovasznay_2d");
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 3; j++) {
-      farfield_point_tag(j, i) = gmsh::model::geo::addPoint(point_coordinate(j), point_coordinate(i), 0.0);
-    }
-  }
-  connection_point_tag[0].emplace_back(farfield_point_tag(0, 1));
-  connection_point_tag[1].emplace_back(farfield_point_tag(1, 1));
-  connection_point_tag[2].emplace_back(farfield_point_tag(1, 0));
-  connection_point_tag[3].emplace_back(farfield_point_tag(1, 1));
-  for (int i = 0; i < 100; i++) {
-    connection_point_tag[0].emplace_back(
-        gmsh::model::geo::addPoint(connection_point_coordinate(0, i + 1), connection_point_coordinate(1, i + 1), 0.0));
-    connection_point_tag[1].emplace_back(gmsh::model::geo::addPoint(connection_point_coordinate(0, i + 100),
-                                                                    connection_point_coordinate(1, i + 100), 0.0));
-    connection_point_tag[2].emplace_back(
-        gmsh::model::geo::addPoint(connection_point_coordinate(1, i + 100), connection_point_coordinate(0, i), 0.0));
-    connection_point_tag[3].emplace_back(gmsh::model::geo::addPoint(connection_point_coordinate(1, i + 1),
-                                                                    connection_point_coordinate(0, i + 101), 0.0));
-  }
-  connection_point_tag[0].emplace_back(farfield_point_tag(1, 1));
-  connection_point_tag[1].emplace_back(farfield_point_tag(2, 1));
-  connection_point_tag[2].emplace_back(farfield_point_tag(1, 1));
-  connection_point_tag[3].emplace_back(farfield_point_tag(1, 2));
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 2; j++) {
-      if (i == 1) {
-        line_x_tag(j, i) = gmsh::model::geo::addSpline(connection_point_tag[static_cast<std::size_t>(j)]);
-        line_y_tag(j, i) = gmsh::model::geo::addSpline(connection_point_tag[static_cast<std::size_t>(j + 2)]);
-      } else {
-        line_x_tag(j, i) = gmsh::model::geo::addLine(farfield_point_tag(j, i), farfield_point_tag(j + 1, i));
-        line_y_tag(j, i) = gmsh::model::geo::addLine(farfield_point_tag(i, j), farfield_point_tag(i, j + 1));
-      }
-    }
-  }
-  curve_loop_tag(0) =
-      gmsh::model::geo::addCurveLoop({line_x_tag(0, 0), line_y_tag(0, 1), -line_x_tag(0, 1), -line_y_tag(0, 0)});
-  curve_loop_tag(1) =
-      gmsh::model::geo::addCurveLoop({line_x_tag(1, 0), line_y_tag(0, 2), -line_x_tag(1, 1), -line_y_tag(0, 1)});
-  curve_loop_tag(2) =
-      gmsh::model::geo::addCurveLoop({line_x_tag(0, 1), line_y_tag(1, 1), -line_x_tag(0, 2), -line_y_tag(1, 0)});
-  curve_loop_tag(3) =
-      gmsh::model::geo::addCurveLoop({line_x_tag(1, 1), line_y_tag(1, 2), -line_x_tag(1, 2), -line_y_tag(1, 1)});
-  for (int i = 0; i < 4; i++) {
-    plane_surface_tag(i) = gmsh::model::geo::addPlaneSurface({curve_loop_tag(i)});
-  }
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 2; j++) {
-      gmsh::model::geo::mesh::setTransfiniteCurve(line_x_tag(j, i), 8 + 1);
-      gmsh::model::geo::mesh::setTransfiniteCurve(line_y_tag(j, i), 8 + 1);
-    }
-  }
-  for (int i = 0; i < 4; i++) {
-    gmsh::model::geo::mesh::setTransfiniteSurface(plane_surface_tag(i));
-  }
-  for (int i = 0; i < 2; i++) {
-    gmsh::model::geo::mesh::setRecombine(2, plane_surface_tag(i));
-  }
+  gmsh::model::geo::addPoint(-0.5, 0.0, 0.0);
+  gmsh::model::geo::addPoint(1.5, 0.0, 0.0);
+  gmsh::model::geo::addPoint(1.5, 2.0, 0.0);
+  gmsh::model::geo::addPoint(-0.5, 2.0, 0.0);
+  gmsh::model::geo::addLine(1, 2);
+  gmsh::model::geo::addLine(2, 3);
+  gmsh::model::geo::addLine(4, 3);
+  gmsh::model::geo::addLine(1, 4);
+  gmsh::model::geo::addCurveLoop({1, 2, -3, -4});
+  gmsh::model::geo::addPlaneSurface({1});
+  gmsh::model::geo::mesh::setTransfiniteCurve(1, 128 + 1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(2, 128 + 1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(3, 128 + 1);
+  gmsh::model::geo::mesh::setTransfiniteCurve(4, 128 + 1);
+  gmsh::model::geo::mesh::setTransfiniteSurface(1);
+  gmsh::model::geo::mesh::setRecombine(2, 1);
   gmsh::model::geo::synchronize();
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 2; j++) {
-      if (i != 1) {
-        physical_group_tag[0].emplace_back(line_x_tag(j, i));
-        physical_group_tag[0].emplace_back(line_y_tag(j, i));
-      }
-    }
-  }
-  for (int i = 0; i < 4; i++) {
-    physical_group_tag[1].emplace_back(plane_surface_tag(i));
-  }
-  gmsh::model::addPhysicalGroup(1, physical_group_tag[0], 1, "bc-1");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[1], 2, "vc-1");
+  gmsh::model::addPhysicalGroup(1, {1, 2, 3, 4}, 1, "bc-1");
+  gmsh::model::addPhysicalGroup(2, {1}, 2, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");

@@ -135,14 +135,13 @@ struct AdjacencyElementBasisFunction {
 
 template <typename ElementTrait>
 struct ElementBasisFunction {
-  Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, ElementTrait::kBasicNodeNumber, Eigen::RowMajor> nodal_value_;
-  Eigen::Matrix<Real, ElementTrait::kAllAdjacencyQuadratureNumber, ElementTrait::kBasicNodeNumber, Eigen::RowMajor>
+  Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, ElementTrait::kBasicNodeNumber> nodal_value_;
+  Eigen::Matrix<Real, ElementTrait::kAllAdjacencyQuadratureNumber, ElementTrait::kBasicNodeNumber>
       nodal_adjacency_value_;
-  Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, ElementTrait::kBasisFunctionNumber, Eigen::RowMajor>
-      modal_value_;
+  Eigen::Matrix<Real, ElementTrait::kQuadratureNumber, ElementTrait::kBasisFunctionNumber> modal_value_;
   Eigen::Matrix<Real, ElementTrait::kQuadratureNumber * ElementTrait::kDimension, ElementTrait::kBasisFunctionNumber>
       modal_gradient_value_;
-  Eigen::Matrix<Real, ElementTrait::kAllAdjacencyQuadratureNumber, ElementTrait::kBasisFunctionNumber, Eigen::RowMajor>
+  Eigen::Matrix<Real, ElementTrait::kAllAdjacencyQuadratureNumber, ElementTrait::kBasisFunctionNumber>
       modal_adjacency_value_;
   Eigen::Matrix<Real, ElementTrait::kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber>
       modal_least_squares_inverse_;

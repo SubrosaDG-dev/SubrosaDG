@@ -74,12 +74,12 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> cylinder_point_coordinate;
   Eigen::Matrix<double, 6, 1> farfield_point_size;
   // clang-format off
-  farfield_point_coordinate << -5.0,   0.0,  0.0,
-                               -5.0,  -10.0, 0.0,
-                                20.0, -10.0, 0.0,
-                                20.0,  0.0,  0.0,
-                                20.0,  10.0, 0.0,
-                               -5.0,   10.0, 0.0;
+  farfield_point_coordinate << -10.0,  0.0,  0.0,
+                               -10.0, -15.0, 0.0,
+                                30.0, -15.0, 0.0,
+                                30.0,  0.0,  0.0,
+                                30.0,  15.0, 0.0,
+                               -10.0,  15.0, 0.0;
   separation_point_coordinate << -1.0,  0.0, 0.0,
                                   0.0, -1.0, 0.0,
                                   1.0,  0.0, 0.0,

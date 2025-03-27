@@ -131,7 +131,7 @@ struct AdjacencyElementMesh {
 
   inline void calculateAdjacencyElementNormalVector();
 
-  inline AdjacencyElementMesh() : quadrature_() {};
+  inline AdjacencyElementMesh() : quadrature_(), basis_function_() {};
 };
 
 template <typename ElementTrait>

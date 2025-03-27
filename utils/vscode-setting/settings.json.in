@@ -39,7 +39,7 @@
         "--clang-tidy",
         "--completion-style=detailed",
         "--enable-config",
-        "--function-arg-placeholders=false",
+        "--function-arg-placeholders=0",
         "--header-insertion=never",
         "--j=@NUMBER_OF_PHYSICAL_CORES@",
         "--pch-storage=memory"
