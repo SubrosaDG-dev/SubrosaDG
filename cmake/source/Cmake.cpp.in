@@ -1,5 +1,5 @@
 /**
- * @file Cmake.hpp
+ * @file Cmake.cpp
  * @brief The template file to get variables from cmake.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com

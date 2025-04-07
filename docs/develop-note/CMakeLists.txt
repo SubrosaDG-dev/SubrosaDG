@@ -16,13 +16,10 @@ project(subrosa_dg_develop_note LANGUAGES NONE)
 
 set(DEVELOP_NOTE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/docs/develop-note")
 
-file(MAKE_DIRECTORY "${DEVELOP_NOTE_OUTPUT_DIRECTORY}/figures")
-
 file(COPY ${CMAKE_CURRENT_LIST_DIR}/develop-note.cls DESTINATION ${DEVELOP_NOTE_OUTPUT_DIRECTORY})
 file(COPY ${CMAKE_CURRENT_LIST_DIR}/references.bib DESTINATION ${DEVELOP_NOTE_OUTPUT_DIRECTORY})
 
 add_custom_target(develop-note
-    COMMAND ${Python_EXECUTABLE} "${CMAKE_CURRENT_LIST_DIR}/draw_figures.py"
     COMMAND ${XELATEX_COMPILER} ${LATEX_COMPILER_FLAGS} -output-directory ${DEVELOP_NOTE_OUTPUT_DIRECTORY}
         "${CMAKE_CURRENT_LIST_DIR}/develop-note.tex"
     COMMAND ${BIBTEX_COMPILER} develop-note.aux

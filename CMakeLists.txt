@@ -295,7 +295,7 @@ message(STATUS "SYCL Target: ${SUBROSA_DG_DEVICE_FLAGS}")
 # TODO: use cmake install and XXXXConfig.cmake to link
 
 # modify the compile definitions to string for doxygen
-string(REPLACE ";" " " SUBROSA_DG_COMPILE_DEFINITIONS ${SUBROSA_DG_COMPILE_DEFINITIONS})
+string(REPLACE ";" " " SUBROSA_DG_COMPILE_DEFINITIONS "${SUBROSA_DG_COMPILE_DEFINITIONS}")
 
 # add develop target
 if(SUBROSA_DG_DEVELOP)
@@ -318,10 +318,6 @@ if(SUBROSA_DG_BUILD_DOCS)
         message(STATUS "Generating documents")
     else()
         message(WARNING "Doxygen not found. Please install doxygen.")
-    endif()
-    find_package (Python COMPONENTS Interpreter)
-    if(NOT Python_FOUND)
-        message(WARNING "Python not found. Please install python.")
     endif()
     find_package(LATEX COMPONENTS XELATEX BIBTEX)
     if(LATEX_XELATEX_FOUND)

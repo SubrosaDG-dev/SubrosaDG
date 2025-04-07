@@ -209,9 +209,13 @@ The contributions $\mathbf{w}_{h}^{\mathrm{int}}$ and $\mathbf{w}_{h}^{\mathrm{v
   \label{eq:22}
   \int_{E}\phi_{i}^{k}\mathbf{w}_{h}^{\mathrm{int}}\mathrm{d}\Omega=\oint_{\partial E}\phi_{i}^{k}\dfrac{1}{2}(\mathbf{u}_{h}^{+}-\mathbf{u}_{h}^{-})\otimes\mathbf{n}\mathrm{d}\sigma,\quad \int_{E}\phi_{i}^{k}\mathbf{w}_{h}^{\mathrm{vol}}\mathrm{d}\Omega=\int_{E}\phi_{i}^{k}\nabla\mathbf{u}_{h}\mathrm{d}\Omega.
 \end{equation}
-Please note that in some papers, the average value of the left and right states at the element boundary is denoted as $\hat{\mathbf{u}}$, defined as $\hat{\mathbf{u}}=(\mathbf{u}^{+}+\mathbf{u}^{-})/2$. With this notation, the first equation in \autoref{eq:22} will become:
+We denote the numerical flux function in \autoref{eq:16} as $\mathbf{h}_{\mathrm{w}}^{\mathrm{vol}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$, and similarly, we introduce a numerical flux function $\mathbf{h}_{\mathrm{w}}^{\mathrm{int}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$ in the boundary integral here, which is defined as
 \begin{equation}
-  \int_{E}\phi_{i}^{k}\mathbf{w}_{h}^{\mathrm{int}}\mathrm{d}\Omega=\oint_{\partial E}\phi_{i}^{k}(\hat{\mathbf{u}}_{h}-\mathbf{u}_{h})\otimes\mathbf{n}\mathrm{d}\sigma
+  \mathbf{h}_{\mathrm{w}}^{\mathrm{int}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\dfrac{1}{2}(\mathbf{u}^{+}-\mathbf{u}^{-})\otimes\mathbf{n}.
+\end{equation}
+Please note that in some papers, the average value of the left and right states at the element boundary is denoted as $\{\mathbf{u}\}$, defined as $\{\mathbf{u}\}=(\mathbf{u}^{+}+\mathbf{u}^{-})/2$. With this notation, the first equation in \autoref{eq:22} will become:
+\begin{equation}
+  \int_{E}\phi_{i}^{k}\mathbf{w}_{h}^{\mathrm{int}}\mathrm{d}\Omega=\oint_{\partial E}\phi_{i}^{k}(\{\mathbf{u}_{h}\}-\mathbf{u}_{h})\otimes\mathbf{n}\mathrm{d}\sigma
 \end{equation}
 These two equations only differ in notation, but they are equivalent. So for the formulation of BR1, the \autoref{eq:17} can be rewritten as
 \begin{equation}
@@ -245,7 +249,7 @@ In the formula, $\eta_{e}$ is the stability factor, which is usually taken as th
 
 For the basis functions, the only requirement here is to satisfy completeness on each element, meaning they must be able to span the function space $\mathbb{V}_{h}^{k}$,
 \begin{equation}
-  \mathbb{V}_{h}^{k}=\{\phi^{k}\in L^{2}(\Omega_{h}):\phi^{k}_{|E}\in\mathbb{P}^{k},\quad\forall E\in\mathscr{E}_{h}\},
+  \mathbb{V}_{h}^{k}:=\{\phi^{k}\in L^{2}(\Omega_{h}):\phi^{k}_{|E}\in\mathbb{P}^{k},\quad\forall E\in\mathscr{E}_{h}\},
 \end{equation}
 Under this condition, any set of basis functions that can span this space can be used as basis functions. Examples include Lagrange basis functions, Gauss-Lobatto-Legendre basis functions, Taylor basis functions, and Legendre basis functions. These basis functions can be classified into two categories: nodal basis functions and modal basis functions.
 
@@ -255,43 +259,91 @@ Modal basis functions are generally composed of a hierarchical set of basis func
 
 The implementation of basis functions here is primarily based on \href{https://gmsh.info}{gmsh}. For nodal basis functions, we directly use Lagrange basis functions for post-processing and output. For modal basis functions, we use the H1Legendre basis functions provided in gmsh, which are essentially Lobatto basis functions \cite{solinHigherOrderFiniteElement2003}. Compared to Legendre basis functions, Lobatto basis functions offer better matrix conditioning. In our computations, we consistently use Lobatto basis functions. Here Lagrange basis functions are defined as
 \begin{equation}
-  \phi_{i}^{k}=\prod_{j=1,j\neq i}^{N_{k}}\dfrac{f_{j}(\bm{\xi})}{f_{j}(\bm{\xi}_{i})},\quad 1\leqslant i\leqslant N_{k}.
+  \phi_{i}^{k}=\prod_{j=1,j\neq i}^{N_{k}}\dfrac{f_{j}(\xi,\eta,\zeta)}{f_{j}(\xi_{i},\eta_{i},\zeta_{i})},\quad 1\leqslant i\leqslant N_{k}.
 \end{equation}
 The Lagrange basis functions have the following properties
 \begin{equation}
-  \phi_{i}^{k}(\bm{\xi}_{j})=\delta_{ij},\quad \sum_{i=1}^{N_{k}}\phi_{i}^{k}(\bm{\xi})=1.
+  \phi_{i}^{k}(\xi_{j},\eta_{j},\zeta_{j})=\delta_{ij},\quad \sum_{i=1}^{N_{k}}\phi_{i}^{k}(\xi,\eta,\zeta)=1.
 \end{equation}
 Therefore, we can also construct basis functions by using the undetermined coefficient method for complete polynomials.
 
-For a two-dimensional triangular element, its reference element in gmsh is defined as
+% For a two-dimensional triangular element, its reference element in gmsh is defined as
 
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=1.00\textwidth]{figures/tri-reference.pdf}
+% \end{figure}
+
+% From left to right, the reference element of order 1, order 2, and order 3 and the distribution of corresponding Lagrange interpolation points. The shape of the $\phi_{3}^{2}$ and $\phi_{4}^{2}$ of the second-order element are shown here
+
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=1.00\textwidth]{figures/tri-basis-fun.pdf}
+% \end{figure}
+
+% For a two-dimensional quadrangle element, its reference element in gmsh is defined as
+
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=1.00\textwidth]{figures/quad-reference.pdf}
+% \end{figure}
+
+% From left to right, the reference element of order 1, order 2, and order 3 and the distribution of corresponding Lagrange interpolation points. The shape of the $\phi_{4}^{2}$ and $\phi_{5}^{2}$ of the second-order element are shown here
+
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=1.00\textwidth]{figures/quad-basis-fun.pdf}
+% \end{figure}
+
+For the Lagrange basis functions, it is easy to construct their interpolation functions, and we can convert straight-line elements to isoparametric elements by coordinate transformation. However, this type of element has certain disadvantages, mainly because of the internal nodes that increase with the increase of the interpolation function, thereby increasing the number of degrees of freedom of the element. The addition of these degrees of freedom usually does not improve the accuracy of the element, because the accuracy of the element is usually determined by the power of a complete polynomial. Therefore, if you use Taylor basis functions for computation, they only include the orders of complete polynomials. This allows achieving the required accuracy with minimal computational cost. This is why some literature prefers Taylor basis functions over Lagrange basis functions.
+
+\section{Curved Mesh}
+
+For the FVM (Finite Volume Method), we generally seldom consider curved mesh. This is because FVM itself is either cell-centered or vertex-centered, and it is insensitive to grid deformation. However, for the DG (Discontinuous Galerkin) method, we need to consider curved mesh because the discrete solution in DG is approximated by high-order polynomials on elements, and the coefficients of these polynomials need to be integrated over the elements. Therefore, we need to consider the influence of grid deformation on integration, which Bassi also described in detail in his paper\cite{bassiHighOrderAccurateDiscontinuous1997}.
+
+As the isoparametric element is used here, which means that the interpolation functions for the coordinates transformation of the element's geometry use the same interpolation basis functions and interpolation nodes as those used to describe the displacement modes of the element, we have
+\begin{equation}
+  \mathbf{x}(\xi,\eta,\zeta)=\sum_{i=1}^{N_{k}}\phi_{i}^{k}(\xi,\eta,\zeta)\mathbf{x}_{i}.
+\end{equation}
+The element transformation is as follows:
 \begin{figure}[H]
   \centering
-  \includegraphics[width=1.00\textwidth]{figures/tri-reference.pdf}
+  \begin{tikzpicture}[scale=1.0]
+    \draw[fill=blue,draw=black]
+    (0,0) circle (1pt) node[below]{$\xi_1$}
+    (3,0) circle (1pt) node[below]{$\xi_2$}
+    (0,3) circle (1pt) node[above right]{$\xi_3$}
+    (1.5,0) circle (1pt) node[below]{$\xi_4$}
+    (1.5,1.5) circle (1pt) node[above right]{$\xi_5$}
+    (0,1.5) circle (1pt) node[above left]{$\xi_6$};
+
+    \draw (0,3) -- (3,0);
+    \draw[-latex] (0,0) -- (4,0) node[right]{$\xi$};
+    \draw[-latex] (0,0) -- (0,4) node[right]{$\eta$};
+
+    \draw[fill=blue,draw=black]
+    (7,1) circle (1pt) node[below]{$x_1$}
+    (10,3) circle (1pt) node[below]{$x_2$}
+    (7,5) circle (1pt) node[above right]{$x_3$}
+    (8,2) circle (1pt) node[above left]{$x_4$}
+    (9,4) circle (1pt) node[above right]{$x_5$}
+    (6,3) circle (1pt) node[left]{$x_6$};
+
+    \draw plot [smooth,tension=0.8] coordinates { (7,1) (8,2) (10,3) };
+    \draw plot [smooth,tension=0.8] coordinates { (10,3) (9,4) (7,5) };
+    \draw plot [smooth,tension=0.8] coordinates { (7,5) (6,3) (7,1) };
+    \draw[-latex] (8,0) -- (9,0) node[right]{$x$};
+    \draw[-latex] (8,0) -- (8,1) node[right]{$y$};
+
+    \draw (3,3) node[below right]{$\mathbf{x}(\xi,\eta)$};
+    \draw[-latex] plot [smooth,tension=0.8] coordinates { (0.5,1.5) (3,3) (7,4) };
+    \end{tikzpicture}
 \end{figure}
-
-From left to right, the reference element of order 1, order 2, and order 3 and the distribution of corresponding Lagrange interpolation points. The shape of the $\phi_{3}^{2}$ and $\phi_{4}^{2}$ of the second-order element are shown here
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.00\textwidth]{figures/tri-basis-fun.pdf}
-\end{figure}
-
-For a two-dimensional quadrangle element, its reference element in gmsh is defined as
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.00\textwidth]{figures/quad-reference.pdf}
-\end{figure}
-
-From left to right, the reference element of order 1, order 2, and order 3 and the distribution of corresponding Lagrange interpolation points. The shape of the $\phi_{4}^{2}$ and $\phi_{5}^{2}$ of the second-order element are shown here
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.00\textwidth]{figures/quad-basis-fun.pdf}
-\end{figure}
-
-For the Lagrange basis functions, it is easy to construct their interpolation functions, and we can convert straight-line elements to isoparametric elements by coordinate transformation. However, this type of element has certain disadvantages, mainly because of the internal nodes that increase with the increase of the interpolation function, thereby increasing the number of degrees of freedom of the element. The addition of these degrees of freedom usually does not improve the accuracy of the element, because the accuracy of the element is usually determined by the power of a complete polynomial.
+Therefore, we can use this formula to calculate the Jacobi matrix $[\mathbf{J}]$ and its transpose inverse matrix $[\mathbf{J}]^{-\mathrm{T}}$. The Jacobian matrix $[\mathbf{J}]$ can be obtained by the following formula:
+\begin{equation}
+  [\mathbf{J}](\xi,\eta,\zeta)=\dfrac{\partial(x,y,z)}{\partial(\xi,\eta,\zeta)}=\hat{\nabla}\mathbf{x}(\xi,\eta,\zeta)=\sum_{i=1}^{N_{k}}\hat{\nabla}\phi_{i}^{k}(\xi,\eta,\zeta)\mathbf{x}_{i},
+\end{equation}
+and $\hat{\nabla}$ is the gradient operator in the reference element. In the program, we directly use gmsh's API to obtain the derivative values of the basis functions concerning the reference element and the inverse matrix of the Jacobian for each element.
 
 Next, let's discuss how to compute the derivatives of the basis functions at each element. This is necessary as they appear in the volume integration. Obtaining the derivatives of the basis functions concerning the local coordinates is straightforward since they are polynomials. However, what we need are the derivatives of the basis functions concerning the global coordinates, as we require them for computing the volume integration in the global coordinate system. To achieve this, we need to apply the chain rule, i.e.,
 \begin{equation}
@@ -299,7 +351,7 @@ Next, let's discuss how to compute the derivatives of the basis functions at eac
 \end{equation}
 which can be written in matrix form as
 \begin{equation}
-  \begin{bNiceMatrix}
+  \nabla\phi_{i}^{k}(\xi,\eta,\zeta)=\begin{bNiceMatrix}
     \dfrac{\partial\phi_{i}^{k}}{\partial x}\\
     \dfrac{\partial\phi_{i}^{k}}{\partial y}\\
     \dfrac{\partial\phi_{i}^{k}}{\partial z}
@@ -311,38 +363,18 @@ which can be written in matrix form as
     \dfrac{\partial\phi_{i}^{k}}{\partial\xi}\\
     \dfrac{\partial\phi_{i}^{k}}{\partial\eta}\\
     \dfrac{\partial\phi_{i}^{k}}{\partial z}
-  \end{bNiceMatrix}=[\mathbf{J}]^{-\mathrm{T}}\begin{bNiceMatrix}
-    \dfrac{\partial\phi_{i}^{k}}{\partial\xi}\\
-    \dfrac{\partial\phi_{i}^{k}}{\partial\eta}\\
-    \dfrac{\partial\phi_{i}^{k}}{\partial z}
-  \end{bNiceMatrix}.
+  \end{bNiceMatrix}=[\mathbf{J}]^{-\mathrm{T}}\cdot\hat{\nabla}\phi_{i}^{k}(\xi,\eta,\zeta).
 \end{equation}
-
-Therefore, we can use this formula to calculate the Jacobi matrix $[\mathbf{J}]$ and its transpose inverse matrix $[\mathbf{J}]^{-\mathrm{T}}$. In the program, we directly use gmsh's API to obtain the derivative values of the basis functions concerning the reference element and the inverse matrix of the Jacobian for each element. Then, we calculate the derivative values of the basis functions concerning the actual element. The \autoref{eq:9} in reference element $E'$ can be written as
+Then, we calculate the derivative values of the basis functions concerning the actual element. The \autoref{eq:9} in reference element $\hat{E}$ can be written as
 \begin{equation}
   \label{eq:35}
   \begin{aligned}
-    \int_{E'}\phi_{i}^{k}\mathbf{u}_{h,t}|\mathbf{J}|\mathrm{d}\Omega' &+\oint_{\partial E'}\phi_{i}^{k}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}|\mathbf{J}|\mathrm{d}\sigma'\\
-    &-\int_{E'}\left([\mathbf{J}]^{-\mathrm{T}}\cdot\nabla\phi_{i}^{k}\right)\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})|\mathbf{J}|\mathrm{d}\Omega'=\int_{E'}\phi_{i}^{k}\mathbf{S}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})|\mathbf{J}|\mathrm{d}\Omega'\quad 1\leqslant i\leqslant N_{k}.
+    \int_{\hat{E}}\phi_{i}^{k}\mathbf{u}_{h,t}|\mathbf{J}|\mathrm{d}\hat{\Omega} &+\oint_{\partial \hat{E}}\phi_{i}^{k}\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})\cdot\mathbf{n}|\mathbf{J}|\mathrm{d}\hat{\sigma}\\
+    &-\int_{\hat{E}}\left([\mathbf{J}]^{-\mathrm{T}}\cdot\hat{\nabla}\phi_{i}^{k}\right)\cdot\mathbf{F}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})|\mathbf{J}|\mathrm{d}\hat{\Omega}=\int_{\hat{E}}\phi_{i}^{k}\mathbf{S}(\mathbf{u}_{h},\nabla\mathbf{u}_{h})|\mathbf{J}|\mathrm{d}\hat{\Omega}\quad 1\leqslant i\leqslant N_{k}.
   \end{aligned}
 \end{equation}
 
-\section{Curved Mesh}
-
-For the FVM (Finite Volume Method), we generally seldom consider curved mesh. This is because FVM itself is either cell-centered or vertex-centered, and it is insensitive to grid deformation. However, for the DG (Discontinuous Galerkin) method, we need to consider curved mesh because the discrete solution in DG is approximated by high-order polynomials on elements, and the coefficients of these polynomials need to be integrated over the elements. Therefore, we need to consider the influence of grid deformation on integration, which Bassi also described in detail in his paper\cite{bassiHighOrderAccurateDiscontinuous1997}.
-
-As the isoparametric element is used here, which means that the interpolation functions for the coordinates transformation of the element's geometry use the same interpolation basis functions and interpolation nodes as those used to describe the displacement modes of the element, we have
-\begin{equation}
-  \mathbf{x}=\sum_{i=1}^{N_{k}}\phi_{i}^{k}(\bm{\xi})\mathbf{x}_{i}.
-\end{equation}
-Here we take a 3 order quadrangle element as an example. Its element transformation is as follows:
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=1.00\textwidth]{figures/quad-isoparametric.pdf}
-\end{figure}
-
-Next we introduce how to solve for the normal vector on the boundary of the isoparametric element. First, let's consider the two-dimensional case, which involves finding the normal vector to a two-dimensional curve at its boundary. Here, the tangent vector to the two-dimensional curve can be directly obtained. The normal vector can be obtained by rotating the tangent vector by 90 degrees. Specifically,
+We introduce how to solve for the normal vector on the boundary of the isoparametric element. First, let's consider the two-dimensional case, which involves finding the normal vector to a two-dimensional curve at its boundary. Here, the tangent vector to the two-dimensional curve can be directly obtained. The normal vector can be obtained by rotating the tangent vector by $90^{\circ}$. Specifically,
 \begin{equation}
   \bm{\tau}=\begin{bNiceMatrix}
     \dfrac{\partial x}{\partial \xi}\\
@@ -402,7 +434,7 @@ For the integrals in \autoref{eq:35}, both on the elements and at element edges,
   \item \textit{The approximate solution converges to a weak solution of $(1.1)$ if there is a constant $C$ such that $||\bar{u}_{h}||_{BV(\Omega)}\le C$};
 \end{enumerate}
 
-The discussion about Gauss quadrature is largely based on Solin\cite{solinHigherOrderFiniteElement2003}, and you can find tables of weights and integration points for different orders of Gaussian quadrature in the book. So let's start from the one-dimensional domain. The quadrature rules of the Gauss type are based on the summation of weighted function values on non-equidistantly distributed integration points. The $n$-point Gauss quadrature rule for the one-dimensional reference domain $K_{a}=(-1,1)$ reads
+The discussion about Gauss quadrature is largely based on Solin\cite{solinHigherOrderFiniteElement2003}, and you can find tables of weights and integration points for different orders of Gaussian quadrature in the book. So let's start from the one-dimensional domain. The quadrature rules of the Gauss type are based on the summation of weighted function values on non-equidistantly distributed integration points. The $n$-point Gauss quadrature rule for the one-dimensional line reference domain $\hat{E}_{l}=(-1,1)$ reads
 \begin{equation}
   \int_{-1}^{1}f(\xi)\mathrm{d}\xi\approx\sum_{i=1}^{n}w_{n,i}f(\xi_{n,i}).
 \end{equation}
@@ -412,17 +444,17 @@ It can be shown that the integration points are roots of the Legendre polynomial
 \begin{equation}
   w_{n,i}=\dfrac{2}{(1-\xi_{n,i}^{2})[L_{n}'(\xi_{n,i})]^{2}}, \quad i=1,\dots,n.
 \end{equation}
-For two-dimensional Gaussian quadrature in the quadrilateral domain $K_{q}$, let us start with a technique that is easiest to implement - quadrature formulae based on the Cartesian product of two one-dimensional quadrature rules in the axial directions $\xi_{1}$ and $\xi_{2}$. Consider the formula
+For two-dimensional Gaussian quadrature in the quadrilateral domain $\hat{E}_{q}$, let us start with a technique that is easiest to implement - quadrature formulae based on the Cartesian product of two one-dimensional quadrature rules in the axial directions $\xi_{1}$ and $\xi_{2}$. Consider the formula
 \begin{equation}
-  \int_{K_{a}}f(\xi)\mathrm{d}\xi\approx\sum_{i=1}^{M_{a}}w_{g_{a},i}f(y_{g_{a},i}),
+  \int_{\hat{E}_{l}}f(\xi)\mathrm{d}\xi\approx\sum_{i=1}^{M_{a}}w_{g_{a},i}f(y_{g_{a},i}),
 \end{equation}
-where $y_{g_{a},i},w_{g_{a},i}$ are Gauss integration points and weights on the one-dimensional reference domain $K_{a}=(-1,1)$ that integrate exactly all polynomials of the order $p$ and lower. It is easy to see that the product formula
+where $y_{g_{a},i},w_{g_{a},i}$ are Gauss integration points and weights on the one-dimensional reference domain $\hat{E}_{l}=(-1,1)$ that integrate exactly all polynomials of the order $p$ and lower. It is easy to see that the product formula
 \begin{equation}
-  \int_{K_{a}}g(\xi_{1},\xi_{2})\mathrm{d}\xi_{1}\mathrm{d}\xi_{2}\approx\sum_{i=1}^{M_{a}}\sum_{j=1}^{M_{a}}w_{g_{a},i}w_{g_{b},j}f(y_{g_{a},i},y_{g_{b},j})
+  \int_{\hat{E}_{l}}g(\xi_{1},\xi_{2})\mathrm{d}\xi_{1}\mathrm{d}\xi_{2}\approx\sum_{i=1}^{M_{a}}\sum_{j=1}^{M_{a}}w_{g_{a},i}w_{g_{b},j}f(y_{g_{a},i},y_{g_{b},j})
 \end{equation}
 is of the order $p$ for polynomials of two independent variables $\xi_{1},\xi_{2}$. In addition to its simple implementation, the product formula has one more advantage - it can easily be generalized to polynomials with different orders of approximation in the axial directions $\xi_{1},\xi_{2}$. Such polynomials may appear naturally as a consequence of $p$-anisotropic refinements of quadrilateral elements, that may occur, e.g., within boundary and internal layers. However, the Gaussian quadrature formulas obtained in this way do not always use the minimum number of points. It is possible to achieve a more efficient Gaussian quadrature formula by eliminating some symmetric points while maintaining the original polynomial degree. We won't go into the specific details of this approach here, as it is not the one we have adopted.
 
-However, for triangular elements, the situation is more complicated. The fundamental equation for the construction of the integration points and weights for the reference triangle $K_{t}$ reads
+However, for triangular elements, the situation is more complicated. The fundamental equation for the construction of the integration points and weights for the reference triangle $\hat{E}_{t}$ reads
 \begin{equation}
   \int_{-1}^{1}\int_{-1}^{1-\xi_{1}}f(\xi_{1},\xi_{2})\mathrm{d}\xi_{2}\mathrm{d}\xi_{1}\approx\sum_{i=1}^{n}w_{i}f(\xi_{1,i},\xi_{2,i}),
 \end{equation}

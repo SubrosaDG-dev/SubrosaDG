@@ -1,9 +1,9 @@
 /**
- * @file sphere_3d_cns.cpp
- * @brief The 3D sphere flow example with Navier-Stokes equations.
+ * @file sphere_3d_incns.cpp
+ * @brief The main file of SubrosaDG sphere_3d_incns.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
- * @date 2024-05-15
+ * @date 2025-03-28
  *
  * @version 0.1.0
  * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
@@ -12,7 +12,7 @@
 
 #include "SubrosaDG.cpp"
 
-inline const std::string kExampleName{"sphere_3d_cns"};
+inline const std::string kExampleName{"sphere_3d_incns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
@@ -22,15 +22,16 @@ using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Hexahedron, SubrosaDG::ShockCapturingEnum::None,
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
-    SubrosaDG::CompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
-                                     SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::TransportModelEnum::Constant,
-                                     SubrosaDG::ConvectiveFluxEnum::HLLC, SubrosaDG::ViscousFluxEnum::BR2>>;
+    SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
+                                       SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
+                                       SubrosaDG::TransportModelEnum::Constant, SubrosaDG::ConvectiveFluxEnum::Exact,
+                                       SubrosaDG::ViscousFluxEnum::BR2>>;
 
 template <typename SimulationControl>
 inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
 SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
     [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
-  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.2_r, 0.0_r, 1.0_r};
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 1.0_r, 0.0_r, 1.0_r};
 }
 
 template <typename SimulationControl>
@@ -39,12 +40,12 @@ SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinat
     [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
     const SubrosaDG::Isize gmsh_physical_index) const {
   if (gmsh_physical_index == 1) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.2_r, 0.0_r,
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 1.0_r, 0.0_r,
                                                                                        1.0_r};
   }
   if (gmsh_physical_index == 2) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.4_r, 0.0_r, 0.0_r, 0.0_r,
-                                                                                       1.0_r};
+    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 0.0_r,
+                                                                                       0.0_r};
   }
   return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
 }
@@ -53,16 +54,17 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
-  system.setMesh(kExampleDirectory / "sphere_3d_cns.msh", generateMesh);
+  system.setMesh(kExampleDirectory / "sphere_3d_incns.msh", generateMesh);
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(2);
-  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
-  system.setTransportModel<SimulationControl::kTransportModel>(1.4_r * 0.2_r / 200.0_r);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(2);
+  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
+  system.setEquationOfState<SimulationControl::kEquationOfState>(10.0_r, 1.0_r);
+  system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 1.0_r / 250.0_r);
   system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
-                          SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::Vorticity});
+                          SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::HeatFlux});
   system.synchronize();
   system.solve();
   system.view();
@@ -74,7 +76,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Vector<double, 4> farfield_point_coordinate;
   Eigen::Vector<double, 2> sphere_point_coordinate;
   // clang-format off
-  farfield_point_coordinate << -5.0, -2.0 * x, 2.0 * x, 5.0;
+  farfield_point_coordinate << -10.0, -2.0 * x, 2.0 * x, 10.0;
   sphere_point_coordinate << -x, x;
   // clang-format on
   Eigen::Tensor<int, 3> farfield_point_tag(4, 4, 4);
@@ -262,13 +264,13 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
         for (int l = 0; l < 3; l++) {
           switch (l) {
           case 0:
-            gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(l, k, j, i), 10, "Progression", -1.3);
+            gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(l, k, j, i), 12, "Progression", -1.3);
             break;
           case 1:
             gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(l, k, j, i), 12);
             break;
           case 2:
-            gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(l, k, j, i), 10, "Progression", 1.3);
+            gmsh::model::geo::mesh::setTransfiniteCurve(farfield_line_tag(l, k, j, i), 12, "Progression", 1.3);
             break;
           }
         }
@@ -287,7 +289,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   for (int i = 0; i < 2; i++) {
     for (int j = 0; j < 2; j++) {
       for (int k = 0; k < 2; k++) {
-        gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(k, j, i), 10, "Progression", 1.2);
+        gmsh::model::geo::mesh::setTransfiniteCurve(connection_line_tag(k, j, i), 8, "Progression", 1.2);
       }
     }
   }

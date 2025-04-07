@@ -1,6 +1,6 @@
 /**
- * @file SubroseDG.cpp
- * @brief The main head file of SubroseDG project.
+ * @file SubrosaDG.cpp
+ * @brief The main head file of SubrosaDG project.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2022-11-01
