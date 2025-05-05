@@ -217,7 +217,7 @@ struct ViewData {
 
   ViewData(const Mesh<SimulationControl>& mesh) { this->solver_.initialViewSolver(mesh); }
 
-  ViewData(const ViewData<SimulationControl>& view_data) { this->solver_.initialViewSolver(view_data.solver_); }
+  // ViewData(const ViewData<SimulationControl>& view_data) { this->solver_.initialViewSolver(view_data.solver_); }
 };
 
 template <typename SimulationControl>

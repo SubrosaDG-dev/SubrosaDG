@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "name": "SubrosaDG",
+    "image": "subrosadg:0.1.0",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "options": [
+            "--tag=subrosadg:0.1.0"
+        ]
+    },
+    "runArgs": [
+        "--name",
+        "subrosadg",
+        "--network=bridge",
+        "--device=/dev/dri",
+        "--runtime=nvidia",
+        "--gpus=all",
+        "--device=/dev/kfd",
+        "--cap-add=SYS_PTRACE",
+        "--security-opt",
+        "seccomp=unconfined"
+    ],
+    "remoteUser": "user",
+    "shutdownAction": "none",
+    "workspaceFolder": "/home/user/SubrosaDG",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/user/SubrosaDG,type=bind,consistency=delegated"
+}

@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "periodic_2d_ceuler.msh", generateMesh);
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
   system.setTimeIntegration(1.0_r);
   system.setDeltaTime(1.0e-03_r);

@@ -116,12 +116,6 @@ configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/launch.json.in
 configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/settings.json.in
     ${PROJECT_SOURCE_DIR}/.vscode/settings.json @ONLY)
 
-# create devcontainer devcontainer.json and Dockerfile
-file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/.devcontainer)
-configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/devcontainer.json.in
-    ${PROJECT_SOURCE_DIR}/.devcontainer/devcontainer.json @ONLY)
-configure_file(${PROJECT_SOURCE_DIR}/Dockerfile ${PROJECT_SOURCE_DIR}/.devcontainer/Dockerfile @ONLY)
-
 # use clang-tidy to check file
 find_program(CLANG_TIDY NAMES clang-tidy PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
 include(${PROJECT_SOURCE_DIR}/cmake/ClangTidy.cmake)

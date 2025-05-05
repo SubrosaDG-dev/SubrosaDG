@@ -193,7 +193,7 @@ inline void fixAdjacencyElementMeshSupplementalMap(
       continue;
     }
     std::vector<int> entity_tags;
-    gmsh::model::getEntitiesForPhysicalGroup(0, i, entity_tags);
+    gmsh::model::getEntitiesForPhysicalGroup(0, i + 1, entity_tags);
     std::vector<std::size_t> element_tags;
     std::vector<std::size_t> element_node_tags;
     gmsh::model::mesh::getElementsByType(AdjacencyElementTrait::kGmshTypeNumber, element_tags, element_node_tags);
@@ -221,7 +221,7 @@ inline void fixAdjacencyElementMeshSupplementalMap(
       continue;
     }
     std::vector<int> entity_tags;
-    gmsh::model::getEntitiesForPhysicalGroup(AdjacencyElementTrait::kDimension, i, entity_tags);
+    gmsh::model::getEntitiesForPhysicalGroup(AdjacencyElementTrait::kDimension, i + 1, entity_tags);
     std::vector<int> entity_tags_master;
     gmsh::model::mesh::getPeriodic(AdjacencyElementTrait::kDimension, entity_tags, entity_tags_master);
     std::unordered_map<int, int> periodic_entity_tag_map;
@@ -266,7 +266,7 @@ inline void fixAdjacencyElementMeshSupplementalMap(
       continue;
     }
     std::vector<int> entity_tags;
-    gmsh::model::getEntitiesForPhysicalGroup(AdjacencyElementTrait::kDimension, static_cast<Isize>(i), entity_tags);
+    gmsh::model::getEntitiesForPhysicalGroup(AdjacencyElementTrait::kDimension, i + 1, entity_tags);
     std::vector<int> entity_tags_master;
     gmsh::model::mesh::getPeriodic(AdjacencyElementTrait::kDimension, entity_tags, entity_tags_master);
     // NOTE: Here the entity_tags contains both master and slave entity tags, and the order is not guaranteed.

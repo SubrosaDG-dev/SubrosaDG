@@ -43,7 +43,21 @@ struct InitialCondition {
       const ElementMesh<ElementTrait>& element_mesh,
       Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>,
                    Eigen::Dynamic, 1>& variable_basis_function_coefficient) {
-    if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::SpecificFile) {
+    if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LastStep) {
+      for (Isize i = 0; i < element_mesh.number_; i++) {
+        this->raw_binary_ss_.read(
+            reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
+            SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber * kRealSize);
+        if constexpr (IsNS<SimulationControl::kEquationModel>) {
+          Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                        ElementTrait::kBasisFunctionNumber>
+              variable_gradient_basis_function_coefficient;
+          this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
+                                    SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
+                                        ElementTrait::kBasisFunctionNumber * kRealSize);
+        }
+      }
+    } else if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::SpecificFile) {
       constexpr int kBasisFunctionNumber{
           getElementBasisFunctionNumber<ElementTrait::kElementType, SimulationControl::kPolynomialOrder - 1>()};
       Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, kBasisFunctionNumber>
@@ -63,20 +77,6 @@ struct InitialCondition {
         variable_basis_function_coefficient(i)(Eigen::placeholders::all,
                                                Eigen::seqN(Eigen::fix<0>, Eigen::fix<kBasisFunctionNumber>)) =
             initial_variable_basis_function_coefficient;
-      }
-    } else if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LastStep) {
-      for (Isize i = 0; i < element_mesh.number_; i++) {
-        this->raw_binary_ss_.read(
-            reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
-            SimulationControl::kConservedVariableNumber * ElementTrait::kBasisFunctionNumber * kRealSize);
-        if constexpr (IsNS<SimulationControl::kEquationModel>) {
-          Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                        ElementTrait::kBasisFunctionNumber>
-              variable_gradient_basis_function_coefficient;
-          this->raw_binary_ss_.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
-                                    SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                                        ElementTrait::kBasisFunctionNumber * kRealSize);
-        }
       }
     }
   }

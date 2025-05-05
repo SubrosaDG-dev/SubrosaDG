@@ -30,7 +30,6 @@ template <typename SimulationControl>
 inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
 SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
     const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
-  // NOTE: https://arxiv.org/pdf/2102.06017
   const SubrosaDG::Real k = SubrosaDG::kPi / 15.0_r;
   return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
       1.0_r,
@@ -52,11 +51,11 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "shearlayer_2d_inceuler.msh", generateMesh);
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
   system.setEquationOfState<SimulationControl::kEquationOfState>(10.0_r, 1.0_r);
   system.setTimeIntegration(1.0_r);
-  system.setDeltaTime(5e-04_r);
+  system.setDeltaTime(5e-4_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});

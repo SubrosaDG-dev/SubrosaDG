@@ -67,6 +67,8 @@ struct System {
     this->source_term_.reference_temperature = reference_temperature;
   }
 
+  template <InitialConditionEnum InitialConditionType>
+    requires(InitialConditionType == InitialConditionEnum::SpecificFile)
   inline void addInitialCondition(const std::filesystem::path& initial_condition_file) {
     this->initial_condition_.raw_binary_path_ = initial_condition_file;
   }
@@ -198,17 +200,20 @@ struct System {
         1);
     this->view_.initializeViewFin(delete_dir, this->time_integration_.iteration_end_);
 #ifndef SUBROSA_DG_DEVELOP
-    oneapi::tbb::task_arena arena(10);
+    oneapi::tbb::task_arena arena(kNumberOfPhysicalCores / 2);
 #else   // SUBROSA_DG_DEVELOP
     oneapi::tbb::task_arena arena(1);
 #endif  // SUBROSA_DG_DEVELOP
     arena.execute([&] {
       tbb::spin_mutex mtx;
+      tbb::enumerable_thread_specific<ViewData<SimulationControl>> thread_view_data([&] {
+        return ViewData<SimulationControl>(this->mesh_);
+      });
       tbb::parallel_for(tbb::blocked_range<Isize>(this->time_integration_.iteration_start_,
                                                   this->time_integration_.iteration_end_ + 1),
                         [&](const tbb::blocked_range<Isize>& range) {
+                          ViewData<SimulationControl>& view_data = thread_view_data.local();
                           for (Isize i = range.begin(); i != range.end(); i++) {
-                            ViewData<SimulationControl> view_data(this->mesh_);
                             if (i % this->view_.io_interval_ == 0) {
                               view_data.raw_binary_path_ =
                                   this->view_.output_directory_ /

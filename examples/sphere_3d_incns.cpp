@@ -17,10 +17,10 @@ inline const std::string kExampleName{"sphere_3d_incns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P3,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Hexahedron, SubrosaDG::ShockCapturingEnum::None,
-                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
+                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::SpecificFile,
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
     SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
                                        SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
@@ -31,7 +31,7 @@ template <typename SimulationControl>
 inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
 SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
     [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
-  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 1.0_r, 0.0_r, 1.0_r};
+  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 1.0_r, 0.0_r, 0.0_r};
 }
 
 template <typename SimulationControl>
@@ -41,11 +41,11 @@ SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinat
     const SubrosaDG::Isize gmsh_physical_index) const {
   if (gmsh_physical_index == 1) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 1.0_r, 0.0_r,
-                                                                                       1.0_r};
+                                                                                       0.0_r};
   }
   if (gmsh_physical_index == 2) {
     return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 0.0_r,
-                                                                                       0.0_r};
+                                                                                       1.0_r};
   }
   return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
 }
@@ -55,11 +55,12 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "sphere_3d_incns.msh", generateMesh);
+  system.addInitialCondition<SimulationControl::kInitialCondition>(kExampleDirectory / "sphere_3d_incns_200000.zst");
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(2);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
   system.setEquationOfState<SimulationControl::kEquationOfState>(10.0_r, 1.0_r);
-  system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 1.0_r / 250.0_r);
+  system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 1.0_r / 200.0_r);
   system.setTimeIntegration(1.0_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
@@ -208,12 +209,12 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     }
   }
   for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 2; j++) {
+    for (int j = 0; j < 1; j++) {
       for (int k = 0; k < 1; k++) {
-        for (int l = 0; l < 1; l++) {
-          sphere_surface_filling_tag(l, k, j, i) =
-              gmsh::model::geo::addSurfaceFilling({sphere_curve_loop_tag(l, k, j, i)});
-        }
+        sphere_surface_filling_tag(k, j, 0, i) =
+            gmsh::model::geo::addSurfaceFilling({sphere_curve_loop_tag(k, j, 0, i)});
+        sphere_surface_filling_tag(k, j, 1, i) =
+            gmsh::model::geo::addSurfaceFilling({-sphere_curve_loop_tag(k, j, 1, i)});
       }
     }
   }

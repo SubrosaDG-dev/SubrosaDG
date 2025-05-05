@@ -45,7 +45,6 @@ CTestTestfile.cmake
 _deps
 
 # VS Code setting files
-.devcontainer
 .vscode/
 
 # cache files

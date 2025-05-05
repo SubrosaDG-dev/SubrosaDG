@@ -17,7 +17,7 @@ inline const std::string kExampleName{"taylorvortex_2d_incns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P3,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P4,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
@@ -25,7 +25,10 @@ using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
                                        SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
                                        SubrosaDG::TransportModelEnum::Constant,
-                                       SubrosaDG::ConvectiveFluxEnum::LaxFriedrichs, SubrosaDG::ViscousFluxEnum::BR2>>;
+                                       SubrosaDG::ConvectiveFluxEnum::Exact, SubrosaDG::ViscousFluxEnum::BR2>>;
+
+inline constexpr SubrosaDG::Real kReferenceSoundSpeed = 32.0_r;
+// inline constexpr SubrosaDG::Real kReferenceSoundSpeed = 64.0_r * std::numbers::sqrt2_v<SubrosaDG::Real>;
 
 template <typename SimulationControl>
 inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
@@ -34,7 +37,7 @@ SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate
   return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
       ((std::cos(4.0_r * SubrosaDG::kPi * coordinate.x()) + std::cos(4.0_r * SubrosaDG::kPi * coordinate.y())) /
        4.0_r) /
-              10000.0_r +
+              (kReferenceSoundSpeed * kReferenceSoundSpeed) +
           0.99_r * 1.0_r,
       std::sin(2.0_r * SubrosaDG::kPi * coordinate.x()) * std::cos(2.0_r * SubrosaDG::kPi * coordinate.y()),
       -std::cos(2.0_r * SubrosaDG::kPi * coordinate.x()) * std::sin(2.0_r * SubrosaDG::kPi * coordinate.y()), 1.0_r};
@@ -53,18 +56,19 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "taylorvortex_2d_incns.msh", generateMesh);
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
-  system.setEquationOfState<SimulationControl::kEquationOfState>(100.0_r, 1.0_r);
+  system.setEquationOfState<SimulationControl::kEquationOfState>(kReferenceSoundSpeed, 1.0_r);
   system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 1.0_r / 1000.0_r);
-  system.setTimeIntegration(1.0_r);
-  // system.setDeltaTime(1e-5_r);
-  system.setViewConfig(kExampleDirectory, kExampleName);
+  system.setTimeIntegration(1.0_r, {0, 100000});
+  system.setDeltaTime(1e-5_r);
+  system.setViewConfig(kExampleDirectory, kExampleName, -1);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::MachNumber});
   system.synchronize();
   system.solve();
   system.view();
+  std::cout << std::endl << "kReferenceSoundSpeed = " << kReferenceSoundSpeed << std::endl;
   return EXIT_SUCCESS;
 }
 
@@ -80,10 +84,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::addLine(1, 4);
   gmsh::model::geo::addCurveLoop({1, 2, -3, -4});
   gmsh::model::geo::addPlaneSurface({1});
-  gmsh::model::geo::mesh::setTransfiniteCurve(1, 81);
-  gmsh::model::geo::mesh::setTransfiniteCurve(2, 81);
-  gmsh::model::geo::mesh::setTransfiniteCurve(3, 81);
-  gmsh::model::geo::mesh::setTransfiniteCurve(4, 81);
+  gmsh::model::geo::mesh::setTransfiniteCurve(1, 41);
+  gmsh::model::geo::mesh::setTransfiniteCurve(2, 41);
+  gmsh::model::geo::mesh::setTransfiniteCurve(3, 41);
+  gmsh::model::geo::mesh::setTransfiniteCurve(4, 41);
   gmsh::model::geo::mesh::setTransfiniteSurface(1);
   gmsh::model::geo::mesh::setRecombine(2, 1);
   gmsh::model::geo::synchronize();

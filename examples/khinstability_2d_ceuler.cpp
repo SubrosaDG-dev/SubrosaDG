@@ -29,7 +29,7 @@ template <typename SimulationControl>
 inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
 SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
     const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
-  // NOTE: https://arxiv.org/pdf/1704.04549
+  // NOTE: https://arxiv.org/pdf/1704.04549, https://arxiv.org/pdf/2102.06017
   return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
       coordinate.y() >= 0.25_r && coordinate.y() <= 0.75_r ? 2.0_r : 1.0_r,
       coordinate.y() >= 0.25_r && coordinate.y() <= 0.75_r ? 0.5_r : -0.5_r,
@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "khinstability_2d_ceuler.msh", generateMesh);
-  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
+  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
   system.setTimeIntegration(0.1_r);
   system.setViewConfig(kExampleDirectory, kExampleName);

@@ -129,7 +129,31 @@ where the expansion coefficients $\mathbf{a}_{i,t}(t)$ denote the degrees of fre
 
 Notice that, when evaluating the boundary integral of \autoref{eq:9} at an internal interface, the flux terms are not uniquely defined due to the discontinuous function approximation. It is, therefore, necessary to substitute the Navier-Stokes flux function $\mathbf{F}$ with an interface numerical flux function $\mathbf{H}$ which, in general, depends on both interface states and which introduces a coupling between the unknowns of neighboring elements which would be otherwise completely missing. It is possible to show that \autoref{eq:9} with $\mathbf{F}$ replaced by the numerical flux function $\mathbf{H}$ is nothing but the Galerkin method applied to just one element $E$ with weakly prescribed boundary conditions obtained from the neighboring elements of $E$ if $\partial E\cap\partial\Omega =0$ or from the boundary conditions of the Navier-Stokes problem if $\partial E\cap\partial\Omega\neq 0$.
 
-We first restrict our attention to the treatment of interface integrals. The inviscid interface integral terms are constructed with a technique traditionally used in upwind finite volume schemes. The flux function $\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n}$ appearing in the second term of \autoref{eq:8} is in fact replaced by a numerical flux function $\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$ depends on the internal interface state $\mathbf{u}^{-}$, on the neighboring element interface state $\mathbf{u}^{+}$, and on the direction of the normal unit vector $\mathbf{n}$. To guarantee the formal accuracy of the scheme, the numerical flux is required to satisfy the consistency relations
+We first restrict our attention to the treatment of interface integrals. The inviscid interface integral terms are constructed with a technique traditionally used in upwind finite volume schemes. The flux function $\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n}$ appearing in the second term of \autoref{eq:8} is in fact replaced by a numerical flux function $\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})$ depends on the internal interface state $\mathbf{u}^{-}$, on the neighboring element interface state $\mathbf{u}^{+}$, and on the direction of the normal unit vector $\mathbf{n}$. The notation can be illustrated as follows:
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[scale=1.0]
+    \draw
+    (0,0) -- (3,1)
+    (1,3) -- (0,0)
+    (3,1) -- (4.5,2.5)
+    (4.5,2.5) -- (2.5,4.5)
+    (2.5,4.5) -- (1,3);
+
+    \draw plot [smooth,tension=0.8] coordinates { (3,1) (1.8,1.8) (1,3) };
+
+    \draw[fill=blue,draw=black]
+    (1,1) node[right]{$\mathbf{u}^{-}$}
+    (1.5,2.5) node[right]{$e$}
+    (2,3) node[above right]{$\mathbf{u}^{+}$}
+    (1.8,1.8) circle (1pt) node[right]{$Q$};
+
+    \draw[-latex] (1.8,1.8) -- (2.5,2.5) node[below right]{$\mathbf{n}$};
+    \draw[-latex] (2.5,2.5) -- (3,3) node[below right]{$x$};
+    \draw[-latex] (1.8,1.8) -- (1,2.6) node[below=2pt]{$y$};
+    \end{tikzpicture}
+\end{figure}
+To guarantee the formal accuracy of the scheme, the numerical flux is required to satisfy the consistency relations
 \begin{equation}
   \label{eq:10}
   \mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=\mathbf{F}_{\mathrm{e}}(\mathbf{u})\cdot\mathbf{n},\quad\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};\mathbf{n})=-\mathbf{h}_{\mathrm{e}}(\mathbf{u}^{-},\mathbf{u}^{+};-\mathbf{n}),
@@ -362,7 +386,7 @@ which can be written in matrix form as
   \end{bNiceMatrix}\begin{bNiceMatrix}
     \dfrac{\partial\phi_{i}^{k}}{\partial\xi}\\
     \dfrac{\partial\phi_{i}^{k}}{\partial\eta}\\
-    \dfrac{\partial\phi_{i}^{k}}{\partial z}
+    \dfrac{\partial\phi_{i}^{k}}{\partial\zeta}
   \end{bNiceMatrix}=[\mathbf{J}]^{-\mathrm{T}}\cdot\hat{\nabla}\phi_{i}^{k}(\xi,\eta,\zeta).
 \end{equation}
 Then, we calculate the derivative values of the basis functions concerning the actual element. The \autoref{eq:9} in reference element $\hat{E}$ can be written as

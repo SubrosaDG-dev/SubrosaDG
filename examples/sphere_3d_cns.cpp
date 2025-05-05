@@ -17,7 +17,7 @@ inline const std::string kExampleName{"sphere_3d_cns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P3,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Hexahedron, SubrosaDG::ShockCapturingEnum::None,
                                 SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
@@ -206,12 +206,12 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
     }
   }
   for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 2; j++) {
+    for (int j = 0; j < 1; j++) {
       for (int k = 0; k < 1; k++) {
-        for (int l = 0; l < 1; l++) {
-          sphere_surface_filling_tag(l, k, j, i) =
-              gmsh::model::geo::addSurfaceFilling({sphere_curve_loop_tag(l, k, j, i)});
-        }
+        sphere_surface_filling_tag(k, j, 0, i) =
+            gmsh::model::geo::addSurfaceFilling({sphere_curve_loop_tag(k, j, 0, i)});
+        sphere_surface_filling_tag(k, j, 1, i) =
+            gmsh::model::geo::addSurfaceFilling({-sphere_curve_loop_tag(k, j, 1, i)});
       }
     }
   }

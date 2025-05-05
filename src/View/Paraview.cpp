@@ -143,10 +143,10 @@ inline void View<SimulationControl>::writeAdjacencyElement(
         kVtkConnectivity[static_cast<Usize>(i)] + view_supplemental.node_index_;
   }
   for (Usize i = 0; i < AdjacencyElementTrait::kVtkElementNumber; i++) {
-    view_supplemental.vtk_node_index_ += kVtkPerNodeNumber[static_cast<Usize>(i)];
+    view_supplemental.vtk_node_index_ += kVtkPerNodeNumber[i];
     view_supplemental.element_offset_(view_supplemental.vtk_element_index_) = view_supplemental.vtk_node_index_;
     view_supplemental.element_type_(view_supplemental.vtk_element_index_++) =
-        static_cast<vtu11::VtkCellType>(kVtkTypeNumber[static_cast<Usize>(i)]);
+        static_cast<vtu11::VtkCellType>(kVtkTypeNumber[i]);
   }
   view_supplemental.node_index_ += AdjacencyElementTrait::kAllNodeNumber;
 }

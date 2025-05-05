@@ -17,10 +17,10 @@ inline const std::string kExampleName{"thermalcavity_2d_incns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P4,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::Boussinesq>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
-                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
+                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::SpecificFile,
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
     SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
                                        SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
@@ -56,15 +56,15 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "thermalcavity_2d_incns.msh", generateMesh);
+  system.addInitialCondition<SimulationControl::kInitialCondition>(kExampleDirectory / "thermalcavity_2d_incns_4000000.zst");
   system.setSourceTerm<SimulationControl::kSourceTerm>(1.0_r, 0.5_r);
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(1);
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(2);
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(3);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
-  system.setEquationOfState<SimulationControl::kEquationOfState>(3.0_r, 1.0_r);
-  system.setTransportModel<SimulationControl::kTransportModel>(std::sqrt(0.71_r / 1e6_r));
+  system.setEquationOfState<SimulationControl::kEquationOfState>(5.0_r, 1.0_r);
+  system.setTransportModel<SimulationControl::kTransportModel>(std::sqrt(0.71_r / 1e7_r));
   system.setTimeIntegration(0.5_r);
-  system.setDeltaTime(2e-04_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
@@ -95,10 +95,10 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::geo::mesh::setTransfiniteSurface(1);
   gmsh::model::geo::mesh::setRecombine(2, 1);
   gmsh::model::geo::synchronize();
-  gmsh::model::addPhysicalGroup(1, {1, 3}, -1, "bc-1");
-  gmsh::model::addPhysicalGroup(1, {2}, 1, "bc-2");
-  gmsh::model::addPhysicalGroup(1, {4}, 2, "bc-3");
-  gmsh::model::addPhysicalGroup(2, {1}, 3, "vc-1");
+  gmsh::model::addPhysicalGroup(1, {1, 3}, 1, "bc-1");
+  gmsh::model::addPhysicalGroup(1, {2}, 2, "bc-2");
+  gmsh::model::addPhysicalGroup(1, {4}, 3, "bc-3");
+  gmsh::model::addPhysicalGroup(2, {1}, 4, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);
   gmsh::model::mesh::optimize("HighOrder");
