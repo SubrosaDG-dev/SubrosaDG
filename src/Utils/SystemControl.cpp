@@ -150,7 +150,7 @@ struct System {
     } else if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LastStep) {
       this->initial_condition_.raw_binary_path_ =
           this->view_.output_directory_ /
-          std::format("raw/{}_{}.raw", this->view_.output_file_name_prefix_, this->time_integration_.iteration_start_);
+          std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, this->time_integration_.iteration_start_);
       RawBinaryCompress::read(this->initial_condition_.raw_binary_path_, this->initial_condition_.raw_binary_ss_);
     }
     this->command_line_.printInformation();

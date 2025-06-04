@@ -20,7 +20,7 @@ using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P3,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Hexahedron, SubrosaDG::ShockCapturingEnum::None,
-                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::SpecificFile,
+                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::LastStep,
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
     SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
                                        SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
@@ -55,14 +55,14 @@ int main(int argc, char* argv[]) {
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / "sphere_3d_incns.msh", generateMesh);
-  system.addInitialCondition<SimulationControl::kInitialCondition>(kExampleDirectory / "sphere_3d_incns_200000.zst");
+  // system.addInitialCondition<SimulationControl::kInitialCondition>(kExampleDirectory / "sphere_3d_incns_1000000.zst");
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
   system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(2);
   system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
   system.setEquationOfState<SimulationControl::kEquationOfState>(10.0_r, 1.0_r);
-  system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 1.0_r / 200.0_r);
-  system.setTimeIntegration(1.0_r);
-  system.setViewConfig(kExampleDirectory, kExampleName);
+  system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 1.0_r / 250.0_r);
+  system.setTimeIntegration(1.0_r, {400000, 800000});
+  system.setViewConfig(kExampleDirectory, kExampleName, 800);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
                           SubrosaDG::ViewVariableEnum::MachNumber, SubrosaDG::ViewVariableEnum::HeatFlux});

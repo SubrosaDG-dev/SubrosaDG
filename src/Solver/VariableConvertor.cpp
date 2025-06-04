@@ -181,7 +181,7 @@ struct FluxVariable {
   template <ConservedVariableEnum ConservedVariableType>
   inline void setMatrix(
       const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& value) {
-    this->variable_(Eigen::placeholders::all,
+    this->variable_(Eigen::all,
                     Eigen::seqN(Eigen::fix<getConservedVariableIndex<SimulationControl, ConservedVariableType>()>,
                                 Eigen::fix<SimulationControl::kDimension>)) = value;
   }
@@ -446,7 +446,7 @@ struct AdjacencyElementVariable : Variable<SimulationControl, AdjacencyElementTr
                     kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                     kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                         1),
-                Eigen::placeholders::all)
+                Eigen::all)
             .transpose();
   }
 
@@ -657,7 +657,7 @@ struct AdjacencyElementVariableGradient
                       kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
                                                                   1] -
                           1),
-                  Eigen::placeholders::all)
+                  Eigen::all)
               .transpose();
     } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR1) {
       this->conserved_.noalias() =
@@ -669,7 +669,7 @@ struct AdjacencyElementVariableGradient
                       kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
                                                                   1] -
                           1),
-                  Eigen::placeholders::all)
+                  Eigen::all)
               .transpose();
     } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR2) {
       this->conserved_.noalias() =
@@ -683,7 +683,7 @@ struct AdjacencyElementVariableGradient
                       kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) +
                                                                   1] -
                           1),
-                  Eigen::placeholders::all)
+                  Eigen::all)
               .transpose();
     }
   }

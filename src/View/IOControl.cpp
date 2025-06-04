@@ -46,7 +46,7 @@ struct AdjacencyElementViewBasisFunction {
     Eigen::Matrix<double, 3, AdjacencyElementTrait::kAllNodeNumber> local_coord_gmsh_matrix{
         Eigen::Matrix<double, 3, AdjacencyElementTrait::kAllNodeNumber>::Zero()};
     local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<AdjacencyElementTrait::kDimension>),
-                            Eigen::placeholders::all) = all_node_coordinate;
+                            Eigen::all) = all_node_coordinate;
     std::vector<double> local_coord(local_coord_gmsh_matrix.data(),
                                     local_coord_gmsh_matrix.data() + local_coord_gmsh_matrix.size());
     std::vector<double> nodal_basis_functions{
@@ -71,7 +71,7 @@ struct ElementViewBasisFunction {
     Eigen::Matrix<double, 3, ElementTrait::kAllNodeNumber> local_coord_gmsh_matrix{
         Eigen::Matrix<double, 3, ElementTrait::kAllNodeNumber>::Zero()};
     local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<ElementTrait::kDimension>),
-                            Eigen::placeholders::all) = all_node_coordinate;
+                            Eigen::all) = all_node_coordinate;
     std::vector<double> local_coord(local_coord_gmsh_matrix.data(),
                                     local_coord_gmsh_matrix.data() + local_coord_gmsh_matrix.size());
     std::vector<double> nodal_basis_functions{

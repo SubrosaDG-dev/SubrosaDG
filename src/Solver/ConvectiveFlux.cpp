@@ -380,6 +380,8 @@ inline void calculateConvectiveExactFlux(const PhysicalModel<SimulationControl>&
         right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(right_column) *
         right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column) /
         exact_density;
+    // exact_internal_energy =
+    //     right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(right_column);
     exact_velocity =
         right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column) +
         (exact_normal_velocity -
@@ -392,6 +394,8 @@ inline void calculateConvectiveExactFlux(const PhysicalModel<SimulationControl>&
         left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(left_column) *
         left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column) /
         exact_density;
+    // exact_internal_energy =
+    //     left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(left_column);
     exact_velocity =
         left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column) +
         (exact_normal_velocity -

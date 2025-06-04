@@ -128,7 +128,7 @@ inline void View<SimulationControl>::writeAdjacencyElement(
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
-        adjacency_element_mesh.element_(adjacency_element_index_per_type).node_coordinate_(Eigen::placeholders::all, i);
+        adjacency_element_mesh.element_(adjacency_element_index_per_type).node_coordinate_(Eigen::all, i);
     this->calculateViewVariable(physical_model,
                                 adjacency_element_view_solver.view_variable_(adjacency_element_index_per_type -
                                                                              adjacency_element_mesh.interior_number_),
@@ -174,7 +174,7 @@ inline void View<SimulationControl>::writeElement(const Isize physical_index, co
   for (Isize i = 0; i < ElementTrait::kAllNodeNumber; i++) {
     view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
                                        view_supplemental.node_index_ + i) =
-        element_mesh.element_(element_index_per_type).node_coordinate_(Eigen::placeholders::all, i);
+        element_mesh.element_(element_index_per_type).node_coordinate_(Eigen::all, i);
     this->calculateViewVariable(physical_model, element_view_solver.view_variable_(element_index_per_type),
                                 view_supplemental.node_variable_, i, view_supplemental.node_index_ + i);
   }

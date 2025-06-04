@@ -74,7 +74,7 @@ struct InitialCondition {
                                         kBasisFunctionNumber * kRealSize);
         }
         variable_basis_function_coefficient(i).setZero();
-        variable_basis_function_coefficient(i)(Eigen::placeholders::all,
+        variable_basis_function_coefficient(i)(Eigen::all,
                                                Eigen::seqN(Eigen::fix<0>, Eigen::fix<kBasisFunctionNumber>)) =
             initial_variable_basis_function_coefficient;
       }

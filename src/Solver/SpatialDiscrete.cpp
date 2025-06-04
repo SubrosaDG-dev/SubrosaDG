@@ -53,7 +53,7 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementArti
       } else {
         variable_density_high_order.noalias() =
             element_mesh.basis_function_.modal_value_(
-                Eigen::placeholders::all, Eigen::seq(kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber - 1)) *
+                Eigen::all, Eigen::seq(kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber - 1)) *
             this->element_(i)
                 .variable_basis_function_coefficient_(
                     0, Eigen::seq(kBasisFunctionNumber, ElementTrait::kBasisFunctionNumber - 1))
@@ -248,7 +248,7 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementQuad
               quadrature_node_jacobian_transpose_inverse_mutiply_deteminate_and_weight;
         }
         this->element_(i).variable_quadrature_(
-            Eigen::placeholders::all,
+            Eigen::all,
             Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
             quadrature_node_temporary_variable;
         if constexpr (SimulationControl::kSourceTerm != SourceTermEnum::None) {
@@ -309,11 +309,11 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementGard
         for (Isize k = 0; k < SimulationControl::kConservedVariableNumber; k++) {
           quadrature_node_temporary_variable(
               Eigen::seqN(k * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>),
-              Eigen::placeholders::all) = quadrature_node_variable.conserved_(k, j) *
+              Eigen::all) = quadrature_node_variable.conserved_(k, j) *
                                           quadrature_node_jacobian_transpose_inverse_mutiply_deteminate_and_weight;
         }
         this->element_(i).variable_volume_gradient_quadrature_(
-            Eigen::placeholders::all,
+            Eigen::all,
             Eigen::seqN(j * SimulationControl::kDimension, Eigen::fix<SimulationControl::kDimension>)) =
             quadrature_node_temporary_variable;
       }
@@ -541,7 +541,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
             Eigen::seq(
                 kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                 kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] - 1),
-            Eigen::placeholders::all) *
+            Eigen::all) *
         solver.line_.element_(parent_index_each_type).variable_artificial_viscosity_;
   } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
     if (parent_gmsh_type_number == TriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
@@ -555,7 +555,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::placeholders::all) *
+              Eigen::all) *
           solver.triangle_.element_(parent_index_each_type).variable_artificial_viscosity_;
     } else if (parent_gmsh_type_number == QuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
       constexpr std::array<int, QuadrangleTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
@@ -568,7 +568,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::placeholders::all) *
+              Eigen::all) *
           solver.quadrangle_.element_(parent_index_each_type).variable_artificial_viscosity_;
     }
   } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
@@ -583,7 +583,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::placeholders::all) *
+              Eigen::all) *
           solver.tetrahedron_.element_(parent_index_each_type).variable_artificial_viscosity_;
     } else if (parent_gmsh_type_number == PyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
       constexpr std::array<int, PyramidTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
@@ -596,7 +596,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::placeholders::all) *
+              Eigen::all) *
           solver.pyramid_.element_(parent_index_each_type).variable_artificial_viscosity_;
     }
   } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
@@ -611,7 +611,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::placeholders::all) *
+              Eigen::all) *
           solver.pyramid_.element_(parent_index_each_type).variable_artificial_viscosity_;
     } else if (parent_gmsh_type_number == HexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
       constexpr std::array<int, HexahedronTrait<SimulationControl::kPolynomialOrder>::kAdjacencyNumber + 1>
@@ -624,7 +624,7 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::calculateAdjac
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent)],
                   kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(adjacency_sequence_in_parent) + 1] -
                       1),
-              Eigen::placeholders::all) *
+              Eigen::all) *
           solver.hexahedron_.element_(parent_index_each_type).variable_artificial_viscosity_;
     }
   }
@@ -1053,13 +1053,13 @@ inline void ElementSolver<ElementTrait, SimulationControl>::calculateElementGard
           for (Isize j = 0; j < ElementTrait::kAdjacencyNumber; j++) {
             this->element_(i).variable_interface_gradient_residual_(j).noalias() =
                 this->element_(i).variable_interface_gradient_adjacency_quadrature_(
-                    Eigen::placeholders::all,
+                    Eigen::all,
                     Eigen::seq(kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j)],
                                kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j + 1)] - 1)) *
                 element_mesh.basis_function_.modal_adjacency_value_(
                     Eigen::seq(kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j)],
                                kElementAccumulateAdjacencyQuadratureNumber[static_cast<Usize>(j + 1)] - 1),
-                    Eigen::placeholders::all);
+                    Eigen::all);
           }
         }
       }

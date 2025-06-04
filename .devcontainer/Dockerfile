@@ -6,7 +6,7 @@ echo user ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/user && \
 chmod 0440 /etc/sudoers.d/user
 
 RUN dnf update -y && \
-dnf install -y dnf-plugins-core git wget tar zip cmake vcpkg ccache ninja-build && \
+dnf install -y dnf-plugins-core git wget tar zip cmake vcpkg ccache ninja-build patchelf && \
 dnf clean all
 
 RUN echo -e "[oneAPI]\nname=Intel® oneAPI repository\nbaseurl=https://yum.repos.intel.com/oneapi\nenabled=1\n\

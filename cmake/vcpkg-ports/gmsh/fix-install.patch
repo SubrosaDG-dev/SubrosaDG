@@ -2,6 +2,15 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 2e65c4f..50bea50 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
+@@ -3,7 +3,7 @@ #
+ # See the LICENSE.txt file in the Gmsh root directory for license information.
+ # Please report all issues on https://gitlab.onelab.info/gmsh/gmsh/issues.
+
+-cmake_minimum_required(VERSION 3.3 FATAL_ERROR)
++cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+
+ # if CMAKE_BUILD_TYPE is specified use it; otherwise set the default
+ # build type to "RelWithDebInfo" ("-O2 -g" with gcc) prior to calling
 @@ -1947,13 +1947,37 @@ endif()
 
  # mark targets as optional so we can install them separately if needed
