@@ -230,6 +230,8 @@ enum class ViewVariableEnum {
   HeatFluxX,
   HeatFluxY,
   HeatFluxZ,
+  QCriterion,
+  Lambda2,
 };
 
 }  // namespace SubrosaDG

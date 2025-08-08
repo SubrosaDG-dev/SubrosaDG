@@ -210,7 +210,7 @@ list(APPEND SUBROSA_DG_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/src)
 
 # find sycl
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL Linux)
-    find_package(IntelSYCL CONFIG REQUIRED PATHS /opt/intel/oneapi/latest/lib/cmake/IntelSYCL)
+    find_package(IntelSYCL CONFIG REQUIRED PATHS /opt/intel/oneapi/compiler/latest/lib/cmake/IntelSYCL)
     list(APPEND SUBROSA_DG_LINK_LIBRARIES IntelSYCL::SYCL_CXX)
 endif()
 
@@ -235,8 +235,8 @@ find_package(fmt CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES fmt::fmt)
 
 # find gmsh
-find_package(unofficial-gmsh CONFIG REQUIRED)
-list(APPEND SUBROSA_DG_LINK_LIBRARIES unofficial::gmsh::lib)
+find_package(gmsh CONFIG REQUIRED)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES gmsh::lib)
 
 # find magic_enum
 find_package(magic_enum CONFIG REQUIRED)
@@ -252,7 +252,7 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES zstd::libzstd)
 
 # find tbb
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL Linux)
-    find_package(TBB CONFIG REQUIRED PATHS /opt/intel/oneapi/latest/lib/cmake/tbb)
+    find_package(TBB CONFIG REQUIRED PATHS /opt/intel/oneapi/tbb/latest/lib/cmake/tbb)
     list(APPEND SUBROSA_DG_LINK_LIBRARIES TBB::tbb)
 endif()
 

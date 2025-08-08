@@ -14,6 +14,7 @@
 #define SUBROSA_DG_VARIABLE_CONVERTOR_CPP_
 
 #include <Eigen/Core>
+#include <Eigen/Eigenvalues>
 #include <array>
 
 #include "Mesh/ReadControl.cpp"
@@ -875,6 +876,28 @@ struct ViewVariable : ViewVariableData<ElementTrait, SimulationControl, Simulati
         return this->variable_gradient_.template getScalar<PrimitiveVariableEnum::Temperature, VariableGradientEnum::Z>(
             column);
       }
+    case ViewVariableEnum::QCriterion:
+      if constexpr (IsNS<SimulationControl::kEquationModel>) {
+        const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
+            this->variable_gradient_.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
+        return (velocity_gradient.trace() * velocity_gradient.trace() -
+                (velocity_gradient * velocity_gradient).trace()) *
+               0.5_r;
+      }
+    // case ViewVariableEnum::Lambda2:
+    //   if constexpr (IsNS<SimulationControl::kEquationModel>) {
+    //     const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
+    //         this->variable_gradient_.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
+    //     const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> symmetric_part =
+    //         (velocity_gradient + velocity_gradient.transpose()) * 0.5_r;
+    //     const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> antisymmetric_part =
+    //         (velocity_gradient - velocity_gradient.transpose()) * 0.5_r;
+    //     const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> eigenvalue_matrix =
+    //         symmetric_part * symmetric_part + antisymmetric_part * antisymmetric_part;
+    //     Eigen::SelfAdjointEigenSolver<Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+    //         eigen_solver(eigenvalue_matrix, Eigen::EigenvaluesOnly);
+    //     return eigen_solver.eigenvalues()(1);
+    //   }
     default:
       return 0.0_r;
     }

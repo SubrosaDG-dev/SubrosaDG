@@ -1,4 +1,4 @@
-FROM fedora:41
+FROM fedora:42
 
 RUN groupadd --gid 1000 user && \
 useradd -s /bin/bash --uid 1000 --gid 1000 -m user && \
@@ -18,7 +18,7 @@ dnf clean all
 RUN dnf install -y intel-compute-runtime oneapi-level-zero && \
 dnf clean all
 
-RUN dnf config-manager addrepo --from-repofile https://developer.download.nvidia.com/compute/cuda/repos/fedora41/x86_64/cuda-fedora41.repo && \
+RUN dnf config-manager addrepo --from-repofile https://developer.download.nvidia.com/compute/cuda/repos/fedora42/x86_64/cuda-fedora42.repo && \
 dnf install -y cuda-toolkit && \
 dnf clean all
 
@@ -31,10 +31,10 @@ all_proxy="socks5://172.17.0.1:7897" \
 VCPKG_FORCE_SYSTEM_BINARIES=1 \
 VCPKG_ROOT="/home/user/vcpkg"
 
-RUN curl -L "https://raw.githubusercontent.com/SubrosaDG-dev/SubrosaDG/refs/heads/master/utils/oneapi-gpu/oneapi-nvidia.sh" && \
+RUN curl -L "https://developer.codeplay.com/api/v1/products/download?product=oneapi&variant=nvidia&filters[]=linux" -o "oneapi-nvidia.sh" && \
 chmod +x oneapi-nvidia.sh && \
 ./oneapi-nvidia.sh -y && \
-curl -L "https://raw.githubusercontent.com/SubrosaDG-dev/SubrosaDG/refs/heads/master/utils/oneapi-gpu/oneapi-amd.sh" && \
+curl -L "https://developer.codeplay.com/api/v1/products/download?product=oneapi&variant=amd&filters[]=linux" -o "oneapi-amd.sh" && \
 chmod +x oneapi-amd.sh && \
 ./oneapi-amd.sh -y && \
 rm oneapi-nvidia.sh oneapi-amd.sh
