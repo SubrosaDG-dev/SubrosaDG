@@ -6,7 +6,7 @@
  * @date 2023-12-02
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
@@ -15,6 +15,7 @@
 
 #include <Eigen/Core>
 
+#include "Solver/BoundaryCondition.cpp"
 #include "Solver/PhysicalModel.cpp"
 #include "Solver/VariableConvertor.cpp"
 #include "Utils/BasicDataType.cpp"
@@ -22,169 +23,587 @@
 
 namespace SubrosaDG {
 
-template <typename SimulationControl, int N>
-inline void calculateGardientRawFlux(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                     const Variable<SimulationControl, N>& variable,
-                                     FluxVariable<SimulationControl>& gardient_raw_flux, const Isize column) {
-  gardient_raw_flux.variable_.noalias() = normal_vector * variable.conserved_.col(column).transpose();
-}
-
-template <typename SimulationControl, int N>
-inline void calculateVolumeGardientFlux(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                        const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                        const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                        FluxVariable<SimulationControl>& gardient_volume_flux, const Isize left_column,
-                                        const Isize right_column) {
-  gardient_volume_flux.variable_.noalias() = normal_vector *
-                                             (left_quadrature_node_variable.conserved_.col(left_column) +
-                                              right_quadrature_node_variable.conserved_.col(right_column))
-                                                 .transpose() /
-                                             2.0_r;
-}
-
-template <typename SimulationControl, int N>
-inline void calculateInterfaceGardientFlux(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                           const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                           const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                           FluxVariable<SimulationControl>& gardient_interface_flux,
-                                           const Isize left_column, const Isize right_column) {
-  gardient_interface_flux.variable_.noalias() = normal_vector *
-                                                (right_quadrature_node_variable.conserved_.col(right_column) -
-                                                 left_quadrature_node_variable.conserved_.col(left_column))
-                                                    .transpose() /
-                                                2.0_r;
-}
-
-template <typename SimulationControl, int N>
-inline void calculateViscousRawFlux(const PhysicalModel<SimulationControl>& physical_model,
-                                    const Variable<SimulationControl, N>& variable,
-                                    const VariableGradient<SimulationControl, N>& variable_gradient,
-                                    FluxVariable<SimulationControl>& viscous_raw_flux, const Isize column) {
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompresibleNS) {
-    viscous_raw_flux.template setVector<ConservedVariableEnum::Density>(
-        Eigen::Vector<Real, SimulationControl::kDimension>::Zero());
-    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
-        variable_gradient.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
-    const Real tempurature = physical_model.calculateTemperatureFromInternalEnergy(
-        variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
-    const Real dynamic_viscosity = physical_model.calculateDynamicViscosity(tempurature);
-    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
-        dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
-        2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient.trace() *
-            Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
-    viscous_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(viscous_stress);
-    const Eigen::Vector<Real, SimulationControl::kDimension>& velocity =
-        variable.template getVector<ComputationalVariableEnum::Velocity>(column);
-    const Real thermal_conductivity = physical_model.calculateThermalConductivity(tempurature);
-    const Eigen::Vector<Real, SimulationControl::kDimension>& tempurature_gradient =
-        variable_gradient.template getVector<PrimitiveVariableEnum::Temperature>(column);
-    viscous_raw_flux.template setVector<ConservedVariableEnum::DensityTotalEnergy>(
-        viscous_stress * velocity + thermal_conductivity * tempurature_gradient);
+template <typename SimulationControl>
+struct ViscousFlux {
+  static void computeRawFlux(
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          quadrature_node_primitive_variable_gradient,
+      Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>&
+          viscous_raw_flux) {
+    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompressibleNS) {
+      RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(viscous_raw_flux) =
+          Eigen::Vector<Real, SimulationControl::kDimension>::Zero();
+      const Eigen::Ref<const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+          velocity_gradient =
+              VariableGradient<SimulationControl>::template getVectorGradient<PrimitiveVariableEnum::Velocity>(
+                  quadrature_node_primitive_variable_gradient);
+      const Real temperature =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeTemperatureFromInternalEnergy(
+              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                  quadrature_node_computational_variable));
+      const Real dynamic_viscosity =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeDynamicViscosity(temperature);
+      Eigen::Ref<Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>> viscous_stress =
+          RawFlux<SimulationControl>::template getVectorDimension<ConservedVariableEnum::Momentum>(viscous_raw_flux);
+      viscous_stress =
+          dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
+          2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient.trace() *
+              Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
+      RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::DensityTotalEnergy>(
+          viscous_raw_flux) =
+          viscous_stress * Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                               quadrature_node_computational_variable) +
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeThermalConductivity(temperature) *
+              VariableGradient<SimulationControl>::template getScalarGradient<PrimitiveVariableEnum::Temperature>(
+                  quadrature_node_primitive_variable_gradient);
+    }
+    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompressibleNS) {
+      RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(viscous_raw_flux) =
+          Eigen::Vector<Real, SimulationControl::kDimension>::Zero();
+      const Eigen::Ref<const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+          velocity_gradient =
+              VariableGradient<SimulationControl>::template getVectorGradient<PrimitiveVariableEnum::Velocity>(
+                  quadrature_node_primitive_variable_gradient);
+      const Real temperature =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeTemperatureFromInternalEnergy(
+              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                  quadrature_node_computational_variable));
+      const Real dynamic_viscosity =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeDynamicViscosity(temperature);
+      RawFlux<SimulationControl>::template getVectorDimension<ConservedVariableEnum::Momentum>(viscous_raw_flux) =
+          dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
+          2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient.trace() *
+              Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
+      RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::DensityInternalEnergy>(
+          viscous_raw_flux) =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeThermalConductivity(temperature) *
+          VariableGradient<SimulationControl>::template getScalarGradient<PrimitiveVariableEnum::Temperature>(
+              quadrature_node_primitive_variable_gradient);
+    }
   }
-  if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompresibleNS) {
-    viscous_raw_flux.template setVector<ConservedVariableEnum::Density>(
-        Eigen::Vector<Real, SimulationControl::kDimension>::Zero());
-    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =
-        variable_gradient.template getMatrix<PrimitiveVariableEnum::Velocity>(column);
-    const Real tempurature = physical_model.calculateTemperatureFromInternalEnergy(
-        variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
-    const Real dynamic_viscosity = physical_model.calculateDynamicViscosity(tempurature);
-    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> viscous_stress =
-        dynamic_viscosity * (velocity_gradient + velocity_gradient.transpose()) -
-        2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient.trace() *
-            Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
-    viscous_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(viscous_stress);
-    const Real thermal_conductivity = physical_model.calculateThermalConductivity(tempurature);
-    const Eigen::Vector<Real, SimulationControl::kDimension>& tempurature_gradient =
-        variable_gradient.template getVector<PrimitiveVariableEnum::Temperature>(column);
-    viscous_raw_flux.template setVector<ConservedVariableEnum::DensityInternalEnergy>(thermal_conductivity *
-                                                                                      tempurature_gradient);
+
+  static void addNormalFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          quadrature_node_primitive_variable_gradient,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& viscous_normal_flux) {
+    Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber> viscous_raw_flux;
+    ViscousFlux<SimulationControl>::computeRawFlux(quadrature_node_computational_variable,
+                                                   quadrature_node_primitive_variable_gradient, viscous_raw_flux);
+    viscous_normal_flux.noalias() += viscous_raw_flux.transpose() * normal_vector;
   }
-}
 
-template <typename SimulationControl, int N>
-inline void calculateArtificialViscousRawFlux(const Real artificial_viscosity,
-                                              const VariableGradient<SimulationControl, N>& variable_volume_gradient,
-                                              FluxVariable<SimulationControl>& artificial_viscous_raw_flux,
-                                              const Isize column) {
-  artificial_viscous_raw_flux.variable_.noalias() =
-      artificial_viscosity * variable_volume_gradient.conserved_.col(column).reshaped(
-                                 SimulationControl::kDimension, SimulationControl::kConservedVariableNumber);
-}
+  static void minusVariableQuadratureRawFlux(
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          quadrature_node_primitive_variable_gradient,
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>&
+          jacobian_transpose_inverse_multiply_determinate_and_weight,
+      Eigen::Ref<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>>
+          quadrature_node_variable_quadrature) {
+    Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber> viscous_raw_flux;
+    ViscousFlux<SimulationControl>::computeRawFlux(quadrature_node_computational_variable,
+                                                   quadrature_node_primitive_variable_gradient, viscous_raw_flux);
+    quadrature_node_variable_quadrature.noalias() -=
+        viscous_raw_flux.transpose() * jacobian_transpose_inverse_multiply_determinate_and_weight;
+  }
 
-template <typename SimulationControl, int N>
-inline void calculateViscousNormalFlux(const PhysicalModel<SimulationControl>& physical_model,
-                                       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                       const Variable<SimulationControl, N>& variable,
-                                       const VariableGradient<SimulationControl, N>& variable_gradient,
-                                       FluxNormalVariable<SimulationControl>& viscous_normal_flux, const Isize column) {
-  FluxVariable<SimulationControl> viscous_raw_flux;
-  calculateViscousRawFlux(physical_model, variable, variable_gradient, viscous_raw_flux, column);
-  viscous_normal_flux.normal_variable_.noalias() = viscous_raw_flux.variable_.transpose() * normal_vector;
-}
+  static void minusVariableInteriorAdjacencyQuadratureNormalFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          right_quadrature_node_primitive_variable_gradient,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          left_quadrature_node_variable_adjacency_quadrature,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          right_quadrature_node_variable_adjacency_quadrature,
+      const Real jacobian_determinant_multiply_weight) {
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> viscous_normal_flux;
+    viscous_normal_flux.setZero();
+    ViscousFlux<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                  left_quadrature_node_primitive_variable_gradient,
+                                                  viscous_normal_flux);
+    ViscousFlux<SimulationControl>::addNormalFlux(normal_vector, right_quadrature_node_computational_variable,
+                                                  right_quadrature_node_primitive_variable_gradient,
+                                                  viscous_normal_flux);
+    viscous_normal_flux /= 2.0_r;
+    left_quadrature_node_variable_adjacency_quadrature.noalias() -=
+        viscous_normal_flux * jacobian_determinant_multiply_weight;
+    right_quadrature_node_variable_adjacency_quadrature.noalias() +=
+        viscous_normal_flux * jacobian_determinant_multiply_weight;
+  }
 
-template <typename SimulationControl, int N>
-inline void calculateArtificialViscousNormalFlux(
-    const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Real artificial_viscosity,
-    const VariableGradient<SimulationControl, N>& variable_volume_gradient,
-    FluxNormalVariable<SimulationControl>& artificial_viscous_normal_flux, const Isize column) {
-  FluxVariable<SimulationControl> artificial_viscous_raw_flux;
-  calculateArtificialViscousRawFlux(artificial_viscosity, variable_volume_gradient, artificial_viscous_raw_flux,
-                                    column);
-  artificial_viscous_normal_flux.normal_variable_.noalias() =
-      artificial_viscous_raw_flux.variable_.transpose() * normal_vector;
-}
+  static void minusVariableBoundaryAdjacencyQuadratureNormalFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>& left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          left_quadrature_node_variable_adjacency_quadrature,
+      const BoundaryConditionEnum boundary_condition_type, const Real jacobian_determinant_multiply_weight) {
+    Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
+        boundary_quadrature_node_primitive_variable_gradient;
+    BoundaryCondition<SimulationControl>::modifyBoundaryVariableForViscousFlux(
+        left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+        boundary_quadrature_node_computational_variable, boundary_quadrature_node_primitive_variable_gradient,
+        boundary_condition_type);
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> viscous_normal_flux;
+    viscous_normal_flux.setZero();
+    ViscousFlux<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                  left_quadrature_node_primitive_variable_gradient,
+                                                  viscous_normal_flux);
+    ViscousFlux<SimulationControl>::addNormalFlux(normal_vector, boundary_quadrature_node_computational_variable,
+                                                  boundary_quadrature_node_primitive_variable_gradient,
+                                                  viscous_normal_flux);
+    viscous_normal_flux /= 2.0_r;
+    left_quadrature_node_variable_adjacency_quadrature -= viscous_normal_flux * jacobian_determinant_multiply_weight;
+  }
+};
 
-template <typename SimulationControl, int N>
-inline void calculateViscousFlux(const PhysicalModel<SimulationControl>& physical_model,
-                                 const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                 const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                 const VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
-                                 const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                 const VariableGradient<SimulationControl, N>& right_quadrature_node_variable_gradient,
-                                 Flux<SimulationControl>& viscous_flux, const Isize left_column,
-                                 const Isize right_column) {
-  calculateViscousNormalFlux(physical_model, normal_vector, left_quadrature_node_variable,
-                             left_quadrature_node_variable_gradient, viscous_flux.left_, left_column);
-  calculateViscousNormalFlux(physical_model, normal_vector, right_quadrature_node_variable,
-                             right_quadrature_node_variable_gradient, viscous_flux.right_, right_column);
-  viscous_flux.result_.normal_variable_.noalias() =
-      (viscous_flux.left_.normal_variable_ + viscous_flux.right_.normal_variable_) / 2.0_r;
-}
+template <typename SimulationControl>
+struct ViscousFluxDevice {
+  static void computeRawFlux(
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          quadrature_node_primitive_variable_gradient,
+      Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>&
+          viscous_raw_flux) {
+    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompressibleNS) {
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> density_flux =
+          RawFluxDevice<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(
+              viscous_raw_flux);
+      density_flux.setZero();
+      const Device::View<const Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+          velocity_gradient =
+              VariableGradientDevice<SimulationControl>::template getVectorGradient<PrimitiveVariableEnum::Velocity>(
+                  quadrature_node_primitive_variable_gradient);
+      const Real temperature =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeTemperatureFromInternalEnergy(
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                  quadrature_node_computational_variable));
+      const Real dynamic_viscosity =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeDynamicViscosity(temperature);
+      Device::View<Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+          viscous_stress =
+              RawFluxDevice<SimulationControl>::template getVectorDimension<ConservedVariableEnum::Momentum>(
+                  viscous_raw_flux);
+      Real velocity_gradient_trace = 0.0_r;
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        velocity_gradient_trace += velocity_gradient(m, m);
+      }
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        for (Isize n = 0; n < SimulationControl::kDimension; n++) {
+          viscous_stress(m, n) = dynamic_viscosity * (velocity_gradient(m, n) + velocity_gradient(n, m)) -
+                                 2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient_trace * (m == n ? 1.0_r : 0.0_r);
+        }
+      }
+      const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> velocity =
+          VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              quadrature_node_computational_variable);
+      const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> temperature_gradient =
+          VariableGradientDevice<SimulationControl>::template getScalarGradient<PrimitiveVariableEnum::Temperature>(
+              quadrature_node_primitive_variable_gradient);
+      const Real thermal_conductivity =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeThermalConductivity(temperature);
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> energy_flux =
+          RawFluxDevice<SimulationControl>::template getScalarDimension<ConservedVariableEnum::DensityTotalEnergy>(
+              viscous_raw_flux);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        energy_flux(m) = 0.0_r;
+        for (Isize n = 0; n < SimulationControl::kDimension; n++) {
+          energy_flux(m) += viscous_stress(m, n) * velocity(n);
+        }
+        energy_flux(m) += thermal_conductivity * temperature_gradient(m);
+      }
+    }
+    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompressibleNS) {
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> density_flux =
+          RawFluxDevice<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(
+              viscous_raw_flux);
+      density_flux.setZero();
+      const Device::View<const Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+          velocity_gradient =
+              VariableGradientDevice<SimulationControl>::template getVectorGradient<PrimitiveVariableEnum::Velocity>(
+                  quadrature_node_primitive_variable_gradient);
+      const Real temperature =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeTemperatureFromInternalEnergy(
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                  quadrature_node_computational_variable));
+      const Real dynamic_viscosity =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeDynamicViscosity(temperature);
+      Device::View<Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+          viscous_stress =
+              RawFluxDevice<SimulationControl>::template getVectorDimension<ConservedVariableEnum::Momentum>(
+                  viscous_raw_flux);
+      Real velocity_gradient_trace = 0.0_r;
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        velocity_gradient_trace += velocity_gradient(m, m);
+      }
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        for (Isize n = 0; n < SimulationControl::kDimension; n++) {
+          viscous_stress(m, n) = dynamic_viscosity * (velocity_gradient(m, n) + velocity_gradient(n, m)) -
+                                 2.0_r / 3.0_r * dynamic_viscosity * velocity_gradient_trace * (m == n ? 1.0_r : 0.0_r);
+        }
+      }
+      const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> temperature_gradient =
+          VariableGradientDevice<SimulationControl>::template getScalarGradient<PrimitiveVariableEnum::Temperature>(
+              quadrature_node_primitive_variable_gradient);
+      const Real thermal_conductivity =
+          PhysicalModel<SimulationControl, PhysicalModelData>::computeThermalConductivity(temperature);
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> energy_flux =
+          RawFluxDevice<SimulationControl>::template getScalarDimension<ConservedVariableEnum::DensityInternalEnergy>(
+              viscous_raw_flux);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        energy_flux(m) = thermal_conductivity * temperature_gradient(m);
+      }
+    }
+  }
 
-template <typename SimulationControl, int N>
-inline void calculateViscousFlux(const PhysicalModel<SimulationControl>& physical_model,
-                                 const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                 const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                 const VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
-                                 const Variable<SimulationControl, 1>& right_quadrature_node_variable,
-                                 const VariableGradient<SimulationControl, 1>& right_quadrature_node_variable_gradient,
-                                 Flux<SimulationControl>& viscous_flux, const Isize left_column,
-                                 const Isize right_column) {
-  calculateViscousNormalFlux(physical_model, normal_vector, left_quadrature_node_variable,
-                             left_quadrature_node_variable_gradient, viscous_flux.left_, left_column);
-  calculateViscousNormalFlux(physical_model, normal_vector, right_quadrature_node_variable,
-                             right_quadrature_node_variable_gradient, viscous_flux.right_, right_column);
-  viscous_flux.result_.normal_variable_.noalias() =
-      (viscous_flux.left_.normal_variable_ + viscous_flux.right_.normal_variable_) / 2.0_r;
-}
+  static void addNormalFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          quadrature_node_primitive_variable_gradient,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>& viscous_normal_flux) {
+    Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>
+        viscous_raw_flux;
+    ViscousFluxDevice<SimulationControl>::computeRawFlux(quadrature_node_computational_variable,
+                                                         quadrature_node_primitive_variable_gradient, viscous_raw_flux);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      for (Isize n = 0; n < SimulationControl::kDimension; n++) {
+        viscous_normal_flux(m) += viscous_raw_flux(n, m) * normal_vector(n);
+      }
+    }
+  }
 
-template <typename SimulationControl, int N>
-inline void calculateArtificialViscousFlux(
-    const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector, const Real left_artificial_viscosity,
-    const VariableGradient<SimulationControl, N>& left_quadrature_node_variable_volume_gradient,
-    const Real right_artificial_viscosity,
-    const VariableGradient<SimulationControl, N>& right_quadrature_node_variable_volume_gradient,
-    Flux<SimulationControl>& artificial_viscous_flux, const Isize left_column, const Isize right_column) {
-  calculateArtificialViscousNormalFlux(normal_vector, left_artificial_viscosity,
-                                       left_quadrature_node_variable_volume_gradient, artificial_viscous_flux.left_,
-                                       left_column);
-  calculateArtificialViscousNormalFlux(normal_vector, right_artificial_viscosity,
-                                       right_quadrature_node_variable_volume_gradient, artificial_viscous_flux.right_,
-                                       right_column);
-  artificial_viscous_flux.result_.normal_variable_.noalias() =
-      (artificial_viscous_flux.left_.normal_variable_ + artificial_viscous_flux.right_.normal_variable_) / 2.0_r;
-}
+  static void minusVariableQuadratureRawFlux(
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          quadrature_node_primitive_variable_gradient,
+      const Device::View<const Device::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+          jacobian_transpose_inverse_multiply_determinate_and_weight,
+      Device::View<Device::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>>
+          quadrature_node_variable_quadrature) {
+    Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>
+        viscous_raw_flux;
+    ViscousFluxDevice<SimulationControl>::computeRawFlux(quadrature_node_computational_variable,
+                                                         quadrature_node_primitive_variable_gradient, viscous_raw_flux);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      for (Isize n = 0; n < SimulationControl::kDimension; n++) {
+        Real sum = 0.0_r;
+        for (Isize k = 0; k < SimulationControl::kDimension; k++) {
+          sum += viscous_raw_flux(k, m) * jacobian_transpose_inverse_multiply_determinate_and_weight(k, n);
+        }
+        quadrature_node_variable_quadrature(m, n) -= sum;
+      }
+    }
+  }
+
+  static void minusVariableInteriorAdjacencyQuadratureNormalFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          right_quadrature_node_primitive_variable_gradient,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          left_quadrature_node_variable_adjacency_quadrature,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          right_quadrature_node_variable_adjacency_quadrature,
+      const Real jacobian_determinant_multiply_weight) {
+    Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> viscous_normal_flux;
+    viscous_normal_flux.setZero();
+    ViscousFluxDevice<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                        left_quadrature_node_primitive_variable_gradient,
+                                                        viscous_normal_flux);
+    ViscousFluxDevice<SimulationControl>::addNormalFlux(normal_vector, right_quadrature_node_computational_variable,
+                                                        right_quadrature_node_primitive_variable_gradient,
+                                                        viscous_normal_flux);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      viscous_normal_flux(m) /= 2.0_r;
+      left_quadrature_node_variable_adjacency_quadrature(m) -=
+          viscous_normal_flux(m) * jacobian_determinant_multiply_weight;
+      right_quadrature_node_variable_adjacency_quadrature(m) +=
+          viscous_normal_flux(m) * jacobian_determinant_multiply_weight;
+    }
+  }
+
+  static void minusVariableBoundaryAdjacencyQuadratureNormalFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          left_quadrature_node_variable_adjacency_quadrature,
+      const BoundaryConditionEnum boundary_condition_type, const Real jacobian_determinant_multiply_weight) {
+    Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
+        boundary_quadrature_node_primitive_variable_gradient;
+    BoundaryConditionDevice<SimulationControl>::modifyBoundaryVariableForViscousFlux(
+        left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+        boundary_quadrature_node_computational_variable, boundary_quadrature_node_primitive_variable_gradient,
+        boundary_condition_type);
+    Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> viscous_normal_flux;
+    viscous_normal_flux.setZero();
+    ViscousFluxDevice<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                        left_quadrature_node_primitive_variable_gradient,
+                                                        viscous_normal_flux);
+    ViscousFluxDevice<SimulationControl>::addNormalFlux(normal_vector, boundary_quadrature_node_computational_variable,
+                                                        boundary_quadrature_node_primitive_variable_gradient,
+                                                        viscous_normal_flux);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      viscous_normal_flux(m) /= 2.0_r;
+      left_quadrature_node_variable_adjacency_quadrature(m) -=
+          viscous_normal_flux(m) * jacobian_determinant_multiply_weight;
+    }
+  }
+};
+
+template <typename SimulationControl>
+struct GradientFlux {
+  static void computeVolumeGradientRawFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& right_quadrature_node_conserved_variable,
+      Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>&
+          gradient_raw_flux) {
+    gradient_raw_flux.noalias() =
+        normal_vector *
+        (left_quadrature_node_conserved_variable + right_quadrature_node_conserved_variable).transpose() / 2.0_r;
+  }
+
+  static void computeInterfaceGradientRawFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& right_quadrature_node_conserved_variable,
+      Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>&
+          gradient_raw_flux) {
+    gradient_raw_flux.noalias() =
+        normal_vector *
+        (right_quadrature_node_conserved_variable - left_quadrature_node_conserved_variable).transpose() / 2.0_r;
+  }
+
+  static void computeVariableVolumeGradientInteriorAdjacencyQuadratureNormalFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& right_quadrature_node_conserved_variable,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          left_quadrature_node_variable_volume_gradient_adjacency_quadrature,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          right_quadrature_node_variable_volume_gradient_adjacency_quadrature,
+      const Real jacobian_determinant_multiply_weight) {
+    Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber> gradient_raw_flux;
+    GradientFlux<SimulationControl>::computeVolumeGradientRawFlux(
+        normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+        gradient_raw_flux);
+    left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
+        gradient_raw_flux.reshaped() * jacobian_determinant_multiply_weight;
+    right_quadrature_node_variable_volume_gradient_adjacency_quadrature =
+        -gradient_raw_flux.reshaped() * jacobian_determinant_multiply_weight;
+  }
+
+  static void computeVariableVolumeGradientBoundaryAdjacencyQuadratureNormalFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          left_quadrature_node_variable_volume_gradient_adjacency_quadrature,
+      const BoundaryConditionEnum boundary_condition_type, const Real jacobian_determinant_multiply_weight) {
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> boundary_quadrature_node_volume_gradient_variable;
+    BoundaryCondition<SimulationControl>::computeBoundaryGradientVariable(
+        normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+        boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable,
+        boundary_condition_type);
+    left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
+        (normal_vector * boundary_quadrature_node_volume_gradient_variable.transpose()).reshaped() *
+        jacobian_determinant_multiply_weight;
+  }
+
+  static void computeVariableInterfaceGradientInteriorAdjacencyQuadratureNormalFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& right_quadrature_node_conserved_variable,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          left_quadrature_node_variable_interface_gradient_adjacency_quadrature,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          right_quadrature_node_variable_interface_gradient_adjacency_quadrature,
+      const Real jacobian_determinant_multiply_weight) {
+    Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber> gradient_raw_flux;
+    GradientFlux<SimulationControl>::computeInterfaceGradientRawFlux(
+        normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+        gradient_raw_flux);
+    // NOTE: Here h_int(u^-,u^+;n)=(u^+ - u^-)n/2, so the gradient flux on the left and right have the same sign
+    left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
+        gradient_raw_flux.reshaped() * jacobian_determinant_multiply_weight;
+    right_quadrature_node_variable_interface_gradient_adjacency_quadrature =
+        gradient_raw_flux.reshaped() * jacobian_determinant_multiply_weight;
+  }
+
+  static void computeVariableInterfaceGradientBoundaryAdjacencyQuadratureNormalFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          left_quadrature_node_variable_interface_gradient_adjacency_quadrature,
+      const Real jacobian_determinant_multiply_weight) {
+    left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
+        (normal_vector * boundary_quadrature_node_interface_gradient_variable.transpose()).reshaped() *
+        jacobian_determinant_multiply_weight;
+  }
+};
+
+template <typename SimulationControl>
+struct GradientFluxDevice {
+  static void computeVolumeGradientRawFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          right_quadrature_node_conserved_variable,
+      Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>&
+          gradient_raw_flux) {
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      for (Isize n = 0; n < SimulationControl::kConservedVariableNumber; n++) {
+        gradient_raw_flux(m, n) =
+            normal_vector(m) *
+            (left_quadrature_node_conserved_variable(n) + right_quadrature_node_conserved_variable(n)) / 2.0_r;
+      }
+    }
+  }
+
+  static void computeInterfaceGradientRawFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          right_quadrature_node_conserved_variable,
+      Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>&
+          gradient_raw_flux) {
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      for (Isize n = 0; n < SimulationControl::kConservedVariableNumber; n++) {
+        gradient_raw_flux(m, n) =
+            normal_vector(m) *
+            (right_quadrature_node_conserved_variable(n) - left_quadrature_node_conserved_variable(n)) / 2.0_r;
+      }
+    }
+  }
+
+  static void computeVariableVolumeGradientInteriorAdjacencyQuadratureNormalFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          right_quadrature_node_conserved_variable,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          left_quadrature_node_variable_volume_gradient_adjacency_quadrature,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          right_quadrature_node_variable_volume_gradient_adjacency_quadrature,
+      const Real jacobian_determinant_multiply_weight) {
+    Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>
+        gradient_raw_flux;
+    GradientFluxDevice<SimulationControl>::computeVolumeGradientRawFlux(
+        normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+        gradient_raw_flux);
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      for (Isize n = 0; n < SimulationControl::kConservedVariableNumber; n++) {
+        left_quadrature_node_variable_volume_gradient_adjacency_quadrature(m + n * SimulationControl::kDimension) =
+            gradient_raw_flux(m, n) * jacobian_determinant_multiply_weight;
+        right_quadrature_node_variable_volume_gradient_adjacency_quadrature(m + n * SimulationControl::kDimension) =
+            -gradient_raw_flux(m, n) * jacobian_determinant_multiply_weight;
+      }
+    }
+  }
+
+  static void computeVariableVolumeGradientBoundaryAdjacencyQuadratureNormalFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          left_quadrature_node_variable_volume_gradient_adjacency_quadrature,
+      const BoundaryConditionEnum boundary_condition_type, const Real jacobian_determinant_multiply_weight) {
+    Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+        boundary_quadrature_node_volume_gradient_variable;
+    BoundaryConditionDevice<SimulationControl>::computeBoundaryGradientVariable(
+        normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+        boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable,
+        boundary_condition_type);
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      for (Isize n = 0; n < SimulationControl::kConservedVariableNumber; n++) {
+        left_quadrature_node_variable_volume_gradient_adjacency_quadrature(m + n * SimulationControl::kDimension) =
+            normal_vector(m) * boundary_quadrature_node_volume_gradient_variable(n) *
+            jacobian_determinant_multiply_weight;
+      }
+    }
+  }
+
+  static void computeVariableInterfaceGradientInteriorAdjacencyQuadratureNormalFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          right_quadrature_node_conserved_variable,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          left_quadrature_node_variable_interface_gradient_adjacency_quadrature,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          right_quadrature_node_variable_interface_gradient_adjacency_quadrature,
+      const Real jacobian_determinant_multiply_weight) {
+    Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>
+        gradient_raw_flux;
+    GradientFluxDevice<SimulationControl>::computeInterfaceGradientRawFlux(
+        normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+        gradient_raw_flux);
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      for (Isize n = 0; n < SimulationControl::kConservedVariableNumber; n++) {
+        left_quadrature_node_variable_interface_gradient_adjacency_quadrature(m + n * SimulationControl::kDimension) =
+            gradient_raw_flux(m, n) * jacobian_determinant_multiply_weight;
+        right_quadrature_node_variable_interface_gradient_adjacency_quadrature(m + n * SimulationControl::kDimension) =
+            gradient_raw_flux(m, n) * jacobian_determinant_multiply_weight;
+      }
+    }
+  }
+
+  static void computeVariableInterfaceGradientBoundaryAdjacencyQuadratureNormalFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+          left_quadrature_node_variable_interface_gradient_adjacency_quadrature,
+      const Real jacobian_determinant_multiply_weight) {
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      for (Isize n = 0; n < SimulationControl::kConservedVariableNumber; n++) {
+        left_quadrature_node_variable_interface_gradient_adjacency_quadrature(m + n * SimulationControl::kDimension) =
+            normal_vector(m) * boundary_quadrature_node_interface_gradient_variable(n) *
+            jacobian_determinant_multiply_weight;
+      }
+    }
+  }
+};
 
 }  // namespace SubrosaDG
 

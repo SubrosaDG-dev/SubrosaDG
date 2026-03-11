@@ -43,6 +43,18 @@
             }
         },
         {
+            "name": "Build examples in Device debug",
+            "displayName": "Build examples in Device debug",
+            "description": "Build examples in Device debug",
+            "inherits": "Base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SUBROSA_DG_GPU": true,
+                "SUBROSA_DG_DEVELOP": true,
+                "SUBROSA_DG_BUILD_EXAMPLES": true
+            }
+        },
+        {
             "name": "Build examples in release with debug info",
             "displayName": "Build examples in release with debug info",
             "description": "Build examples in release with debug info",

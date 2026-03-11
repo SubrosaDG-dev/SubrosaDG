@@ -6,7 +6,7 @@
 # @date 2022-11-01
 #
 # @version 0.1.0
-# @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+# @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
@@ -34,6 +34,12 @@ option(SUBROSA_DG_DEVELOP "Build SubrosaDG in Develop" OFF)
 option(SUBROSA_DG_SYCL "Build SubrosaDG with SYCL" OFF)
 option(SUBROSA_DG_CUDA "Build SubrosaDG with CUDA" OFF)
 option(SUBROSA_DG_ROCM "Build SubrosaDG with ROCm" OFF)
+option(SUBROSA_DG_GPU "Build SubrosaDG with GPU support" OFF)
+
+# open device support if any gpu vendor option is on
+if(SUBROSA_DG_SYCL OR SUBROSA_DG_CUDA OR SUBROSA_DG_ROCM OR SUBROSA_DG_GPU)
+    set(SUBROSA_DG_GPU ON)
+endif()
 
 # set option to build different target
 option(SUBROSA_DG_BUILD_EXAMPLES "Build SubrosaDG example cases" OFF)
@@ -179,8 +185,8 @@ if(SUBROSA_DG_SYCL)
 elseif(SUBROSA_DG_CUDA)
     set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=nvidia_gpu_sm_89 ")
 elseif(SUBROSA_DG_ROCM)
-    set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=amd_gpu_gfx908 \
-        --rocm-device-lib-path=/usr/lib/clang/18/amdgcn/bitcode ")
+    set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=amd_gpu_gfx1010 \
+        --rocm-device-lib-path=/usr/lib64/rocm/llvm/lib/clang/19/amdgcn/bitcode ")
 else()
     set(SUBROSA_DG_DEVICE_FLAGS "-fsycl-targets=spir64_x86_64 ")
 endif()
@@ -263,9 +269,7 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES OpenMP::OpenMP_CXX)
 # set compilation definitions
 foreach(SUBROSA_DG_OPTION IN ITEMS
         SUBROSA_DG_DEVELOP
-        SUBROSA_DG_SYCL
-        SUBROSA_DG_CUDA
-        SUBROSA_DG_ROCM)
+        SUBROSA_DG_GPU)
     if(${SUBROSA_DG_OPTION})
         list(APPEND SUBROSA_DG_COMPILE_DEFINITIONS ${SUBROSA_DG_OPTION})
         message(STATUS "Option: ${SUBROSA_DG_OPTION}: ON")
@@ -295,6 +299,7 @@ string(REPLACE ";" " " SUBROSA_DG_COMPILE_DEFINITIONS "${SUBROSA_DG_COMPILE_DEFI
 if(SUBROSA_DG_DEVELOP)
     add_executable(develop ${SUBROSA_DG_DEVELOP_SOURCES})
     target_link_libraries(develop lib::subrosa_dg)
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out/develop)
 endif()
 
 # build examples

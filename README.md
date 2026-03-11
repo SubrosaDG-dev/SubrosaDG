@@ -1,10 +1,10 @@
 ## SubrosaDG
 
-SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (DG) method for computation. The project is based on the pure template construction of C++23 and is open-sourced under the MIT license.
+SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (dG) method for computation. The project is based on the pure template construction of C++23 and is open-sourced under the MIT license.
 
 ## Milestone
 
-- [x] Gmsh mesh reader(Reconstruct adjacencies)
+- [x] Gmsh mesh reader(Reconstruct adjacency information)
 - [x] 1D Euler equation(Central scheme)
 - [x] Refactor all operators to Gemm-like form(use Eigen)
 - [x] CPU parallelization(use OpenMP)
@@ -26,6 +26,7 @@ SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (DG) 
 - [x] Compress RawBinary output(use zstd and async io)
 - [x] Add Source-Term (e.g. Boussinesq approximation)
 - [x] 3D Euler/Navier-Stokes equation
+- [x] Add cl/cd computation module(Paraview FieldData)
 - [x] Time dependent boundary condition
 - [x] Add Modal basis function(Lobatto function)
 - [x] ~~Add Shock-Capturing(Artificial Viscosity)~~
@@ -33,10 +34,19 @@ SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (DG) 
 - [x] Add Dockerfile and devcontainer.json
 - [x] Incompressible flow solver(Weakly Compressible EOS)
 - [x] Weakly Compressible EOS Riemann solver(for Heat Conduction)
+- [x] Add pipe boundary condition(Velocity inlet/Pressure outlet)
 - [x] Optimize compiler system to IntelSYCL
 - [x] Change CPU parallelization to oneTBB
-- [ ] Change data-structure to SOA
-- [ ] GPU acceleration(use SYCL)
+- [x] Change data-structure to SOA
+- [x] Optimize computation(e.g. use more references instead of temporary variables)
+- [x] Device matrix struct(Eigen::Map likely)
+- [x] Add Device structure for computation(sycl::is_device_copyable)
+- [x] Make VariableConvertor adapt to Device matrix struct
+- [x] GPU acceleration(use SYCL)
+- [ ] Change basis function to Nodal basis(Gauss-Lobatto-Legendre function)
+- [ ] Add viscous schemes(Direct-DG)
+- [ ] Arbitrary Lagrangian-Eulerian Method(ALE)
+- [ ] Rotating machine simulation(in ALE framework)
 - [ ] Inviscid Magneto-hydrodynamics Equation(HLLD scheme)
 - [ ] Local Divergence-free Projector
 - [ ] Change Shock-Capturing method(DG/FV hybrid method)

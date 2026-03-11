@@ -6,7 +6,7 @@
  * @date 2023-11-09
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
@@ -20,333 +20,580 @@
 #include <sstream>
 
 #include "Mesh/ReadControl.cpp"
-#include "Solver/PhysicalModel.cpp"
 #include "Solver/SimulationControl.cpp"
 #include "Utils/BasicDataType.cpp"
 #include "Utils/Enum.cpp"
 
 namespace SubrosaDG {
 
-template <typename AdjacencyElementTrait, typename SimulationControl>
-struct AdjacencyElementVariable;
 template <typename SimulationControl>
 struct SourceTerm;
 template <typename SimulationControl>
-struct BoundaryCondition;
-template <typename SimulationControl>
-struct InitialCondition;
+struct SourceTermDevice;
 template <typename SimulationControl>
 struct TimeIntegration;
-template <typename SimulationControl, int Dimension>
-struct SolverData;
 template <typename SimulationControl>
 struct Solver;
+template <typename SimulationControl>
+struct SolverDevice;
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementBaseSolver {
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
+template <typename VolumeElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+struct VolumeElementSolverBase;
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler> {
+  Eigen::Array<
+      Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kBasisFunctionNumber>,
+      Eigen::Dynamic, 1>
       variable_basis_function_coefficient_last_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
+  Eigen::Array<
+      Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kBasisFunctionNumber>,
+      Eigen::Dynamic, 1>
       variable_basis_function_coefficient_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                ElementTrait::kQuadratureNumber * SimulationControl::kDimension>
+
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                             VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension>,
+               Eigen::Dynamic, 1>
       variable_quadrature_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllAdjacencyQuadratureNumber>
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                             VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
+               Eigen::Dynamic, 1>
       variable_adjacency_quadrature_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kBasisFunctionNumber>
+
+  Eigen::Array<
+      Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kBasisFunctionNumber>,
+      Eigen::Dynamic, 1>
       variable_residual_;
 };
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementVolumeGradientSolver {
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kBasisFunctionNumber>
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::NS>
+    : VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler> {
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             VolumeElementTrait::kBasisFunctionNumber>,
+               Eigen::Dynamic, 1>
+      variable_gradient_basis_function_coefficient_;
+};
+
+template <typename VolumeElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+struct VolumeElementSolverDeviceBase;
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler> {
+  Device::Array<
+      Device::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kBasisFunctionNumber>,
+      Device::Dynamic, 1>
+      variable_basis_function_coefficient_last_;
+  Device::Array<
+      Device::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kBasisFunctionNumber>,
+      Device::Dynamic, 1>
+      variable_basis_function_coefficient_;
+
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                               VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension>,
+                Device::Dynamic, 1>
+      variable_quadrature_;
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                               VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
+                Device::Dynamic, 1>
+      variable_adjacency_quadrature_;
+
+  Device::Array<
+      Device::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kBasisFunctionNumber>,
+      Device::Dynamic, 1>
+      variable_residual_;
+};
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::NS>
+    : VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler> {
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kBasisFunctionNumber>,
+                Device::Dynamic, 1>
+      variable_gradient_basis_function_coefficient_;
+};
+
+template <typename VolumeElementTrait, typename SimulationControl, ViscousFluxEnum ViscousFluxType>
+struct VolumeElementGradientSolver;
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None> {
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             VolumeElementTrait::kBasisFunctionNumber>,
+               Eigen::Dynamic, 1>
       variable_volume_gradient_basis_function_coefficient_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kQuadratureNumber * SimulationControl::kDimension>
+
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension>,
+               Eigen::Dynamic, 1>
       variable_volume_gradient_quadrature_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kAllAdjacencyQuadratureNumber>
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
+               Eigen::Dynamic, 1>
       variable_volume_gradient_adjacency_quadrature_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kBasisFunctionNumber>
+
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             VolumeElementTrait::kBasisFunctionNumber>,
+               Eigen::Dynamic, 1>
       variable_volume_gradient_residual_;
 };
 
-template <typename ElementTrait, typename SimulationControl, ViscousFluxEnum ViscousFluxType>
-struct PerElementInterfaceGradientSolver;
-
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementInterfaceGradientSolver<ElementTrait, SimulationControl, ViscousFluxEnum::BR1> {
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kBasisFunctionNumber>
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, ViscousFluxEnum::BR1>
+    : VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None> {
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             VolumeElementTrait::kBasisFunctionNumber>,
+               Eigen::Dynamic, 1>
       variable_interface_gradient_basis_function_coefficient_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kAllAdjacencyQuadratureNumber>
+
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
+               Eigen::Dynamic, 1>
       variable_interface_gradient_adjacency_quadrature_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kBasisFunctionNumber>
+
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             VolumeElementTrait::kBasisFunctionNumber>,
+               Eigen::Dynamic, 1>
       variable_interface_gradient_residual_;
 };
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementInterfaceGradientSolver<ElementTrait, SimulationControl, ViscousFluxEnum::BR2> {
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, ViscousFluxEnum::BR2>
+    : VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None> {
   Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             ElementTrait::kBasisFunctionNumber>,
-               ElementTrait::kAdjacencyNumber, 1>
+                             VolumeElementTrait::kBasisFunctionNumber * VolumeElementTrait::kAdjacencyNumber>,
+               Eigen::Dynamic, 1>
       variable_interface_gradient_basis_function_coefficient_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kAllAdjacencyQuadratureNumber>
-      variable_interface_gradient_adjacency_quadrature_;
+
   Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             ElementTrait::kBasisFunctionNumber>,
-               ElementTrait::kAdjacencyNumber, 1>
+                             VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
+               Eigen::Dynamic, 1>
+      variable_interface_gradient_adjacency_quadrature_;
+
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                             VolumeElementTrait::kBasisFunctionNumber * VolumeElementTrait::kAdjacencyNumber>,
+               Eigen::Dynamic, 1>
       variable_interface_gradient_residual_;
 };
 
-template <typename ElementTrait, typename SimulationControl, SourceTermEnum SourceTermType>
-struct PerElementSourceSolver;
+template <typename VolumeElementTrait, typename SimulationControl, ViscousFluxEnum ViscousFluxType>
+struct VolumeElementGradientSolverDevice;
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementSourceSolver<ElementTrait, SimulationControl, SourceTermEnum::None> {};
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None> {
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kBasisFunctionNumber>,
+                Device::Dynamic, 1>
+      variable_volume_gradient_basis_function_coefficient_;
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementSourceSolver<ElementTrait, SimulationControl, SourceTermEnum::Boussinesq> {
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kQuadratureNumber>
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension>,
+                Device::Dynamic, 1>
+      variable_volume_gradient_quadrature_;
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
+                Device::Dynamic, 1>
+      variable_volume_gradient_adjacency_quadrature_;
+
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kBasisFunctionNumber>,
+                Device::Dynamic, 1>
+      variable_volume_gradient_residual_;
+};
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, ViscousFluxEnum::BR1>
+    : VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None> {
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kBasisFunctionNumber>,
+                Device::Dynamic, 1>
+      variable_interface_gradient_basis_function_coefficient_;
+
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
+                Device::Dynamic, 1>
+      variable_interface_gradient_adjacency_quadrature_;
+
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kBasisFunctionNumber>,
+                Device::Dynamic, 1>
+      variable_interface_gradient_residual_;
+};
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, ViscousFluxEnum::BR2>
+    : VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None> {
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kBasisFunctionNumber * VolumeElementTrait::kAdjacencyNumber>,
+                Device::Dynamic, 1>
+      variable_interface_gradient_basis_function_coefficient_;
+
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
+                Device::Dynamic, 1>
+      variable_interface_gradient_adjacency_quadrature_;
+
+  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kBasisFunctionNumber * VolumeElementTrait::kAdjacencyNumber>,
+                Device::Dynamic, 1>
+      variable_interface_gradient_residual_;
+};
+
+template <typename VolumeElementTrait, typename SimulationControl, SourceTermEnum SourceTermType>
+struct VolumeElementSourceSolver;
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SourceTermEnum::None> {};
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SourceTermEnum::Boussinesq> {
+  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kQuadratureNumber>,
+               Eigen::Dynamic, 1>
       variable_source_quadrature_;
 };
 
-template <typename ElementTrait, typename SimulationControl, ShockCapturingEnum ShockCapturingType>
-struct PerElementShockCapturingSolver;
+template <typename VolumeElementTrait, typename SimulationControl, SourceTermEnum SourceTermType>
+struct VolumeElementSourceSolverDevice;
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementShockCapturingSolver<ElementTrait, SimulationControl, ShockCapturingEnum::None> {};
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, SourceTermEnum::None> {};
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementShockCapturingSolver<ElementTrait, SimulationControl, ShockCapturingEnum::ArtificialViscosity> {
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                ElementTrait::kQuadratureNumber * SimulationControl::kDimension>
-      variable_artificial_viscosity_quadrature_;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, ElementTrait::kAllAdjacencyQuadratureNumber>
-      variable_artificial_viscosity_adjacency_quadrature_;
-  Eigen::Vector<Real, ElementTrait::kBasicNodeNumber> variable_artificial_viscosity_;
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, SourceTermEnum::Boussinesq> {
+  Device::Array<
+      Device::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kQuadratureNumber>,
+      Device::Dynamic, 1>
+      variable_source_quadrature_;
 };
 
-template <typename ElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
-struct PerElementSolver;
+template <typename VolumeElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+struct VolumeElementSolverData;
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::CompresibleEuler>
-    : PerElementBaseSolver<ElementTrait, SimulationControl>,
-      PerElementVolumeGradientSolver<ElementTrait, SimulationControl>,
-      PerElementSourceSolver<ElementTrait, SimulationControl, SimulationControl::kSourceTerm>,
-      PerElementShockCapturingSolver<ElementTrait, SimulationControl, SimulationControl::kShockCapturing> {};
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverData<VolumeElementTrait, SimulationControl, EquationModelEnum::CompressibleEuler>
+    : VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler>,
+      VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None>,
+      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::CompresibleNS>
-    : PerElementBaseSolver<ElementTrait, SimulationControl>,
-      PerElementVolumeGradientSolver<ElementTrait, SimulationControl>,
-      PerElementInterfaceGradientSolver<ElementTrait, SimulationControl, SimulationControl::kViscousFlux>,
-      PerElementSourceSolver<ElementTrait, SimulationControl, SimulationControl::kSourceTerm>,
-      PerElementShockCapturingSolver<ElementTrait, SimulationControl, SimulationControl::kShockCapturing> {
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kBasisFunctionNumber>
-      variable_gradient_basis_function_coefficient_;
-};
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverData<VolumeElementTrait, SimulationControl, EquationModelEnum::CompressibleNS>
+    : VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::NS>,
+      VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, SimulationControl::kViscousFlux>,
+      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::IncompresibleEuler>
-    : PerElementBaseSolver<ElementTrait, SimulationControl>,
-      PerElementVolumeGradientSolver<ElementTrait, SimulationControl>,
-      PerElementSourceSolver<ElementTrait, SimulationControl, SimulationControl::kSourceTerm>,
-      PerElementShockCapturingSolver<ElementTrait, SimulationControl, SimulationControl::kShockCapturing> {};
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverData<VolumeElementTrait, SimulationControl, EquationModelEnum::IncompressibleEuler>
+    : VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler>,
+      VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None>,
+      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
 
-template <typename ElementTrait, typename SimulationControl>
-struct PerElementSolver<ElementTrait, SimulationControl, EquationModelEnum::IncompresibleNS>
-    : PerElementBaseSolver<ElementTrait, SimulationControl>,
-      PerElementVolumeGradientSolver<ElementTrait, SimulationControl>,
-      PerElementInterfaceGradientSolver<ElementTrait, SimulationControl, SimulationControl::kViscousFlux>,
-      PerElementSourceSolver<ElementTrait, SimulationControl, SimulationControl::kSourceTerm>,
-      PerElementShockCapturingSolver<ElementTrait, SimulationControl, SimulationControl::kShockCapturing> {
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                ElementTrait::kBasisFunctionNumber>
-      variable_gradient_basis_function_coefficient_;
-};
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverData<VolumeElementTrait, SimulationControl, EquationModelEnum::IncompressibleNS>
+    : VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::NS>,
+      VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, SimulationControl::kViscousFlux>,
+      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
 
-template <typename ElementTrait, typename SimulationControl>
-struct ElementSolver {
+template <typename VolumeElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+struct VolumeElementSolverDataDevice;
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl, EquationModelEnum::CompressibleEuler>
+    : VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler>,
+      VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None>,
+      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl, EquationModelEnum::CompressibleNS>
+    : VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::NS>,
+      VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kViscousFlux>,
+      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl, EquationModelEnum::IncompressibleEuler>
+    : VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler>,
+      VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None>,
+      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl, EquationModelEnum::IncompressibleNS>
+    : VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::NS>,
+      VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kViscousFlux>,
+      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolver
+    : VolumeElementSolverData<VolumeElementTrait, SimulationControl, SimulationControl::kEquationModel> {
   Isize number_{0};
-  Eigen::Array<PerElementSolver<ElementTrait, SimulationControl, SimulationControl::kEquationModel>, Eigen::Dynamic, 1>
-      element_;
 
-  inline void initializeElementSolver(const ElementMesh<ElementTrait>& element_mesh,
-                                      const PhysicalModel<SimulationControl>& physical_model,
-                                      InitialCondition<SimulationControl>& initial_condition);
+  inline void initializeVolumeElementSolver(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
+                                            [[maybe_unused]] std::stringstream& raw_binary_ss);
 
-  inline void copyElementBasisFunctionCoefficient();
+  inline void computeVolumeElementDeltaTime(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
+                                            /*const*/ Real courant_friedrichs_lewy_number, /*const*/ Real& delta_time);
 
-  inline void calculateElementArtificialViscosity(const ElementMesh<ElementTrait>& element_mesh,
-                                                  Real empirical_tolerance, Real artificial_viscosity_factor);
+  inline void copyVolumeElementBasisFunctionCoefficient();
 
-  inline void maxElementArtificialViscosity(const ElementMesh<ElementTrait>& element_mesh,
-                                            Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity);
+  inline void computeVolumeElementQuadrature(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
+                                             [[maybe_unused]] const SourceTerm<SimulationControl>& source_term);
 
-  inline void storeElementArtificialViscosity(const ElementMesh<ElementTrait>& element_mesh,
-                                              const Eigen::Vector<Real, Eigen::Dynamic>& node_artificial_viscosity);
+  inline void computeVolumeElementGradientQuadrature(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh);
 
-  inline void calculateElementQuadrature(const ElementMesh<ElementTrait>& element_mesh,
-                                         [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
-                                         const PhysicalModel<SimulationControl>& physical_model);
+  inline void computeVolumeElementResidual(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh);
 
-  inline void calculateElementGardientQuadrature(const ElementMesh<ElementTrait>& element_mesh);
+  inline void computeVolumeElementGradientResidual(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh);
 
-  inline void calculateElementDeltaTime(const ElementMesh<ElementTrait>& element_mesh,
-                                        const PhysicalModel<SimulationControl>& physical_model,
-                                        Real courant_friedrichs_lewy_number, Real& delta_time);
+  inline void updateVolumeElementBasisFunctionCoefficient(
+      const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
+      const TimeIntegration<SimulationControl>& time_integration, /*const*/ int rk_step);
 
-  inline void calculateElementResidual(const ElementMesh<ElementTrait>& element_mesh);
+  inline void updateVolumeElementGradientBasisFunctionCoefficient(
+      const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh);
 
-  inline void calculateElementGardientResidual(const ElementMesh<ElementTrait>& element_mesh);
-
-  inline void updateElementBasisFunctionCoefficient(int rk_step, const ElementMesh<ElementTrait>& element_mesh,
-                                                    const TimeIntegration<SimulationControl>& time_integration);
-
-  inline void updateElementGardientBasisFunctionCoefficient(const ElementMesh<ElementTrait>& element_mesh);
-
-  inline void calculateElementRelativeError(
-      const ElementMesh<ElementTrait>& element_mesh,
+  inline void computeVolumeElementRelativeError(
+      const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error);
 
-  inline void writeElementRawBinary(std::stringstream& raw_binary_ss) const;
+  inline void writeVolumeElementRawBinary(std::stringstream& raw_binary_ss) const;
+};
+
+template <typename VolumeElementTrait, typename SimulationControl>
+struct VolumeElementSolverDevice
+    : VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl, SimulationControl::kEquationModel> {
+  Isize number_{0};
+
+  inline void transferVolumeElementSolverToDevice(
+      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver);
+
+  inline void copyVolumeElementBasisFunctionCoefficient();
+
+  inline void computeVolumeElementQuadrature(const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
+                                             [[maybe_unused]] const SourceTermDevice<SimulationControl>& source_term);
+
+  inline void computeVolumeElementGradientQuadrature(
+      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh);
+
+  inline void computeVolumeElementResidual(const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh);
+
+  inline void computeVolumeElementGradientResidual(
+      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh);
+
+  inline void updateVolumeElementBasisFunctionCoefficient(
+      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
+      const TimeIntegration<SimulationControl>& time_integration, /*const*/ int rk_step);
+
+  inline void updateVolumeElementGradientBasisFunctionCoefficient(
+      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh);
+
+  inline void computeVolumeElementRelativeError(
+      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
+      Device::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error);
+
+  inline void transferVolumeElementSolverToHost(
+      VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver);
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 struct AdjacencyElementSolver {
+  Isize number_{0};
   Isize interior_number_{0};
   Isize boundary_number_{0};
-  Eigen::Array<AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>, Eigen::Dynamic, 1>
-      boundary_dummy_variable_;
+
+  Eigen::Array<
+      Eigen::Matrix<Real, SimulationControl::kComputationalVariableNumber, AdjacencyElementTrait::kQuadratureNumber>,
+      Eigen::Dynamic, 1>
+      boundary_dummy_right_computational_variable_;
 
   inline void initializeAdjacencyElementSolver(
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const PhysicalModel<SimulationControl>& physical_model,
-      const BoundaryCondition<SimulationControl>& boundary_condition);
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh);
 
   inline void updateAdjacencyElementBoundaryVariable(
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const PhysicalModel<SimulationControl>& physical_model,
-      const BoundaryCondition<SimulationControl>& boundary_condition,
       const TimeIntegration<SimulationControl>& time_integration);
 
-  [[nodiscard]] inline Isize getAdjacencyParentElementAccumulateAdjacencyQuadratureNumber(
-      [[maybe_unused]] Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent);
+  [[nodiscard]] inline Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
+  getVariableAdjacencyQuadrature(Solver<SimulationControl>& solver, /*const*/ Isize parent_gmsh_type_number,
+                                 /*const*/ Isize parent_index_each_type,
+                                 /*const*/ Isize quadrature_node_sequence_in_parent);
 
-  inline void calculateAdjacencyElementArtificialViscosity(
-      const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
-      Eigen::Vector<Real, AdjacencyElementTrait::kQuadratureNumber>& quadrature_node_artificial_viscosity,
-      Isize parent_gmsh_type_number, Isize parent_index_each_type, Isize adjacency_sequence_in_parent);
+  [[nodiscard]] inline Eigen::Ref<
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+  getVariableVolumeGradientAdjacencyQuadrature(Solver<SimulationControl>& solver,
+                                               /*const*/ Isize parent_gmsh_type_number,
+                                               /*const*/ Isize parent_index_each_type,
+                                               /*const*/ Isize quadrature_node_sequence_in_parent);
 
-  inline void calculateInteriorAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
-                                                          const PhysicalModel<SimulationControl>& physical_model,
-                                                          Solver<SimulationControl>& solver);
+  [[nodiscard]] inline Eigen::Ref<
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+  getVariableInterfaceGradientAdjacencyQuadrature(Solver<SimulationControl>& solver,
+                                                  /*const*/ Isize parent_gmsh_type_number,
+                                                  /*const*/ Isize parent_index_each_type,
+                                                  /*const*/ Isize quadrature_node_sequence_in_parent);
 
-  inline void calculateBoundaryAdjacencyElementQuadrature(
-      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
-      const BoundaryCondition<SimulationControl>& boundary_condition, Solver<SimulationControl>& solver);
+  inline void computeInteriorAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
+                                                        Solver<SimulationControl>& solver);
 
-  inline void calculateInteriorAdjacencyElementGardientQuadrature(const Mesh<SimulationControl>& mesh,
-                                                                  Solver<SimulationControl>& solver);
+  inline void computeBoundaryAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
+                                                        Solver<SimulationControl>& solver);
 
-  inline void calculateBoundaryAdjacencyElementGardientQuadrature(
-      const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
-      const BoundaryCondition<SimulationControl>& boundary_condition, Solver<SimulationControl>& solver);
+  inline void computeInteriorAdjacencyElementGradientQuadrature(const Mesh<SimulationControl>& mesh,
+                                                                Solver<SimulationControl>& solver);
 
-  inline void storeAdjacencyElementNodeQuadrature(
-      Isize parent_gmsh_type_number, Isize parent_index, Isize quadrature_node_sequence_in_parent,
-      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& quadrature_node_temporary_variable,
-      Solver<SimulationControl>& solver);
+  inline void computeBoundaryAdjacencyElementGradientQuadrature(const Mesh<SimulationControl>& mesh,
+                                                                Solver<SimulationControl>& solver);
 
-  inline void storeAdjacencyElementNodeVolumeGardientQuadrature(
-      Isize parent_gmsh_type_number, Isize parent_index, Isize quadrature_node_sequence_in_parent,
-      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>&
-          quadrature_node_temporary_variable,
-      Solver<SimulationControl>& solver);
-
-  inline void storeAdjacencyElementNodeInterfaceGardientQuadrature(
-      Isize parent_gmsh_type_number, Isize parent_index, Isize quadrature_node_sequence_in_parent,
-      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>&
-          quadrature_node_temporary_variable,
-      Solver<SimulationControl>& solver);
-
-  template <typename ElementTrait>
+  template <typename VolumeElementTrait>
   inline void writeBoundaryAdjacencyPerElementRawBinary(
-      const ElementSolver<ElementTrait, SimulationControl>& element_solver, std::stringstream& raw_binary_ss,
-      Isize parent_index_each_type, [[maybe_unused]] Isize adjacency_sequence_in_parent) const;
+      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& element_solver,
+      std::stringstream& raw_binary_ss, /*const*/ Isize parent_index_each_type,
+      [[maybe_unused]] /*const*/ Isize adjacency_sequence_in_parent) const;
 
   inline void writeBoundaryAdjacencyElementRawBinary(
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
       const Solver<SimulationControl>& solver, std::stringstream& raw_binary_ss) const;
 };
 
+template <typename AdjacencyElementTrait, typename SimulationControl>
+struct AdjacencyElementSolverDevice {
+  Isize number_{0};
+  Isize interior_number_{0};
+  Isize boundary_number_{0};
+
+  Device::Array<
+      Device::Matrix<Real, SimulationControl::kComputationalVariableNumber, AdjacencyElementTrait::kQuadratureNumber>,
+      Device::Dynamic, 1>
+      boundary_dummy_right_computational_variable_;
+
+  inline void transferAdjacencyElementSolverToDevice(
+      const AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>& adjacency_element_solver);
+
+  inline void updateAdjacencyElementBoundaryVariable(
+      const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh,
+      const TimeIntegration<SimulationControl>& time_integration);
+
+  [[nodiscard]] inline Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+  getVariableAdjacencyQuadrature(SolverDevice<SimulationControl> solver, /*const*/ Isize parent_gmsh_type_number,
+                                 /*const*/ Isize parent_index_each_type,
+                                 /*const*/ Isize quadrature_node_sequence_in_parent);
+
+  [[nodiscard]] inline Device::View<
+      Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+  getVariableVolumeGradientAdjacencyQuadrature(SolverDevice<SimulationControl> solver,
+                                               /*const*/ Isize parent_gmsh_type_number,
+                                               /*const*/ Isize parent_index_each_type,
+                                               /*const*/ Isize quadrature_node_sequence_in_parent);
+
+  [[nodiscard]] inline Device::View<
+      Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+  getVariableInterfaceGradientAdjacencyQuadrature(SolverDevice<SimulationControl> solver,
+                                                  /*const*/ Isize parent_gmsh_type_number,
+                                                  /*const*/ Isize parent_index_each_type,
+                                                  /*const*/ Isize quadrature_node_sequence_in_parent);
+
+  inline void computeInteriorAdjacencyElementQuadrature(const MeshDevice<SimulationControl>& mesh,
+                                                        SolverDevice<SimulationControl>& solver);
+
+  inline void computeBoundaryAdjacencyElementQuadrature(const MeshDevice<SimulationControl>& mesh,
+                                                        SolverDevice<SimulationControl>& solver);
+
+  inline void computeInteriorAdjacencyElementGradientQuadrature(const MeshDevice<SimulationControl>& mesh,
+                                                                SolverDevice<SimulationControl>& solver);
+
+  inline void computeBoundaryAdjacencyElementGradientQuadrature(const MeshDevice<SimulationControl>& mesh,
+                                                                SolverDevice<SimulationControl>& solver);
+};
+
 template <typename SimulationControl>
 struct SolverBase {
-  Real empirical_tolerance_{0.0_r};
-  Real artificial_viscosity_factor_{1.0_r};
-
+  const int error_output_interval_{10};
+  std::filesystem::path raw_binary_path_;
   std::stringstream raw_binary_ss_;
   std::fstream error_finout_;
   std::future<void> write_raw_binary_future_;
 
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_{
-      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero()};
-  Eigen::Vector<Real, Eigen::Dynamic> node_artificial_viscosity_;
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
 };
+
+template <typename SimulationControl>
+struct SolverDeviceBase {
+  Device::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
+};
+
+template <typename SimulationControl, int Dimension>
+struct SolverData;
 
 template <typename SimulationControl>
 struct SolverData<SimulationControl, 1> : SolverBase<SimulationControl> {
   AdjacencyElementSolver<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl> point_;
-  ElementSolver<LineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
+  VolumeElementSolver<VolumeLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
 };
 
 template <typename SimulationControl>
 struct SolverData<SimulationControl, 2> : SolverBase<SimulationControl> {
   AdjacencyElementSolver<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
-  ElementSolver<TriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> triangle_;
-  ElementSolver<QuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> quadrangle_;
+  VolumeElementSolver<VolumeTriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> triangle_;
+  VolumeElementSolver<VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> quadrangle_;
 };
 
 template <typename SimulationControl>
 struct SolverData<SimulationControl, 3> : SolverBase<SimulationControl> {
   AdjacencyElementSolver<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> triangle_;
   AdjacencyElementSolver<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> quadrangle_;
-  ElementSolver<TetrahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl> tetrahedron_;
-  ElementSolver<PyramidTrait<SimulationControl::kPolynomialOrder>, SimulationControl> pyramid_;
-  ElementSolver<HexahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl> hexahedron_;
+  VolumeElementSolver<VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl> tetrahedron_;
+  VolumeElementSolver<VolumePyramidTrait<SimulationControl::kPolynomialOrder>, SimulationControl> pyramid_;
+  VolumeElementSolver<VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl> hexahedron_;
+};
+
+template <typename SimulationControl, int Dimension>
+struct SolverDataDevice;
+
+template <typename SimulationControl>
+struct SolverDataDevice<SimulationControl, 1> : SolverDeviceBase<SimulationControl> {
+  AdjacencyElementSolverDevice<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>, SimulationControl> point_;
+  VolumeElementSolverDevice<VolumeLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
+};
+
+template <typename SimulationControl>
+struct SolverDataDevice<SimulationControl, 2> : SolverDeviceBase<SimulationControl> {
+  AdjacencyElementSolverDevice<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>, SimulationControl> line_;
+  VolumeElementSolverDevice<VolumeTriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> triangle_;
+  VolumeElementSolverDevice<VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl> quadrangle_;
+};
+
+template <typename SimulationControl>
+struct SolverDataDevice<SimulationControl, 3> : SolverDeviceBase<SimulationControl> {
+  AdjacencyElementSolverDevice<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl>
+      triangle_;
+  AdjacencyElementSolverDevice<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>, SimulationControl>
+      quadrangle_;
+  VolumeElementSolverDevice<VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl>
+      tetrahedron_;
+  VolumeElementSolverDevice<VolumePyramidTrait<SimulationControl::kPolynomialOrder>, SimulationControl> pyramid_;
+  VolumeElementSolverDevice<VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl> hexahedron_;
 };
 
 template <typename SimulationControl>
 struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
-  template <typename ElementTrait>
-  inline static ElementSolver<ElementTrait, SimulationControl> Solver::* getElement() {
+  template <typename VolumeElementTrait>
+  static VolumeElementSolver<VolumeElementTrait, SimulationControl> Solver::* getVolumeElement() {
     if constexpr (SimulationControl::kDimension == 1) {
-      if constexpr (ElementTrait::kElementType == ElementEnum::Line) {
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Line) {
         return &Solver<SimulationControl>::line_;
       }
     } else if constexpr (SimulationControl::kDimension == 2) {
-      if constexpr (ElementTrait::kElementType == ElementEnum::Triangle) {
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Triangle) {
         return &Solver<SimulationControl>::triangle_;
       }
-      if constexpr (ElementTrait::kElementType == ElementEnum::Quadrangle) {
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &Solver<SimulationControl>::quadrangle_;
       }
     } else if constexpr (SimulationControl::kDimension == 3) {
-      if constexpr (ElementTrait::kElementType == ElementEnum::Tetrahedron) {
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Tetrahedron) {
         return &Solver<SimulationControl>::tetrahedron_;
       }
-      if constexpr (ElementTrait::kElementType == ElementEnum::Pyramid) {
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
         return &Solver<SimulationControl>::pyramid_;
       }
-      if constexpr (ElementTrait::kElementType == ElementEnum::Hexahedron) {
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
         return &Solver<SimulationControl>::hexahedron_;
       }
     }
@@ -354,7 +601,7 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
   }
 
   template <typename AdjacencyElementTrait>
-  inline static AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl> Solver::* getAdjacencyElement() {
+  static AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl> Solver::* getAdjacencyElement() {
     if constexpr (SimulationControl::kDimension == 1) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
         return &Solver<SimulationControl>::point_;
@@ -374,65 +621,125 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
     return nullptr;
   }
 
-  inline void initializeSolver(const Mesh<SimulationControl>& mesh,
-                               const PhysicalModel<SimulationControl>& physical_model,
-                               const BoundaryCondition<SimulationControl>& boundary_condition,
-                               InitialCondition<SimulationControl>& initial_condition);
+  inline void initializeSolver(const Mesh<SimulationControl>& mesh);
 
   inline void updateBoundaryVariable(const Mesh<SimulationControl>& mesh,
-                                     const PhysicalModel<SimulationControl>& physical_model,
-                                     const BoundaryCondition<SimulationControl>& boundary_condition,
                                      const TimeIntegration<SimulationControl>& time_integration);
 
   inline void copyBasisFunctionCoefficient();
 
-  inline void calculateDeltaTime(const Mesh<SimulationControl>& mesh,
-                                 const PhysicalModel<SimulationControl>& physical_model,
-                                 TimeIntegration<SimulationControl>& time_integration);
+  inline void computeDeltaTime(const Mesh<SimulationControl>& mesh,
+                               TimeIntegration<SimulationControl>& time_integration);
 
-  inline void calculateVariable(const Mesh<SimulationControl>& mesh,
-                                const PhysicalModel<SimulationControl>& physical_model);
+  inline void computeQuadrature(const Mesh<SimulationControl>& mesh, const SourceTerm<SimulationControl>& source_term);
 
-  inline void calculateVariableGardient(const Mesh<SimulationControl>& mesh,
-                                        const PhysicalModel<SimulationControl>& physical_model);
+  inline void computeGradientQuadrature(const Mesh<SimulationControl>& mesh);
 
-  inline void calculateArtificialViscosity(const Mesh<SimulationControl>& mesh);
+  inline void computeAdjacencyQuadrature(const Mesh<SimulationControl>& mesh);
 
-  inline void calculateQuadrature(const Mesh<SimulationControl>& mesh,
-                                  [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
-                                  const PhysicalModel<SimulationControl>& physical_model);
+  inline void computeAdjacencyGradientQuadrature(const Mesh<SimulationControl>& mesh);
 
-  inline void calculateGardientQuadrature(const Mesh<SimulationControl>& mesh);
+  inline void computeResidual(const Mesh<SimulationControl>& mesh);
 
-  inline void calculateAdjacencyQuadrature(const Mesh<SimulationControl>& mesh,
-                                           const PhysicalModel<SimulationControl>& physical_model,
-                                           const BoundaryCondition<SimulationControl>& boundary_condition);
+  inline void computeGradientResidual(const Mesh<SimulationControl>& mesh);
 
-  inline void calculateAdjacencyGardientQuadrature(const Mesh<SimulationControl>& mesh,
-                                                   const PhysicalModel<SimulationControl>& physical_model,
-                                                   const BoundaryCondition<SimulationControl>& boundary_condition);
+  inline void updateBasisFunctionCoefficient(const Mesh<SimulationControl>& mesh,
+                                             const TimeIntegration<SimulationControl>& time_integration,
+                                             /*const*/ int rk_step);
 
-  inline void calculateBoundaryAdjacencyForce(const Mesh<SimulationControl>& mesh,
-                                              const PhysicalModel<SimulationControl>& physical_model);
+  inline void updateGradientBasisFunctionCoefficient(const Mesh<SimulationControl>& mesh);
 
-  inline void calculateResidual(const Mesh<SimulationControl>& mesh);
-
-  inline void calculateGardientResidual(const Mesh<SimulationControl>& mesh);
-
-  inline void updateBasisFunctionCoefficient(int rk_step, const Mesh<SimulationControl>& mesh,
-                                             const TimeIntegration<SimulationControl>& time_integration);
-
-  inline void updateGardientBasisFunctionCoefficient(const Mesh<SimulationControl>& mesh);
-
-  inline void stepSolver(const Mesh<SimulationControl>& mesh,
-                         [[maybe_unused]] const SourceTerm<SimulationControl>& source_term,
-                         const PhysicalModel<SimulationControl>& physical_model,
-                         const BoundaryCondition<SimulationControl>& boundary_condition,
+  inline void stepSolver(const Mesh<SimulationControl>& mesh, const SourceTerm<SimulationControl>& source_term,
                          const TimeIntegration<SimulationControl>& time_integration);
 
-  inline void calculateRelativeError(const Mesh<SimulationControl>& mesh);
+  inline void computeRelativeError(const Mesh<SimulationControl>& mesh);
 
   inline void writeRawBinary(const Mesh<SimulationControl>& mesh, const std::filesystem::path& raw_binary_path);
+};
+
+template <typename SimulationControl>
+struct SolverDevice : SolverDataDevice<SimulationControl, SimulationControl::kDimension> {
+  template <typename VolumeElementTrait>
+  static VolumeElementSolverDevice<VolumeElementTrait, SimulationControl> SolverDevice::* getVolumeElement() {
+    if constexpr (SimulationControl::kDimension == 1) {
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Line) {
+        return &SolverDevice<SimulationControl>::line_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 2) {
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Triangle) {
+        return &SolverDevice<SimulationControl>::triangle_;
+      }
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
+        return &SolverDevice<SimulationControl>::quadrangle_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Tetrahedron) {
+        return &SolverDevice<SimulationControl>::tetrahedron_;
+      }
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
+        return &SolverDevice<SimulationControl>::pyramid_;
+      }
+      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
+        return &SolverDevice<SimulationControl>::hexahedron_;
+      }
+    }
+    return nullptr;
+  }
+
+  template <typename AdjacencyElementTrait>
+  static AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl> SolverDevice::* getAdjacencyElement() {
+    if constexpr (SimulationControl::kDimension == 1) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+        return &SolverDevice<SimulationControl>::point_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 2) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+        return &SolverDevice<SimulationControl>::line_;
+      }
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+        return &SolverDevice<SimulationControl>::triangle_;
+      }
+      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+        return &SolverDevice<SimulationControl>::quadrangle_;
+      }
+    }
+    return nullptr;
+  }
+
+  inline void transferSolverToDevice(const Solver<SimulationControl>& solver);
+
+  inline void updateBoundaryVariable(const MeshDevice<SimulationControl>& mesh,
+                                     const TimeIntegration<SimulationControl>& time_integration);
+
+  inline void copyBasisFunctionCoefficient();
+
+  inline void computeQuadrature(const MeshDevice<SimulationControl>& mesh,
+                                [[maybe_unused]] const SourceTermDevice<SimulationControl>& source_term);
+
+  inline void computeGradientQuadrature(const MeshDevice<SimulationControl>& mesh);
+
+  inline void computeAdjacencyQuadrature(const MeshDevice<SimulationControl>& mesh);
+
+  inline void computeAdjacencyGradientQuadrature(const MeshDevice<SimulationControl>& mesh);
+
+  inline void computeResidual(const MeshDevice<SimulationControl>& mesh);
+
+  inline void computeGradientResidual(const MeshDevice<SimulationControl>& mesh);
+
+  inline void updateBasisFunctionCoefficient(const MeshDevice<SimulationControl>& mesh,
+                                             const TimeIntegration<SimulationControl>& time_integration,
+                                             /*const*/ int rk_step);
+
+  inline void updateGradientBasisFunctionCoefficient(const MeshDevice<SimulationControl>& mesh);
+
+  inline void stepSolver(const MeshDevice<SimulationControl>& mesh,
+                         const SourceTermDevice<SimulationControl>& source_term,
+                         const TimeIntegration<SimulationControl>& time_integration);
+
+  inline void computeRelativeError(const MeshDevice<SimulationControl>& mesh, Solver<SimulationControl>& solver);
+
+  inline void transferSolverToHost(Solver<SimulationControl>& solver);
 };
 
 }  // namespace SubrosaDG

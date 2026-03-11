@@ -6,9 +6,30 @@
  * @date 2024-12-01
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
+
+namespace SubrosaDG {
+
+struct PhysicalModelData {
+  // EquationOfState
+  static constexpr double kReferenceSoundSpeed = 32.0;
+  // static constexpr double kReferenceSoundSpeed = 64.0_r * std::numbers::sqrt2_v<double>;
+  static constexpr double kReferenceDensity = 1.0;
+
+  // ThermodynamicModel
+  static constexpr double kSpecificHeatConstantPressure = 1.0;
+  static constexpr double kSpecificHeatConstantVolume = 1.0;
+
+  // TransportModel
+  static constexpr double kReynoldsNumber = 1000.0;
+  static constexpr double kDynamicViscosity = 1.0 * 1.0 * 1.0 / kReynoldsNumber;
+  static constexpr double kPrandtlNumber = 0.71;
+  static constexpr double kThermalConductivity = kSpecificHeatConstantPressure * kDynamicViscosity / kPrandtlNumber;
+};
+
+}  // namespace SubrosaDG
 
 #include "SubrosaDG.cpp"
 
@@ -17,58 +38,48 @@ inline const std::string kExampleName{"taylorvortex_2d_incns"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P4,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
-    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
-                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
+    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::InitialConditionEnum::Function,
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
-    SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
-                                       SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
-                                       SubrosaDG::TransportModelEnum::Constant,
-                                       SubrosaDG::ConvectiveFluxEnum::Exact, SubrosaDG::ViscousFluxEnum::BR2>>;
-
-inline constexpr SubrosaDG::Real kReferenceSoundSpeed = 32.0_r;
-// inline constexpr SubrosaDG::Real kReferenceSoundSpeed = 64.0_r * std::numbers::sqrt2_v<SubrosaDG::Real>;
+    SubrosaDG::IncompressibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
+                                        SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
+                                        SubrosaDG::TransportModelEnum::Constant, SubrosaDG::ConvectiveFluxEnum::Exact,
+                                        SubrosaDG::ViscousFluxEnum::BR2>>;
 
 template <typename SimulationControl>
-inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
-SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
-    const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
-  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
+inline void SubrosaDG::InitialCondition<SimulationControl>::computePrimitiveFromCoordinate(
+    const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate,
+    Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& initial_primitive_variable) {
+  initial_primitive_variable = {
       ((std::cos(4.0_r * SubrosaDG::kPi * coordinate.x()) + std::cos(4.0_r * SubrosaDG::kPi * coordinate.y())) /
        4.0_r) /
-              (kReferenceSoundSpeed * kReferenceSoundSpeed) +
+              (SubrosaDG::PhysicalModelData::kReferenceSoundSpeed *
+               SubrosaDG::PhysicalModelData::kReferenceSoundSpeed) +
           0.99_r * 1.0_r,
       std::sin(2.0_r * SubrosaDG::kPi * coordinate.x()) * std::cos(2.0_r * SubrosaDG::kPi * coordinate.y()),
       -std::cos(2.0_r * SubrosaDG::kPi * coordinate.x()) * std::sin(2.0_r * SubrosaDG::kPi * coordinate.y()), 1.0_r};
 }
 
 template <typename SimulationControl>
-inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
-SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+inline void SubrosaDG::BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
     [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
-    [[maybe_unused]] const SubrosaDG::Isize gmsh_physical_index) const {
-  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
-}
+    [[maybe_unused]] Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
+    [[maybe_unused]] const SubrosaDG::Isize gmsh_physical_index) {}
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
-  system.setMesh(kExampleDirectory / "taylorvortex_2d_incns.msh", generateMesh);
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
-  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
-  system.setEquationOfState<SimulationControl::kEquationOfState>(kReferenceSoundSpeed, 1.0_r);
-  system.setTransportModel<SimulationControl::kTransportModel>(1.0_r * 1.0_r * 1.0_r / 1000.0_r);
-  system.setTimeIntegration(1.0_r, {0, 100000});
-  system.setDeltaTime(1e-5_r);
-  system.setViewConfig(kExampleDirectory, kExampleName, -1);
+  system.setMesh(kExampleDirectory / std::format("{}.msh", kExampleName), generateMesh);
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
+  system.setTimeIntegration(1.0_r);
+  system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::MachNumber});
   system.synchronize();
   system.solve();
   system.view();
-  std::cout << std::endl << "kReferenceSoundSpeed = " << kReferenceSoundSpeed << std::endl;
   return EXIT_SUCCESS;
 }
 

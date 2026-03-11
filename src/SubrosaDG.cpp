@@ -6,7 +6,7 @@
  * @date 2022-11-01
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
@@ -31,7 +31,6 @@
 // clang-format off
 
 #include "Cmake.cpp"
-#include "Mesh/Adjacency.cpp"
 #include "Mesh/BasisFunction.cpp"
 #include "Mesh/Element.cpp"
 #include "Mesh/Geometry.cpp"
@@ -54,7 +53,9 @@
 #include "Utils/Constant.cpp"
 #include "Utils/Enum.cpp"
 #include "Utils/Environment.cpp"
+#include "Utils/MatrixDevice.cpp"
 #include "Utils/SystemControl.cpp"
+#include "Utils/Transformation.cpp"
 #include "Utils/Version.cpp"
 #include "View/CommandLine.cpp"
 #include "View/IOControl.cpp"

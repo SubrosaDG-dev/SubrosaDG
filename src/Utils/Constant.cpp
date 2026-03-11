@@ -6,7 +6,7 @@
  * @date 2023-04-10
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
@@ -15,6 +15,7 @@
 
 #include <limits>
 #include <numbers>
+#include <sycl/sycl.hpp>
 
 #include "Utils/BasicDataType.cpp"
 
@@ -30,9 +31,27 @@ inline constexpr Real kRealMax{std::numeric_limits<Real>::max()};
 inline constexpr Real kRealEpsilon{std::numeric_limits<Real>::epsilon()};
 inline constexpr int kRealSignificantDigits{std::numeric_limits<Real>::digits10};
 
+#if !defined(SUBROSA_DG_GPU) || defined(SUBROSA_DG_DEVELOP)
+const sycl::device kDevice = sycl::device(sycl::cpu_selector_v);
+#else   // !defined(SUBROSA_DG_GPU) || defined(SUBROSA_DG_DEVELOP)
+const sycl::device kDevice = sycl::device(sycl::gpu_selector_v);
+#endif  // !defined(SUBROSA_DG_GPU) || defined(SUBROSA_DG_DEVELOP)
+
+sycl::queue queue(kDevice);
+
+inline constexpr int kLocalSize{32};
+
+inline int getGroupSize(const int batch_size) { return (batch_size + kLocalSize - 1) / kLocalSize; }
+
+inline int getGlobalSize(const int batch_size) { return getGroupSize(batch_size) * kLocalSize; }
+
+inline sycl::nd_range<1> getNdRange(const int batch_size) {
+  return {sycl::range<1>(static_cast<std::size_t>(getGlobalSize(batch_size))), sycl::range<1>(kLocalSize)};
+}
+
 inline namespace Literals {
 
-inline constexpr Real operator""_deg(long double x) { return static_cast<Real>(x) * kPi / 180.0_r; }
+constexpr Real operator""_deg(long double x) { return static_cast<Real>(x) * kPi / 180.0_r; }
 
 }  // namespace Literals
 

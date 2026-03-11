@@ -6,9 +6,30 @@
  * @date 2024-11-25
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
+
+namespace SubrosaDG {
+
+// Ra = 1e6 , c0 = 3.0 ; Ra = 1e7 , c0 = 5.0
+struct PhysicalModelData {
+  // EquationOfState
+  static constexpr double kReferenceSoundSpeed = 3.0;
+  static constexpr double kReferenceDensity = 1.0;
+
+  // ThermodynamicModel
+  static constexpr double kSpecificHeatConstantPressure = 1.0;
+  static constexpr double kSpecificHeatConstantVolume = 1.0;
+
+  // TransportModel
+  static constexpr double kRayleighNumber = 1e6;
+  static constexpr double kPrandtlNumber = 0.71;
+  static constexpr double kDynamicViscosity = 842.61497731764;  // std::sqrt(kPrandtlNumber / kRayleighNumber)
+  static constexpr double kThermalConductivity = kSpecificHeatConstantPressure * kDynamicViscosity / kPrandtlNumber;
+};
+
+}  // namespace SubrosaDG
 
 #include "SubrosaDG.cpp"
 
@@ -19,52 +40,43 @@ inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDi
 using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::Boussinesq>,
-    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::ShockCapturingEnum::None,
-                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
+    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Quadrangle, SubrosaDG::InitialConditionEnum::Function,
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
-    SubrosaDG::IncompresibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
-                                       SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
-                                       SubrosaDG::TransportModelEnum::Constant, SubrosaDG::ConvectiveFluxEnum::Exact,
-                                       SubrosaDG::ViscousFluxEnum::BR2>>;
+    SubrosaDG::IncompressibleNSVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
+                                        SubrosaDG::EquationOfStateEnum::WeakCompressibleFluid,
+                                        SubrosaDG::TransportModelEnum::Constant, SubrosaDG::ConvectiveFluxEnum::Exact,
+                                        SubrosaDG::ViscousFluxEnum::BR2>>;
 
 template <typename SimulationControl>
-inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
-SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
-    [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
-  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 0.5_r};
+inline void SubrosaDG::InitialCondition<SimulationControl>::computePrimitiveFromCoordinate(
+    [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate,
+    Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& initial_primitive_variable) {
+  initial_primitive_variable = {1.0_r, 0.0_r, 0.0_r, 0.5_r};
 }
 
 template <typename SimulationControl>
-inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
-SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+inline void SubrosaDG::BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
     [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
-    const SubrosaDG::Isize gmsh_physical_index) const {
+    Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
+    const SubrosaDG::Isize gmsh_physical_index) {
   if (gmsh_physical_index == 1) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 0.5_r};
+    boundary_primitive_variable = {1.0_r, 0.0_r, 0.0_r, 0.5_r};
+  } else if (gmsh_physical_index == 2) {
+    boundary_primitive_variable = {1.0_r, 0.0_r, 0.0_r, 0.0_r};
+  } else if (gmsh_physical_index == 3) {
+    boundary_primitive_variable = {1.0_r, 0.0_r, 0.0_r, 1.0_r};
   }
-  if (gmsh_physical_index == 2) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 0.0_r};
-  }
-  if (gmsh_physical_index == 3) {
-    return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{1.0_r, 0.0_r, 0.0_r, 1.0_r};
-  }
-  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
 }
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
-  system.setMesh(kExampleDirectory / "thermalcavity_2d_incns.msh", generateMesh);
-  // system.addInitialCondition<SimulationControl::kInitialCondition>(kExampleDirectory / "thermalcavity_2d_incns_4000000.zst");
-  system.setSourceTerm<SimulationControl::kSourceTerm>(1.0_r, 0.5_r);
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(1);
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(2);
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(3);
-  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(1.0_r, 1.0_r);
-  // Ra = 1e6 , c0 = 3.0 ; Ra = 1e7 , c0 = 5.0
-  system.setEquationOfState<SimulationControl::kEquationOfState>(3.0_r, 1.0_r);
-  system.setTransportModel<SimulationControl::kTransportModel>(std::sqrt(0.71_r / 1e6_r));
+  system.setMesh(kExampleDirectory / std::format("{}.msh", kExampleName), generateMesh);
+  system.template setSourceTerm<SimulationControl::kSourceTerm>(1.0_r, 0.5_r);
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(1);
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(2);
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::IsoThermalNonSlipWall>(3);
   system.setTimeIntegration(0.5_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,

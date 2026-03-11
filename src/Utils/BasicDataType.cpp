@@ -6,7 +6,7 @@
  * @date 2022-11-02
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
@@ -14,20 +14,13 @@
 #define SUBROSA_DG_BASIC_DATA_TYPE_CPP_
 
 #include <dbg-macro/dbg.h>
-#include <oneapi/tbb.h>
-#include <oneapi/tbb/task_arena.h>
 
 #include <array>
 #include <cstddef>
 #include <functional>
-#include <iostream>
-#include <sycl/sycl.hpp>
+#include <iostream>  // IWYU pragma: keep
 
 namespace SubrosaDG {
-
-#if defined(SUBROSA_DG_SYCL) || defined(SUBROSA_DG_CUDA) || defined(SUBROSA_DG_ROCM)
-#define SUBROSA_DG_GPU
-#endif  // SUBROSA_DG_SYCL || SUBROSA_DG_CUDA || SUBROSA_DG_ROCM
 
 using Usize = unsigned int;
 using Isize = int;
@@ -38,21 +31,15 @@ using Real = float;
 using Real = double;
 #endif
 
-#ifndef SUBROSA_DG_GPU
-const sycl::device kDevice = sycl::device(sycl::cpu_selector_v);
-#else   // SUBROSA_DG_GPU
-const sycl::device kDevice = sycl::device(sycl::gpu_selector_v);
-#endif  // SUBROSA_DG_GPU
-
 inline namespace Literals {
 
-inline constexpr Real operator""_r(long double x) { return static_cast<Real>(x); }
+consteval Real operator""_r(long double x) { return static_cast<Real>(x); }
 
 }  // namespace Literals
 
 }  // namespace SubrosaDG
 
-// NOLINTBEGIN
+// NOLINTBEGIN(readability-identifier-naming)
 
 template <typename T, std::size_t N>
 struct unordered_array : std::array<T, N> {};
@@ -81,6 +68,6 @@ struct std::equal_to<unordered_array<T, N>> {
   }
 };
 
-// NOLINTEND
+// NOLINTEND(readability-identifier-naming)
 
 #endif  // SUBROSA_DG_BASIC_DATA_TYPE_CPP_

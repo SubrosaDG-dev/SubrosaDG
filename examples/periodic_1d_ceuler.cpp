@@ -6,9 +6,22 @@
  * @date 2023-12-15
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
+
+namespace SubrosaDG {
+
+struct PhysicalModelData {
+  // EquationOfState
+  static constexpr double kSpecificHeatRatio = 1.4;
+
+  // ThermodynamicModel
+  static constexpr double kSpecificHeatConstantPressure = 2.5;
+  static constexpr double kSpecificHeatConstantVolume = kSpecificHeatConstantPressure / kSpecificHeatRatio;
+};
+
+}  // namespace SubrosaDG
 
 #include "SubrosaDG.cpp"
 
@@ -17,41 +30,36 @@ inline const std::string kExampleName{"periodic_1d_ceuler"};
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D1, SubrosaDG::PolynomialOrderEnum::P3,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D1, SubrosaDG::PolynomialOrderEnum::P1,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
-    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Line, SubrosaDG::ShockCapturingEnum::None,
-                                SubrosaDG::LimiterEnum::None, SubrosaDG::InitialConditionEnum::Function,
-                                SubrosaDG::TimeIntegrationEnum::ForwardEuler>,
-    SubrosaDG::CompresibleEulerVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
-                                        SubrosaDG::EquationOfStateEnum::IdealGas, SubrosaDG::ConvectiveFluxEnum::HLLC>>;
+    SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Line, SubrosaDG::InitialConditionEnum::Function,
+                                SubrosaDG::TimeIntegrationEnum::SSPRK3>,
+    SubrosaDG::CompressibleEulerVariable<SubrosaDG::ThermodynamicModelEnum::Constant,
+                                         SubrosaDG::EquationOfStateEnum::IdealGas,
+                                         SubrosaDG::ConvectiveFluxEnum::HLLC>>;
 
 template <typename SimulationControl>
-inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
-SubrosaDG::InitialCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
-    const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate) const {
-  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>{
-      1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * coordinate.x()), 1.0_r,
-      1.4_r / (1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * coordinate.x()))};
+inline void SubrosaDG::InitialCondition<SimulationControl>::computePrimitiveFromCoordinate(
+    const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate,
+    Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& initial_primitive_variable) {
+  initial_primitive_variable = {1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * coordinate.x()), 1.0_r,
+                                1.4_r / (1.0_r + 0.2_r * std::sin(SubrosaDG::kPi * coordinate.x()))};
 }
 
 template <typename SimulationControl>
-inline Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>
-SubrosaDG::BoundaryCondition<SimulationControl>::calculatePrimitiveFromCoordinate(
+inline void SubrosaDG::BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
     [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
-    [[maybe_unused]] const SubrosaDG::Isize gmsh_physical_index) const {
-  return Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>::Zero();
-}
+    [[maybe_unused]] Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
+    [[maybe_unused]] const SubrosaDG::Isize gmsh_physical_index) {}
 
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);
   SubrosaDG::System<SimulationControl> system;
-  system.setMesh(kExampleDirectory / "periodic_1d_ceuler.msh", generateMesh);
-  system.addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
-  system.setThermodynamicModel<SimulationControl::kThermodynamicModel>(2.5_r, 25.0_r / 14.0_r);
-  system.setTimeIntegration(0.01_r, {0, 1});
-  system.setDeltaTime(1.0e-04_r);
-  system.setViewConfig(kExampleDirectory, kExampleName, 200);
+  system.setMesh(kExampleDirectory / std::format("{}.msh", kExampleName), generateMesh);
+  system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::Periodic>(1);
+  system.setTimeIntegration(0.01_r);
+  system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure});
   system.synchronize();

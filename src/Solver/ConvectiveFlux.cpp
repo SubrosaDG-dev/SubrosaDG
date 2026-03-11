@@ -6,17 +6,18 @@
  * @date 2023-11-07
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_CONVETIVE_FLUX_CPP_
-#define SUBROSA_DG_CONVETIVE_FLUX_CPP_
+#ifndef SUBROSA_DG_CONVECTIVE_FLUX_CPP_
+#define SUBROSA_DG_CONVECTIVE_FLUX_CPP_
 
 #include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
 
+#include "Solver/BoundaryCondition.cpp"
 #include "Solver/PhysicalModel.cpp"
 #include "Solver/VariableConvertor.cpp"
 #include "Utils/BasicDataType.cpp"
@@ -24,420 +25,1019 @@
 
 namespace SubrosaDG {
 
-template <typename SimulationControl, int N>
-inline void calculateConvectiveRawFlux(const Variable<SimulationControl, N>& variable,
-                                       FluxVariable<SimulationControl>& convective_raw_flux, const Isize column) {
-  if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
-    const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
-    const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
-        variable.template getVector<ComputationalVariableEnum::Velocity>(column);
-    convective_raw_flux.template setVector<ConservedVariableEnum::Density>(density * velocity);
-    const Real pressure = variable.template getScalar<ComputationalVariableEnum::Pressure>(column);
-    convective_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(
-        density * velocity * velocity.transpose() +
-        pressure * Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity());
-    const Real total_energy =
-        variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) +
-        variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column) / 2.0_r;
-    convective_raw_flux.template setVector<ConservedVariableEnum::DensityTotalEnergy>(
-        (density * total_energy + pressure) * velocity);
+template <typename SimulationControl>
+struct ConvectiveFlux {
+  static void computeRawFlux(const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+                                 quadrature_node_computational_variable,
+                             Eigen::Matrix<Real, SimulationControl::kDimension,
+                                           SimulationControl::kConservedVariableNumber>& convective_raw_flux) {
+    if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
+      const Real density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+          quadrature_node_computational_variable);
+      const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> velocity =
+          Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              quadrature_node_computational_variable);
+      RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(convective_raw_flux) =
+          density * velocity;
+      const Real pressure = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+          quadrature_node_computational_variable);
+      RawFlux<SimulationControl>::template getVectorDimension<ConservedVariableEnum::Momentum>(convective_raw_flux) =
+          density * velocity * velocity.transpose() +
+          pressure * Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
+      const Real total_energy =
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              quadrature_node_computational_variable) +
+          velocity.squaredNorm() / 2.0_r;
+      RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::DensityTotalEnergy>(
+          convective_raw_flux) = (density * total_energy + pressure) * velocity;
+    }
+    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+      const Real density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+          quadrature_node_computational_variable);
+      const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> velocity =
+          Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              quadrature_node_computational_variable);
+      RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(convective_raw_flux) =
+          density * velocity;
+      const Real pressure = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+          quadrature_node_computational_variable);
+      RawFlux<SimulationControl>::template getVectorDimension<ConservedVariableEnum::Momentum>(convective_raw_flux) =
+          density * velocity * velocity.transpose() +
+          pressure * Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity();
+      RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::DensityInternalEnergy>(
+          convective_raw_flux) =
+          density *
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              quadrature_node_computational_variable) *
+          velocity;
+    }
   }
-  if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
-    const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
-    const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
-        variable.template getVector<ComputationalVariableEnum::Velocity>(column);
-    convective_raw_flux.template setVector<ConservedVariableEnum::Density>(density * velocity);
-    const Real pressure = variable.template getScalar<ComputationalVariableEnum::Pressure>(column);
-    convective_raw_flux.template setMatrix<ConservedVariableEnum::Momentum>(
-        density * velocity * velocity.transpose() +
-        pressure * Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>::Identity());
-    convective_raw_flux.template setVector<ConservedVariableEnum::DensityInternalEnergy>(
-        density * variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) * velocity);
-  }
-}
 
-template <typename SimulationControl, int N>
-inline void calculateConvectiveNormalFlux(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                          const Variable<SimulationControl, N>& variable,
-                                          FluxNormalVariable<SimulationControl>& convective_normal_flux,
-                                          const Isize column) {
-  if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
-    const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
-    const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
-        variable.template getVector<ComputationalVariableEnum::Velocity>(column);
-    const Real normal_velocity = velocity.transpose() * normal_vector;
-    convective_normal_flux.template setScalar<ConservedVariableEnum::Density>(density * normal_velocity);
-    const Real pressure = variable.template getScalar<ComputationalVariableEnum::Pressure>(column);
-    convective_normal_flux.template setVector<ConservedVariableEnum::Momentum>(density * normal_velocity * velocity +
-                                                                               pressure * normal_vector);
-    const Real total_energy =
-        variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) +
-        variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(column) / 2.0_r;
-    convective_normal_flux.template setScalar<ConservedVariableEnum::DensityTotalEnergy>(
-        (density * total_energy + pressure) * normal_velocity);
+  static void addNormalFlux(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                            const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+                                quadrature_node_computational_variable,
+                            Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
+      const Real density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+          quadrature_node_computational_variable);
+      const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> velocity =
+          Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              quadrature_node_computational_variable);
+      const Real normal_velocity = velocity.transpose() * normal_vector;
+      NormalFlux<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(convective_normal_flux) +=
+          density * normal_velocity;
+      const Real pressure = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+          quadrature_node_computational_variable);
+      NormalFlux<SimulationControl>::template getVector<ConservedVariableEnum::Momentum>(convective_normal_flux) +=
+          density * normal_velocity * velocity + pressure * normal_vector;
+      const Real total_energy =
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              quadrature_node_computational_variable) +
+          velocity.squaredNorm() / 2.0_r;
+      NormalFlux<SimulationControl>::template getScalar<ConservedVariableEnum::DensityTotalEnergy>(
+          convective_normal_flux) += (density * total_energy + pressure) * normal_velocity;
+    }
+    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+      const Real density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+          quadrature_node_computational_variable);
+      const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> velocity =
+          Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              quadrature_node_computational_variable);
+      const Real normal_velocity = velocity.transpose() * normal_vector;
+      NormalFlux<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(convective_normal_flux) +=
+          density * normal_velocity;
+      const Real pressure = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+          quadrature_node_computational_variable);
+      NormalFlux<SimulationControl>::template getVector<ConservedVariableEnum::Momentum>(convective_normal_flux) +=
+          density * normal_velocity * velocity + pressure * normal_vector;
+      NormalFlux<SimulationControl>::template getScalar<ConservedVariableEnum::DensityInternalEnergy>(
+          convective_normal_flux) +=
+          density *
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              quadrature_node_computational_variable) *
+          normal_velocity;
+    }
   }
-  if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
-    const Real density = variable.template getScalar<ComputationalVariableEnum::Density>(column);
-    const Eigen::Vector<Real, SimulationControl::kDimension> velocity =
-        variable.template getVector<ComputationalVariableEnum::Velocity>(column);
-    const Real normal_velocity = velocity.transpose() * normal_vector;
-    convective_normal_flux.template setScalar<ConservedVariableEnum::Density>(density * normal_velocity);
-    const Real pressure = variable.template getScalar<ComputationalVariableEnum::Pressure>(column);
-    convective_normal_flux.template setVector<ConservedVariableEnum::Momentum>(density * normal_velocity * velocity +
-                                                                               pressure * normal_vector);
-    convective_normal_flux.template setScalar<ConservedVariableEnum::DensityInternalEnergy>(
-        density * variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) * normal_velocity);
-  }
-}
 
-template <typename SimulationControl, int N>
-inline void calculateConvectiveCentralFlux([[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
-                                           const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                           const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                           const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                           Flux<SimulationControl>& convective_flux, const Isize left_column,
-                                           const Isize right_column) {
-  calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_, left_column);
-  calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_, right_column);
-  convective_flux.result_.normal_variable_.noalias() =
-      (convective_flux.left_.normal_variable_ + convective_flux.right_.normal_variable_) / 2.0_r;
-}
+  static void computeCentralFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    convective_normal_flux.setZero();
+    ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                     convective_normal_flux);
+    ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, right_quadrature_node_computational_variable,
+                                                     convective_normal_flux);
+    convective_normal_flux /= 2.0_r;
+  }
 
-template <typename SimulationControl, int N>
-inline void calculateConvectiveLaxFriedrichsFlux(
-    const PhysicalModel<SimulationControl>& physical_model,
-    const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-    const Variable<SimulationControl, N>& left_quadrature_node_variable,
-    const Variable<SimulationControl, N>& right_quadrature_node_variable, Flux<SimulationControl>& convective_flux,
-    const Isize left_column, const Isize right_column) {
-  calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_, left_column);
-  calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_, right_column);
-  const Real left_normal_velocity =
-      left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column).transpose() *
-      normal_vector;
-  const Real right_normal_velocity =
-      right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column).transpose() *
-      normal_vector;
-  const Real left_sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(
-      left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column),
-      left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(left_column));
-  const Real right_sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(
-      right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column),
-      right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(right_column));
-  const Real spectral_radius = std::ranges::max(std::fabs(left_normal_velocity) + left_sound_speed,
-                                                std::fabs(right_normal_velocity) + right_sound_speed);
-  convective_flux.result_.normal_variable_.noalias() =
-      ((convective_flux.left_.normal_variable_ + convective_flux.right_.normal_variable_) -
-       spectral_radius * (right_quadrature_node_variable.conserved_.col(right_column) -
-                          left_quadrature_node_variable.conserved_.col(left_column))) /
-      2.0_r;
-}
+  static void computeLaxFriedrichsFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& right_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    convective_normal_flux.setZero();
+    ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                     convective_normal_flux);
+    ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, right_quadrature_node_computational_variable,
+                                                     convective_normal_flux);
+    const Real left_normal_velocity =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            left_quadrature_node_computational_variable)
+            .transpose() *
+        normal_vector;
+    const Real right_normal_velocity =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable)
+            .transpose() *
+        normal_vector;
+    const Real left_sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+            Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                left_quadrature_node_computational_variable),
+            Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                left_quadrature_node_computational_variable));
+    const Real right_sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+            Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                right_quadrature_node_computational_variable),
+            Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                right_quadrature_node_computational_variable));
+    const Real spectral_radius = std::ranges::max(std::fabs(left_normal_velocity) + left_sound_speed,
+                                                  std::fabs(right_normal_velocity) + right_sound_speed);
+    convective_normal_flux -=
+        spectral_radius * (right_quadrature_node_conserved_variable - left_quadrature_node_conserved_variable);
+    convective_normal_flux /= 2.0_r;
+  }
 
-template <typename SimulationControl, int N>
-inline void calculateConvectiveHLLCFlux(const PhysicalModel<SimulationControl>& physical_model,
-                                        const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                        const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                        const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                        Flux<SimulationControl>& convective_flux, const Isize left_column,
-                                        const Isize right_column) {
-  Variable<SimulationControl, 1> contact_variable;
-  const Real left_density =
-      left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column);
-  const Real right_density =
-      right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column);
-  const Real left_pressure =
-      left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(left_column);
-  const Real right_pressure =
-      right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(right_column);
-  const Real left_normal_velocity =
-      left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column).transpose() *
-      normal_vector;
-  const Real right_normal_velocity =
-      right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column).transpose() *
-      normal_vector;
-  const Real left_sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(left_density, left_pressure);
-  const Real right_sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(right_density, right_pressure);
-  const Real average_density = (left_density + right_density) / 2.0_r;
-  const Real average_sound_speed = (left_sound_speed + right_sound_speed) / 2.0_r;
-  const Real contact_pressure = std::ranges::max(
-      0.0_r, (left_pressure + right_pressure) / 2.0_r -
-                 (right_normal_velocity - left_normal_velocity) * average_density * average_sound_speed);
-  const Real left_wave_speed =
-      left_normal_velocity -
-      left_sound_speed * (contact_pressure <= left_pressure
-                              ? 1.0_r
-                              : std::sqrt(1.0_r + (physical_model.equation_of_state_.kSpecificHeatRatio + 1.0_r) *
-                                                      (contact_pressure / left_pressure - 1.0_r) / 2.0_r /
-                                                      physical_model.equation_of_state_.kSpecificHeatRatio));
-  if (left_wave_speed >= 0.0_r) {
-    calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.result_, left_column);
-    return;
+  static void computeHLLCFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& right_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    convective_normal_flux.setZero();
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> contact_conserved_variable;
+    const Real left_density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+        left_quadrature_node_computational_variable);
+    const Real right_density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+        right_quadrature_node_computational_variable);
+    const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> left_velocity =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            left_quadrature_node_computational_variable);
+    const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> right_velocity =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable);
+    const Real left_normal_velocity = left_velocity.transpose() * normal_vector;
+    const Real right_normal_velocity = right_velocity.transpose() * normal_vector;
+    const Real left_pressure = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+        left_quadrature_node_computational_variable);
+    const Real right_pressure = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+        right_quadrature_node_computational_variable);
+    const Real left_sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(left_density,
+                                                                                                  left_pressure);
+    const Real right_sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(right_density,
+                                                                                                  right_pressure);
+    const Real contact_pressure = std::ranges::max(
+        0.0_r, (left_pressure + right_pressure) / 2.0_r - (right_normal_velocity - left_normal_velocity) *
+                                                              ((left_density + right_density) / 2.0_r) *
+                                                              ((left_sound_speed + right_sound_speed) / 2.0_r));
+    const Real specific_heat_ratio = PhysicalModel<SimulationControl, PhysicalModelData>::getSpecificHeatRatio();
+    const Real left_wave_speed =
+        left_normal_velocity -
+        left_sound_speed *
+            (contact_pressure <= left_pressure
+                 ? 1.0_r
+                 : std::sqrt(1.0_r + (specific_heat_ratio + 1.0_r) * (contact_pressure / left_pressure - 1.0_r) /
+                                         2.0_r / specific_heat_ratio));
+    if (left_wave_speed >= 0.0_r) {
+      ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                       convective_normal_flux);
+      return;
+    }
+    const Real right_wave_speed =
+        right_normal_velocity +
+        right_sound_speed *
+            (contact_pressure <= right_pressure
+                 ? 1.0_r
+                 : std::sqrt(1.0_r + (specific_heat_ratio + 1.0_r) * (contact_pressure / right_pressure - 1.0_r) /
+                                         2.0_r / specific_heat_ratio));
+    if (right_wave_speed <= 0.0_r) {
+      ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, right_quadrature_node_computational_variable,
+                                                       convective_normal_flux);
+      return;
+    }
+    const Real contact_wave_speed =
+        (right_pressure - left_pressure +
+         left_density * left_normal_velocity * (left_wave_speed - left_normal_velocity) -
+         right_density * right_normal_velocity * (right_wave_speed - right_normal_velocity)) /
+        (left_density * (left_wave_speed - left_normal_velocity) -
+         right_density * (right_wave_speed - right_normal_velocity));
+    if (contact_wave_speed >= 0.0_r) {
+      ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                       convective_normal_flux);
+      Variable<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(contact_conserved_variable) =
+          left_density * (left_wave_speed - left_normal_velocity) / (left_wave_speed - contact_wave_speed);
+      Variable<SimulationControl>::template getVector<ConservedVariableEnum::Momentum>(contact_conserved_variable) =
+          ((left_wave_speed - left_normal_velocity) * left_density * left_velocity +
+           (contact_pressure - left_pressure) * normal_vector) /
+          (left_wave_speed - contact_wave_speed);
+      Variable<SimulationControl>::template getScalar<ConservedVariableEnum::DensityTotalEnergy>(
+          contact_conserved_variable) =
+          ((left_wave_speed - left_normal_velocity) * left_density *
+               (Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                    left_quadrature_node_computational_variable) +
+                left_velocity.squaredNorm() / 2.0_r) -
+           left_pressure * left_normal_velocity + contact_pressure * contact_wave_speed) /
+          (left_wave_speed - contact_wave_speed);
+      convective_normal_flux.noalias() +=
+          left_wave_speed * (contact_conserved_variable - left_quadrature_node_conserved_variable);
+    } else {
+      ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, right_quadrature_node_computational_variable,
+                                                       convective_normal_flux);
+      Variable<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(contact_conserved_variable) =
+          right_density * (right_wave_speed - right_normal_velocity) / (right_wave_speed - contact_wave_speed);
+      Variable<SimulationControl>::template getVector<ConservedVariableEnum::Momentum>(contact_conserved_variable) =
+          ((right_wave_speed - right_normal_velocity) * right_density * right_velocity +
+           (contact_pressure - right_pressure) * normal_vector) /
+          (right_wave_speed - contact_wave_speed);
+      Variable<SimulationControl>::template getScalar<ConservedVariableEnum::DensityTotalEnergy>(
+          contact_conserved_variable) =
+          ((right_wave_speed - right_normal_velocity) * right_density *
+               (Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                    right_quadrature_node_computational_variable) +
+                right_velocity.squaredNorm() / 2.0_r) -
+           right_pressure * right_normal_velocity + contact_pressure * contact_wave_speed) /
+          (right_wave_speed - contact_wave_speed);
+      convective_normal_flux.noalias() +=
+          right_wave_speed * (contact_conserved_variable - right_quadrature_node_conserved_variable);
+    }
   }
-  const Real right_wave_speed =
-      right_normal_velocity +
-      right_sound_speed * (contact_pressure <= right_pressure
-                               ? 1.0_r
-                               : std::sqrt(1.0_r + (physical_model.equation_of_state_.kSpecificHeatRatio + 1.0_r) *
-                                                       (contact_pressure / right_pressure - 1.0_r) / 2.0_r /
-                                                       physical_model.equation_of_state_.kSpecificHeatRatio));
-  if (right_wave_speed <= 0.0_r) {
-    calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.result_, right_column);
-    return;
-  }
-  const Real contact_wave_speed =
-      (right_pressure - left_pressure + left_density * left_normal_velocity * (left_wave_speed - left_normal_velocity) -
-       right_density * right_normal_velocity * (right_wave_speed - right_normal_velocity)) /
-      (left_density * (left_wave_speed - left_normal_velocity) -
-       right_density * (right_wave_speed - right_normal_velocity));
-  if (contact_wave_speed >= 0.0_r) {
-    calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_, left_column);
-    contact_variable.template setScalar<ConservedVariableEnum::Density>(
-        left_density * (left_wave_speed - left_normal_velocity) / (left_wave_speed - contact_wave_speed), 0);
-    const Eigen::Vector<Real, SimulationControl::kDimension> contact_momentum =
-        ((left_wave_speed - left_normal_velocity) * left_density *
-             left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column) +
-         (contact_pressure - left_pressure) * normal_vector) /
-        (left_wave_speed - contact_wave_speed);
-    contact_variable.template setVector<ConservedVariableEnum::Momentum>(contact_momentum, 0);
-    contact_variable.template setScalar<ConservedVariableEnum::DensityTotalEnergy>(
-        ((left_wave_speed - left_normal_velocity) * left_density *
-             (left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(left_column) +
-              left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(
-                  left_column) /
-                  2.0_r) -
-         left_pressure * left_normal_velocity + contact_pressure * contact_wave_speed) /
-            (left_wave_speed - contact_wave_speed),
-        0);
-    convective_flux.result_.normal_variable_.noalias() =
-        convective_flux.left_.normal_variable_ +
-        left_wave_speed * (contact_variable.conserved_ - left_quadrature_node_variable.conserved_.col(left_column));
-  } else {
-    calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_, right_column);
-    contact_variable.template setScalar<ConservedVariableEnum::Density>(
-        right_density * (right_wave_speed - right_normal_velocity) / (right_wave_speed - contact_wave_speed), 0);
-    const Eigen::Vector<Real, SimulationControl::kDimension> contact_momentum =
-        ((right_wave_speed - right_normal_velocity) * right_density *
-             right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column) +
-         (contact_pressure - right_pressure) * normal_vector) /
-        (right_wave_speed - contact_wave_speed);
-    contact_variable.template setVector<ConservedVariableEnum::Momentum>(contact_momentum, 0);
-    contact_variable.template setScalar<ConservedVariableEnum::DensityTotalEnergy>(
-        ((right_wave_speed - right_normal_velocity) * right_density *
-             (right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(
-                  right_column) +
-              right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(
-                  right_column) /
-                  2.0_r) -
-         right_pressure * right_normal_velocity + contact_pressure * contact_wave_speed) /
-            (right_wave_speed - contact_wave_speed),
-        0);
-    convective_flux.result_.normal_variable_.noalias() =
-        convective_flux.right_.normal_variable_ +
-        right_wave_speed * (contact_variable.conserved_ - right_quadrature_node_variable.conserved_.col(right_column));
-  }
-}
 
-template <typename SimulationControl, int N>
-inline void calculateConvectiveRoeFlux(const PhysicalModel<SimulationControl>& physical_model,
-                                       const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                       const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                       const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                       Flux<SimulationControl>& convective_flux, const Isize left_column,
-                                       const Isize right_column) {
-  Variable<SimulationControl, 1> roe_variable;
-  Variable<SimulationControl, 1> delta_variable;
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kConservedVariableNumber>
-      roe_matrix = Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                                 SimulationControl::kConservedVariableNumber>::Zero();
-  calculateConvectiveNormalFlux(normal_vector, left_quadrature_node_variable, convective_flux.left_, left_column);
-  calculateConvectiveNormalFlux(normal_vector, right_quadrature_node_variable, convective_flux.right_, right_column);
-  const Real left_sqrt_density =
-      std::sqrt(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column));
-  const Real right_sqrt_density =
-      std::sqrt(right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column));
-  const Real sqrt_density_summation = left_sqrt_density + right_sqrt_density;
-  roe_variable.template setScalar<ComputationalVariableEnum::Density>(
-      std::sqrt(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column) *
-                right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column)),
-      0);
-  roe_variable.template setVector<ComputationalVariableEnum::Velocity>(
-      (left_sqrt_density *
-           left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column) +
-       right_sqrt_density *
-           right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column)) /
-          sqrt_density_summation,
-      0);
-  const Real left_total_enthapy =
-      left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(left_column) *
-          physical_model.equation_of_state_.kSpecificHeatRatio +
-      left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(left_column) /
-          2.0_r;
-  const Real right_total_enthapy =
-      right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(right_column) *
-          physical_model.equation_of_state_.kSpecificHeatRatio +
-      right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(right_column) /
-          2.0_r;
-  const Real roe_total_enthapy =
-      (left_sqrt_density * left_total_enthapy + right_sqrt_density * right_total_enthapy) / sqrt_density_summation;
-  roe_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
-      (roe_total_enthapy - roe_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(0) / 2.0_r) /
-          physical_model.equation_of_state_.kSpecificHeatRatio,
-      0);
-  roe_variable.template setScalar<ComputationalVariableEnum::Pressure>(
-      physical_model.calculatePressureFormDensityInternalEnergy(
-          roe_variable.template getScalar<ComputationalVariableEnum::Density>(0),
-          roe_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(0)),
-      0);
-  const Real roe_normal_velocity =
-      roe_variable.template getVector<ComputationalVariableEnum::Velocity>(0).transpose() * normal_vector;
-  const Real roe_sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(
-      roe_variable.template getScalar<ComputationalVariableEnum::Density>(0),
-      roe_variable.template getScalar<ComputationalVariableEnum::Pressure>(0));
-  delta_variable.computational_ = right_quadrature_node_variable.computational_.col(right_column) -
-                                  left_quadrature_node_variable.computational_.col(left_column);
-  const Real delta_normal_velocity =
-      delta_variable.template getVector<ComputationalVariableEnum::Velocity>(0).transpose() * normal_vector;
-  const Real harten_delta = roe_sound_speed / 20.0_r;
-  const Real lambda_velocity_subtract_sound_speed =
-      std::fabs(roe_normal_velocity - roe_sound_speed) > harten_delta
-          ? std::fabs(roe_normal_velocity - roe_sound_speed)
-          : ((roe_normal_velocity - roe_sound_speed) * (roe_normal_velocity - roe_sound_speed) +
-             harten_delta * harten_delta) /
-                (2.0_r * harten_delta);
-  const Real lambda_velocity_add_sound_speed =
-      std::fabs(roe_normal_velocity + roe_sound_speed) > harten_delta
-          ? std::fabs(roe_normal_velocity + roe_sound_speed)
-          : ((roe_normal_velocity + roe_sound_speed) * (roe_normal_velocity + roe_sound_speed) +
-             harten_delta * harten_delta) /
-                (2.0_r * harten_delta);
-  roe_matrix.col(0) << 1.0_r,
-      roe_variable.template getVector<ComputationalVariableEnum::Velocity>(0) - roe_sound_speed * normal_vector,
-      roe_total_enthapy - roe_sound_speed * roe_normal_velocity;
-  roe_matrix.col(0) *= lambda_velocity_subtract_sound_speed *
-                       (delta_variable.template getScalar<ComputationalVariableEnum::Pressure>(0) -
-                        roe_variable.template getScalar<ComputationalVariableEnum::Density>(0) * roe_sound_speed *
-                            delta_normal_velocity) /
-                       (2.0_r * roe_sound_speed * roe_sound_speed);
-  roe_matrix.col(1) << 1.0_r, roe_variable.template getVector<ComputationalVariableEnum::Velocity>(0),
-      roe_variable.template getScalar<ComputationalVariableEnum::VelocitySquaredNorm>(0) / 2.0_r;
-  roe_matrix.col(1) *=
-      std::fabs(roe_normal_velocity) *
-      (delta_variable.template getScalar<ComputationalVariableEnum::Density>(0) -
-       delta_variable.template getScalar<ComputationalVariableEnum::Pressure>(0) / (roe_sound_speed * roe_sound_speed));
-  if constexpr (SimulationControl::kDimension == 2 || SimulationControl::kDimension == 3) {
-    roe_matrix.col(2) << 0.0_r,
-        delta_variable.template getVector<ComputationalVariableEnum::Velocity>(0) -
-            delta_normal_velocity * normal_vector,
-        roe_variable.template getVector<ComputationalVariableEnum::Velocity>(0).transpose() *
-                delta_variable.template getVector<ComputationalVariableEnum::Velocity>(0) -
-            roe_normal_velocity * delta_normal_velocity;
-    roe_matrix.col(2) *=
-        std::fabs(roe_normal_velocity) * roe_variable.template getScalar<ComputationalVariableEnum::Density>(0);
+  static void computeRoeFlux(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                             [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+                                 left_quadrature_node_conserved_variable,
+                             const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+                                 left_quadrature_node_computational_variable,
+                             [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+                                 right_quadrature_node_conserved_variable,
+                             const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+                                 right_quadrature_node_computational_variable,
+                             Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    convective_normal_flux.setZero();
+    ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                     convective_normal_flux);
+    ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, right_quadrature_node_computational_variable,
+                                                     convective_normal_flux);
+    Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kConservedVariableNumber>
+        roe_matrix;
+    roe_matrix.setZero();
+    const Real left_sqrt_density =
+        std::sqrt(Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+            left_quadrature_node_computational_variable));
+    const Real right_sqrt_density =
+        std::sqrt(Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+            right_quadrature_node_computational_variable));
+    const Real roe_density =
+        std::sqrt(Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                      left_quadrature_node_computational_variable) *
+                  Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                      right_quadrature_node_computational_variable));
+    const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> left_velocity =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            left_quadrature_node_computational_variable);
+    const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> right_velocity =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable);
+    const Eigen::Vector<Real, SimulationControl::kDimension> roe_velocity =
+        (left_sqrt_density * left_velocity + right_sqrt_density * right_velocity) /
+        (left_sqrt_density + right_sqrt_density);
+    const Real specific_heat_ratio = PhysicalModel<SimulationControl, PhysicalModelData>::getSpecificHeatRatio();
+    const Real left_total_enthapy =
+        Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+            left_quadrature_node_computational_variable) *
+            specific_heat_ratio +
+        left_velocity.squaredNorm() / 2.0_r;
+    const Real right_total_enthapy =
+        Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+            right_quadrature_node_computational_variable) *
+            specific_heat_ratio +
+        right_velocity.squaredNorm() / 2.0_r;
+    const Real roe_total_enthapy = (left_sqrt_density * left_total_enthapy + right_sqrt_density * right_total_enthapy) /
+                                   (left_sqrt_density + right_sqrt_density);
+    const Real roe_internal_energy = (roe_total_enthapy - roe_velocity.squaredNorm() / 2.0_r) / specific_heat_ratio;
+    const Real roe_pressure =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
+            roe_density, roe_internal_energy);
+    const Real roe_normal_velocity = roe_velocity.transpose() * normal_vector;
+    const Real roe_sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(roe_density,
+                                                                                                  roe_pressure);
+    const Real delta_density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                                   right_quadrature_node_computational_variable) -
+                               Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                                   left_quadrature_node_computational_variable);
+    const Eigen::Vector<Real, SimulationControl::kDimension> delta_velocity = right_velocity - left_velocity;
+    const Real delta_pressure = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                                    right_quadrature_node_computational_variable) -
+                                Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                                    left_quadrature_node_computational_variable);
+    const Real delta_normal_velocity = delta_velocity.transpose() * normal_vector;
+    const Real harten_delta = roe_sound_speed / 20.0_r;
+    const Real lambda_velocity_subtract_sound_speed =
+        std::fabs(roe_normal_velocity - roe_sound_speed) > harten_delta
+            ? std::fabs(roe_normal_velocity - roe_sound_speed)
+            : ((roe_normal_velocity - roe_sound_speed) * (roe_normal_velocity - roe_sound_speed) +
+               harten_delta * harten_delta) /
+                  (2.0_r * harten_delta);
+    const Real lambda_velocity_add_sound_speed =
+        std::fabs(roe_normal_velocity + roe_sound_speed) > harten_delta
+            ? std::fabs(roe_normal_velocity + roe_sound_speed)
+            : ((roe_normal_velocity + roe_sound_speed) * (roe_normal_velocity + roe_sound_speed) +
+               harten_delta * harten_delta) /
+                  (2.0_r * harten_delta);
+    roe_matrix.col(0) << 1.0_r, roe_velocity - roe_sound_speed * normal_vector,
+        roe_total_enthapy - roe_sound_speed * roe_normal_velocity;
+    roe_matrix.col(0) *= lambda_velocity_subtract_sound_speed *
+                         (delta_pressure - roe_density * roe_sound_speed * delta_normal_velocity) /
+                         (2.0_r * roe_sound_speed * roe_sound_speed);
+    roe_matrix.col(1) << 1.0_r, roe_velocity, roe_velocity.squaredNorm() / 2.0_r;
+    roe_matrix.col(1) *=
+        std::fabs(roe_normal_velocity) * (delta_density - delta_pressure / (roe_sound_speed * roe_sound_speed));
+    if constexpr (SimulationControl::kDimension == 2 || SimulationControl::kDimension == 3) {
+      roe_matrix.col(2) << 0.0_r, delta_velocity - delta_normal_velocity * normal_vector,
+          roe_velocity.transpose() * delta_velocity - roe_normal_velocity * delta_normal_velocity;
+      roe_matrix.col(2) *= std::fabs(roe_normal_velocity) * roe_density;
+    }
+    roe_matrix.col(SimulationControl::kDimension + 1) << 1.0_r, roe_velocity + roe_sound_speed * normal_vector,
+        roe_total_enthapy + roe_sound_speed * roe_normal_velocity;
+    roe_matrix.col(SimulationControl::kDimension + 1) *=
+        lambda_velocity_add_sound_speed * (delta_pressure + roe_density * roe_sound_speed * delta_normal_velocity) /
+        (2.0_r * roe_sound_speed * roe_sound_speed);
+    convective_normal_flux -= roe_matrix.rowwise().sum();
+    convective_normal_flux /= 2.0_r;
   }
-  roe_matrix.col(SimulationControl::kDimension + 1) << 1.0_r,
-      roe_variable.template getVector<ComputationalVariableEnum::Velocity>(0) + roe_sound_speed * normal_vector,
-      roe_total_enthapy + roe_sound_speed * roe_normal_velocity;
-  roe_matrix.col(SimulationControl::kDimension + 1) *=
-      lambda_velocity_add_sound_speed *
-      (delta_variable.template getScalar<ComputationalVariableEnum::Pressure>(0) +
-       roe_variable.template getScalar<ComputationalVariableEnum::Density>(0) * roe_sound_speed *
-           delta_normal_velocity) /
-      (2.0_r * roe_sound_speed * roe_sound_speed);
-  convective_flux.result_.normal_variable_.noalias() =
-      ((convective_flux.left_.normal_variable_ + convective_flux.right_.normal_variable_) -
-       roe_matrix.rowwise().sum()) /
-      2.0_r;
-}
 
-template <typename SimulationControl, int N>
-inline void calculateConvectiveExactFlux(const PhysicalModel<SimulationControl>& physical_model,
-                                         const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                         const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                         const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                         Flux<SimulationControl>& convective_flux, const Isize left_column,
-                                         const Isize right_column) {
-  Variable<SimulationControl, 1> exact_variable;
-  Real exact_internal_energy;
-  Eigen::Vector<Real, SimulationControl::kDimension> exact_velocity;
-  const Real sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
-  const Real left_normal_velocity =
-      left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column).transpose() *
-      normal_vector;
-  const Real right_normal_velocity =
-      right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column).transpose() *
-      normal_vector;
-  const Real exact_density =
-      std::sqrt(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column) *
-                right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column) *
-                std::exp((left_normal_velocity - right_normal_velocity) / sound_speed));
-  const Real exact_normal_velocity =
-      (left_normal_velocity + right_normal_velocity) / 2.0_r +
-      std::log(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column) /
-               right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column)) *
-          sound_speed / 2.0_r;
-  if (exact_normal_velocity < 0.0_r) {
-    exact_internal_energy =
-        right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(right_column) *
-        right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(right_column) /
-        exact_density;
-    // exact_internal_energy =
-    //     right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(right_column);
-    exact_velocity =
-        right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column) +
-        (exact_normal_velocity -
-         right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(right_column)
-                 .transpose() *
-             normal_vector) *
-            normal_vector;
-  } else {
-    exact_internal_energy =
-        left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(left_column) *
-        left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(left_column) /
-        exact_density;
-    // exact_internal_energy =
-    //     left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(left_column);
-    exact_velocity =
-        left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column) +
-        (exact_normal_velocity -
-         left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(left_column)
-                 .transpose() *
-             normal_vector) *
-            normal_vector;
+  static void computeExactFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          right_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    convective_normal_flux.setZero();
+    Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> exact_computational_variable;
+    const Real sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
+    const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> left_velocity =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            left_quadrature_node_computational_variable);
+    const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> right_velocity =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable);
+    const Real left_normal_velocity = left_velocity.transpose() * normal_vector;
+    const Real right_normal_velocity = right_velocity.transpose() * normal_vector;
+    Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(exact_computational_variable) =
+        std::sqrt(Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                      left_quadrature_node_computational_variable) *
+                  Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                      right_quadrature_node_computational_variable) *
+                  std::exp((left_normal_velocity - right_normal_velocity) / sound_speed));
+    const Real exact_normal_velocity =
+        (left_normal_velocity + right_normal_velocity) / 2.0_r +
+        std::log(Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                     left_quadrature_node_computational_variable) /
+                 Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                     right_quadrature_node_computational_variable)) *
+            sound_speed / 2.0_r;
+    if (exact_normal_velocity < 0.0_r) {
+      Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+          exact_computational_variable) =
+          right_velocity + (exact_normal_velocity - right_normal_velocity) * normal_vector;
+      Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+          exact_computational_variable) =
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              right_quadrature_node_computational_variable);
+    } else {
+      Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+          exact_computational_variable) =
+          left_velocity + (exact_normal_velocity - left_normal_velocity) * normal_vector;
+      Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+          exact_computational_variable) =
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              left_quadrature_node_computational_variable);
+    }
+    Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(exact_computational_variable) =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
+            Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                exact_computational_variable),
+            Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                exact_computational_variable));
+    ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, exact_computational_variable,
+                                                     convective_normal_flux);
   }
-  const Real exact_pressure =
-      physical_model.calculatePressureFormDensityInternalEnergy(exact_density, exact_internal_energy);
-  exact_variable.template setScalar<ComputationalVariableEnum::Density>(exact_density, 0);
-  exact_variable.template setVector<ComputationalVariableEnum::Velocity>(exact_velocity, 0);
-  exact_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(exact_internal_energy, 0);
-  exact_variable.template setScalar<ComputationalVariableEnum::Pressure>(exact_pressure, 0);
-  calculateConvectiveNormalFlux(normal_vector, exact_variable, convective_flux.result_, 0);
-}
 
-template <typename SimulationControl, int N>
-inline void calculateConvectiveFlux(const PhysicalModel<SimulationControl>& physical_model,
-                                    const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                    const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                    const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                    Flux<SimulationControl>& convective_flux, const Isize left_column,
-                                    const Isize right_column) {
-  if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Central) {
-    calculateConvectiveCentralFlux(physical_model, normal_vector, left_quadrature_node_variable,
-                                   right_quadrature_node_variable, convective_flux, left_column, right_column);
-  } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::LaxFriedrichs) {
-    calculateConvectiveLaxFriedrichsFlux(physical_model, normal_vector, left_quadrature_node_variable,
-                                         right_quadrature_node_variable, convective_flux, left_column, right_column);
-  } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::HLLC) {
-    calculateConvectiveHLLCFlux(physical_model, normal_vector, left_quadrature_node_variable,
-                                right_quadrature_node_variable, convective_flux, left_column, right_column);
-  } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Roe) {
-    calculateConvectiveRoeFlux(physical_model, normal_vector, left_quadrature_node_variable,
-                               right_quadrature_node_variable, convective_flux, left_column, right_column);
-  } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Exact) {
-    calculateConvectiveExactFlux(physical_model, normal_vector, left_quadrature_node_variable,
-                                 right_quadrature_node_variable, convective_flux, left_column, right_column);
+  static void addVariableQuadratureRawFlux(
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> quadrature_node_computational_variable,
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>&
+          jacobian_transpose_inverse_multiply_determinate_and_weight,
+      Eigen::Ref<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>>
+          quadrature_node_variable_quadrature) {
+    Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber> convective_raw_flux;
+    ConvectiveFlux<SimulationControl>::computeRawFlux(quadrature_node_computational_variable, convective_raw_flux);
+    quadrature_node_variable_quadrature.noalias() +=
+        convective_raw_flux.transpose() * jacobian_transpose_inverse_multiply_determinate_and_weight;
   }
-}
+
+  static void addVariableInteriorAdjacencyQuadratureNormalFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& right_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          left_quadrature_node_variable_adjacency_quadrature,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          right_quadrature_node_variable_adjacency_quadrature,
+      const Real jacobian_determinant_multiply_weight) {
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> convective_normal_flux;
+    if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Central) {
+      ConvectiveFlux<SimulationControl>::computeCentralFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                            right_quadrature_node_computational_variable,
+                                                            convective_normal_flux);
+    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::LaxFriedrichs) {
+      ConvectiveFlux<SimulationControl>::computeLaxFriedrichsFlux(
+          normal_vector, left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable,
+          right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+          convective_normal_flux);
+    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::HLLC) {
+      ConvectiveFlux<SimulationControl>::computeHLLCFlux(
+          normal_vector, left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable,
+          right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+          convective_normal_flux);
+    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Roe) {
+      ConvectiveFlux<SimulationControl>::computeRoeFlux(
+          normal_vector, left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable,
+          right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+          convective_normal_flux);
+    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Exact) {
+      ConvectiveFlux<SimulationControl>::computeExactFlux(
+          normal_vector, left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable,
+          right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+          convective_normal_flux);
+    }
+    left_quadrature_node_variable_adjacency_quadrature.noalias() +=
+        convective_normal_flux * jacobian_determinant_multiply_weight;
+    right_quadrature_node_variable_adjacency_quadrature.noalias() -=
+        convective_normal_flux * jacobian_determinant_multiply_weight;
+  }
+
+  static void addVariableBoundaryAdjacencyQuadratureNormalFlux(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          left_quadrature_node_variable_adjacency_quadrature,
+      const BoundaryConditionEnum boundary_condition_type, const Real jacobian_determinant_multiply_weight) {
+    BoundaryCondition<SimulationControl>::computeBoundaryVariable(
+        normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+        boundary_quadrature_node_computational_variable, boundary_condition_type);
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> convective_normal_flux;
+    convective_normal_flux.setZero();
+    ConvectiveFlux<SimulationControl>::addNormalFlux(normal_vector, boundary_quadrature_node_computational_variable,
+                                                     convective_normal_flux);
+    left_quadrature_node_variable_adjacency_quadrature += convective_normal_flux * jacobian_determinant_multiply_weight;
+  }
+};
+
+template <typename SimulationControl>
+struct ConvectiveFluxDevice {
+  static void computeRawFlux(const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+                                 quadrature_node_computational_variable,
+                             Device::StaticMatrix<Real, SimulationControl::kDimension,
+                                                  SimulationControl::kConservedVariableNumber>& convective_raw_flux) {
+    if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
+      const Real density = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+          quadrature_node_computational_variable);
+      const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> velocity =
+          VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              quadrature_node_computational_variable);
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> density_flux =
+          RawFluxDevice<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(
+              convective_raw_flux);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        density_flux(m) = density * velocity(m);
+      }
+      const Real pressure = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+          quadrature_node_computational_variable);
+      Device::View<Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+          momentum_flux =
+              RawFluxDevice<SimulationControl>::template getVectorDimension<ConservedVariableEnum::Momentum>(
+                  convective_raw_flux);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        for (Isize n = 0; n < SimulationControl::kDimension; n++) {
+          momentum_flux(m, n) = density * velocity(m) * velocity(n) + (m == n ? pressure : 0.0_r);
+        }
+      }
+      const Real total_energy =
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              quadrature_node_computational_variable) +
+          velocity.squaredNorm() / 2.0_r;
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> energy_flux =
+          RawFluxDevice<SimulationControl>::template getScalarDimension<ConservedVariableEnum::DensityTotalEnergy>(
+              convective_raw_flux);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        energy_flux(m) = (density * total_energy + pressure) * velocity(m);
+      }
+    }
+    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+      const Real density = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+          quadrature_node_computational_variable);
+      const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> velocity =
+          VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              quadrature_node_computational_variable);
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> density_flux =
+          RawFluxDevice<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(
+              convective_raw_flux);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        density_flux(m) = density * velocity(m);
+      }
+      const Real pressure = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+          quadrature_node_computational_variable);
+      Device::View<Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+          momentum_flux =
+              RawFluxDevice<SimulationControl>::template getVectorDimension<ConservedVariableEnum::Momentum>(
+                  convective_raw_flux);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        for (Isize n = 0; n < SimulationControl::kDimension; n++) {
+          momentum_flux(m, n) = density * velocity(m) * velocity(n) + (m == n ? pressure : 0.0_r);
+        }
+      }
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> energy_flux =
+          RawFluxDevice<SimulationControl>::template getScalarDimension<ConservedVariableEnum::DensityInternalEnergy>(
+              convective_raw_flux);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        energy_flux(m) =
+            density *
+            VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                quadrature_node_computational_variable) *
+            velocity(m);
+      }
+    }
+  }
+
+  static void addNormalFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
+      const Real density = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+          quadrature_node_computational_variable);
+      const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> velocity =
+          VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              quadrature_node_computational_variable);
+      Real normal_velocity = 0.0_r;
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        normal_velocity += velocity(m) * normal_vector(m);
+      }
+      NormalFluxDevice<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(convective_normal_flux) +=
+          density * normal_velocity;
+      const Real pressure = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+          quadrature_node_computational_variable);
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> momentum_flux =
+          NormalFluxDevice<SimulationControl>::template getVector<ConservedVariableEnum::Momentum>(
+              convective_normal_flux);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        momentum_flux(m) += density * normal_velocity * velocity(m) + pressure * normal_vector(m);
+      }
+      const Real total_energy =
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              quadrature_node_computational_variable) +
+          velocity.squaredNorm() / 2.0_r;
+      NormalFluxDevice<SimulationControl>::template getScalar<ConservedVariableEnum::DensityTotalEnergy>(
+          convective_normal_flux) += (density * total_energy + pressure) * normal_velocity;
+    }
+    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+      const Real density = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+          quadrature_node_computational_variable);
+      const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> velocity =
+          VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              quadrature_node_computational_variable);
+      Real normal_velocity = 0.0_r;
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        normal_velocity += velocity(m) * normal_vector(m);
+      }
+      NormalFluxDevice<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(convective_normal_flux) +=
+          density * normal_velocity;
+      const Real pressure = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+          quadrature_node_computational_variable);
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> momentum_flux =
+          NormalFluxDevice<SimulationControl>::template getVector<ConservedVariableEnum::Momentum>(
+              convective_normal_flux);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        momentum_flux(m) += density * normal_velocity * velocity(m) + pressure * normal_vector(m);
+      }
+      NormalFluxDevice<SimulationControl>::template getScalar<ConservedVariableEnum::DensityInternalEnergy>(
+          convective_normal_flux) +=
+          density *
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              quadrature_node_computational_variable) *
+          normal_velocity;
+    }
+  }
+
+  static void computeCentralFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    convective_normal_flux.setZero();
+    ConvectiveFluxDevice<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                           convective_normal_flux);
+    ConvectiveFluxDevice<SimulationControl>::addNormalFlux(normal_vector, right_quadrature_node_computational_variable,
+                                                           convective_normal_flux);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      convective_normal_flux(m) /= 2.0_r;
+    }
+  }
+
+  static void computeLaxFriedrichsFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          right_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    convective_normal_flux.setZero();
+    ConvectiveFluxDevice<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                           convective_normal_flux);
+    ConvectiveFluxDevice<SimulationControl>::addNormalFlux(normal_vector, right_quadrature_node_computational_variable,
+                                                           convective_normal_flux);
+    const Real left_normal_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            left_quadrature_node_computational_variable)
+            .dot(normal_vector);
+    const Real right_normal_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable)
+            .dot(normal_vector);
+    const Real left_sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+            VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                left_quadrature_node_computational_variable),
+            VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                left_quadrature_node_computational_variable));
+    const Real right_sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+            VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                right_quadrature_node_computational_variable),
+            VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                right_quadrature_node_computational_variable));
+    const Real spectral_radius = sycl::max(sycl::fabs(left_normal_velocity) + left_sound_speed,
+                                           sycl::fabs(right_normal_velocity) + right_sound_speed);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      convective_normal_flux(m) -=
+          spectral_radius * (right_quadrature_node_conserved_variable(m) - left_quadrature_node_conserved_variable(m));
+      convective_normal_flux(m) /= 2.0_r;
+    }
+  }
+
+  static void computeHLLCFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          right_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    convective_normal_flux.setZero();
+    Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> contact_conserved_variable;
+    const Real left_density = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+        left_quadrature_node_computational_variable);
+    const Real right_density =
+        VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+            right_quadrature_node_computational_variable);
+    const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> left_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            left_quadrature_node_computational_variable);
+    const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> right_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable);
+    const Real left_normal_velocity = left_velocity.dot(normal_vector);
+    const Real right_normal_velocity = right_velocity.dot(normal_vector);
+    const Real left_pressure =
+        VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+            left_quadrature_node_computational_variable);
+    const Real right_pressure =
+        VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+            right_quadrature_node_computational_variable);
+    const Real left_sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(left_density,
+                                                                                                  left_pressure);
+    const Real right_sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(right_density,
+                                                                                                  right_pressure);
+    const Real contact_pressure =
+        sycl::max(0.0_r, (left_pressure + right_pressure) / 2.0_r -
+                             (right_normal_velocity - left_normal_velocity) * ((left_density + right_density) / 2.0_r) *
+                                 ((left_sound_speed + right_sound_speed) / 2.0_r));
+    const Real specific_heat_ratio = PhysicalModel<SimulationControl, PhysicalModelData>::getSpecificHeatRatio();
+    const Real left_wave_speed =
+        left_normal_velocity -
+        left_sound_speed *
+            (contact_pressure <= left_pressure
+                 ? 1.0_r
+                 : std::sqrt(1.0_r + (specific_heat_ratio + 1.0_r) * (contact_pressure / left_pressure - 1.0_r) /
+                                         2.0_r / specific_heat_ratio));
+    if (left_wave_speed >= 0.0_r) {
+      ConvectiveFluxDevice<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                             convective_normal_flux);
+      return;
+    }
+    const Real right_wave_speed =
+        right_normal_velocity +
+        right_sound_speed *
+            (contact_pressure <= right_pressure
+                 ? 1.0_r
+                 : std::sqrt(1.0_r + (specific_heat_ratio + 1.0_r) * (contact_pressure / right_pressure - 1.0_r) /
+                                         2.0_r / specific_heat_ratio));
+    if (right_wave_speed <= 0.0_r) {
+      ConvectiveFluxDevice<SimulationControl>::addNormalFlux(
+          normal_vector, right_quadrature_node_computational_variable, convective_normal_flux);
+      return;
+    }
+    const Real contact_wave_speed =
+        (right_pressure - left_pressure +
+         left_density * left_normal_velocity * (left_wave_speed - left_normal_velocity) -
+         right_density * right_normal_velocity * (right_wave_speed - right_normal_velocity)) /
+        (left_density * (left_wave_speed - left_normal_velocity) -
+         right_density * (right_wave_speed - right_normal_velocity));
+    if (contact_wave_speed >= 0.0_r) {
+      ConvectiveFluxDevice<SimulationControl>::addNormalFlux(normal_vector, left_quadrature_node_computational_variable,
+                                                             convective_normal_flux);
+      VariableDevice<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(
+          contact_conserved_variable) =
+          left_density * (left_wave_speed - left_normal_velocity) / (left_wave_speed - contact_wave_speed);
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> contact_momentum =
+          VariableDevice<SimulationControl>::template getVector<ConservedVariableEnum::Momentum>(
+              contact_conserved_variable);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        contact_momentum(m) = ((left_wave_speed - left_normal_velocity) * left_density * left_velocity(m) +
+                               (contact_pressure - left_pressure) * normal_vector(m)) /
+                              (left_wave_speed - contact_wave_speed);
+      }
+      VariableDevice<SimulationControl>::template getScalar<ConservedVariableEnum::DensityTotalEnergy>(
+          contact_conserved_variable) =
+          ((left_wave_speed - left_normal_velocity) * left_density *
+               (VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                    left_quadrature_node_computational_variable) +
+                left_velocity.squaredNorm() / 2.0_r) +
+           contact_pressure * contact_wave_speed - left_pressure * left_normal_velocity) /
+          (left_wave_speed - contact_wave_speed);
+      for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+        convective_normal_flux(m) +=
+            left_wave_speed * (contact_conserved_variable(m) - left_quadrature_node_conserved_variable(m));
+      }
+    } else {
+      ConvectiveFluxDevice<SimulationControl>::addNormalFlux(
+          normal_vector, right_quadrature_node_computational_variable, convective_normal_flux);
+      VariableDevice<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(
+          contact_conserved_variable) =
+          right_density * (right_wave_speed - right_normal_velocity) / (right_wave_speed - contact_wave_speed);
+      Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> contact_momentum =
+          VariableDevice<SimulationControl>::template getVector<ConservedVariableEnum::Momentum>(
+              contact_conserved_variable);
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        contact_momentum(m) = ((right_wave_speed - right_normal_velocity) * right_density * right_velocity(m) +
+                               (contact_pressure - right_pressure) * normal_vector(m)) /
+                              (right_wave_speed - contact_wave_speed);
+      }
+      VariableDevice<SimulationControl>::template getScalar<ConservedVariableEnum::DensityTotalEnergy>(
+          contact_conserved_variable) =
+          ((right_wave_speed - right_normal_velocity) * right_density *
+               (VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                    right_quadrature_node_computational_variable) +
+                right_velocity.squaredNorm() / 2.0_r) +
+           contact_pressure * contact_wave_speed - right_pressure * right_normal_velocity) /
+          (right_wave_speed - contact_wave_speed);
+      for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+        convective_normal_flux(m) +=
+            right_wave_speed * (contact_conserved_variable(m) - right_quadrature_node_conserved_variable(m));
+      }
+    }
+  }
+
+  // TODO: Implement Roe flux.
+  // static void computeRoeFlux(
+  //     const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+  //     [[maybe_unused]] const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+  //         left_quadrature_node_conserved_variable,
+  //     const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+  //         left_quadrature_node_computational_variable,
+  //     [[maybe_unused]] const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+  //         right_quadrature_node_conserved_variable,
+  //     const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+  //         right_quadrature_node_computational_variable,
+  //     Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {}
+
+  static void computeExactFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      [[maybe_unused]] const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      [[maybe_unused]] const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          right_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>& convective_normal_flux) {
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      convective_normal_flux(m) = 0.0_r;
+    }
+    Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber> exact_computational_variable;
+    const Real sound_speed =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
+    const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> left_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            left_quadrature_node_computational_variable);
+    const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> right_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable);
+    const Real left_normal_velocity = left_velocity.dot(normal_vector);
+    const Real right_normal_velocity = right_velocity.dot(normal_vector);
+    VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+        exact_computational_variable) =
+        sycl::sqrt(VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                       left_quadrature_node_computational_variable) *
+                   VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                       right_quadrature_node_computational_variable) *
+                   sycl::exp((left_normal_velocity - right_normal_velocity) / sound_speed));
+    const Real exact_normal_velocity =
+        (left_normal_velocity + right_normal_velocity) / 2.0_r +
+        sycl::log(VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                      left_quadrature_node_computational_variable) /
+                  VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                      right_quadrature_node_computational_variable)) *
+            sound_speed / 2.0_r;
+    Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> exact_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            exact_computational_variable);
+    if (exact_normal_velocity < 0.0_r) {
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        exact_velocity(m) = right_velocity(m) + (exact_normal_velocity - right_normal_velocity) * normal_vector(m);
+      }
+      VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+          exact_computational_variable) =
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              right_quadrature_node_computational_variable);
+    } else {
+      for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+        exact_velocity(m) = left_velocity(m) + (exact_normal_velocity - left_normal_velocity) * normal_vector(m);
+      }
+      VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+          exact_computational_variable) =
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              left_quadrature_node_computational_variable);
+    }
+    VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+        exact_computational_variable) =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
+            VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                exact_computational_variable),
+            VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                exact_computational_variable));
+    ConvectiveFluxDevice<SimulationControl>::addNormalFlux(normal_vector, exact_computational_variable,
+                                                           convective_normal_flux);
+  }
+
+  static void addVariableQuadratureRawFlux(
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          quadrature_node_computational_variable,
+      const Device::View<const Device::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
+          jacobian_transpose_inverse_multiply_determinate_and_weight,
+      Device::View<Device::Matrix<Real, SimulationControl::kConservedVariableNumber, SimulationControl::kDimension>>
+          quadrature_node_variable_quadrature) {
+    Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>
+        convective_raw_flux;
+    ConvectiveFluxDevice<SimulationControl>::computeRawFlux(quadrature_node_computational_variable,
+                                                            convective_raw_flux);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      for (Isize n = 0; n < SimulationControl::kDimension; n++) {
+        Real sum = 0.0_r;
+        for (Isize k = 0; k < SimulationControl::kDimension; k++) {
+          sum += convective_raw_flux(k, m) * jacobian_transpose_inverse_multiply_determinate_and_weight(k, n);
+        }
+        quadrature_node_variable_quadrature(m, n) += sum;
+      }
+    }
+  }
+
+  static void addVariableInteriorAdjacencyQuadratureNormalFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          right_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          left_quadrature_node_variable_adjacency_quadrature,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          right_quadrature_node_variable_adjacency_quadrature,
+      const Real jacobian_determinant_multiply_weight) {
+    Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> convective_normal_flux;
+    if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Central) {
+      ConvectiveFluxDevice<SimulationControl>::computeCentralFlux(
+          normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+          convective_normal_flux);
+    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::LaxFriedrichs) {
+      ConvectiveFluxDevice<SimulationControl>::computeLaxFriedrichsFlux(
+          normal_vector, left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable,
+          right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+          convective_normal_flux);
+    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::HLLC) {
+      ConvectiveFluxDevice<SimulationControl>::computeHLLCFlux(
+          normal_vector, left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable,
+          right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+          convective_normal_flux);
+    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Roe) {
+      // ConvectiveFluxDevice<SimulationControl>::computeRoeFlux(
+      //     normal_vector, left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable,
+      //     right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+      //     convective_normal_flux);
+    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Exact) {
+      ConvectiveFluxDevice<SimulationControl>::computeExactFlux(
+          normal_vector, left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable,
+          right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+          convective_normal_flux);
+    }
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      left_quadrature_node_variable_adjacency_quadrature(m) +=
+          convective_normal_flux(m) * jacobian_determinant_multiply_weight;
+      right_quadrature_node_variable_adjacency_quadrature(m) -=
+          convective_normal_flux(m) * jacobian_determinant_multiply_weight;
+    }
+  }
+
+  static void addVariableBoundaryAdjacencyQuadratureNormalFlux(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+          left_quadrature_node_variable_adjacency_quadrature,
+      const BoundaryConditionEnum boundary_condition_type, const Real jacobian_determinant_multiply_weight) {
+    BoundaryConditionDevice<SimulationControl>::computeBoundaryVariable(
+        normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+        boundary_quadrature_node_computational_variable, boundary_condition_type);
+    Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> convective_normal_flux;
+    convective_normal_flux.setZero();
+    ConvectiveFluxDevice<SimulationControl>::addNormalFlux(
+        normal_vector, boundary_quadrature_node_computational_variable, convective_normal_flux);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      left_quadrature_node_variable_adjacency_quadrature(m) +=
+          convective_normal_flux(m) * jacobian_determinant_multiply_weight;
+    }
+  }
+};
 
 }  // namespace SubrosaDG
 
-#endif  // SUBROSA_DG_CONVETIVE_FLUX_CPP_
+#endif  // SUBROSA_DG_CONVECTIVE_FLUX_CPP_

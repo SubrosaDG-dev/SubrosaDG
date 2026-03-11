@@ -6,7 +6,7 @@
  * @date 2023-11-07
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
@@ -16,6 +16,21 @@
 #include <Utils/Enum.cpp>
 
 namespace SubrosaDG {
+
+template <typename ElementTrait>
+concept Is0dElement = ElementTrait::kElementType == ElementEnum::Point;
+
+template <typename ElementTrait>
+concept Is1dElement = ElementTrait::kElementType == ElementEnum::Line;
+
+template <typename ElementTrait>
+concept Is2dElement =
+    ElementTrait::kElementType == ElementEnum::Triangle || ElementTrait::kElementType == ElementEnum::Quadrangle;
+
+template <typename ElementTrait>
+concept Is3dElement =
+    ElementTrait::kElementType == ElementEnum::Tetrahedron || ElementTrait::kElementType == ElementEnum::Pyramid ||
+    ElementTrait::kElementType == ElementEnum::Hexahedron;
 
 template <MeshModelEnum MeshModelType>
 concept IsUniform = MeshModelType == MeshModelEnum::Line || MeshModelType == MeshModelEnum::Triangle ||
@@ -52,40 +67,27 @@ template <MeshModelEnum MeshModelType>
 concept HasAdjacencyQuadrangle =
     MeshModelType == MeshModelEnum::Hexahedron || MeshModelType == MeshModelEnum::TetrahedronPyramidHexahedron;
 
-template <ElementEnum ElementType>
-concept Is0dElement = ElementType == ElementEnum::Point;
+template <EquationModelEnum EquationModelType>
+concept IsEuler = EquationModelType == EquationModelEnum::CompressibleEuler ||
+                  EquationModelType == EquationModelEnum::IncompressibleEuler;
 
-template <ElementEnum ElementType>
-concept Is1dElement = ElementType == ElementEnum::Line;
+template <EquationModelEnum EquationModelType>
+concept IsNS =
+    EquationModelType == EquationModelEnum::CompressibleNS || EquationModelType == EquationModelEnum::IncompressibleNS;
 
-template <ElementEnum ElementType>
-concept Is2dElement = ElementType == ElementEnum::Triangle || ElementType == ElementEnum::Quadrangle;
+template <EquationModelEnum EquationModelType>
+concept IsCompressible =
+    EquationModelType == EquationModelEnum::CompressibleEuler || EquationModelType == EquationModelEnum::CompressibleNS;
 
-template <ElementEnum ElementType>
-concept Is3dElement = ElementType == ElementEnum::Tetrahedron || ElementType == ElementEnum::Pyramid ||
-                      ElementType == ElementEnum::Hexahedron;
+template <EquationModelEnum EquationModelType>
+concept IsIncompressible = EquationModelType == EquationModelEnum::IncompressibleEuler ||
+                           EquationModelType == EquationModelEnum::IncompressibleNS;
 
 bool isWall(const BoundaryConditionEnum boundary_condition_type) {
   return boundary_condition_type == BoundaryConditionEnum::IsoThermalNonSlipWall ||
          boundary_condition_type == BoundaryConditionEnum::AdiabaticSlipWall ||
          boundary_condition_type == BoundaryConditionEnum::AdiabaticNonSlipWall;
 }
-
-template <EquationModelEnum EquationModelType>
-concept IsEuler = EquationModelType == EquationModelEnum::CompresibleEuler ||
-                  EquationModelType == EquationModelEnum::IncompresibleEuler;
-
-template <EquationModelEnum EquationModelType>
-concept IsNS =
-    EquationModelType == EquationModelEnum::CompresibleNS || EquationModelType == EquationModelEnum::IncompresibleNS;
-
-template <EquationModelEnum EquationModelType>
-concept IsCompresible =
-    EquationModelType == EquationModelEnum::CompresibleEuler || EquationModelType == EquationModelEnum::CompresibleNS;
-
-template <EquationModelEnum EquationModelType>
-concept IsIncompresible = EquationModelType == EquationModelEnum::IncompresibleEuler ||
-                          EquationModelType == EquationModelEnum::IncompresibleNS;
 
 }  // namespace SubrosaDG
 

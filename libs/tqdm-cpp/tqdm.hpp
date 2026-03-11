@@ -35,23 +35,23 @@
 
 namespace Tqdm {
 
-#define RESET       "\033[0m"
-#define BLACK       "\033[30m"             /* Black */
-#define RED         "\033[31m"             /* Red */
-#define GREEN       "\033[32m"             /* Green */
-#define YELLOW      "\033[33m"             /* Yellow */
-#define BLUE        "\033[34m"             /* Blue */
-#define MAGENTA     "\033[35m"             /* Magenta */
-#define CYAN        "\033[36m"             /* Cyan */
-#define WHITE       "\033[37m"             /* White */
-#define BOLDBLACK   "\033[1m\033[30m"      /* Bold Black */
-#define BOLDRED     "\033[1m\033[31m"      /* Bold Red */
-#define BOLDGREEN   "\033[1m\033[32m"      /* Bold Green */
-#define BOLDYELLOW  "\033[1m\033[33m"      /* Bold Yellow */
-#define BOLDBLUE    "\033[1m\033[34m"      /* Bold Blue */
-#define BOLDMAGENTA "\033[1m\033[35m"      /* Bold Magenta */
-#define BOLDCYAN    "\033[1m\033[36m"      /* Bold Cyan */
-#define BOLDWHITE   "\033[1m\033[37m"      /* Bold White */
+#define RESET "\033[0m"
+#define BLACK "\033[30m"              /* Black */
+#define RED "\033[31m"                /* Red */
+#define GREEN "\033[32m"              /* Green */
+#define YELLOW "\033[33m"             /* Yellow */
+#define BLUE "\033[34m"               /* Blue */
+#define MAGENTA "\033[35m"            /* Magenta */
+#define CYAN "\033[36m"               /* Cyan */
+#define WHITE "\033[37m"              /* White */
+#define BOLDBLACK "\033[1m\033[30m"   /* Bold Black */
+#define BOLDRED "\033[1m\033[31m"     /* Bold Red */
+#define BOLDGREEN "\033[1m\033[32m"   /* Bold Green */
+#define BOLDYELLOW "\033[1m\033[33m"  /* Bold Yellow */
+#define BOLDBLUE "\033[1m\033[34m"    /* Bold Blue */
+#define BOLDMAGENTA "\033[1m\033[35m" /* Bold Magenta */
+#define BOLDCYAN "\033[1m\033[36m"    /* Bold Cyan */
+#define BOLDWHITE "\033[1m\033[37m"   /* Bold White */
 
 using index = std::size_t;
 using time_point_t = std::chrono::time_point<std::chrono::steady_clock>;
@@ -84,8 +84,9 @@ class Chronometer {
 
 class ProgressBar {
  public:
-  void initialize(int cycle_start, int cycle_end, int delete_line) {
-    progress_ = static_cast<index>(cycle_start);
+  void initialize(int cycle_start, int cycle_end, int interval = 1, int delete_line = 1) {
+    progress_ = static_cast<index>(cycle_start - interval);
+    interval_ = static_cast<index>(interval);
     cycle_start_ = static_cast<index>(cycle_start);
     cycle_end_ = static_cast<index>(cycle_end);
     num_order_ = log10(cycle_end_) + 1;
@@ -94,6 +95,7 @@ class ProgressBar {
     for (int i = 0; i < delete_line_; i++) {
       (*os_) << '\n';
     }
+    update();
   }
 
   ~ProgressBar() {}
@@ -104,7 +106,8 @@ class ProgressBar {
   }
 
   void update() {
-    double proc = static_cast<double>(++progress_ - cycle_start_) / static_cast<double>(cycle_end_ - cycle_start_);
+    progress_ += interval_;
+    double proc = static_cast<double>(progress_ - cycle_start_) / static_cast<double>(cycle_end_ - cycle_start_);
 
     if (time_since_refresh() > min_time_per_update_ || proc == 0 || proc == 1) {
       reset_refresh_timer();
@@ -131,6 +134,7 @@ class ProgressBar {
 
     double t = chronometer_.peek();
     double eta = t / proc - t;
+    eta = std::isfinite(eta) ? eta : 0.0;
 
     std::chrono::hh_mm_ss t_ss{seconds(t)};
     std::chrono::hh_mm_ss eta_ss{seconds(eta)};
@@ -165,6 +169,7 @@ class ProgressBar {
   Chronometer refresh_{};
 
   index progress_;
+  index interval_;
   int delete_line_;
   index cycle_start_;
   index cycle_end_;

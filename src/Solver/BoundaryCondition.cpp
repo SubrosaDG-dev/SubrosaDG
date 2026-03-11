@@ -6,7 +6,7 @@
  * @date 2023-11-07
  *
  * @version 0.1.0
- * @copyright Copyright (c) 2022 - 2025 by SubrosaDG developers. All rights reserved.
+ * @copyright Copyright (c) 2022 - 2026 by SubrosaDG developers. All rights reserved.
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
@@ -26,623 +26,1460 @@
 
 namespace SubrosaDG {
 
+template <typename SimulationControl, BoundaryConditionEnum BoundaryConditionType>
+struct BoundaryConditionImpl;
+
+template <typename SimulationControl, BoundaryConditionEnum BoundaryConditionType>
+struct BoundaryConditionDeviceImpl;
+
+template <typename SimulationControl>
+struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield> {
+  static void computeBoundaryVariable(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+                                          left_quadrature_node_computational_variable,
+                                      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+                                          right_quadrature_node_computational_variable,
+                                      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+                                          boundary_quadrature_node_computational_variable) {
+    const Real normal_velocity = Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                                     left_quadrature_node_computational_variable)
+                                     .transpose() *
+                                 normal_vector;
+    const Real normal_mach_number =
+        normal_velocity / PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+                              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                                  left_quadrature_node_computational_variable),
+                              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                                  left_quadrature_node_computational_variable));
+    if (std::fabs(normal_mach_number) > 1.0_r) {
+      if (normal_mach_number < 0.0_r) {  // Supersonic inflow
+        boundary_quadrature_node_computational_variable = right_quadrature_node_computational_variable;
+      } else {  // Supersonic outflow
+        boundary_quadrature_node_computational_variable = left_quadrature_node_computational_variable;
+      }
+    } else {
+      if (normal_mach_number < 0.0_r) {  // Subsonic inflow
+        if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
+          const Real right_density =
+              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                  right_quadrature_node_computational_variable);
+          const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> right_velocity =
+              Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  right_quadrature_node_computational_variable);
+          const Real right_normal_velocity = right_velocity.transpose() * normal_vector;
+          const Real right_pressure =
+              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                  right_quadrature_node_computational_variable);
+          const Real specific_heat_ratio = PhysicalModel<SimulationControl, PhysicalModelData>::getSpecificHeatRatio();
+          const Real left_toward_riemann_invariant =
+              right_normal_velocity -
+              2.0_r *
+                  PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+                      right_density, right_pressure) /
+                  (specific_heat_ratio - 1.0_r);
+          const Real right_toward_riemann_invariant =
+              Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  left_quadrature_node_computational_variable)
+                      .transpose() *
+                  normal_vector +
+              2.0_r *
+                  PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+                      Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                          left_quadrature_node_computational_variable),
+                      Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                          left_quadrature_node_computational_variable)) /
+                  (specific_heat_ratio - 1.0_r);
+          const Real boundary_sound_speed =
+              (specific_heat_ratio - 1.0_r) * (right_toward_riemann_invariant - left_toward_riemann_invariant) / 4.0_r;
+          const Real boundary_entropy =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeEntropyFromDensityPressure(right_density,
+                                                                                                     right_pressure);
+          const Real boundary_density =
+              std::pow(boundary_sound_speed * boundary_sound_speed / (specific_heat_ratio * boundary_entropy),
+                       1.0_r / (specific_heat_ratio - 1.0_r));
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              boundary_quadrature_node_computational_variable) = boundary_density;
+          const Real boundary_normal_velocity =
+              (left_toward_riemann_invariant + right_toward_riemann_invariant) / 2.0_r;
+          Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              boundary_quadrature_node_computational_variable) =
+              right_velocity + (boundary_normal_velocity - right_normal_velocity) * normal_vector;
+          const Real boundary_pressure =
+              boundary_density * boundary_sound_speed * boundary_sound_speed / specific_heat_ratio;
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              boundary_quadrature_node_computational_variable) =
+              boundary_pressure / ((specific_heat_ratio - 1.0_r) * boundary_density);
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+              boundary_quadrature_node_computational_variable) = boundary_pressure;
+        }
+        if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+          const Real left_density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              left_quadrature_node_computational_variable);
+          const Real right_density =
+              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                  right_quadrature_node_computational_variable);
+          const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> right_velocity =
+              Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  right_quadrature_node_computational_variable);
+          const Real right_internal_energy =
+              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                  right_quadrature_node_computational_variable);
+          const Real left_normal_velocity =
+              Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  left_quadrature_node_computational_variable)
+                  .transpose() *
+              normal_vector;
+          const Real right_normal_velocity = right_velocity.transpose() * normal_vector;
+          const Real sound_speed =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
+          const Real boundary_density = std::sqrt(
+              left_density * right_density * std::exp((left_normal_velocity - right_normal_velocity) / sound_speed));
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              boundary_quadrature_node_computational_variable) = boundary_density;
+          const Real boundary_normal_velocity = (left_normal_velocity + right_normal_velocity) / 2.0_r +
+                                                std::log(left_density / right_density) * sound_speed / 2.0_r;
+          Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              boundary_quadrature_node_computational_variable) =
+              right_velocity + (boundary_normal_velocity - right_normal_velocity) * normal_vector;
+          const Real boundary_internal_energy = right_internal_energy;
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              boundary_quadrature_node_computational_variable) = boundary_internal_energy;
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+              boundary_quadrature_node_computational_variable) =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
+                  boundary_density, boundary_internal_energy);
+        }
+      } else {  // Subsonic outflow
+        if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
+          const Real left_density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              left_quadrature_node_computational_variable);
+          const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> left_velocity =
+              Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  left_quadrature_node_computational_variable);
+          const Real left_normal_velocity = left_velocity.transpose() * normal_vector;
+          const Real left_pressure =
+              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                  left_quadrature_node_computational_variable);
+          const Real specific_heat_ratio = PhysicalModel<SimulationControl, PhysicalModelData>::getSpecificHeatRatio();
+          const Real left_toward_riemann_invariant =
+              Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  right_quadrature_node_computational_variable)
+                      .transpose() *
+                  normal_vector -
+              2.0 *
+                  PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+                      Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                          right_quadrature_node_computational_variable),
+                      Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                          right_quadrature_node_computational_variable)) /
+                  (specific_heat_ratio - 1.0_r);
+          const Real right_toward_riemann_invariant =
+              left_normal_velocity +
+              2.0 *
+                  PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+                      Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                          left_quadrature_node_computational_variable),
+                      Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                          left_quadrature_node_computational_variable)) /
+                  (specific_heat_ratio - 1.0_r);
+          const Real boundary_sound_speed =
+              (specific_heat_ratio - 1.0_r) * (right_toward_riemann_invariant - left_toward_riemann_invariant) / 4.0_r;
+          const Real boundary_entropy =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeEntropyFromDensityPressure(left_density,
+                                                                                                     left_pressure);
+          const Real boundary_density =
+              std::pow(boundary_sound_speed * boundary_sound_speed / (specific_heat_ratio * boundary_entropy),
+                       1.0_r / (specific_heat_ratio - 1.0_r));
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              boundary_quadrature_node_computational_variable) = boundary_density;
+          const Real boundary_normal_velocity =
+              (left_toward_riemann_invariant + right_toward_riemann_invariant) / 2.0_r;
+          Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              boundary_quadrature_node_computational_variable) =
+              left_velocity + (boundary_normal_velocity - left_normal_velocity) * normal_vector;
+          const Real boundary_pressure =
+              boundary_density * boundary_sound_speed * boundary_sound_speed / specific_heat_ratio;
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              boundary_quadrature_node_computational_variable) =
+              boundary_pressure / ((specific_heat_ratio - 1.0_r) * boundary_density);
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+              boundary_quadrature_node_computational_variable) = boundary_pressure;
+        }
+        if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+          const Real left_density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              left_quadrature_node_computational_variable);
+          const Real right_density =
+              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                  right_quadrature_node_computational_variable);
+          const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> left_velocity =
+              Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  left_quadrature_node_computational_variable);
+          const Real left_internal_energy =
+              Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                  left_quadrature_node_computational_variable);
+          const Real left_normal_velocity = left_velocity.transpose() * normal_vector;
+          const Real right_normal_velocity =
+              Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  right_quadrature_node_computational_variable)
+                  .transpose() *
+              normal_vector;
+          const Real sound_speed =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
+          const Real boundary_density = std::sqrt(
+              left_density * right_density * std::exp((left_normal_velocity - right_normal_velocity) / sound_speed));
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              boundary_quadrature_node_computational_variable) = boundary_density;
+          const Real boundary_normal_velocity = (left_normal_velocity + right_normal_velocity) / 2.0_r +
+                                                std::log(left_density / right_density) * sound_speed / 2.0_r;
+          Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+              boundary_quadrature_node_computational_variable) =
+              left_velocity + (boundary_normal_velocity - left_normal_velocity) * normal_vector;
+          const Real boundary_internal_energy = left_internal_energy;
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              boundary_quadrature_node_computational_variable) = boundary_internal_energy;
+          Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+              boundary_quadrature_node_computational_variable) =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
+                  boundary_density, boundary_internal_energy);
+        }
+      }
+    }
+  }
+
+  static void modifyBoundaryVariableForViscousFlux(
+      [[maybe_unused]] Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          boundary_quadrature_node_primitive_variable_gradient) {
+    boundary_quadrature_node_primitive_variable_gradient = left_quadrature_node_primitive_variable_gradient;
+  }
+
+  static void computeBoundaryGradientVariable(
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_volume_gradient_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable) {
+    boundary_quadrature_node_volume_gradient_variable = left_quadrature_node_conserved_variable;
+    boundary_quadrature_node_interface_gradient_variable.setZero();
+  }
+};
+
+template <typename SimulationControl>
+struct BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield> {
+  static void computeBoundaryVariable(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable) {
+    const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            left_quadrature_node_computational_variable);
+    const Real normal_velocity = velocity.dot(normal_vector);
+    const Real normal_mach_number =
+        normal_velocity /
+        PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+            VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                left_quadrature_node_computational_variable),
+            VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                left_quadrature_node_computational_variable));
+    if (sycl::fabs(normal_mach_number) > 1.0_r) {
+      if (normal_mach_number < 0.0_r) {  // Supersonic inflow
+        for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+          boundary_quadrature_node_computational_variable(m) = right_quadrature_node_computational_variable(m);
+        }
+      } else {  // Supersonic outflow
+        for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+          boundary_quadrature_node_computational_variable(m) = left_quadrature_node_computational_variable(m);
+        }
+      }
+    } else {
+      if (normal_mach_number < 0.0_r) {  // Subsonic inflow
+        if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
+          const Real right_density =
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                  right_quadrature_node_computational_variable);
+          const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> right_velocity =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  right_quadrature_node_computational_variable);
+          const Real right_normal_velocity = right_velocity.dot(normal_vector);
+          const Real right_pressure =
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                  right_quadrature_node_computational_variable);
+          const Real specific_heat_ratio = PhysicalModel<SimulationControl, PhysicalModelData>::getSpecificHeatRatio();
+          const Real left_toward_riemann_invariant =
+              right_normal_velocity -
+              2.0_r *
+                  PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+                      right_density, right_pressure) /
+                  (specific_heat_ratio - 1.0_r);
+          const Real right_toward_riemann_invariant =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  left_quadrature_node_computational_variable)
+                  .dot(normal_vector) +
+              2.0_r *
+                  PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+                      VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                          left_quadrature_node_computational_variable),
+                      VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                          left_quadrature_node_computational_variable)) /
+                  (specific_heat_ratio - 1.0_r);
+          const Real boundary_sound_speed =
+              (specific_heat_ratio - 1.0_r) * (right_toward_riemann_invariant - left_toward_riemann_invariant) / 4.0_r;
+          const Real boundary_entropy =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeEntropyFromDensityPressure(right_density,
+                                                                                                     right_pressure);
+          const Real boundary_density =
+              sycl::pow(boundary_sound_speed * boundary_sound_speed / (specific_heat_ratio * boundary_entropy),
+                        1.0_r / (specific_heat_ratio - 1.0_r));
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              boundary_quadrature_node_computational_variable) = boundary_density;
+          const Real boundary_normal_velocity =
+              (left_toward_riemann_invariant + right_toward_riemann_invariant) / 2.0_r;
+          Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> boundary_velocity =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  boundary_quadrature_node_computational_variable);
+          for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+            boundary_velocity(m) =
+                right_velocity(m) + (boundary_normal_velocity - right_normal_velocity) * normal_vector(m);
+          }
+          const Real boundary_pressure =
+              boundary_density * boundary_sound_speed * boundary_sound_speed / specific_heat_ratio;
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              boundary_quadrature_node_computational_variable) =
+              boundary_pressure / ((specific_heat_ratio - 1.0_r) * boundary_density);
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+              boundary_quadrature_node_computational_variable) = boundary_pressure;
+        }
+        if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+          const Real left_density =
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                  left_quadrature_node_computational_variable);
+          const Real right_density =
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                  right_quadrature_node_computational_variable);
+          const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> right_velocity =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  right_quadrature_node_computational_variable);
+          const Real right_internal_energy =
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                  right_quadrature_node_computational_variable);
+          const Real left_normal_velocity =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  left_quadrature_node_computational_variable)
+                  .dot(normal_vector);
+          const Real right_normal_velocity = right_velocity.dot(normal_vector);
+          const Real sound_speed =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
+          const Real boundary_density = sycl::sqrt(
+              left_density * right_density * sycl::exp((left_normal_velocity - right_normal_velocity) / sound_speed));
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              boundary_quadrature_node_computational_variable) = boundary_density;
+          const Real boundary_normal_velocity = (left_normal_velocity + right_normal_velocity) / 2.0_r +
+                                                sycl::log(left_density / right_density) * sound_speed / 2.0_r;
+          Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> boundary_velocity =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  boundary_quadrature_node_computational_variable);
+          for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+            boundary_velocity(m) =
+                right_velocity(m) + (boundary_normal_velocity - right_normal_velocity) * normal_vector(m);
+          }
+          const Real boundary_internal_energy = right_internal_energy;
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              boundary_quadrature_node_computational_variable) = boundary_internal_energy;
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+              boundary_quadrature_node_computational_variable) =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
+                  boundary_density, boundary_internal_energy);
+        }
+      } else {  // Subsonic outflow
+        if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
+          const Real left_density =
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                  left_quadrature_node_computational_variable);
+          const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> left_velocity =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  left_quadrature_node_computational_variable);
+          const Real left_normal_velocity = left_velocity.dot(normal_vector);
+          const Real left_pressure =
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                  left_quadrature_node_computational_variable);
+          const Real specific_heat_ratio = PhysicalModel<SimulationControl, PhysicalModelData>::getSpecificHeatRatio();
+          const Real left_toward_riemann_invariant =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  right_quadrature_node_computational_variable)
+                  .dot(normal_vector) -
+              2.0_r *
+                  PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+                      VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                          right_quadrature_node_computational_variable),
+                      VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                          right_quadrature_node_computational_variable)) /
+                  (specific_heat_ratio - 1.0_r);
+          const Real right_toward_riemann_invariant =
+              left_normal_velocity +
+              2.0_r *
+                  PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(
+                      VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                          left_quadrature_node_computational_variable),
+                      VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+                          left_quadrature_node_computational_variable)) /
+                  (specific_heat_ratio - 1.0_r);
+          const Real boundary_sound_speed =
+              (specific_heat_ratio - 1.0_r) * (right_toward_riemann_invariant - left_toward_riemann_invariant) / 4.0_r;
+          const Real boundary_entropy =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeEntropyFromDensityPressure(left_density,
+                                                                                                     left_pressure);
+          const Real boundary_density =
+              sycl::pow(boundary_sound_speed * boundary_sound_speed / (specific_heat_ratio * boundary_entropy),
+                        1.0_r / (specific_heat_ratio - 1.0_r));
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              boundary_quadrature_node_computational_variable) = boundary_density;
+          const Real boundary_normal_velocity =
+              (left_toward_riemann_invariant + right_toward_riemann_invariant) / 2.0_r;
+          Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> boundary_velocity =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  boundary_quadrature_node_computational_variable);
+          for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+            boundary_velocity(m) =
+                left_velocity(m) + (boundary_normal_velocity - left_normal_velocity) * normal_vector(m);
+          }
+          const Real boundary_pressure =
+              boundary_density * boundary_sound_speed * boundary_sound_speed / specific_heat_ratio;
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              boundary_quadrature_node_computational_variable) =
+              boundary_pressure / ((specific_heat_ratio - 1.0_r) * boundary_density);
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+              boundary_quadrature_node_computational_variable) = boundary_pressure;
+        }
+        if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+          const Real left_density =
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                  left_quadrature_node_computational_variable);
+          const Real right_density =
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+                  right_quadrature_node_computational_variable);
+          const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> left_velocity =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  left_quadrature_node_computational_variable);
+          const Real left_internal_energy =
+              VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                  left_quadrature_node_computational_variable);
+          const Real left_normal_velocity = left_velocity.dot(normal_vector);
+          const Real right_normal_velocity =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  right_quadrature_node_computational_variable)
+                  .dot(normal_vector);
+          const Real sound_speed =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
+          const Real boundary_density = sycl::sqrt(
+              left_density * right_density * sycl::exp((left_normal_velocity - right_normal_velocity) / sound_speed));
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              boundary_quadrature_node_computational_variable) = boundary_density;
+          const Real boundary_normal_velocity = (left_normal_velocity + right_normal_velocity) / 2.0_r +
+                                                sycl::log(left_density / right_density) * sound_speed / 2.0_r;
+          Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> boundary_velocity =
+              VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+                  boundary_quadrature_node_computational_variable);
+          for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+            boundary_velocity(m) =
+                left_velocity(m) + (boundary_normal_velocity - left_normal_velocity) * normal_vector(m);
+          }
+          const Real boundary_internal_energy = left_internal_energy;
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+              boundary_quadrature_node_computational_variable) = boundary_internal_energy;
+          VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+              boundary_quadrature_node_computational_variable) =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
+                  boundary_density, boundary_internal_energy);
+        }
+      }
+    }
+  }
+
+  static void modifyBoundaryVariableForViscousFlux(
+      [[maybe_unused]] Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      [[maybe_unused]] const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          boundary_quadrature_node_primitive_variable_gradient) {
+    for (Isize m = 0; m < SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension; m++) {
+      boundary_quadrature_node_primitive_variable_gradient(m) = left_quadrature_node_primitive_variable_gradient(m);
+    }
+  }
+
+  static void computeBoundaryGradientVariable(
+      [[maybe_unused]] const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      [[maybe_unused]] const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_volume_gradient_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable) {
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      boundary_quadrature_node_volume_gradient_variable(m) = left_quadrature_node_conserved_variable(m);
+      boundary_quadrature_node_interface_gradient_variable(m) = 0.0_r;
+    }
+  }
+};
+
+// template <typename SimulationControl>
+// struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::VelocityInflow> {
+//   template <int N>
+//   inline static void computeBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
+//                                              const Eigen::Vector<Real, SimulationControl::kDimension>&
+//                                              normal_vector, const Variable<SimulationControl, N>&
+//                                              left_quadrature_node_variable, const Variable<SimulationControl, N>&
+//                                              right_quadrature_node_variable, Variable<SimulationControl, 1>&
+//                                              boundary_quadrature_node_variable, const Isize column) {
+//     const Real normal_velocity =
+//         left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose()
+//         * normal_vector;
+//     const Real normal_mach_number =
+//         normal_velocity /
+//         physical_model.computeSoundSpeedFromDensityPressure(
+//             left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
+//             left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
+//     boundary_quadrature_node_variable.computational_ = right_quadrature_node_variable.computational_.col(column);
+//     if (normal_mach_number > -1.0_r) {  // Subsonic inflow
+//       boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(
+//           left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column), 0);
+//     }
+//   }
+
+//   template <int N>
+//   inline static void computeBoundaryGradientVariable(
+//       [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
+//       [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+//       const Variable<SimulationControl, N>& left_quadrature_node_variable,
+//       [[maybe_unused]] const Variable<SimulationControl, N>& right_quadrature_node_variable,
+//       Variable<SimulationControl, 1>& boundary_quadrature_node_volume_gradient_variable,
+//       Variable<SimulationControl, 1>& boundary_quadrature_node_interface_gradient_variable, const Isize column) {
+//     boundary_quadrature_node_volume_gradient_variable.conserved_ =
+//     left_quadrature_node_variable.conserved_.col(column);
+//     boundary_quadrature_node_interface_gradient_variable.conserved_.setZero();
+//   }
+
+//   template <int N>
+//   inline static void modifyBoundaryVariableForViscousFlux(
+//       [[maybe_unused]] Variable<SimulationControl, N>& left_quadrature_node_variable,
+//       VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
+//       [[maybe_unused]] Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
+//       VariableGradient<SimulationControl, 1>& boundary_quadrature_node_variable_gradient, const Isize column) {
+//     boundary_quadrature_node_variable_gradient.primitive_ =
+//         left_quadrature_node_variable_gradient.primitive_.col(column);
+//   }
+// };
+
+// template <typename SimulationControl>
+// struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::PressureOutflow> {
+//   template <int N>
+//   inline static void computeBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
+//                                              const Eigen::Vector<Real, SimulationControl::kDimension>&
+//                                              normal_vector, const Variable<SimulationControl, N>&
+//                                              left_quadrature_node_variable, const Variable<SimulationControl, N>&
+//                                              right_quadrature_node_variable, Variable<SimulationControl, 1>&
+//                                              boundary_quadrature_node_variable, const Isize column) {
+//     const Real normal_velocity =
+//         left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose()
+//         * normal_vector;
+//     const Real normal_mach_number =
+//         normal_velocity /
+//         physical_model.computeSoundSpeedFromDensityPressure(
+//             left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
+//             left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
+//     boundary_quadrature_node_variable.computational_ = left_quadrature_node_variable.computational_.col(column);
+//     if (normal_mach_number < 1.0_r) {  // Subsonic outflow
+//       boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(
+//           right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column), 0);
+//     }
+//   }
+
+//   template <int N>
+//   inline static void computeBoundaryGradientVariable(
+//       [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
+//       [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+//       const Variable<SimulationControl, N>& left_quadrature_node_variable,
+//       [[maybe_unused]] const Variable<SimulationControl, N>& right_quadrature_node_variable,
+//       Variable<SimulationControl, 1>& boundary_quadrature_node_volume_gradient_variable,
+//       Variable<SimulationControl, 1>& boundary_quadrature_node_interface_gradient_variable, const Isize column) {
+//     boundary_quadrature_node_volume_gradient_variable.conserved_ =
+//     left_quadrature_node_variable.conserved_.col(column);
+//     boundary_quadrature_node_interface_gradient_variable.conserved_.setZero();
+//   }
+
+//   template <int N>
+//   inline static void modifyBoundaryVariableForViscousFlux(
+//       [[maybe_unused]] Variable<SimulationControl, N>& left_quadrature_node_variable,
+//       VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
+//       [[maybe_unused]] Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
+//       VariableGradient<SimulationControl, 1>& boundary_quadrature_node_variable_gradient, const Isize column) {
+//     boundary_quadrature_node_variable_gradient.primitive_ =
+//         left_quadrature_node_variable_gradient.primitive_.col(column);
+//   }
+// };
+
+template <typename SimulationControl>
+struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall> {
+  static void computeBoundaryVariable(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable) {
+    boundary_quadrature_node_computational_variable = left_quadrature_node_computational_variable;
+    const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> left_velocity =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            left_quadrature_node_computational_variable);
+    const Real left_normal_velocity = left_velocity.dot(normal_vector);
+    Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+        boundary_quadrature_node_computational_variable) = left_velocity - left_normal_velocity * normal_vector;
+  }
+
+  static void modifyBoundaryVariableForViscousFlux(
+      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>& left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          boundary_quadrature_node_primitive_variable_gradient) {
+    left_quadrature_node_computational_variable = boundary_quadrature_node_computational_variable;
+    boundary_quadrature_node_primitive_variable_gradient = left_quadrature_node_primitive_variable_gradient;
+    VariableGradient<SimulationControl>::template getScalarGradient<PrimitiveVariableEnum::Temperature>(
+        boundary_quadrature_node_primitive_variable_gradient) =
+        Eigen::Vector<Real, SimulationControl::kDimension>::Zero();
+  }
+
+  static void computeBoundaryGradientVariable(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_volume_gradient_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable) {
+    Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> left_quadrature_node_computational_variable;
+    Variable<SimulationControl>::convertComputationalFromConserved(left_quadrature_node_conserved_variable,
+                                                                   left_quadrature_node_computational_variable);
+    Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>
+        boundary_quadrature_node_computational_variable;
+    BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::computeBoundaryVariable(
+        normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+        boundary_quadrature_node_computational_variable);
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> boundary_quadrature_node_conserved_variable;
+    Variable<SimulationControl>::convertConservedFromComputational(boundary_quadrature_node_computational_variable,
+                                                                   boundary_quadrature_node_conserved_variable);
+    boundary_quadrature_node_volume_gradient_variable = boundary_quadrature_node_conserved_variable;
+    boundary_quadrature_node_interface_gradient_variable =
+        boundary_quadrature_node_conserved_variable - left_quadrature_node_conserved_variable;
+  }
+};
+
+template <typename SimulationControl>
+struct BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall> {
+  static void computeBoundaryVariable(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      [[maybe_unused]] const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable) {
+    for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+      boundary_quadrature_node_computational_variable(m) = left_quadrature_node_computational_variable(m);
+    }
+    const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> left_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            left_quadrature_node_computational_variable);
+    const Real left_normal_velocity = left_velocity.dot(normal_vector);
+    Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> boundary_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            boundary_quadrature_node_computational_variable);
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      boundary_velocity(m) = left_velocity(m) - left_normal_velocity * normal_vector(m);
+    }
+  }
+
+  static void modifyBoundaryVariableForViscousFlux(
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          boundary_quadrature_node_primitive_variable_gradient) {
+    for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+      left_quadrature_node_computational_variable(m) = boundary_quadrature_node_computational_variable(m);
+    }
+    for (Isize m = 0; m < SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension; m++) {
+      boundary_quadrature_node_primitive_variable_gradient(m) = left_quadrature_node_primitive_variable_gradient(m);
+    }
+    Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> boundary_temperature_gradient =
+        VariableGradientDevice<SimulationControl>::template getScalarGradient<PrimitiveVariableEnum::Temperature>(
+            boundary_quadrature_node_primitive_variable_gradient);
+    boundary_temperature_gradient.setZero();
+  }
+
+  static void computeBoundaryGradientVariable(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_volume_gradient_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable) {
+    Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+        left_quadrature_node_computational_variable;
+    VariableDevice<SimulationControl>::convertComputationalFromConserved(left_quadrature_node_conserved_variable,
+                                                                         left_quadrature_node_computational_variable);
+    Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+        boundary_quadrature_node_computational_variable;
+    BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::computeBoundaryVariable(
+        normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+        boundary_quadrature_node_computational_variable);
+    Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> boundary_quadrature_node_conserved_variable;
+    VariableDevice<SimulationControl>::convertConservedFromComputational(
+        boundary_quadrature_node_computational_variable, boundary_quadrature_node_conserved_variable);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      boundary_quadrature_node_volume_gradient_variable(m) = boundary_quadrature_node_conserved_variable(m);
+      boundary_quadrature_node_interface_gradient_variable(m) =
+          boundary_quadrature_node_conserved_variable(m) - left_quadrature_node_conserved_variable(m);
+    }
+  }
+};
+
+template <typename SimulationControl>
+struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall> {
+  static void computeBoundaryVariable(
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable) {
+    const Real boundary_density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+        left_quadrature_node_computational_variable);
+    Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+        boundary_quadrature_node_computational_variable) = boundary_density;
+    Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+        boundary_quadrature_node_computational_variable) =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable);
+    const Real boundary_internal_energy =
+        Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+            right_quadrature_node_computational_variable);
+    Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+        boundary_quadrature_node_computational_variable) = boundary_internal_energy;
+    Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+        boundary_quadrature_node_computational_variable) =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
+            boundary_density, boundary_internal_energy);
+  }
+
+  static void modifyBoundaryVariableForViscousFlux(
+      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>& left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          boundary_quadrature_node_primitive_variable_gradient) {
+    left_quadrature_node_computational_variable = boundary_quadrature_node_computational_variable;
+    boundary_quadrature_node_primitive_variable_gradient = left_quadrature_node_primitive_variable_gradient;
+  }
+
+  static void computeBoundaryGradientVariable(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_volume_gradient_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable) {
+    Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> left_quadrature_node_computational_variable;
+    Variable<SimulationControl>::convertComputationalFromConserved(left_quadrature_node_conserved_variable,
+                                                                   left_quadrature_node_computational_variable);
+    Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>
+        boundary_quadrature_node_computational_variable;
+    BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::computeBoundaryVariable(
+        normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+        boundary_quadrature_node_computational_variable);
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> boundary_quadrature_node_conserved_variable;
+    Variable<SimulationControl>::convertConservedFromComputational(boundary_quadrature_node_computational_variable,
+                                                                   boundary_quadrature_node_conserved_variable);
+    boundary_quadrature_node_volume_gradient_variable = boundary_quadrature_node_conserved_variable;
+    boundary_quadrature_node_interface_gradient_variable =
+        boundary_quadrature_node_conserved_variable - left_quadrature_node_conserved_variable;
+  }
+};
+
+template <typename SimulationControl>
+struct BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall> {
+  static void computeBoundaryVariable(
+      [[maybe_unused]] const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable) {
+    const Real boundary_density =
+        VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+            left_quadrature_node_computational_variable);
+    VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+        boundary_quadrature_node_computational_variable) = boundary_density;
+    const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> right_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable);
+    Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> boundary_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            boundary_quadrature_node_computational_variable);
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      boundary_velocity(m) = right_velocity(m);
+    }
+    const Real boundary_internal_energy =
+        VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+            right_quadrature_node_computational_variable);
+    VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+        boundary_quadrature_node_computational_variable) = boundary_internal_energy;
+    VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
+        boundary_quadrature_node_computational_variable) =
+        PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
+            boundary_density, boundary_internal_energy);
+  }
+
+  static void modifyBoundaryVariableForViscousFlux(
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          boundary_quadrature_node_primitive_variable_gradient) {
+    for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+      left_quadrature_node_computational_variable(m) = boundary_quadrature_node_computational_variable(m);
+    }
+    for (Isize m = 0; m < SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension; m++) {
+      boundary_quadrature_node_primitive_variable_gradient(m) = left_quadrature_node_primitive_variable_gradient(m);
+    }
+  }
+
+  static void computeBoundaryGradientVariable(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_volume_gradient_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable) {
+    Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+        left_quadrature_node_computational_variable;
+    VariableDevice<SimulationControl>::convertComputationalFromConserved(left_quadrature_node_conserved_variable,
+                                                                         left_quadrature_node_computational_variable);
+    Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+        boundary_quadrature_node_computational_variable;
+    BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::
+        computeBoundaryVariable(normal_vector, left_quadrature_node_computational_variable,
+                                right_quadrature_node_computational_variable,
+                                boundary_quadrature_node_computational_variable);
+    Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> boundary_quadrature_node_conserved_variable;
+    VariableDevice<SimulationControl>::convertConservedFromComputational(
+        boundary_quadrature_node_computational_variable, boundary_quadrature_node_conserved_variable);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      boundary_quadrature_node_volume_gradient_variable(m) = boundary_quadrature_node_conserved_variable(m);
+      boundary_quadrature_node_interface_gradient_variable(m) =
+          boundary_quadrature_node_conserved_variable(m) - left_quadrature_node_conserved_variable(m);
+    }
+  }
+};
+
+template <typename SimulationControl>
+struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall> {
+  static void computeBoundaryVariable(
+      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable) {
+    boundary_quadrature_node_computational_variable = left_quadrature_node_computational_variable;
+    Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+        boundary_quadrature_node_computational_variable) =
+        Variable<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable);
+  }
+
+  static void modifyBoundaryVariableForViscousFlux(
+      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>& left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          boundary_quadrature_node_primitive_variable_gradient) {
+    left_quadrature_node_computational_variable = boundary_quadrature_node_computational_variable;
+    boundary_quadrature_node_primitive_variable_gradient = left_quadrature_node_primitive_variable_gradient;
+    VariableGradient<SimulationControl>::template getScalarGradient<PrimitiveVariableEnum::Temperature>(
+        boundary_quadrature_node_primitive_variable_gradient) =
+        Eigen::Vector<Real, SimulationControl::kDimension>::Zero();
+  }
+
+  static void computeBoundaryGradientVariable(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_volume_gradient_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable) {
+    Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> left_quadrature_node_computational_variable;
+    Variable<SimulationControl>::convertComputationalFromConserved(left_quadrature_node_conserved_variable,
+                                                                   left_quadrature_node_computational_variable);
+    Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>
+        boundary_quadrature_node_computational_variable;
+    BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::computeBoundaryVariable(
+        normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+        boundary_quadrature_node_computational_variable);
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> boundary_quadrature_node_conserved_variable;
+    Variable<SimulationControl>::convertConservedFromComputational(boundary_quadrature_node_computational_variable,
+                                                                   boundary_quadrature_node_conserved_variable);
+    boundary_quadrature_node_volume_gradient_variable = boundary_quadrature_node_conserved_variable;
+    boundary_quadrature_node_interface_gradient_variable =
+        boundary_quadrature_node_conserved_variable - left_quadrature_node_conserved_variable;
+  }
+};
+
+template <typename SimulationControl>
+struct BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall> {
+  static void computeBoundaryVariable(
+      [[maybe_unused]] const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable) {
+    for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+      boundary_quadrature_node_computational_variable(m) = left_quadrature_node_computational_variable(m);
+    }
+    const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> right_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            right_quadrature_node_computational_variable);
+    Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> boundary_velocity =
+        VariableDevice<SimulationControl>::template getVector<ComputationalVariableEnum::Velocity>(
+            boundary_quadrature_node_computational_variable);
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      boundary_velocity(m) = right_velocity(m);
+    }
+  }
+
+  static void modifyBoundaryVariableForViscousFlux(
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          boundary_quadrature_node_primitive_variable_gradient) {
+    for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+      left_quadrature_node_computational_variable(m) = boundary_quadrature_node_computational_variable(m);
+    }
+    for (Isize m = 0; m < SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension; m++) {
+      boundary_quadrature_node_primitive_variable_gradient(m) = left_quadrature_node_primitive_variable_gradient(m);
+    }
+    Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> boundary_temperature_gradient =
+        VariableGradientDevice<SimulationControl>::template getScalarGradient<PrimitiveVariableEnum::Temperature>(
+            boundary_quadrature_node_primitive_variable_gradient);
+    boundary_temperature_gradient.setZero();
+  }
+
+  static void computeBoundaryGradientVariable(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_volume_gradient_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable) {
+    Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+        left_quadrature_node_computational_variable;
+    VariableDevice<SimulationControl>::convertComputationalFromConserved(left_quadrature_node_conserved_variable,
+                                                                         left_quadrature_node_computational_variable);
+    Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+        boundary_quadrature_node_computational_variable;
+    BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::
+        computeBoundaryVariable(normal_vector, left_quadrature_node_computational_variable,
+                                right_quadrature_node_computational_variable,
+                                boundary_quadrature_node_computational_variable);
+    Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> boundary_quadrature_node_conserved_variable;
+    VariableDevice<SimulationControl>::convertConservedFromComputational(
+        boundary_quadrature_node_computational_variable, boundary_quadrature_node_conserved_variable);
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      boundary_quadrature_node_volume_gradient_variable(m) = boundary_quadrature_node_conserved_variable(m);
+      boundary_quadrature_node_interface_gradient_variable(m) =
+          boundary_quadrature_node_conserved_variable(m) - left_quadrature_node_conserved_variable(m);
+    }
+  }
+};
+
+template <typename SimulationControl>
+struct BoundaryCondition {
+  inline static void computePrimitiveFromCoordinate(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate,
+      Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
+      /*const*/ Isize gmsh_physical_index);
+
+  inline static void computePrimitiveFromCoordinate(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate,
+      Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
+      /*const*/ Real time,
+      /*const*/ Isize gmsh_physical_index);
+
+  static void computeBoundaryVariable(const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+                                      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+                                          left_quadrature_node_computational_variable,
+                                      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+                                          right_quadrature_node_computational_variable,
+                                      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+                                          boundary_quadrature_node_computational_variable,
+                                      const BoundaryConditionEnum boundary_condition_type) {
+    switch (boundary_condition_type) {
+    case BoundaryConditionEnum::RiemannFarfield:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield>::computeBoundaryVariable(
+          normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+          boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::VelocityInflow:
+      // BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::VelocityInflow>::computeBoundaryVariable(
+      //     normal_vector, left_quadrature_node_computational_variable,
+      //     right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::PressureOutflow:
+      // BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::PressureOutflow>::computeBoundaryVariable(
+      //     normal_vector, left_quadrature_node_computational_variable,
+      //     right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::AdiabaticSlipWall:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::computeBoundaryVariable(
+          normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+          boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::IsoThermalNonSlipWall:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::computeBoundaryVariable(
+          normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+          boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::AdiabaticNonSlipWall:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::computeBoundaryVariable(
+          normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+          boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::Periodic:
+      break;
+    }
+  }
+
+  static void modifyBoundaryVariableForViscousFlux(
+      Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>& left_quadrature_node_computational_variable,
+      const Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          boundary_quadrature_node_primitive_variable_gradient,
+      const BoundaryConditionEnum boundary_condition_type) {
+    switch (boundary_condition_type) {
+    case BoundaryConditionEnum::RiemannFarfield:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield>::
+          modifyBoundaryVariableForViscousFlux(
+              left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+              boundary_quadrature_node_computational_variable, boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::VelocityInflow:
+      // BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::VelocityInflow>::
+      //     modifyBoundaryVariableForViscousFlux(
+      //         left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+      //         boundary_quadrature_node_computational_variable,
+      //         boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::PressureOutflow:
+      // BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::PressureOutflow>::
+      //     modifyBoundaryVariableForViscousFlux(
+      //         left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+      //         boundary_quadrature_node_computational_variable,
+      //         boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::AdiabaticSlipWall:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::
+          modifyBoundaryVariableForViscousFlux(
+              left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+              boundary_quadrature_node_computational_variable, boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::IsoThermalNonSlipWall:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::
+          modifyBoundaryVariableForViscousFlux(
+              left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+              boundary_quadrature_node_computational_variable, boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::AdiabaticNonSlipWall:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::
+          modifyBoundaryVariableForViscousFlux(
+              left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+              boundary_quadrature_node_computational_variable, boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::Periodic:
+      break;
+    }
+  }
+
+  static void computeBoundaryGradientVariable(
+      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
+      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_volume_gradient_variable,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable,
+      const BoundaryConditionEnum boundary_condition_type) {
+    switch (boundary_condition_type) {
+    case BoundaryConditionEnum::RiemannFarfield:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield>::computeBoundaryGradientVariable(
+          normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+          boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::VelocityInflow:
+      // BoundaryConditionImpl<SimulationControl,
+      // BoundaryConditionEnum::VelocityInflow>::computeBoundaryGradientVariable(
+      //     normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+      //     boundary_quadrature_node_volume_gradient_variable,
+      //     boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::PressureOutflow:
+      // BoundaryConditionImpl<SimulationControl,
+      // BoundaryConditionEnum::PressureOutflow>::computeBoundaryGradientVariable(
+      //     normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+      //     boundary_quadrature_node_volume_gradient_variable,
+      //     boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::AdiabaticSlipWall:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::
+          computeBoundaryGradientVariable(
+              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+              boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::IsoThermalNonSlipWall:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::
+          computeBoundaryGradientVariable(
+              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+              boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::AdiabaticNonSlipWall:
+      BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::
+          computeBoundaryGradientVariable(
+              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+              boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::Periodic:
+      break;
+    }
+  }
+};
+
+template <typename SimulationControl>
+struct BoundaryConditionDevice {
+  inline static void computePrimitiveFromCoordinate(
+      /*const*/ Device::View<const Device::Vector<Real, SimulationControl::kDimension>> coordinate,
+      Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
+      /*const*/ Real time,
+      /*const*/ Isize gmsh_physical_index);
+
+  static void computeBoundaryVariable(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      const BoundaryConditionEnum boundary_condition_type) {
+    switch (boundary_condition_type) {
+    case BoundaryConditionEnum::RiemannFarfield:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield>::computeBoundaryVariable(
+          normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+          boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::VelocityInflow:
+      // BoundaryConditionDeviceImpl<SimulationControl,
+      // BoundaryConditionEnum::VelocityInflow>::computeBoundaryVariable(
+      //     normal_vector, left_quadrature_node_computational_variable,
+      //     right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::PressureOutflow:
+      // BoundaryConditionDeviceImpl<SimulationControl,
+      // BoundaryConditionEnum::PressureOutflow>::computeBoundaryVariable(
+      //     normal_vector, left_quadrature_node_computational_variable,
+      //     right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::AdiabaticSlipWall:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::computeBoundaryVariable(
+          normal_vector, left_quadrature_node_computational_variable, right_quadrature_node_computational_variable,
+          boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::IsoThermalNonSlipWall:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::
+          computeBoundaryVariable(normal_vector, left_quadrature_node_computational_variable,
+                                  right_quadrature_node_computational_variable,
+                                  boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::AdiabaticNonSlipWall:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::
+          computeBoundaryVariable(normal_vector, left_quadrature_node_computational_variable,
+                                  right_quadrature_node_computational_variable,
+                                  boundary_quadrature_node_computational_variable);
+      break;
+    case BoundaryConditionEnum::Periodic:
+      break;
+    }
+  }
+
+  static void modifyBoundaryVariableForViscousFlux(
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          left_quadrature_node_computational_variable,
+      const Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          left_quadrature_node_primitive_variable_gradient,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          boundary_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>&
+          boundary_quadrature_node_primitive_variable_gradient,
+      const BoundaryConditionEnum boundary_condition_type) {
+    switch (boundary_condition_type) {
+    case BoundaryConditionEnum::RiemannFarfield:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield>::
+          modifyBoundaryVariableForViscousFlux(
+              left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+              boundary_quadrature_node_computational_variable, boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::VelocityInflow:
+      // BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::VelocityInflow>::
+      //     modifyBoundaryVariableForViscousFlux(
+      //         left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+      //         boundary_quadrature_node_computational_variable,
+      //         boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::PressureOutflow:
+      // BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::PressureOutflow>::
+      //     modifyBoundaryVariableForViscousFlux(
+      //         left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+      //         boundary_quadrature_node_computational_variable,
+      //         boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::AdiabaticSlipWall:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::
+          modifyBoundaryVariableForViscousFlux(
+              left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+              boundary_quadrature_node_computational_variable, boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::IsoThermalNonSlipWall:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::
+          modifyBoundaryVariableForViscousFlux(
+              left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+              boundary_quadrature_node_computational_variable, boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::AdiabaticNonSlipWall:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::
+          modifyBoundaryVariableForViscousFlux(
+              left_quadrature_node_computational_variable, left_quadrature_node_primitive_variable_gradient,
+              boundary_quadrature_node_computational_variable, boundary_quadrature_node_primitive_variable_gradient);
+      break;
+    case BoundaryConditionEnum::Periodic:
+      break;
+    }
+  }
+
+  static void computeBoundaryGradientVariable(
+      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
+      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          left_quadrature_node_conserved_variable,
+      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
+          right_quadrature_node_computational_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_volume_gradient_variable,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          boundary_quadrature_node_interface_gradient_variable,
+      const BoundaryConditionEnum boundary_condition_type) {
+    switch (boundary_condition_type) {
+    case BoundaryConditionEnum::RiemannFarfield:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield>::
+          computeBoundaryGradientVariable(
+              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+              boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::VelocityInflow:
+      // BoundaryConditionDeviceImpl<SimulationControl,
+      // BoundaryConditionEnum::VelocityInflow>::computeBoundaryGradientVariable(
+      //     normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+      //     boundary_quadrature_node_volume_gradient_variable,
+      //     boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::PressureOutflow:
+      // BoundaryConditionDeviceImpl<SimulationControl,
+      // BoundaryConditionEnum::PressureOutflow>::computeBoundaryGradientVariable(
+      //     normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+      //     boundary_quadrature_node_volume_gradient_variable,
+      //     boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::AdiabaticSlipWall:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::
+          computeBoundaryGradientVariable(
+              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+              boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::IsoThermalNonSlipWall:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::
+          computeBoundaryGradientVariable(
+              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+              boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::AdiabaticNonSlipWall:
+      BoundaryConditionDeviceImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::
+          computeBoundaryGradientVariable(
+              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_computational_variable,
+              boundary_quadrature_node_volume_gradient_variable, boundary_quadrature_node_interface_gradient_variable);
+      break;
+    case BoundaryConditionEnum::Periodic:
+      break;
+    }
+  }
+};
+
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementBoundaryVariable(
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const PhysicalModel<SimulationControl>& physical_model,
-    const BoundaryCondition<SimulationControl>& boundary_condition,
     const TimeIntegration<SimulationControl>& time_integration) {
   tbb::parallel_for(
       tbb::blocked_range<Isize>(0, adjacency_element_mesh.boundary_number_),
-      [&](const tbb::blocked_range<Isize>& range) {
+      [&](const tbb::blocked_range<Isize>& range) -> void {
         for (Isize i = range.begin(); i != range.end(); i++) {
           const Isize gmsh_physical_index =
-              adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_).gmsh_physical_index_;
+              adjacency_element_mesh.gmsh_physical_index_(i + adjacency_element_mesh.interior_number_);
+          Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber> boundary_primitive_variable;
+          Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> boundary_computational_variable;
           for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-            this->boundary_dummy_variable_(i).primitive_.col(j) = boundary_condition.calculatePrimitiveFromCoordinate(
-                adjacency_element_mesh.element_(i + adjacency_element_mesh.interior_number_)
-                    .quadrature_node_coordinate_.col(j),
+            BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
+                adjacency_element_mesh.quadrature_node_coordinate_.col(j), boundary_primitive_variable,
                 time_integration.iteration_ * time_integration.delta_time_, gmsh_physical_index);
+            Variable<SimulationControl>::convertComputationalFromPrimitive(boundary_primitive_variable,
+                                                                           boundary_computational_variable);
+            this->boundary_dummy_right_computational_variable_(i).col(j) = boundary_computational_variable;
           }
-          this->boundary_dummy_variable_(i).calculateConservedFromPrimitive(physical_model);
-          this->boundary_dummy_variable_(i).calculateComputationalFromPrimitive(physical_model);
         }
       });
 }
 
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::updateBoundaryVariable(
-    const Mesh<SimulationControl>& mesh, const PhysicalModel<SimulationControl>& physical_model,
-    const BoundaryCondition<SimulationControl>& boundary_condition,
-    const TimeIntegration<SimulationControl>& time_integration) {
+    const Mesh<SimulationControl>& mesh, const TimeIntegration<SimulationControl>& time_integration) {
   if constexpr (SimulationControl::kDimension == 1) {
-    this->point_.updateAdjacencyElementBoundaryVariable(mesh.point_, physical_model, boundary_condition,
-                                                        time_integration);
+    this->point_.updateAdjacencyElementBoundaryVariable(mesh.point_, time_integration);
   } else if constexpr (SimulationControl::kDimension == 2) {
-    this->line_.updateAdjacencyElementBoundaryVariable(mesh.line_, physical_model, boundary_condition,
-                                                       time_integration);
+    this->line_.updateAdjacencyElementBoundaryVariable(mesh.line_, time_integration);
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.updateAdjacencyElementBoundaryVariable(mesh.triangle_, physical_model, boundary_condition,
-                                                             time_integration);
+      this->triangle_.updateAdjacencyElementBoundaryVariable(mesh.triangle_, time_integration);
     }
     if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.updateAdjacencyElementBoundaryVariable(mesh.quadrangle_, physical_model, boundary_condition,
-                                                               time_integration);
+      this->quadrangle_.updateAdjacencyElementBoundaryVariable(mesh.quadrangle_, time_integration);
     }
   }
 }
 
-template <typename SimulationControl, BoundaryConditionEnum BoundaryConditionType>
-struct BoundaryConditionImpl;
-
-template <typename SimulationControl>
-struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield> {
-  template <int N>
-  inline static void calculateBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
-                                               const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                               const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                               const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                               Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
-                                               const Isize column) {
-    const Real normal_velocity =
-        left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
-        normal_vector;
-    const Real normal_mach_number =
-        normal_velocity /
-        physical_model.calculateSoundSpeedFromDensityPressure(
-            left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
-            left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
-    if (std::fabs(normal_mach_number) > 1.0_r) {
-      if (normal_mach_number < 0.0_r) {  // Supersonic inflow
-        boundary_quadrature_node_variable.computational_ = right_quadrature_node_variable.computational_.col(column);
-      } else {  // Supersonic outflow
-        boundary_quadrature_node_variable.computational_ = left_quadrature_node_variable.computational_.col(column);
+template <typename AdjacencyElementTrait, typename SimulationControl>
+inline void
+AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementBoundaryVariable(
+    const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh,
+    const TimeIntegration<SimulationControl>& time_integration) {
+  queue.submit([&](sycl::handler& cgh) -> void {
+    cgh.parallel_for(getNdRange(this->boundary_number_), [=, this](sycl::nd_item<1> index) -> void {
+      const auto i = static_cast<Isize>(index.get_global_id(0));
+      if (i >= this->boundary_number_) {
+        return;
       }
-    } else {
-      if (normal_mach_number < 0.0_r) {  // Subsonic inflow
-        if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
-          const Real left_toward_riemann_invariant =
-              right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                      .transpose() *
-                  normal_vector -
-              2.0_r *
-                  physical_model.calculateSoundSpeedFromDensityPressure(
-                      right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
-                      right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column)) /
-                  (physical_model.equation_of_state_.kSpecificHeatRatio - 1.0_r);
-          const Real right_toward_riemann_invariant =
-              left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                      .transpose() *
-                  normal_vector +
-              2.0_r *
-                  physical_model.calculateSoundSpeedFromDensityPressure(
-                      left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
-                      left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column)) /
-                  (physical_model.equation_of_state_.kSpecificHeatRatio - 1.0_r);
-          const Real boundary_normal_velocity =
-              (left_toward_riemann_invariant + right_toward_riemann_invariant) / 2.0_r;
-          const Eigen::Vector<Real, SimulationControl::kDimension> boundary_velocity =
-              right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column) +
-              (boundary_normal_velocity -
-               right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                       .transpose() *
-                   normal_vector) *
-                  normal_vector;
-          const Real boundary_sound_speed = (physical_model.equation_of_state_.kSpecificHeatRatio - 1.0_r) *
-                                            (right_toward_riemann_invariant - left_toward_riemann_invariant) / 4.0_r;
-          const Real boundary_entropy = physical_model.calculateEntropyFromDensityPressure(
-              right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
-              right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
-          const Real boundary_density =
-              std::pow(boundary_sound_speed * boundary_sound_speed /
-                           (physical_model.equation_of_state_.kSpecificHeatRatio * boundary_entropy),
-                       1.0_r / (physical_model.equation_of_state_.kSpecificHeatRatio - 1.0_r));
-          const Real boundary_pressure = boundary_density * boundary_sound_speed * boundary_sound_speed /
-                                         physical_model.equation_of_state_.kSpecificHeatRatio;
-          const Real boundary_internal_energy =
-              boundary_pressure / ((physical_model.equation_of_state_.kSpecificHeatRatio - 1.0_r) * boundary_density);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Density>(boundary_density, 0);
-          boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(boundary_velocity,
-                                                                                                    0);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
-              boundary_internal_energy, 0);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(boundary_pressure,
-                                                                                                    0);
-        }
-        if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
-          const Real sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
-          const Real left_normal_velocity =
-              left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                  .transpose() *
-              normal_vector;
-          const Real right_normal_velocity =
-              right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                  .transpose() *
-              normal_vector;
-          const Real boundary_density =
-              std::sqrt(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) *
-                        right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) *
-                        std::exp((left_normal_velocity - right_normal_velocity) / sound_speed));
-          const Real boundary_normal_velocity =
-              (left_normal_velocity + right_normal_velocity) / 2.0_r +
-              std::log(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) /
-                       right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column)) *
-                  sound_speed / 2.0_r;
-          const Real boundary_internal_energy =
-              right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) *
-              right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) /
-              boundary_density;
-          const Eigen::Vector<Real, SimulationControl::kDimension> boundary_velocity =
-              right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column) +
-              (boundary_normal_velocity -
-               right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                       .transpose() *
-                   normal_vector) *
-                  normal_vector;
-          const Real boundary_pressure =
-              physical_model.calculatePressureFormDensityInternalEnergy(boundary_density, boundary_internal_energy);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Density>(boundary_density, 0);
-          boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(boundary_velocity,
-                                                                                                    0);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
-              boundary_internal_energy, 0);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(boundary_pressure,
-                                                                                                    0);
-        }
-      } else {  // Subsonic outflow
-        if constexpr (IsCompresible<SimulationControl::kEquationModel>) {
-          const Real left_toward_riemann_invariant =
-              right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                      .transpose() *
-                  normal_vector -
-              2.0 *
-                  physical_model.calculateSoundSpeedFromDensityPressure(
-                      right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
-                      right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column)) /
-                  (physical_model.equation_of_state_.kSpecificHeatRatio - 1.0_r);
-          const Real right_toward_riemann_invariant =
-              left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                      .transpose() *
-                  normal_vector +
-              2.0 *
-                  physical_model.calculateSoundSpeedFromDensityPressure(
-                      left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
-                      left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column)) /
-                  (physical_model.equation_of_state_.kSpecificHeatRatio - 1.0_r);
-          const Real boundary_normal_velocity =
-              (left_toward_riemann_invariant + right_toward_riemann_invariant) / 2.0_r;
-          const Eigen::Vector<Real, SimulationControl::kDimension> boundary_velocity =
-              left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column) +
-              (boundary_normal_velocity -
-               left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                       .transpose() *
-                   normal_vector) *
-                  normal_vector;
-          const Real boundary_sound_speed = (physical_model.equation_of_state_.kSpecificHeatRatio - 1.0_r) *
-                                            (right_toward_riemann_invariant - left_toward_riemann_invariant) / 4.0_r;
-          const Real boundary_entropy = physical_model.calculateEntropyFromDensityPressure(
-              left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
-              left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
-          const Real boundary_density =
-              std::pow(boundary_sound_speed * boundary_sound_speed /
-                           (physical_model.equation_of_state_.kSpecificHeatRatio * boundary_entropy),
-                       1.0_r / (physical_model.equation_of_state_.kSpecificHeatRatio - 1.0_r));
-          const Real boundary_pressure = boundary_density * boundary_sound_speed * boundary_sound_speed /
-                                         physical_model.equation_of_state_.kSpecificHeatRatio;
-          const Real boundary_internal_energy =
-              boundary_pressure / ((physical_model.equation_of_state_.kSpecificHeatRatio - 1.0_r) * boundary_density);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Density>(boundary_density, 0);
-          boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(boundary_velocity,
-                                                                                                    0);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
-              boundary_internal_energy, 0);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(boundary_pressure,
-                                                                                                    0);
-        }
-        if constexpr (IsIncompresible<SimulationControl::kEquationModel>) {
-          const Real sound_speed = physical_model.calculateSoundSpeedFromDensityPressure(0.0_r, 0.0_r);
-          const Real left_normal_velocity =
-              left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                  .transpose() *
-              normal_vector;
-          const Real right_normal_velocity =
-              right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                  .transpose() *
-              normal_vector;
-          const Real boundary_density =
-              std::sqrt(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) *
-                        right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) *
-                        std::exp((left_normal_velocity - right_normal_velocity) / sound_speed));
-          const Real boundary_normal_velocity =
-              (left_normal_velocity + right_normal_velocity) / 2.0_r +
-              std::log(left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) /
-                       right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column)) *
-                  sound_speed / 2.0_r;
-          const Real boundary_internal_energy =
-              left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column) *
-              left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column) /
-              boundary_density;
-          const Eigen::Vector<Real, SimulationControl::kDimension> boundary_velocity =
-              left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column) +
-              (boundary_normal_velocity -
-               left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column)
-                       .transpose() *
-                   normal_vector) *
-                  normal_vector;
-          const Real boundary_pressure =
-              physical_model.calculatePressureFormDensityInternalEnergy(boundary_density, boundary_internal_energy);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Density>(boundary_density, 0);
-          boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(boundary_velocity,
-                                                                                                    0);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
-              boundary_internal_energy, 0);
-          boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(boundary_pressure,
-                                                                                                    0);
+      const Isize gmsh_physical_index =
+          adjacency_element_mesh.gmsh_physical_index_(i + adjacency_element_mesh.interior_number_);
+      Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber> boundary_primitive_variable;
+      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber> boundary_computational_variable;
+      for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+        const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> quadrature_node_coordinate =
+            adjacency_element_mesh.quadrature_node_coordinate_.slice(
+                i, adjacency_element_mesh.number_, Device::Slice<SimulationControl::kDimension>::all(),
+                Device::Slice<1>::seqN(j));
+        BoundaryConditionDevice<SimulationControl>::computePrimitiveFromCoordinate(
+            quadrature_node_coordinate, boundary_primitive_variable,
+            time_integration.iteration_ * time_integration.delta_time_, gmsh_physical_index);
+        VariableDevice<SimulationControl>::convertComputationalFromPrimitive(boundary_primitive_variable,
+                                                                             boundary_computational_variable);
+        Device::View<Device::Vector<Real, SimulationControl::kComputationalVariableNumber>>
+            boundary_dummy_right_computational_variable = this->boundary_dummy_right_computational_variable_.slice(
+                i - adjacency_element_mesh.interior_number_, adjacency_element_mesh.boundary_number_,
+                Device::Slice<SimulationControl::kComputationalVariableNumber>::all(), Device::Slice<1>::seqN(j));
+        for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+          boundary_dummy_right_computational_variable(m) = boundary_computational_variable(m);
         }
       }
+    });
+  });
+}
+
+template <typename SimulationControl>
+inline void SolverDevice<SimulationControl>::updateBoundaryVariable(
+    const MeshDevice<SimulationControl>& mesh, const TimeIntegration<SimulationControl>& time_integration) {
+  if constexpr (SimulationControl::kDimension == 1) {
+    this->point_.updateAdjacencyElementBoundaryVariable(mesh.point_, time_integration);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    this->line_.updateAdjacencyElementBoundaryVariable(mesh.line_, time_integration);
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.updateAdjacencyElementBoundaryVariable(mesh.triangle_, time_integration);
+    }
+    if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.updateAdjacencyElementBoundaryVariable(mesh.quadrangle_, time_integration);
     }
   }
-
-  template <int N>
-  inline static void calculateBoundaryGradientVariable(
-      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
-      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl, N>& left_quadrature_node_variable,
-      [[maybe_unused]] const Variable<SimulationControl, N>& right_quadrature_node_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_volume_gradient_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_interface_gradient_variable, const Isize column) {
-    boundary_quadrature_node_volume_gradient_variable.conserved_ = left_quadrature_node_variable.conserved_.col(column);
-    boundary_quadrature_node_interface_gradient_variable.conserved_.setZero();
-  }
-
-  template <int N>
-  inline static void modifyBoundaryVariable(
-      [[maybe_unused]] Variable<SimulationControl, N>& left_quadrature_node_variable,
-      VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
-      [[maybe_unused]] Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
-      VariableGradient<SimulationControl, 1>& boundary_quadrature_node_variable_gradient, const Isize column) {
-    boundary_quadrature_node_variable_gradient.primitive_ =
-        left_quadrature_node_variable_gradient.primitive_.col(column);
-  }
-};
-
-template <typename SimulationControl>
-struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::VelocityInflow> {
-  template <int N>
-  inline static void calculateBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
-                                               const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                               const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                               const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                               Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
-                                               const Isize column) {
-    const Real normal_velocity =
-        left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
-        normal_vector;
-    const Real normal_mach_number =
-        normal_velocity /
-        physical_model.calculateSoundSpeedFromDensityPressure(
-            left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
-            left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
-    boundary_quadrature_node_variable.computational_ = right_quadrature_node_variable.computational_.col(column);
-    if (normal_mach_number > -1.0_r) {  // Subsonic inflow
-      boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(
-          left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column), 0);
-    }
-  }
-
-  template <int N>
-  inline static void calculateBoundaryGradientVariable(
-      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
-      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl, N>& left_quadrature_node_variable,
-      [[maybe_unused]] const Variable<SimulationControl, N>& right_quadrature_node_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_volume_gradient_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_interface_gradient_variable, const Isize column) {
-    boundary_quadrature_node_volume_gradient_variable.conserved_ = left_quadrature_node_variable.conserved_.col(column);
-    boundary_quadrature_node_interface_gradient_variable.conserved_.setZero();
-  }
-
-  template <int N>
-  inline static void modifyBoundaryVariable(
-      [[maybe_unused]] Variable<SimulationControl, N>& left_quadrature_node_variable,
-      VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
-      [[maybe_unused]] Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
-      VariableGradient<SimulationControl, 1>& boundary_quadrature_node_variable_gradient, const Isize column) {
-    boundary_quadrature_node_variable_gradient.primitive_ =
-        left_quadrature_node_variable_gradient.primitive_.col(column);
-  }
-};
-
-template <typename SimulationControl>
-struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::PressureOutflow> {
-  template <int N>
-  inline static void calculateBoundaryVariable(const PhysicalModel<SimulationControl>& physical_model,
-                                               const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-                                               const Variable<SimulationControl, N>& left_quadrature_node_variable,
-                                               const Variable<SimulationControl, N>& right_quadrature_node_variable,
-                                               Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
-                                               const Isize column) {
-    const Real normal_velocity =
-        left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
-        normal_vector;
-    const Real normal_mach_number =
-        normal_velocity /
-        physical_model.calculateSoundSpeedFromDensityPressure(
-            left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column),
-            left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column));
-    boundary_quadrature_node_variable.computational_ = left_quadrature_node_variable.computational_.col(column);
-    if (normal_mach_number < 1.0_r) {  // Subsonic outflow
-      boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(
-          right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Pressure>(column), 0);
-    }
-  }
-
-  template <int N>
-  inline static void calculateBoundaryGradientVariable(
-      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
-      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl, N>& left_quadrature_node_variable,
-      [[maybe_unused]] const Variable<SimulationControl, N>& right_quadrature_node_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_volume_gradient_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_interface_gradient_variable, const Isize column) {
-    boundary_quadrature_node_volume_gradient_variable.conserved_ = left_quadrature_node_variable.conserved_.col(column);
-    boundary_quadrature_node_interface_gradient_variable.conserved_.setZero();
-  }
-
-  template <int N>
-  inline static void modifyBoundaryVariable(
-      [[maybe_unused]] Variable<SimulationControl, N>& left_quadrature_node_variable,
-      VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
-      [[maybe_unused]] Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
-      VariableGradient<SimulationControl, 1>& boundary_quadrature_node_variable_gradient, const Isize column) {
-    boundary_quadrature_node_variable_gradient.primitive_ =
-        left_quadrature_node_variable_gradient.primitive_.col(column);
-  }
-};
-
-template <typename SimulationControl>
-struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall> {
-  template <int N>
-  inline static void calculateBoundaryVariable(
-      const PhysicalModel<SimulationControl>& physical_model,
-      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl, N>& left_quadrature_node_variable,
-      const Variable<SimulationControl, N>& right_quadrature_node_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_variable, const Isize column) {
-    const Real boundary_density =
-        left_quadrature_node_variable.template getScalar<ComputationalVariableEnum::Density>(column);
-    boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Density>(boundary_density, 0);
-    boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(
-        right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column), 0);
-    boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::InternalEnergy>(
-        right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column), 0);
-    const Real boundary_pressure = physical_model.calculatePressureFormDensityInternalEnergy(
-        boundary_density,
-        right_quadrature_node_variable.template getScalar<ComputationalVariableEnum::InternalEnergy>(column));
-    boundary_quadrature_node_variable.template setScalar<ComputationalVariableEnum::Pressure>(boundary_pressure, 0);
-  }
-
-  template <int N>
-  inline static void calculateBoundaryGradientVariable(
-      const PhysicalModel<SimulationControl>& physical_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl, N>& left_quadrature_node_variable,
-      const Variable<SimulationControl, N>& right_quadrature_node_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_volume_gradient_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_interface_gradient_variable, const Isize column) {
-    Variable<SimulationControl, 1> boundary_quadrature_node_variable;
-    calculateBoundaryVariable(physical_model, normal_vector, left_quadrature_node_variable,
-                              right_quadrature_node_variable, boundary_quadrature_node_variable, column);
-    boundary_quadrature_node_variable.calculateConservedFromComputational();
-    boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
-    boundary_quadrature_node_interface_gradient_variable.conserved_ =
-        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_.col(column);
-  }
-
-  template <int N>
-  inline static void modifyBoundaryVariable(
-      Variable<SimulationControl, N>& left_quadrature_node_variable,
-      VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
-      VariableGradient<SimulationControl, 1>& boundary_quadrature_node_variable_gradient, const Isize column) {
-    left_quadrature_node_variable.computational_.col(column) = boundary_quadrature_node_variable.computational_;
-    boundary_quadrature_node_variable_gradient.primitive_ =
-        left_quadrature_node_variable_gradient.primitive_.col(column);
-  }
-};
-
-template <typename SimulationControl>
-struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall> {
-  template <int N>
-  inline static void calculateBoundaryVariable(
-      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl, N>& left_quadrature_node_variable,
-      [[maybe_unused]] const Variable<SimulationControl, N>& right_quadrature_node_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_variable, const Isize column) {
-    boundary_quadrature_node_variable.computational_ = left_quadrature_node_variable.computational_.col(column);
-    const Eigen::Vector<Real, SimulationControl::kDimension> boundary_velocity =
-        left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column) -
-        (left_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column).transpose() *
-         normal_vector) *
-            normal_vector;
-    boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(boundary_velocity, 0);
-  }
-
-  template <int N>
-  inline static void calculateBoundaryGradientVariable(
-      const PhysicalModel<SimulationControl>& physical_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl, N>& left_quadrature_node_variable,
-      const Variable<SimulationControl, N>& right_quadrature_node_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_volume_gradient_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_interface_gradient_variable, const Isize column) {
-    Variable<SimulationControl, 1> boundary_quadrature_node_variable;
-    calculateBoundaryVariable(physical_model, normal_vector, left_quadrature_node_variable,
-                              right_quadrature_node_variable, boundary_quadrature_node_variable, column);
-    boundary_quadrature_node_variable.calculateConservedFromComputational();
-    boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
-    boundary_quadrature_node_interface_gradient_variable.conserved_ =
-        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_.col(column);
-  }
-
-  template <int N>
-  inline static void modifyBoundaryVariable(
-      Variable<SimulationControl, N>& left_quadrature_node_variable,
-      VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
-      VariableGradient<SimulationControl, 1>& boundary_quadrature_node_variable_gradient, const Isize column) {
-    left_quadrature_node_variable.computational_.col(column) = boundary_quadrature_node_variable.computational_;
-    boundary_quadrature_node_variable_gradient.primitive_ =
-        left_quadrature_node_variable_gradient.primitive_.col(column);
-    boundary_quadrature_node_variable_gradient.template setVector<PrimitiveVariableEnum::Temperature>(
-        Eigen::Vector<Real, SimulationControl::kDimension>::Zero(), 0);
-  }
-};
-
-template <typename SimulationControl>
-struct BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall> {
-  template <int N>
-  inline static void calculateBoundaryVariable(
-      [[maybe_unused]] const PhysicalModel<SimulationControl>& physical_model,
-      [[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl, N>& left_quadrature_node_variable,
-      const Variable<SimulationControl, N>& right_quadrature_node_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_variable, const Isize column) {
-    boundary_quadrature_node_variable.computational_ = left_quadrature_node_variable.computational_.col(column);
-    boundary_quadrature_node_variable.template setVector<ComputationalVariableEnum::Velocity>(
-        right_quadrature_node_variable.template getVector<ComputationalVariableEnum::Velocity>(column), 0);
-  }
-
-  template <int N>
-  inline static void calculateBoundaryGradientVariable(
-      const PhysicalModel<SimulationControl>& physical_model,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Variable<SimulationControl, N>& left_quadrature_node_variable,
-      const Variable<SimulationControl, N>& right_quadrature_node_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_volume_gradient_variable,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_interface_gradient_variable, const Isize column) {
-    Variable<SimulationControl, 1> boundary_quadrature_node_variable;
-    calculateBoundaryVariable(physical_model, normal_vector, left_quadrature_node_variable,
-                              right_quadrature_node_variable, boundary_quadrature_node_variable, column);
-    boundary_quadrature_node_variable.calculateConservedFromComputational();
-    boundary_quadrature_node_volume_gradient_variable.conserved_ = boundary_quadrature_node_variable.conserved_;
-    boundary_quadrature_node_interface_gradient_variable.conserved_ =
-        boundary_quadrature_node_variable.conserved_ - left_quadrature_node_variable.conserved_.col(column);
-  }
-
-  template <int N>
-  inline static void modifyBoundaryVariable(
-      Variable<SimulationControl, N>& left_quadrature_node_variable,
-      VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
-      Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
-      VariableGradient<SimulationControl, 1>& boundary_quadrature_node_variable_gradient, const Isize column) {
-    left_quadrature_node_variable.computational_.col(column) = boundary_quadrature_node_variable.computational_;
-    boundary_quadrature_node_variable_gradient.primitive_ =
-        left_quadrature_node_variable_gradient.primitive_.col(column);
-    boundary_quadrature_node_variable_gradient.template setVector<PrimitiveVariableEnum::Temperature>(
-        Eigen::Vector<Real, SimulationControl::kDimension>::Zero(), 0);
-  }
-};
-
-template <typename SimulationControl, int N>
-using CalculateBoundaryVariableFunction =
-    void (*)(const PhysicalModel<SimulationControl>& physical_model,
-             const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-             const Variable<SimulationControl, N>& left_quadrature_node_variable,
-             const Variable<SimulationControl, N>& right_quadrature_node_variable,
-             Variable<SimulationControl, 1>& boundary_quadrature_node_variable, const Isize column);
-
-template <typename SimulationControl, int N>
-using CalculateBoundaryGradientVariableFunction =
-    void (*)(const PhysicalModel<SimulationControl>& physical_model,
-             const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-             const Variable<SimulationControl, N>& left_quadrature_node_variable,
-             const Variable<SimulationControl, N>& right_quadrature_node_variable,
-             Variable<SimulationControl, 1>& boundary_quadrature_node_volume_gradient_variable,
-             Variable<SimulationControl, 1>& boundary_quadrature_node_interface_gradient_variable, const Isize column);
-
-template <typename SimulationControl, int N>
-using ModifyBoundaryVariableFunction =
-    void (*)(Variable<SimulationControl, N>& left_quadrature_node_variable,
-             VariableGradient<SimulationControl, N>& left_quadrature_node_variable_gradient,
-             Variable<SimulationControl, 1>& boundary_quadrature_node_variable,
-             VariableGradient<SimulationControl, 1>& boundary_quadrature_node_variable_gradient, const Isize column);
-
-template <typename SimulationControl>
-struct BoundaryCondition {
-  inline Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber> calculatePrimitiveFromCoordinate(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate, Isize gmsh_physical_index) const;
-
-  inline Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber> calculatePrimitiveFromCoordinate(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate, Real time, Isize gmsh_physical_index) const;
-
-  template <typename AdjacencyElementTrait>
-  inline CalculateBoundaryVariableFunction<SimulationControl, AdjacencyElementTrait::kQuadratureNumber>
-  getCalculateBoundaryVariableFunction(const BoundaryConditionEnum boundary_condition_type) const {
-    constexpr std::array<CalculateBoundaryVariableFunction<SimulationControl, AdjacencyElementTrait::kQuadratureNumber>,
-                         magic_enum::enum_count<BoundaryConditionEnum>()>
-        kCalculateBoundaryVariableFunction = {
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield>::
-                template calculateBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::VelocityInflow>::
-                template calculateBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::PressureOutflow>::
-                template calculateBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::
-                template calculateBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::
-                template calculateBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::
-                template calculateBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>};
-    return kCalculateBoundaryVariableFunction[static_cast<Usize>(magic_enum::enum_integer(boundary_condition_type))];
-  }
-
-  template <typename AdjacencyElementTrait>
-  inline CalculateBoundaryGradientVariableFunction<SimulationControl, AdjacencyElementTrait::kQuadratureNumber>
-  getCalculateBoundaryGradientVariableFunction(const BoundaryConditionEnum boundary_condition_type) const {
-    constexpr std::array<
-        CalculateBoundaryGradientVariableFunction<SimulationControl, AdjacencyElementTrait::kQuadratureNumber>,
-        magic_enum::enum_count<BoundaryConditionEnum>()>
-        kCalculateBoundaryGradientVariableFunction = {
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield>::
-                template calculateBoundaryGradientVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::VelocityInflow>::
-                template calculateBoundaryGradientVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::PressureOutflow>::
-                template calculateBoundaryGradientVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::
-                template calculateBoundaryGradientVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::
-                template calculateBoundaryGradientVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::
-                template calculateBoundaryGradientVariable<AdjacencyElementTrait::kQuadratureNumber>};
-    return kCalculateBoundaryGradientVariableFunction[static_cast<Usize>(
-        magic_enum::enum_integer(boundary_condition_type))];
-  }
-
-  template <typename AdjacencyElementTrait>
-  inline ModifyBoundaryVariableFunction<SimulationControl, AdjacencyElementTrait::kQuadratureNumber>
-  getModifyBoundaryVariableFunction(const BoundaryConditionEnum boundary_condition_type) const {
-    constexpr std::array<ModifyBoundaryVariableFunction<SimulationControl, AdjacencyElementTrait::kQuadratureNumber>,
-                         magic_enum::enum_count<BoundaryConditionEnum>()>
-        kModifyBoundaryVariableFunction = {
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::RiemannFarfield>::
-                template modifyBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::VelocityInflow>::
-                template modifyBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::PressureOutflow>::
-                template modifyBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::IsoThermalNonSlipWall>::
-                template modifyBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticSlipWall>::
-                template modifyBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>,
-            &BoundaryConditionImpl<SimulationControl, BoundaryConditionEnum::AdiabaticNonSlipWall>::
-                template modifyBoundaryVariable<AdjacencyElementTrait::kQuadratureNumber>};
-    return kModifyBoundaryVariableFunction[static_cast<Usize>(magic_enum::enum_integer(boundary_condition_type))];
-  }
-};
+  queue.wait();
+}
 
 }  // namespace SubrosaDG
 
