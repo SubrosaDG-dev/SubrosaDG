@@ -386,7 +386,7 @@ struct Array {
 
 // BLAS Level 2
 
-template <typename T, typename U, typename V, bool TransposeA = NoTranspose, bool TransposeB = NoTranspose>
+template <typename T, typename U, typename V, bool TransposeA = NoTranspose>
 inline void gemv(const T& a, const U& b, V& c) {
   using Scalar = typename T::Scalar;
   constexpr Isize m = TransposeA ? a.cols() : a.rows();
@@ -395,7 +395,7 @@ inline void gemv(const T& a, const U& b, V& c) {
     Scalar sum = Scalar(0);
     for (Isize j = 0; j < n; j++) {
       const Scalar a_value = TransposeA ? a(j, i) : a(i, j);
-      const Scalar b_value = TransposeB ? b(0, j) : b(j);
+      const Scalar b_value = b(j);
       sum += a_value * b_value;
     }
     c(i) = sum;

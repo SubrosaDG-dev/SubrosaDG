@@ -1594,12 +1594,12 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeV
     for (Isize i = range.begin(); i != range.end(); i++) {
       // NOTE: Here we split the calculation to trigger eigen's noalias to avoid intermediate variables.
       this->variable_residual_(i).noalias() =
-          this->variable_quadrature_(i) * volume_element_mesh.modal_gradient_basis_function_;
+          this->variable_quadrature_(i) * volume_element_mesh.nodal_gradient_basis_function_;
       this->variable_residual_(i).noalias() -=
-          this->variable_adjacency_quadrature_(i) * volume_element_mesh.modal_adjacency_basis_function_;
+          this->variable_adjacency_quadrature_(i) * volume_element_mesh.nodal_adjacency_basis_function_;
       if constexpr (SimulationControl::kSourceTerm != SourceTermEnum::None) {
         this->variable_residual_(i).noalias() +=
-            this->variable_source_quadrature_(i) * volume_element_mesh.modal_basis_function_;
+            this->variable_source_quadrature_(i) * volume_element_mesh.nodal_basis_function_;
       }
     }
   });
@@ -1652,7 +1652,7 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
         for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
           Real sum = 0.0_r;
           for (Isize k = 0; k < VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension; k++) {
-            sum += variable_quadrature(m, k) * volume_element_mesh.modal_gradient_basis_function_(k, n);
+            sum += variable_quadrature(m, k) * volume_element_mesh.nodal_gradient_basis_function_(k, n);
           }
           variable_residual(m, n) = sum;
         }
@@ -1661,7 +1661,7 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
         for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
           Real sum = 0.0_r;
           for (Isize k = 0; k < VolumeElementTrait::kAllAdjacencyQuadratureNumber; k++) {
-            sum += variable_adjacency_quadrature(m, k) * volume_element_mesh.modal_adjacency_basis_function_(k, n);
+            sum += variable_adjacency_quadrature(m, k) * volume_element_mesh.nodal_adjacency_basis_function_(k, n);
           }
           variable_residual(m, n) -= sum;
         }
@@ -1674,7 +1674,7 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
           for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
             Real sum = 0.0_r;
             for (Isize k = 0; k < VolumeElementTrait::kQuadratureNumber; k++) {
-              sum += variable_source_quadrature(m, k) * volume_element_mesh.modal_basis_function_(k, n);
+              sum += variable_source_quadrature(m, k) * volume_element_mesh.nodal_basis_function_(k, n);
             }
             variable_residual(m, n) += sum;
           }
@@ -1722,14 +1722,14 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeV
   tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
     for (Isize i = range.begin(); i != range.end(); i++) {
       this->variable_volume_gradient_residual_(i).noalias() =
-          this->variable_volume_gradient_adjacency_quadrature_(i) * volume_element_mesh.modal_adjacency_basis_function_;
+          this->variable_volume_gradient_adjacency_quadrature_(i) * volume_element_mesh.nodal_adjacency_basis_function_;
       this->variable_volume_gradient_residual_(i).noalias() -=
-          this->variable_volume_gradient_quadrature_(i) * volume_element_mesh.modal_gradient_basis_function_;
+          this->variable_volume_gradient_quadrature_(i) * volume_element_mesh.nodal_gradient_basis_function_;
       if constexpr (IsNS<SimulationControl::kEquationModel>) {
         if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
           this->variable_interface_gradient_residual_(i).noalias() =
               this->variable_interface_gradient_adjacency_quadrature_(i) *
-              volume_element_mesh.modal_adjacency_basis_function_;
+              volume_element_mesh.nodal_adjacency_basis_function_;
         } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
           for (Isize j = 0; j < VolumeElementTrait::kAdjacencyNumber; j++) {
             const Isize adjacency_quadrature_start = kAdjacencyQuadratureSequence[static_cast<Usize>(j)];
@@ -1739,7 +1739,7 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeV
                                                       Eigen::fix<VolumeElementTrait::kBasisFunctionNumber>)) =
                 this->variable_interface_gradient_adjacency_quadrature_(i)(
                     Eigen::placeholders::all, Eigen::seqN(adjacency_quadrature_start, adjacency_quadrature_number)) *
-                volume_element_mesh.modal_adjacency_basis_function_(
+                volume_element_mesh.nodal_adjacency_basis_function_(
                     Eigen::seqN(adjacency_quadrature_start, adjacency_quadrature_number), Eigen::placeholders::all);
           }
         }
@@ -1793,10 +1793,6 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
                                VolumeElementTrait::kAllAdjacencyQuadratureNumber>>
           variable_volume_gradient_adjacency_quadrature =
               self->variable_volume_gradient_adjacency_quadrature_.view(i, this->number_);
-      const Device::View<
-          const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension>>
-          variable_volume_gradient_quadrature = self->variable_volume_gradient_quadrature_.view(i, this->number_);
       Device::View<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                                   VolumeElementTrait::kBasisFunctionNumber>>
           variable_volume_gradient_residual = this->variable_volume_gradient_residual_.view(i, this->number_);
@@ -1805,12 +1801,22 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
           Real sum = 0.0_r;
           for (Isize k = 0; k < VolumeElementTrait::kAllAdjacencyQuadratureNumber; k++) {
             sum += variable_volume_gradient_adjacency_quadrature(m, k) *
-                   volume_element_mesh.modal_adjacency_basis_function_(k, n);
-          }
-          for (Isize k = 0; k < VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension; k++) {
-            sum -= variable_volume_gradient_quadrature(m, k) * volume_element_mesh.modal_gradient_basis_function_(k, n);
+                   volume_element_mesh.nodal_adjacency_basis_function_(k, n);
           }
           variable_volume_gradient_residual(m, n) = sum;
+        }
+      }
+      const Device::View<
+          const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension>>
+          variable_volume_gradient_quadrature = self->variable_volume_gradient_quadrature_.view(i, this->number_);
+      for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+        for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
+          Real sum = 0.0_r;
+          for (Isize k = 0; k < VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension; k++) {
+            sum += variable_volume_gradient_quadrature(m, k) * volume_element_mesh.nodal_gradient_basis_function_(k, n);
+          }
+          variable_volume_gradient_residual(m, n) -= sum;
         }
       }
       if constexpr (IsNS<SimulationControl::kEquationModel>) {
@@ -1828,7 +1834,7 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
               Real sum = 0.0_r;
               for (Isize k = 0; k < VolumeElementTrait::kAllAdjacencyQuadratureNumber; k++) {
                 sum += variable_interface_gradient_adjacency_quadrature(m, k) *
-                       volume_element_mesh.modal_adjacency_basis_function_(k, n);
+                       volume_element_mesh.nodal_adjacency_basis_function_(k, n);
               }
               variable_interface_gradient_residual(m, n) = sum;
             }
@@ -1855,7 +1861,7 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
                 Real sum = 0.0_r;
                 for (Isize k = 0; k < adjacency_quadrature_number; k++) {
                   sum += variable_interface_gradient_adjacency_quadrature(m, adjacency_quadrature_start + k) *
-                         volume_element_mesh.modal_adjacency_basis_function_(adjacency_quadrature_start + k, n);
+                         volume_element_mesh.nodal_adjacency_basis_function_(adjacency_quadrature_start + k, n);
                 }
                 variable_interface_gradient_residual(m, n) = sum;
               }

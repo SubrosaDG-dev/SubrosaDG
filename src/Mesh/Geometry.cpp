@@ -91,8 +91,8 @@ inline void VolumeElementMesh<VolumeElementTrait>::computeVolumeElementLocalMass
   tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
     for (Isize i = range.begin(); i != range.end(); i++) {
       this->local_mass_matrix_inverse_(i).noalias() =
-          (this->modal_basis_function_.transpose() *
-           (this->modal_basis_function_.array().colwise() * this->jacobian_determinant_multiply_weight_(i).array())
+          (this->nodal_basis_function_.transpose() *
+           (this->nodal_basis_function_.array().colwise() * this->jacobian_determinant_multiply_weight_(i).array())
                .matrix())
               .inverse();
     }

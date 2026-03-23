@@ -72,11 +72,6 @@ enum class EquationModelEnum : std::uint8_t {
   MHD
 };
 
-enum class BasisFunctionEnum : std::uint8_t {
-  Nodal,
-  Modal,
-};
-
 enum class SourceTermEnum : std::uint8_t {
   None,
   Boussinesq,

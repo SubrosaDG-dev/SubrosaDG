@@ -224,10 +224,9 @@ inline void VolumeElementViewSolver<VolumeElementTrait, SimulationControl>::comp
     raw_binary_ss.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                        SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
                            VolumeElementTrait::kBasisFunctionNumber * kRealSize);
-    all_conserved_variable.noalias() = variable_basis_function_coefficient * this->modal_basis_function_;
+    all_conserved_variable.noalias() = variable_basis_function_coefficient;
     this->view_variable_(i).convertComputationalFromConserved(all_conserved_variable);
-    all_conserved_gradient_variable.noalias() =
-        variable_gradient_basis_function_coefficient * this->modal_basis_function_;
+    all_conserved_gradient_variable.noalias() = variable_gradient_basis_function_coefficient;
     this->view_variable_(i).convertPrimitiveGradientFromConservedGradient(all_conserved_gradient_variable);
   }
 }
@@ -261,12 +260,9 @@ AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>::computeAdj
                          VolumeElementTrait::kBasisFunctionNumber * kRealSize);
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
     all_conserved_variable.col(i).noalias() =
-        variable_basis_function_coefficient * volume_element_view_solver.modal_basis_function_.col(
-                                                  adjacency_view_node_sequence_in_parent[static_cast<Usize>(i)]);
+        variable_basis_function_coefficient.col(adjacency_view_node_sequence_in_parent[static_cast<Usize>(i)]);
     all_conserved_gradient_variable.col(i).noalias() =
-        variable_gradient_basis_function_coefficient *
-        volume_element_view_solver.modal_basis_function_.col(
-            adjacency_view_node_sequence_in_parent[static_cast<Usize>(i)]);
+        variable_gradient_basis_function_coefficient.col(adjacency_view_node_sequence_in_parent[static_cast<Usize>(i)]);
   }
   this->view_variable_(element_index).convertComputationalFromConserved(all_conserved_variable);
   this->view_variable_(element_index).convertPrimitiveGradientFromConservedGradient(all_conserved_gradient_variable);

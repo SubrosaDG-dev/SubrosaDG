@@ -61,8 +61,8 @@ struct InitialCondition {
                 initial_all_conserved_variable.col(j) = initial_conserved_variable;
               }
               variable_basis_function_coefficient(i).noalias() = initial_all_conserved_variable *
-                                                                 volume_element_mesh.modal_basis_function_ *
-                                                                 volume_element_mesh.modal_least_squares_inverse_;
+                                                                 volume_element_mesh.nodal_basis_function_ *
+                                                                 volume_element_mesh.nodal_least_squares_inverse_;
             }
           });
     } else if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LastStep) {

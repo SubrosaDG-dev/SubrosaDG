@@ -429,7 +429,7 @@ struct VolumeElementVariable {
                   const Isize element_index, const Isize quadrature_sequence) {
     quadrature_node_conserved_variable.noalias() =
         volume_element_solver.variable_basis_function_coefficient_(element_index) *
-        volume_element_mesh.modal_basis_function_.row(quadrature_sequence).transpose();
+        volume_element_mesh.nodal_basis_function_.row(quadrature_sequence).transpose();
   }
 };
 
@@ -448,7 +448,7 @@ struct VolumeElementVariableDevice {
       Real sum = 0.0_r;
       for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
         sum += variable_basis_function_coefficient(m, n) *
-               volume_element_mesh.modal_basis_function_(quadrature_sequence, n);
+               volume_element_mesh.nodal_basis_function_(quadrature_sequence, n);
       }
       quadrature_node_conserved_variable(m) = sum;
     }
@@ -468,7 +468,7 @@ struct AdjacencyElementVariable {
                                                     SimulationControl::kPolynomialOrder>()};
     quadrature_node_conserved_variable.noalias() =
         volume_element_solver.variable_basis_function_coefficient_(parent_index_each_type) *
-        volume_element_mesh.modal_adjacency_basis_function_
+        volume_element_mesh.nodal_adjacency_basis_function_
             .row(kAdjacencyQuadratureSequence[static_cast<Usize>(adjacency_sequence_in_parent)] + quadrature_sequence)
             .transpose();
   }
@@ -544,7 +544,7 @@ struct AdjacencyElementVariableDevice {
     for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
       Real sum = 0.0_r;
       for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
-        sum += variable_basis_function_coefficient(m, n) * volume_element_mesh.modal_adjacency_basis_function_(row, n);
+        sum += variable_basis_function_coefficient(m, n) * volume_element_mesh.nodal_adjacency_basis_function_(row, n);
       }
       quadrature_node_conserved_variable(m) = sum;
     }
@@ -841,11 +841,11 @@ struct VolumeElementVariableGradient {
     if constexpr (ViscousFluxType == ViscousFluxEnum::None) {
       quadrature_node_conserved_variable_gradient.noalias() =
           volume_element_solver.variable_volume_gradient_basis_function_coefficient_(element_index) *
-          volume_element_mesh.modal_basis_function_.row(quadrature_sequence).transpose();
+          volume_element_mesh.nodal_basis_function_.row(quadrature_sequence).transpose();
     } else {
       quadrature_node_conserved_variable_gradient.noalias() =
           volume_element_solver.variable_gradient_basis_function_coefficient_(element_index) *
-          volume_element_mesh.modal_basis_function_.row(quadrature_sequence).transpose();
+          volume_element_mesh.nodal_basis_function_.row(quadrature_sequence).transpose();
     }
   }
 };
@@ -870,7 +870,7 @@ struct VolumeElementVariableGradientDevice {
         Real sum = 0.0_r;
         for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
           sum += variable_volume_gradient_basis_function_coefficient(m, n) *
-                 volume_element_mesh.modal_basis_function_(quadrature_sequence, n);
+                 volume_element_mesh.nodal_basis_function_(quadrature_sequence, n);
         }
         quadrature_node_conserved_variable_gradient(m) = sum;
       }
@@ -885,7 +885,7 @@ struct VolumeElementVariableGradientDevice {
         Real sum = 0.0_r;
         for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
           sum += variable_gradient_basis_function_coefficient(m, n) *
-                 volume_element_mesh.modal_basis_function_(quadrature_sequence, n);
+                 volume_element_mesh.nodal_basis_function_(quadrature_sequence, n);
         }
         quadrature_node_conserved_variable_gradient(m) = sum;
       }
@@ -908,13 +908,13 @@ struct AdjacencyElementVariableGradient {
     if constexpr (ViscousFluxType == ViscousFluxEnum::None) {
       quadrature_node_conserved_variable_gradient.noalias() =
           volume_element_solver.variable_volume_gradient_basis_function_coefficient_(parent_index_each_type) *
-          volume_element_mesh.modal_adjacency_basis_function_
+          volume_element_mesh.nodal_adjacency_basis_function_
               .row(kAdjacencyQuadratureSequence[static_cast<Usize>(adjacency_sequence_in_parent)] + quadrature_sequence)
               .transpose();
     } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR1) {
       quadrature_node_conserved_variable_gradient.noalias() =
           volume_element_solver.variable_gradient_basis_function_coefficient_(parent_index_each_type) *
-          volume_element_mesh.modal_adjacency_basis_function_
+          volume_element_mesh.nodal_adjacency_basis_function_
               .row(kAdjacencyQuadratureSequence[static_cast<Usize>(adjacency_sequence_in_parent)] + quadrature_sequence)
               .transpose();
     } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR2) {
@@ -929,7 +929,7 @@ struct AdjacencyElementVariableGradient {
       quadrature_node_conserved_variable_gradient.noalias() =
           (volume_element_solver.variable_volume_gradient_basis_function_coefficient_(parent_index_each_type) +
            variable_interface_gradient_basis_function_coefficient) *
-          volume_element_mesh.modal_adjacency_basis_function_
+          volume_element_mesh.nodal_adjacency_basis_function_
               .row(kAdjacencyQuadratureSequence[static_cast<Usize>(adjacency_sequence_in_parent)] + quadrature_sequence)
               .transpose();
     }
@@ -1013,7 +1013,7 @@ struct AdjacencyElementVariableGradientDevice {
         Real sum = 0.0_r;
         for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
           sum += variable_volume_gradient_basis_function_coefficient(m, n) *
-                 volume_element_mesh.modal_adjacency_basis_function_(row, n);
+                 volume_element_mesh.nodal_adjacency_basis_function_(row, n);
         }
         quadrature_node_conserved_variable_gradient(m) = sum;
       }
@@ -1028,7 +1028,7 @@ struct AdjacencyElementVariableGradientDevice {
         Real sum = 0.0_r;
         for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
           sum += variable_gradient_basis_function_coefficient(m, n) *
-                 volume_element_mesh.modal_adjacency_basis_function_(row, n);
+                 volume_element_mesh.nodal_adjacency_basis_function_(row, n);
         }
         quadrature_node_conserved_variable_gradient(m) = sum;
       }
@@ -1053,7 +1053,7 @@ struct AdjacencyElementVariableGradientDevice {
         for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
           sum += (variable_volume_gradient_basis_function_coefficient(m, n) +
                   variable_interface_gradient_basis_function_coefficient(m, n)) *
-                 volume_element_mesh.modal_adjacency_basis_function_(row, n);
+                 volume_element_mesh.nodal_adjacency_basis_function_(row, n);
         }
         quadrature_node_conserved_variable_gradient(m) = sum;
       }

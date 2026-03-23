@@ -34,34 +34,8 @@ namespace SubrosaDG {
 template <typename SimulationControl>
 struct ViewSolver;
 
-template <typename VolumeElementTrait>
-struct VolumeElementViewBasisFunction {
-  Eigen::Matrix<Real, VolumeElementTrait::kBasisFunctionNumber, VolumeElementTrait::kAllNodeNumber>
-      modal_basis_function_;
-
-  VolumeElementViewBasisFunction() {
-    Eigen::Matrix<double, VolumeElementTrait::kDimension, VolumeElementTrait::kAllNodeNumber> all_node_coordinate{
-        getElementNodeCoordinate<VolumeElementTrait::kElementType, VolumeElementTrait::kPolynomialOrder>().data()};
-    Eigen::Matrix<double, 3, VolumeElementTrait::kAllNodeNumber> local_coord_gmsh_matrix{
-        Eigen::Matrix<double, 3, VolumeElementTrait::kAllNodeNumber>::Zero()};
-    local_coord_gmsh_matrix(Eigen::seqN(Eigen::fix<0>, Eigen::fix<VolumeElementTrait::kDimension>),
-                            Eigen::placeholders::all) = all_node_coordinate;
-    std::vector<double> local_coord(local_coord_gmsh_matrix.data(),
-                                    local_coord_gmsh_matrix.data() + local_coord_gmsh_matrix.size());
-    std::vector<double> modal_basis_functions{
-        getElementModalBasisFunction<VolumeElementTrait::kElementType, VolumeElementTrait::kPolynomialOrder>(
-            false, local_coord)};
-    for (Isize i = 0; i < VolumeElementTrait::kAllNodeNumber; i++) {
-      for (Isize j = 0; j < VolumeElementTrait::kBasisFunctionNumber; j++) {
-        this->modal_basis_function_(j, i) = static_cast<Real>(
-            modal_basis_functions[static_cast<Usize>(i * VolumeElementTrait::kBasisFunctionNumber + j)]);
-      }
-    }
-  }
-};
-
 template <typename VolumeElementTrait, typename SimulationControl>
-struct VolumeElementViewSolver : VolumeElementViewBasisFunction<VolumeElementTrait> {
+struct VolumeElementViewSolver{
   Eigen::Array<ViewVariable<VolumeElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
 
   inline void computeVolumeElementViewVariable(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
@@ -305,7 +279,7 @@ struct View {
 
   void finalizeSolverFinout(std::fstream& error_finout) { error_finout.close(); }
 
-  void initializeViewFin(const int iteration_end, const bool delete_dir) {
+  void initializeViewFin(const int iteration_end, const int error_output_interval, const bool delete_dir) {
     const std::filesystem::path view_output_directory = this->output_directory_ / "vtu";
     if (delete_dir && SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       if (std::filesystem::exists(view_output_directory)) {
@@ -318,14 +292,14 @@ struct View {
       }
     }
     this->error_fin_.open((this->output_directory_ / "error.txt").string(), std::ios::in);
-    this->readTimeValue(iteration_end);
+    this->readTimeValue(iteration_end, error_output_interval);
   }
 
-  void readTimeValue(const int iteration_end) {
+  void readTimeValue(const int iteration_end, const int error_output_interval) {
     this->time_value_.resize(iteration_end + 1);
     std::string line;
     std::getline(this->error_fin_, line);
-    for (int i = 0; i <= iteration_end; i++) {
+    for (int i = 0; i <= iteration_end; i += error_output_interval) {
       std::getline(this->error_fin_, line);
       std::stringstream ss(line);
       ss.ignore(2) >> this->time_value_(i);

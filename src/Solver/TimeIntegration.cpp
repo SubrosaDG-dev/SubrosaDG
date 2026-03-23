@@ -553,7 +553,7 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeV
     for (Isize i = range.begin(); i != range.end(); i++) {
       const Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kQuadratureNumber>
           quadrature_node_residual =
-              this->variable_residual_(i) * volume_element_mesh.modal_basis_function_.transpose();
+              this->variable_residual_(i) * volume_element_mesh.nodal_basis_function_.transpose();
       relative_error_combinable.local().array() += quadrature_node_residual.array().abs().rowwise().mean();
     }
   });
@@ -612,7 +612,7 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
                              for (Isize n = 0; n < VolumeElementTrait::kQuadratureNumber; n++) {
                                Real inner_sum = 0.0_r;
                                for (Isize k = 0; k < VolumeElementTrait::kBasisFunctionNumber; k++) {
-                                 inner_sum += variable_residual(m, k) * volume_element_mesh.modal_basis_function_(n, k);
+                                 inner_sum += variable_residual(m, k) * volume_element_mesh.nodal_basis_function_(n, k);
                                }
                                mean_absolute_residual += sycl::fabs(inner_sum);
                              }
