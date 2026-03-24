@@ -687,12 +687,11 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::tr
         volume_element_solver.variable_volume_gradient_basis_function_coefficient_);
   }
   if constexpr (IsNS<SimulationControl::kEquationModel>) {
-    if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
-      Utils::transferToHost<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                            VolumeElementTrait::kBasisFunctionNumber>(
-          this->variable_gradient_basis_function_coefficient_,
-          volume_element_solver.variable_gradient_basis_function_coefficient_);
-    } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
+    Utils::transferToHost<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                          VolumeElementTrait::kBasisFunctionNumber>(
+        this->variable_gradient_basis_function_coefficient_,
+        volume_element_solver.variable_gradient_basis_function_coefficient_);
+    if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
       Utils::transferToHost<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                             VolumeElementTrait::kBasisFunctionNumber>(
           this->variable_volume_gradient_basis_function_coefficient_,

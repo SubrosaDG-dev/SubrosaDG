@@ -35,7 +35,7 @@ template <typename SimulationControl>
 struct ViewSolver;
 
 template <typename VolumeElementTrait, typename SimulationControl>
-struct VolumeElementViewSolver{
+struct VolumeElementViewSolver {
   Eigen::Array<ViewVariable<VolumeElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
 
   inline void computeVolumeElementViewVariable(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
@@ -47,14 +47,11 @@ struct AdjacencyElementViewSolver {
   Eigen::Array<ViewVariable<AdjacencyElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
 
   template <typename VolumeElementTrait>
-  inline void computeAdjacencyPerElementViewVariable(
-      const VolumeElementViewSolver<VolumeElementTrait, SimulationControl>& volume_element_view_solver,
-      std::stringstream& raw_binary_ss, Isize parent_gmsh_type_number, Isize adjacency_sequence_in_parent,
-      Isize element_index);
+  inline void computeAdjacencyPerElementViewVariable(std::stringstream& raw_binary_ss, Isize parent_gmsh_type_number,
+                                                     Isize adjacency_sequence_in_parent, Isize element_index);
 
   inline void computeAdjacencyElementViewVariable(
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const ViewSolver<SimulationControl>& view_solver, std::stringstream& raw_binary_ss);
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh, std::stringstream& raw_binary_ss);
 };
 
 template <typename SimulationControl, int Dimension>

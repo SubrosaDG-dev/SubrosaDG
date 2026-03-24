@@ -1363,7 +1363,6 @@ struct ViewVariable {
       return (velocity_gradient.trace() * velocity_gradient.trace() - (velocity_gradient * velocity_gradient).trace()) *
              0.5_r;
     }
-
     case ViewVariableEnum::Lambda2:
       if constexpr (SimulationControl::kDimension == 3) {
         // const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& velocity_gradient =

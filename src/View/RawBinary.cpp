@@ -224,9 +224,9 @@ inline void VolumeElementViewSolver<VolumeElementTrait, SimulationControl>::comp
     raw_binary_ss.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                        SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
                            VolumeElementTrait::kBasisFunctionNumber * kRealSize);
-    all_conserved_variable.noalias() = variable_basis_function_coefficient;
+    all_conserved_variable = variable_basis_function_coefficient;
     this->view_variable_(i).convertComputationalFromConserved(all_conserved_variable);
-    all_conserved_gradient_variable.noalias() = variable_gradient_basis_function_coefficient;
+    all_conserved_gradient_variable = variable_gradient_basis_function_coefficient;
     this->view_variable_(i).convertPrimitiveGradientFromConservedGradient(all_conserved_gradient_variable);
   }
 }
@@ -235,7 +235,6 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
 template <typename VolumeElementTrait>
 inline void
 AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>::computeAdjacencyPerElementViewVariable(
-    const VolumeElementViewSolver<VolumeElementTrait, SimulationControl>& volume_element_view_solver,
     std::stringstream& raw_binary_ss, const Isize parent_gmsh_type_number, const Isize adjacency_sequence_in_parent,
     const Isize element_index) {
   const std::array<int, AdjacencyElementTrait::kAllNodeNumber> adjacency_view_node_sequence_in_parent{
@@ -259,9 +258,9 @@ AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>::computeAdj
                      SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
                          VolumeElementTrait::kBasisFunctionNumber * kRealSize);
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
-    all_conserved_variable.col(i).noalias() =
+    all_conserved_variable.col(i) =
         variable_basis_function_coefficient.col(adjacency_view_node_sequence_in_parent[static_cast<Usize>(i)]);
-    all_conserved_gradient_variable.col(i).noalias() =
+    all_conserved_gradient_variable.col(i) =
         variable_gradient_basis_function_coefficient.col(adjacency_view_node_sequence_in_parent[static_cast<Usize>(i)]);
   }
   this->view_variable_(element_index).convertComputationalFromConserved(all_conserved_variable);
@@ -270,8 +269,7 @@ AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>::computeAdj
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>::computeAdjacencyElementViewVariable(
-    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const ViewSolver<SimulationControl>& view_solver, std::stringstream& raw_binary_ss) {
+    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh, std::stringstream& raw_binary_ss) {
   for (Isize i = 0; i < adjacency_element_mesh.boundary_number_; i++) {
     const Isize adjacency_sequence_in_parent =
         adjacency_element_mesh.adjacency_sequence_in_left_parent_(i + adjacency_element_mesh.interior_number_);
@@ -279,32 +277,32 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>
         adjacency_element_mesh.left_parent_gmsh_type_number_(i + adjacency_element_mesh.interior_number_);
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
       this->computeAdjacencyPerElementViewVariable<VolumeLineTrait<SimulationControl::kPolynomialOrder>>(
-          view_solver.line_, raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
+          raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->computeAdjacencyPerElementViewVariable<VolumeTriangleTrait<SimulationControl::kPolynomialOrder>>(
-            view_solver.triangle_, raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
+            raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
       } else if (parent_gmsh_type_number ==
                  VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->computeAdjacencyPerElementViewVariable<VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>>(
-            view_solver.quadrangle_, raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
+            raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
       }
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
       if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->computeAdjacencyPerElementViewVariable<VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>>(
-            view_solver.tetrahedron_, raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
+            raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
       } else if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->computeAdjacencyPerElementViewVariable<VolumePyramidTrait<SimulationControl::kPolynomialOrder>>(
-            view_solver.pyramid_, raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
+            raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
       }
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
       if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->computeAdjacencyPerElementViewVariable<VolumePyramidTrait<SimulationControl::kPolynomialOrder>>(
-            view_solver.pyramid_, raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
+            raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
       } else if (parent_gmsh_type_number ==
                  VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
         this->computeAdjacencyPerElementViewVariable<VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>>(
-            view_solver.hexahedron_, raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
+            raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
       }
     }
   }
@@ -315,7 +313,7 @@ inline void ViewSolver<SimulationControl>::computeViewVariable(const Mesh<Simula
   RawBinaryCompress::read(this->raw_binary_path_, this->raw_binary_ss_);
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.computeVolumeElementViewVariable(mesh.line_, this->raw_binary_ss_);
-    this->point_.computeAdjacencyElementViewVariable(mesh.point_, *this, this->raw_binary_ss_);
+    this->point_.computeAdjacencyElementViewVariable(mesh.point_, this->raw_binary_ss_);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
       this->triangle_.computeVolumeElementViewVariable(mesh.triangle_, this->raw_binary_ss_);
@@ -323,7 +321,7 @@ inline void ViewSolver<SimulationControl>::computeViewVariable(const Mesh<Simula
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.computeVolumeElementViewVariable(mesh.quadrangle_, this->raw_binary_ss_);
     }
-    this->line_.computeAdjacencyElementViewVariable(mesh.line_, *this, this->raw_binary_ss_);
+    this->line_.computeAdjacencyElementViewVariable(mesh.line_, this->raw_binary_ss_);
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
       this->tetrahedron_.computeVolumeElementViewVariable(mesh.tetrahedron_, this->raw_binary_ss_);
@@ -335,10 +333,10 @@ inline void ViewSolver<SimulationControl>::computeViewVariable(const Mesh<Simula
       this->hexahedron_.computeVolumeElementViewVariable(mesh.hexahedron_, this->raw_binary_ss_);
     }
     if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.computeAdjacencyElementViewVariable(mesh.triangle_, *this, this->raw_binary_ss_);
+      this->triangle_.computeAdjacencyElementViewVariable(mesh.triangle_, this->raw_binary_ss_);
     }
     if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.computeAdjacencyElementViewVariable(mesh.quadrangle_, *this, this->raw_binary_ss_);
+      this->quadrangle_.computeAdjacencyElementViewVariable(mesh.quadrangle_, this->raw_binary_ss_);
     }
   }
 }

@@ -196,7 +196,8 @@ struct System {
     this->command_line_.initializeView(
         (this->time_integration_.iteration_end_ - this->time_integration_.iteration_start_) / this->view_.io_interval_ +
         1);
-    this->view_.initializeViewFin(this->time_integration_.iteration_end_, this->solver_.error_output_interval_, delete_dir);
+    this->view_.initializeViewFin(this->time_integration_.iteration_end_, this->solver_.error_output_interval_,
+                                  delete_dir);
 #ifndef SUBROSA_DG_DEVELOP
     oneapi::tbb::task_arena arena(kNumberOfPhysicalCores / 2);
 #else   // SUBROSA_DG_DEVELOP

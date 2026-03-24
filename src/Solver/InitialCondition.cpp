@@ -77,6 +77,18 @@ struct InitialCondition {
     } else if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LowOrder) {
       constexpr int kLowOrderBasisFunctionNumber{
           getElementBasisFunctionNumber<VolumeElementTrait::kElementType, SimulationControl::kPolynomialOrder - 1>()};
+      Eigen::Matrix<Real, VolumeElementTrait::kQuadratureNumber, kLowOrderBasisFunctionNumber>
+          low_order_nodal_basis_function;
+      const auto& [local_coord, weights] = ElementQuadrature<VolumeElementTrait>::get();
+      std::vector<double> low_order_nodal_basis_functions{
+          ElementBasisFunction<VolumeElementTrait::kElementType, VolumeElementTrait::kPolynomialOrder - 1>::get(
+              local_coord, false)};
+      for (Isize i = 0; i < VolumeElementTrait::kQuadratureNumber; i++) {
+        for (Isize j = 0; j < kLowOrderBasisFunctionNumber; j++) {
+          low_order_nodal_basis_function(i, j) = static_cast<Real>(
+              low_order_nodal_basis_functions[static_cast<Usize>(i * kLowOrderBasisFunctionNumber + j)]);
+        }
+      }
       Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, kLowOrderBasisFunctionNumber>
           initial_variable_basis_function_coefficient;
       for (Isize i = 0; i < volume_element_mesh.number_; i++) {
@@ -85,10 +97,9 @@ struct InitialCondition {
         raw_binary_ss.seekg(SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
                                 kLowOrderBasisFunctionNumber * kRealSize,
                             std::ios::cur);
-        variable_basis_function_coefficient(i).setZero();
-        variable_basis_function_coefficient(i)(Eigen::placeholders::all,
-                                               Eigen::seqN(Eigen::fix<0>, Eigen::fix<kLowOrderBasisFunctionNumber>)) =
-            initial_variable_basis_function_coefficient;
+        variable_basis_function_coefficient(i).noalias() =
+            initial_variable_basis_function_coefficient * low_order_nodal_basis_function.transpose() *
+            volume_element_mesh.nodal_basis_function_ * volume_element_mesh.nodal_least_squares_inverse_;
       }
     }
   }
