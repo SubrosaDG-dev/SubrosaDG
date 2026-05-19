@@ -62,7 +62,7 @@ struct System {
     this->mesh_.initializeMesh(mesh_file_path);
   }
 
-  template <SourceTermEnum SourceTermType>
+  template <SourceTermEnum SourceTermType = SimulationControl::kSourceTerm>
     requires(SourceTermType == SourceTermEnum::Boussinesq)
   void setSourceTerm(const Real thermal_expansion_coefficient, const Real reference_temperature) {
 #ifndef SUBROSA_DG_GPU
@@ -74,7 +74,7 @@ struct System {
 #endif  // SUBROSA_DG_GPU
   }
 
-  template <InitialConditionEnum InitialConditionType>
+  template <InitialConditionEnum InitialConditionType = SimulationControl::kInitialCondition>
     requires(InitialConditionType == InitialConditionEnum::LowOrder)
   void addInitialCondition(const std::filesystem::path& initial_condition_file) {
     this->solver_.raw_binary_path_ = initial_condition_file;
@@ -95,6 +95,7 @@ struct System {
       this->time_integration_.iteration_start_ = iteration_range.first;
       this->time_integration_.iteration_end_ = iteration_range.second;
     }
+    this->time_integration_.iteration_ = this->time_integration_.iteration_start_;
     this->time_integration_.courant_friedrichs_lewy_number_ = courant_friedrichs_lewy_number;
     this->time_integration_.delta_time_ = delta_time;
   }

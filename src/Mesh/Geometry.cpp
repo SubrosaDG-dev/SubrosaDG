@@ -31,59 +31,103 @@ inline void VolumeElementMesh<VolumeElementTrait>::getVolumeElementQuality() {
 #pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
   for (Isize i = 0; i < this->number_; i++) {
     std::vector<double> element_min_edge;
-    std::vector<double> element_inner_radius;
     gmsh::model::mesh::getElementQualities({static_cast<std::size_t>(this->gmsh_tag_(i))}, element_min_edge, "minEdge");
-    gmsh::model::mesh::getElementQualities({static_cast<std::size_t>(this->gmsh_tag_(i))}, element_inner_radius,
-                                           "innerRadius");
     this->minimum_edge_(i) = static_cast<Real>(element_min_edge[0]);
-    this->inner_radius_(i) = static_cast<Real>(element_inner_radius[0]);
   }
 }
 
 template <typename VolumeElementTrait>
-inline void VolumeElementMesh<VolumeElementTrait>::getVolumeElementJacobian() {
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
-  for (Isize i = 0; i < this->number_; i++) {
-    std::vector<double> jacobians;
-    std::vector<double> determinants;
-    std::vector<double> coord;
-    gmsh::model::mesh::getJacobian(static_cast<std::size_t>(this->gmsh_tag_(i)), this->local_coord_, jacobians,
-                                   determinants, coord);
-    for (Isize j = 0; j < VolumeElementTrait::kQuadratureNumber; j++) {
-      Eigen::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kDimension> jacobian_transpose;
-      for (Isize k = 0; k < VolumeElementTrait::kDimension; k++) {
-        this->quadrature_node_coordinate_(i)(k, j) = static_cast<Real>(coord[static_cast<Usize>(j * 3 + k)]);
-        for (Isize l = 0; l < VolumeElementTrait::kDimension; l++) {
-          jacobian_transpose(k, l) = static_cast<Real>(jacobians[static_cast<Usize>(j * 9 + k * 3 + l)]);
-        }
+inline void VolumeElementMesh<VolumeElementTrait>::computeVolumeElementQuadratureNodeCoordinate() {
+  tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
+    for (Isize i = range.begin(); i != range.end(); i++) {
+      for (Isize j = 0; j < VolumeElementTrait::kQuadratureNumber; j++) {
+        this->quadrature_node_coordinate_(i).col(j) =
+            this->node_coordinate_(i) * this->nodal_basis_function_.row(j).transpose();
       }
-      this->jacobian_determinant_multiply_weight_(i)(j) =
-          static_cast<Real>(determinants[static_cast<Usize>(j)]) * this->quadrature_weight_(j);
-      this->jacobian_transpose_inverse_multiply_determinate_and_weight_(i)(
-              Eigen::placeholders::all,
-              Eigen::seqN(j * VolumeElementTrait::kDimension, Eigen::fix<VolumeElementTrait::kDimension>))
-          .noalias() = jacobian_transpose.inverse() * this->jacobian_determinant_multiply_weight_(i)(j);
     }
-  }
+  });
 }
 
 template <typename AdjacencyElementTrait>
-inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementJacobian() {
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
-  for (Isize i = 0; i < this->number_; i++) {
-    std::vector<double> jacobians;
-    std::vector<double> determinants;
-    std::vector<double> coord;
-    gmsh::model::mesh::getJacobian(static_cast<std::size_t>(this->gmsh_tag_(i)), this->local_coord_, jacobians,
-                                   determinants, coord);
-    for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-      for (Isize k = 0; k < AdjacencyElementTrait::kDimension + 1; k++) {
-        this->quadrature_node_coordinate_(i)(k, j) = static_cast<Real>(coord[static_cast<Usize>(j * 3 + k)]);
+inline void AdjacencyElementMesh<AdjacencyElementTrait>::computeAdjacencyElementQuadratureNodeCoordinate() {
+  tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
+    for (Isize i = range.begin(); i != range.end(); i++) {
+      for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+        this->quadrature_node_coordinate_(i).col(j) =
+            this->node_coordinate_(i) * this->nodal_basis_function_.row(j).transpose();
       }
-      this->jacobian_determinant_multiply_weight_(i)(j) =
-          static_cast<Real>(determinants[static_cast<Usize>(j)]) * this->quadrature_weight_(j);
     }
-  }
+  });
+}
+
+template <typename VolumeElementTrait>
+inline void VolumeElementMesh<VolumeElementTrait>::computeVolumeElementJacobian() {
+  tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
+    for (Isize i = range.begin(); i != range.end(); i++) {
+      Eigen::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kDimension> jacobian;
+      Real jacobian_determinant;
+      Eigen::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kDimension>
+          jacobian_inverse_multiply_determinate;
+      for (Isize j = 0; j < VolumeElementTrait::kQuadratureNumber; j++) {
+        jacobian.noalias() =
+            this->node_coordinate_(i) *
+            this->nodal_gradient_basis_function_(
+                    Eigen::seqN(j * VolumeElementTrait::kDimension, Eigen::fix<VolumeElementTrait::kDimension>),
+                    Eigen::placeholders::all)
+                .transpose();
+        if constexpr (VolumeElementTrait::kDimension == 1) {
+          jacobian_determinant = jacobian(0, 0);
+          jacobian_inverse_multiply_determinate(0, 0) = 1.0_r;
+        } else if constexpr (VolumeElementTrait::kDimension == 2) {
+          jacobian_determinant = jacobian(0, 0) * jacobian(1, 1) - jacobian(0, 1) * jacobian(1, 0);
+          jacobian_inverse_multiply_determinate(0, 0) = jacobian(1, 1);
+          jacobian_inverse_multiply_determinate(0, 1) = -jacobian(0, 1);
+          jacobian_inverse_multiply_determinate(1, 0) = -jacobian(1, 0);
+          jacobian_inverse_multiply_determinate(1, 1) = jacobian(0, 0);
+        } else if constexpr (VolumeElementTrait::kDimension == 3) {
+          // The inverse of the Jacobian matrix is computed by the cofactor method for better performance than the LU
+          // decomposition.
+          jacobian_inverse_multiply_determinate.row(0) = jacobian.col(1).cross(jacobian.col(2));
+          jacobian_inverse_multiply_determinate.row(1) = jacobian.col(2).cross(jacobian.col(0));
+          jacobian_inverse_multiply_determinate.row(2) = jacobian.col(0).cross(jacobian.col(1));
+          jacobian_determinant = jacobian.col(0).dot(jacobian_inverse_multiply_determinate.row(0));
+        }
+        this->jacobian_determinant_multiply_weight_(i)(j) = jacobian_determinant * this->quadrature_weight_(j);
+        this->jacobian_transpose_inverse_multiply_determinate_and_weight_(i)(
+                Eigen::placeholders::all,
+                Eigen::seqN(j * VolumeElementTrait::kDimension, Eigen::fix<VolumeElementTrait::kDimension>))
+            .noalias() = jacobian_inverse_multiply_determinate.transpose() * this->quadrature_weight_(j);
+      }
+    }
+  });
+}
+
+template <typename AdjacencyElementTrait>
+inline void AdjacencyElementMesh<AdjacencyElementTrait>::computeAdjacencyElementJacobian() {
+  tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
+    for (Isize i = range.begin(); i != range.end(); i++) {
+      if constexpr (AdjacencyElementTrait::kDimension == 0) {
+        this->jacobian_determinant_multiply_weight_(i)(0) = 1.0_r * this->quadrature_weight_(0);
+        return;
+      }
+      Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kDimension> jacobian;
+      Real jacobian_determinant;
+      for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+        jacobian.noalias() =
+            this->node_coordinate_(i) *
+            this->nodal_gradient_basis_function_(
+                    Eigen::seqN(j * AdjacencyElementTrait::kDimension, Eigen::fix<AdjacencyElementTrait::kDimension>),
+                    Eigen::placeholders::all)
+                .transpose();
+        if constexpr (AdjacencyElementTrait::kDimension == 1) {
+          jacobian_determinant = jacobian.norm();
+        } else if constexpr (AdjacencyElementTrait::kDimension == 2) {
+          jacobian_determinant = jacobian.col(0).cross(jacobian.col(1)).norm();
+        }
+        this->jacobian_determinant_multiply_weight_(i)(j) = jacobian_determinant * this->quadrature_weight_(j);
+      }
+    }
+  });
 }
 
 template <typename VolumeElementTrait>
@@ -114,14 +158,13 @@ template <Is1dElement AdjacencyElementTrait>
 inline void computeNormalVector(
     const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>&
         node_coordinate,
-    const Eigen::Array<
-        Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, AdjacencyElementTrait::kBasisFunctionNumber>,
-        AdjacencyElementTrait::kDimension, 1>& nodal_gradient_basis_function,
+    const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension * AdjacencyElementTrait::kQuadratureNumber,
+                        AdjacencyElementTrait::kBasisFunctionNumber>& nodal_gradient_basis_function,
     Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>&
         normal_vector) {
   for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
-    normal_vector(0, i) = nodal_gradient_basis_function(0).row(i) * node_coordinate.row(1).transpose();
-    normal_vector(1, i) = -nodal_gradient_basis_function(0).row(i) * node_coordinate.row(0).transpose();
+    normal_vector(0, i) = nodal_gradient_basis_function.row(i) * node_coordinate.row(1).transpose();
+    normal_vector(1, i) = -nodal_gradient_basis_function.row(i) * node_coordinate.row(0).transpose();
     normal_vector.col(i).normalize();
   }
 }
@@ -130,16 +173,17 @@ template <Is2dElement AdjacencyElementTrait>
 inline void computeNormalVector(
     const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>&
         node_coordinate,
-    const Eigen::Array<
-        Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, AdjacencyElementTrait::kBasisFunctionNumber>,
-        AdjacencyElementTrait::kDimension, 1>& nodal_gradient_basis_function,
+    const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension * AdjacencyElementTrait::kQuadratureNumber,
+                        AdjacencyElementTrait::kBasisFunctionNumber>& nodal_gradient_basis_function,
     Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>&
         normal_vector) {
   Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> partial_xi;
   Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> partial_eta;
   for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
-    partial_xi.noalias() = nodal_gradient_basis_function(0).row(i) * node_coordinate.transpose();
-    partial_eta.noalias() = nodal_gradient_basis_function(1).row(i) * node_coordinate.transpose();
+    partial_xi.noalias() =
+        nodal_gradient_basis_function.row(i * AdjacencyElementTrait::kDimension) * node_coordinate.transpose();
+    partial_eta.noalias() =
+        nodal_gradient_basis_function.row(i * AdjacencyElementTrait::kDimension + 1) * node_coordinate.transpose();
     normal_vector.col(i) = partial_xi.cross(partial_eta).normalized();
   }
 }

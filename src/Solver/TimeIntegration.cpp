@@ -29,7 +29,6 @@
 #include "Utils/Enum.cpp"
 
 namespace SubrosaDG {
-using sycl::plus;
 
 struct TimeIntegrationBase {
   int iteration_start_{0};
@@ -39,33 +38,30 @@ struct TimeIntegrationBase {
   Real delta_time_{0.0};
 };
 
-template <TimeIntegrationEnum TimeIntegrationType>
-struct TimeIntegrationData;
+template <typename SimulationControl, TimeIntegrationEnum TimeIntegrationType>
+struct TimeIntegration;
 
-template <>
-struct TimeIntegrationData<TimeIntegrationEnum::ForwardEuler> : TimeIntegrationBase {
+template <typename SimulationControl>
+struct TimeIntegration<SimulationControl, TimeIntegrationEnum::ForwardEuler> : TimeIntegrationBase {
   static constexpr int kStep = 1;
   static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{{{1.0_r, 0.0_r, 1.0_r}}};
 };
 
-template <>
-struct TimeIntegrationData<TimeIntegrationEnum::HeunRK2> : TimeIntegrationBase {
+template <typename SimulationControl>
+struct TimeIntegration<SimulationControl, TimeIntegrationEnum::HeunRK2> : TimeIntegrationBase {
   static constexpr int kStep = 2;
   static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{
       {{1.0_r, 0.0_r, 1.0_r}, {0.5_r, 0.5_r, 0.5_r}}};
 };
 
-template <>
-struct TimeIntegrationData<TimeIntegrationEnum::SSPRK3> : TimeIntegrationBase {
+template <typename SimulationControl>
+struct TimeIntegration<SimulationControl, TimeIntegrationEnum::SSPRK3> : TimeIntegrationBase {
   static constexpr int kStep = 3;
   static constexpr std::array<std::array<Real, 3>, kStep> kStepCoefficients{
       {{1.0_r, 0.0_r, 1.0_r},
        {3.0_r / 4.0_r, 1.0_r / 4.0_r, 1.0_r / 4.0_r},
        {1.0_r / 3.0_r, 2.0_r / 3.0_r, 2.0_r / 3.0_r}}};
 };
-
-template <typename SimulationControl>
-struct TimeIntegration : TimeIntegrationData<SimulationControl::kTimeIntegration> {};
 
 template <typename VolumeElementTrait, typename SimulationControl>
 inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::copyVolumeElementBasisFunctionCoefficient() {

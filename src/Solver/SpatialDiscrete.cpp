@@ -521,194 +521,6 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::getVaria
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
-[[nodiscard]] inline Eigen::Ref<
-    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::getVariableVolumeGradientAdjacencyQuadrature(
-    Solver<SimulationControl>& solver, const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
-    const Isize quadrature_node_sequence_in_parent) {
-  if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
-    return solver.line_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
-        .col(quadrature_node_sequence_in_parent);
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-    if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.triangle_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-    if (parent_gmsh_type_number == VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.quadrangle_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
-    if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.tetrahedron_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.pyramid_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
-    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.pyramid_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-    if (parent_gmsh_type_number == VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.hexahedron_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-  }
-  std::unreachable();
-}
-
-template <typename AdjacencyElementTrait, typename SimulationControl>
-[[nodiscard]] inline Device::View<
-    Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::getVariableVolumeGradientAdjacencyQuadrature(
-    SolverDevice<SimulationControl> solver, const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
-    const Isize quadrature_node_sequence_in_parent) {
-  if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
-    return solver.line_.variable_volume_gradient_adjacency_quadrature_.slice(
-        parent_index_each_type, solver.line_.number_,
-        Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-        Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-    if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.triangle_.variable_volume_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.triangle_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-    if (parent_gmsh_type_number == VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.quadrangle_.variable_volume_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.quadrangle_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
-    if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.tetrahedron_.variable_volume_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.tetrahedron_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.pyramid_.variable_volume_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.pyramid_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
-    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.pyramid_.variable_volume_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.pyramid_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-    if (parent_gmsh_type_number == VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.hexahedron_.variable_volume_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.hexahedron_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-  }
-  std::unreachable();
-}
-
-template <typename AdjacencyElementTrait, typename SimulationControl>
-[[nodiscard]] inline Eigen::Ref<
-    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::getVariableInterfaceGradientAdjacencyQuadrature(
-    Solver<SimulationControl>& solver, const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
-    const Isize quadrature_node_sequence_in_parent) {
-  if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
-    return solver.line_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
-        .col(quadrature_node_sequence_in_parent);
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-    if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.triangle_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-    if (parent_gmsh_type_number == VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.quadrangle_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
-    if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.tetrahedron_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.pyramid_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
-    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.pyramid_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-    if (parent_gmsh_type_number == VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.hexahedron_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
-          .col(quadrature_node_sequence_in_parent);
-    }
-  }
-  std::unreachable();
-}
-
-template <typename AdjacencyElementTrait, typename SimulationControl>
-[[nodiscard]] inline Device::View<
-    Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::getVariableInterfaceGradientAdjacencyQuadrature(
-    SolverDevice<SimulationControl> solver, const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
-    const Isize quadrature_node_sequence_in_parent) {
-  if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
-    return solver.line_.variable_interface_gradient_adjacency_quadrature_.slice(
-        parent_index_each_type, solver.line_.number_,
-        Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-        Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-    if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.triangle_.variable_interface_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.triangle_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-    if (parent_gmsh_type_number == VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.quadrangle_.variable_interface_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.quadrangle_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
-    if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.tetrahedron_.variable_interface_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.tetrahedron_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.pyramid_.variable_interface_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.pyramid_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
-    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.pyramid_.variable_interface_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.pyramid_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-    if (parent_gmsh_type_number == VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
-      return solver.hexahedron_.variable_interface_gradient_adjacency_quadrature_.slice(
-          parent_index_each_type, solver.hexahedron_.number_,
-          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
-    }
-  }
-  std::unreachable();
-}
-
-template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInteriorAdjacencyElementQuadrature(
     const Mesh<SimulationControl>& mesh, Solver<SimulationControl>& solver) {
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
@@ -1249,6 +1061,194 @@ inline void SolverDevice<SimulationControl>::computeAdjacencyQuadrature(const Me
     }
   }
   queue.wait();
+}
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+[[nodiscard]] inline Eigen::Ref<
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::getVariableVolumeGradientAdjacencyQuadrature(
+    Solver<SimulationControl>& solver, const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
+    const Isize quadrature_node_sequence_in_parent) {
+  if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+    return solver.line_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
+        .col(quadrature_node_sequence_in_parent);
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+    if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.triangle_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+    if (parent_gmsh_type_number == VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.quadrangle_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+    if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.tetrahedron_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.pyramid_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.pyramid_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+    if (parent_gmsh_type_number == VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.hexahedron_.variable_volume_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+  }
+  std::unreachable();
+}
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+[[nodiscard]] inline Device::View<
+    Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::getVariableVolumeGradientAdjacencyQuadrature(
+    SolverDevice<SimulationControl> solver, const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
+    const Isize quadrature_node_sequence_in_parent) {
+  if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+    return solver.line_.variable_volume_gradient_adjacency_quadrature_.slice(
+        parent_index_each_type, solver.line_.number_,
+        Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+        Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+    if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.triangle_.variable_volume_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.triangle_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+    if (parent_gmsh_type_number == VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.quadrangle_.variable_volume_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.quadrangle_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+    if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.tetrahedron_.variable_volume_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.tetrahedron_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.pyramid_.variable_volume_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.pyramid_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.pyramid_.variable_volume_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.pyramid_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+    if (parent_gmsh_type_number == VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.hexahedron_.variable_volume_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.hexahedron_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+  }
+  std::unreachable();
+}
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+[[nodiscard]] inline Eigen::Ref<
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::getVariableInterfaceGradientAdjacencyQuadrature(
+    Solver<SimulationControl>& solver, const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
+    const Isize quadrature_node_sequence_in_parent) {
+  if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+    return solver.line_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
+        .col(quadrature_node_sequence_in_parent);
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+    if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.triangle_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+    if (parent_gmsh_type_number == VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.quadrangle_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+    if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.tetrahedron_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.pyramid_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.pyramid_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+    if (parent_gmsh_type_number == VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.hexahedron_.variable_interface_gradient_adjacency_quadrature_(parent_index_each_type)
+          .col(quadrature_node_sequence_in_parent);
+    }
+  }
+  std::unreachable();
+}
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+[[nodiscard]] inline Device::View<
+    Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::getVariableInterfaceGradientAdjacencyQuadrature(
+    SolverDevice<SimulationControl> solver, const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
+    const Isize quadrature_node_sequence_in_parent) {
+  if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+    return solver.line_.variable_interface_gradient_adjacency_quadrature_.slice(
+        parent_index_each_type, solver.line_.number_,
+        Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+        Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+    if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.triangle_.variable_interface_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.triangle_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+    if (parent_gmsh_type_number == VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.quadrangle_.variable_interface_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.quadrangle_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+    if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.tetrahedron_.variable_interface_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.tetrahedron_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.pyramid_.variable_interface_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.pyramid_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+  } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+    if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.pyramid_.variable_interface_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.pyramid_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+    if (parent_gmsh_type_number == VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+      return solver.hexahedron_.variable_interface_gradient_adjacency_quadrature_.slice(
+          parent_index_each_type, solver.hexahedron_.number_,
+          Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+          Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
+    }
+  }
+  std::unreachable();
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>

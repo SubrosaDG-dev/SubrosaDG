@@ -21,13 +21,13 @@
 namespace SubrosaDG {
 
 template <typename SimulationControl, SourceTermEnum SourceTermType>
-struct SourceTermBase;
+struct SourceTerm;
 
 template <typename SimulationControl>
-struct SourceTermBase<SimulationControl, SourceTermEnum::None> {};
+struct SourceTerm<SimulationControl, SourceTermEnum::None> {};
 
 template <typename SimulationControl>
-struct SourceTermBase<SimulationControl, SourceTermEnum::Boussinesq> {
+struct SourceTerm<SimulationControl, SourceTermEnum::Boussinesq> {
   static constexpr Real kGravity = static_cast<Real>(1.0);
   Real thermal_expansion_coefficient_;
   Real reference_temperature_;
@@ -36,7 +36,7 @@ struct SourceTermBase<SimulationControl, SourceTermEnum::Boussinesq> {
       const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
           quadrature_node_computational_variable,
       Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> quadrature_node_source_quadrature,
-      const Real quadrature_node_jacobian_determinant_multiply_weight) const {
+      const Real jacobian_determinant_multiply_weight) const {
     quadrature_node_source_quadrature.setZero();
     const Real temperature = PhysicalModel<SimulationControl, PhysicalModelData>::computeTemperatureFromInternalEnergy(
         Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
@@ -47,26 +47,26 @@ struct SourceTermBase<SimulationControl, SourceTermEnum::Boussinesq> {
           Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
               quadrature_node_computational_variable) *
           this->thermal_expansion_coefficient_ * (temperature - this->reference_temperature_) * kGravity *
-          quadrature_node_jacobian_determinant_multiply_weight;
+          jacobian_determinant_multiply_weight;
     } else if constexpr (SimulationControl::kDimension == 3) {
       NormalFlux<SimulationControl>::template getScalar<ConservedVariableEnum::MomentumZ>(
           quadrature_node_source_quadrature) =
           Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
               quadrature_node_computational_variable) *
           this->thermal_expansion_coefficient_ * (temperature - this->reference_temperature_) * kGravity *
-          quadrature_node_jacobian_determinant_multiply_weight;
+          jacobian_determinant_multiply_weight;
     }
   }
 };
 
 template <typename SimulationControl, SourceTermEnum SourceTermType>
-struct SourceTermDeviceBase;
+struct SourceTermDevice;
 
 template <typename SimulationControl>
-struct SourceTermDeviceBase<SimulationControl, SourceTermEnum::None> {};
+struct SourceTermDevice<SimulationControl, SourceTermEnum::None> {};
 
 template <typename SimulationControl>
-struct SourceTermDeviceBase<SimulationControl, SourceTermEnum::Boussinesq> {
+struct SourceTermDevice<SimulationControl, SourceTermEnum::Boussinesq> {
   static constexpr Real kGravity = static_cast<Real>(1.0);
   Real thermal_expansion_coefficient_;
   Real reference_temperature_;
@@ -75,7 +75,7 @@ struct SourceTermDeviceBase<SimulationControl, SourceTermEnum::Boussinesq> {
       const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
           quadrature_node_computational_variable,
       Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>> quadrature_node_source_quadrature,
-      const Real quadrature_node_jacobian_determinant_multiply_weight) const {
+      const Real jacobian_determinant_multiply_weight) const {
     quadrature_node_source_quadrature.setZero();
     const Real temperature = PhysicalModel<SimulationControl, PhysicalModelData>::computeTemperatureFromInternalEnergy(
         Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
@@ -86,23 +86,17 @@ struct SourceTermDeviceBase<SimulationControl, SourceTermEnum::Boussinesq> {
           Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
               quadrature_node_computational_variable) *
           this->thermal_expansion_coefficient_ * (temperature - this->reference_temperature_) * kGravity *
-          quadrature_node_jacobian_determinant_multiply_weight;
+          jacobian_determinant_multiply_weight;
     } else if constexpr (SimulationControl::kDimension == 3) {
       NormalFlux<SimulationControl>::template getScalar<ConservedVariableEnum::MomentumZ>(
           quadrature_node_source_quadrature) =
           Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
               quadrature_node_computational_variable) *
           this->thermal_expansion_coefficient_ * (temperature - this->reference_temperature_) * kGravity *
-          quadrature_node_jacobian_determinant_multiply_weight;
+          jacobian_determinant_multiply_weight;
     }
   }
 };
-
-template <typename SimulationControl>
-struct SourceTerm : SourceTermBase<SimulationControl, SimulationControl::kSourceTerm> {};
-
-template <typename SimulationControl>
-struct SourceTermDevice : SourceTermDeviceBase<SimulationControl, SimulationControl::kSourceTerm> {};
 
 }  // namespace SubrosaDG
 

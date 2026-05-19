@@ -22,7 +22,6 @@
 #include <vector>
 #include <vtu11-cpp17.hpp>
 
-#include "Mesh/BasisFunction.cpp"
 #include "Mesh/ReadControl.cpp"
 #include "Solver/SimulationControl.cpp"
 #include "Solver/VariableConvertor.cpp"
@@ -229,6 +228,13 @@ struct View {
                                     /*const*/ Isize element_index,
                                     /*const*/ Isize column);
 
+  template <typename VolumeElementTrait>
+  inline void writeVolumeElement(const MeshPhysical& mesh_physical,
+                                 const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
+                                 const ViewSolver<SimulationControl>& view_solver,
+                                 ViewSupplemental<SimulationControl>& view_supplemental, /*const*/ Isize physical_index,
+                                 /*const*/ Isize element_index);
+
   template <typename AdjacencyElementTrait>
   inline void writeAdjacencyElement(const MeshPhysical& mesh_physical,
                                     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
@@ -237,18 +243,11 @@ struct View {
                                     /*const*/ Isize physical_index,
                                     /*const*/ Isize element_index);
 
-  template <typename VolumeElementTrait>
-  inline void writeVolumeElement(const MeshPhysical& mesh_physical,
-                                 const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
-                                 const ViewSolver<SimulationControl>& view_solver,
-                                 ViewSupplemental<SimulationControl>& view_supplemental, /*const*/ Isize physical_index,
-                                 /*const*/ Isize element_index);
-
-  template <int Dimension, bool IsAdjacency>
+  template <int Dimension, TopologyEnum TopologyType>
   inline void writeField(const Mesh<SimulationControl>& mesh, const ViewSolver<SimulationControl>& view_solver,
                          ViewSupplemental<SimulationControl>& view_supplemental, /*const*/ Isize physical_index);
 
-  template <int Dimension, bool IsAdjacency>
+  template <int Dimension, TopologyEnum TopologyType>
   inline void writeView(const Mesh<SimulationControl>& mesh, const ViewSolver<SimulationControl>& view_solver,
                         const std::string& base_name, /*const*/ int step, /*const*/ Isize physical_index);
 

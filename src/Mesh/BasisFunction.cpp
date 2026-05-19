@@ -57,29 +57,6 @@ struct ElementBasisFunction {
   }
 };
 
-template <typename AdjacencyElementTrait>
-struct AdjacencyElementBasisFunction {
-  Eigen::Array<
-      Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, AdjacencyElementTrait::kBasisFunctionNumber>,
-      AdjacencyElementTrait::kDimension, 1>
-      nodal_gradient_basis_function_;
-
-  AdjacencyElementBasisFunction() {
-    const auto& [local_coord, weights] = ElementQuadrature<AdjacencyElementTrait>::get();
-    std::vector<double> gradient_basis_functions{
-        ElementBasisFunction<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>::get(
-            local_coord, true)};
-    for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
-      for (Isize j = 0; j < AdjacencyElementTrait::kBasisFunctionNumber; j++) {
-        for (Isize k = 0; k < AdjacencyElementTrait::kDimension; k++) {
-          this->nodal_gradient_basis_function_(k)(i, j) = static_cast<Real>(gradient_basis_functions[static_cast<Usize>(
-              (i * AdjacencyElementTrait::kBasisFunctionNumber + j) * 3 + k)]);
-        }
-      }
-    }
-  }
-};
-
 template <typename VolumeElementTrait>
 struct VolumeElementBasisFunction {
   Eigen::Matrix<Real, VolumeElementTrait::kQuadratureNumber, VolumeElementTrait::kBasisFunctionNumber>
@@ -216,6 +193,40 @@ struct VolumeElementBasisFunctionDevice {
         volume_element_basis_function.nodal_adjacency_basis_function_, this->nodal_adjacency_basis_function_);
     Utils::transferToDevice<Real, VolumeElementTrait::kBasisFunctionNumber, VolumeElementTrait::kBasisFunctionNumber>(
         volume_element_basis_function.nodal_least_squares_inverse_, this->nodal_least_squares_inverse_);
+  }
+};
+
+template <typename AdjacencyElementTrait>
+struct AdjacencyElementBasisFunction {
+  Eigen::Matrix<Real, AdjacencyElementTrait::kQuadratureNumber, AdjacencyElementTrait::kBasisFunctionNumber>
+      nodal_basis_function_;
+  Eigen::Matrix<Real, AdjacencyElementTrait::kDimension * AdjacencyElementTrait::kQuadratureNumber,
+                AdjacencyElementTrait::kBasisFunctionNumber>
+      nodal_gradient_basis_function_;
+
+  AdjacencyElementBasisFunction() {
+    const auto& [local_coord, weights] = ElementQuadrature<AdjacencyElementTrait>::get();
+    std::vector<double> nodal_basis_functions{
+        ElementBasisFunction<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>::get(
+            local_coord, false)};
+    for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
+      for (Isize j = 0; j < AdjacencyElementTrait::kBasisFunctionNumber; j++) {
+        this->nodal_basis_function_(i, j) = static_cast<Real>(
+            nodal_basis_functions[static_cast<Usize>(i * AdjacencyElementTrait::kBasisFunctionNumber + j)]);
+      }
+    }
+    std::vector<double> gradient_basis_functions{
+        ElementBasisFunction<AdjacencyElementTrait::kElementType, AdjacencyElementTrait::kPolynomialOrder>::get(
+            local_coord, true)};
+    for (Isize i = 0; i < AdjacencyElementTrait::kQuadratureNumber; i++) {
+      for (Isize j = 0; j < AdjacencyElementTrait::kBasisFunctionNumber; j++) {
+        for (Isize k = 0; k < AdjacencyElementTrait::kDimension; k++) {
+          this->nodal_gradient_basis_function_(i * AdjacencyElementTrait::kDimension + k, j) =
+              static_cast<Real>(gradient_basis_functions[static_cast<Usize>(
+                  (i * AdjacencyElementTrait::kBasisFunctionNumber + j) * 3 + k)]);
+        }
+      }
+    }
   }
 };
 

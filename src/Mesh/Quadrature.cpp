@@ -20,10 +20,67 @@
 #include <utility>
 #include <vector>
 
+#include "Mesh/Polynomial.cpp"
 #include "Utils/BasicDataType.cpp"
 #include "Utils/Transformation.cpp"
 
 namespace SubrosaDG {
+
+struct GaussLegendre {
+  static std::pair<std::vector<Real>, std::vector<Real>> get(const Isize degree) {
+    const Isize alpha = 0;
+    const Isize beta = 0;
+    std::vector<Real> points = Jacobi::roots(degree, alpha, beta);
+    std::vector<Real> weights(static_cast<Usize>(degree), 0.0_r);
+    const Real factor = std::pow(2, alpha + beta + 1) * gamma(alpha + degree + 1) * gamma(beta + degree + 1) /
+                        (gamma(degree + 1) * gamma(alpha + beta + degree + 1));
+    for (Isize i = 0; i < degree; i++) {
+      const Real pp = (degree + alpha + beta + 1) *
+                      Jacobi::value(degree - 1, alpha + 1, beta + 1, points[static_cast<Usize>(i)]) / 2.0_r;
+      weights[static_cast<Usize>(i)] =
+          factor / (pp * pp * (1 - points[static_cast<Usize>(i)] * points[static_cast<Usize>(i)]));
+    }
+    return std::make_pair(points, weights);
+  }
+};
+
+struct GaussLobattoLegendre {
+  static std::pair<std::vector<Real>, std::vector<Real>> get(const Isize degree) {
+    const Isize alpha = 0;
+    const Isize beta = 0;
+    std::vector<Real> points = Jacobi::roots(degree - 2, alpha + 1, beta + 1);
+    points.insert(points.begin(), -1.0_r);
+    points.push_back(1.0_r);
+    std::vector<Real> weights(static_cast<Usize>(degree), 0.0_r);
+    const Real factor = std::pow(2, alpha + beta + 1) * gamma(alpha + degree) * gamma(beta + degree) /
+                        ((degree - 1) * gamma(degree) * gamma(alpha + beta + degree + 1));
+    for (Isize i = 0; i < degree; i++) {
+      const Real s = Jacobi::value(degree - 1, alpha, beta, points[static_cast<Usize>(i)]);
+      weights[static_cast<Usize>(i)] = factor / (s * s);
+    }
+    weights[0] *= (beta + 1);
+    weights[static_cast<Usize>(degree - 1)] *= (alpha + 1);
+    return std::make_pair(points, weights);
+  }
+};
+
+struct GaussRadauLegendre {
+  static std::pair<std::vector<Real>, std::vector<Real>> get(const Isize degree) {
+    const Isize alpha = 0;
+    const Isize beta = 0;
+    std::vector<Real> points = Jacobi::roots(degree - 1, alpha, beta + 1);
+    points.insert(points.begin(), -1.0_r);
+    std::vector<Real> weights(static_cast<Usize>(degree), 0.0_r);
+    const Real factor = std::pow(2, alpha + beta) * gamma(alpha + degree) * gamma(beta + degree) /
+                        ((beta + degree) * gamma(degree) * gamma(alpha + beta + degree + 1));
+    for (Isize i = 0; i < degree; i++) {
+      const Real s = Jacobi::value(degree - 1, alpha, beta, points[static_cast<Usize>(i)]);
+      weights[static_cast<Usize>(i)] = factor * (1 - points[static_cast<Usize>(i)]) / (s * s);
+    }
+    weights[0] *= (beta + 1);
+    return std::make_pair(points, weights);
+  }
+};
 
 template <typename ElementTrait>
 struct ElementQuadrature {

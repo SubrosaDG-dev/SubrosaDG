@@ -34,6 +34,7 @@
 #include "Mesh/BasisFunction.cpp"
 #include "Mesh/Element.cpp"
 #include "Mesh/Geometry.cpp"
+#include "Mesh/Polynomial.cpp"
 #include "Mesh/Quadrature.cpp"
 #include "Mesh/ReadControl.cpp"
 #include "Solver/BoundaryCondition.cpp"

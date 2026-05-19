@@ -151,7 +151,6 @@ struct VolumeElementMesh : ElementMesh<VolumeElementTrait>,
                Eigen::Dynamic, 1>
       jacobian_transpose_inverse_multiply_determinate_and_weight_;
   Eigen::Array<Real, Eigen::Dynamic, 1> minimum_edge_;
-  Eigen::Array<Real, Eigen::Dynamic, 1> inner_radius_;
 
   inline void getVolumeElementMesh(
       const Eigen::Matrix<Real, VolumeElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
@@ -159,7 +158,9 @@ struct VolumeElementMesh : ElementMesh<VolumeElementTrait>,
 
   inline void getVolumeElementQuality();
 
-  inline void getVolumeElementJacobian();
+  inline void computeVolumeElementQuadratureNodeCoordinate();
+
+  inline void computeVolumeElementJacobian();
 
   inline void computeVolumeElementLocalMassMatrixInverse();
 };
@@ -183,7 +184,6 @@ struct VolumeElementMeshDevice : ElementMeshDevice<VolumeElementTrait>,
                 Device::Dynamic, 1>
       jacobian_transpose_inverse_multiply_determinate_and_weight_;
   Device::Array<Real, Device::Dynamic, 1> minimum_edge_;
-  Device::Array<Real, Device::Dynamic, 1> inner_radius_;
 
   void transferVolumeElementMeshToDevice(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh) {
     this->ElementMeshDevice<VolumeElementTrait>::transferElementMeshToDevice(
@@ -208,8 +208,6 @@ struct VolumeElementMeshDevice : ElementMeshDevice<VolumeElementTrait>,
         this->jacobian_transpose_inverse_multiply_determinate_and_weight_);
     this->minimum_edge_.resize(volume_element_mesh.number_);
     Utils::transferToDevice<Real, Eigen::Dynamic, 1>(volume_element_mesh.minimum_edge_, this->minimum_edge_);
-    this->inner_radius_.resize(volume_element_mesh.number_);
-    Utils::transferToDevice<Real, Eigen::Dynamic, 1>(volume_element_mesh.inner_radius_, this->inner_radius_);
   }
 };
 
@@ -255,7 +253,9 @@ struct AdjacencyElementMesh : ElementMesh<AdjacencyElementTrait>,
       const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
       MeshPhysical& physical);
 
-  inline void getAdjacencyElementJacobian();
+  inline void computeAdjacencyElementQuadratureNodeCoordinate();
+
+  inline void computeAdjacencyElementJacobian();
 
   inline void computeAdjacencyElementNormalVector();
 };
@@ -328,7 +328,7 @@ struct AdjacencyElementMeshDevice : ElementMeshDevice<AdjacencyElementTrait>,
 };
 
 template <typename SimulationControl>
-struct MeshBase {
+struct MeshDataBase {
   Isize node_number_{0};
   Isize volume_element_number_{0};
   Isize adjacency_element_number_{0};
@@ -339,30 +339,30 @@ struct MeshBase {
 };
 
 template <typename SimulationControl>
-struct MeshDeviceBase {
+struct MeshDataDeviceBase {
   Isize node_number_{0};
   Isize volume_element_number_{0};
   Isize adjacency_element_number_{0};
 };
 
-template <typename SimulationControl, int Dimension>
+template <typename SimulationControl, int Dimension = SimulationControl::kDimension>
 struct MeshData;
 
 template <typename SimulationControl>
-struct MeshData<SimulationControl, 1> : MeshBase<SimulationControl> {
+struct MeshData<SimulationControl, 1> : MeshDataBase<SimulationControl> {
   AdjacencyElementMesh<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>> point_;
   VolumeElementMesh<VolumeLineTrait<SimulationControl::kPolynomialOrder>> line_;
 };
 
 template <typename SimulationControl>
-struct MeshData<SimulationControl, 2> : MeshBase<SimulationControl> {
+struct MeshData<SimulationControl, 2> : MeshDataBase<SimulationControl> {
   AdjacencyElementMesh<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>> line_;
   VolumeElementMesh<VolumeTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
   VolumeElementMesh<VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
 };
 
 template <typename SimulationControl>
-struct MeshData<SimulationControl, 3> : MeshBase<SimulationControl> {
+struct MeshData<SimulationControl, 3> : MeshDataBase<SimulationControl> {
   AdjacencyElementMesh<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
   AdjacencyElementMesh<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
   VolumeElementMesh<VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>> tetrahedron_;
@@ -370,24 +370,24 @@ struct MeshData<SimulationControl, 3> : MeshBase<SimulationControl> {
   VolumeElementMesh<VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>> hexahedron_;
 };
 
-template <typename SimulationControl, int Dimension>
+template <typename SimulationControl, int Dimension = SimulationControl::kDimension>
 struct MeshDataDevice;
 
 template <typename SimulationControl>
-struct MeshDataDevice<SimulationControl, 1> : MeshDeviceBase<SimulationControl> {
+struct MeshDataDevice<SimulationControl, 1> : MeshDataDeviceBase<SimulationControl> {
   AdjacencyElementMeshDevice<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>> point_;
   VolumeElementMeshDevice<VolumeLineTrait<SimulationControl::kPolynomialOrder>> line_;
 };
 
 template <typename SimulationControl>
-struct MeshDataDevice<SimulationControl, 2> : MeshDeviceBase<SimulationControl> {
+struct MeshDataDevice<SimulationControl, 2> : MeshDataDeviceBase<SimulationControl> {
   AdjacencyElementMeshDevice<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>> line_;
   VolumeElementMeshDevice<VolumeTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
   VolumeElementMeshDevice<VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
 };
 
 template <typename SimulationControl>
-struct MeshDataDevice<SimulationControl, 3> : MeshDeviceBase<SimulationControl> {
+struct MeshDataDevice<SimulationControl, 3> : MeshDataDeviceBase<SimulationControl> {
   AdjacencyElementMeshDevice<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
   AdjacencyElementMeshDevice<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
   VolumeElementMeshDevice<VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>> tetrahedron_;
@@ -396,7 +396,7 @@ struct MeshDataDevice<SimulationControl, 3> : MeshDeviceBase<SimulationControl> 
 };
 
 template <typename SimulationControl>
-struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
+struct Mesh : MeshData<SimulationControl> {
   template <typename VolumeElementTrait>
   static VolumeElementMesh<VolumeElementTrait> Mesh::* getVolumeElement() {
     if constexpr (SimulationControl::kDimension == 1) {
@@ -516,7 +516,7 @@ struct Mesh : MeshData<SimulationControl, SimulationControl::kDimension> {
 };
 
 template <typename SimulationControl>
-struct MeshDevice : MeshDataDevice<SimulationControl, SimulationControl::kDimension> {
+struct MeshDevice : MeshDataDevice<SimulationControl> {
   template <typename VolumeElementTrait>
   static VolumeElementMeshDevice<VolumeElementTrait> MeshDevice::* getVolumeElement() {
     if constexpr (SimulationControl::kDimension == 1) {

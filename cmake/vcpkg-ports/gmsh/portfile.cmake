@@ -35,7 +35,6 @@ vcpkg_cmake_configure(
         -DENABLE_OPENMP=ON
         -DENABLE_OPTHOM=ON
         -DENABLE_TINYOBJLOADER=ON
-        -DENABLE_ZIPPER=ON
         # Not implement
         -DENABLE_BLAS_LAPACK=OFF
         -DENABLE_CAIRO=OFF
@@ -61,6 +60,7 @@ vcpkg_cmake_configure(
         -DENABLE_OCC_CAF=OFF
         -DENABLE_OCC_STATIC=OFF
         -DENABLE_OCC_TBB=OFF
+        -DENABLE_ZIPPER=OFF
         # Requies dependencies which not included in vcpkg yet
         -DENABLE_3M=OFF
         -DENABLE_BAMG=OFF

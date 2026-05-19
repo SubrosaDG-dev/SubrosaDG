@@ -40,7 +40,7 @@ VCPKG_ROOT="/home/user/vcpkg"
 # ./oneapi-amd.sh -y && \
 # rm ./oneapi-nvidia.sh ./oneapi-amd.sh && \
 
-RUN git clone https://github.com/intel/llvm.git /tmp/llvm -b v6.3.0 --depth=1 && \
+RUN git clone https://github.com/intel/llvm.git /tmp/llvm -b sycl-rel-7_0 --depth=1 && \
 cd /tmp/llvm && \
 cmake -S unified-runtime -B build_ur \
     -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ \

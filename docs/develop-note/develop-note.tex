@@ -365,9 +365,38 @@ The element transformation is as follows:
 \end{figure}
 Therefore, we can use this formula to calculate the Jacobi matrix $[\mathbf{J}]$ and its transpose inverse matrix $[\mathbf{J}]^{-\mathrm{T}}$. The Jacobian matrix $[\mathbf{J}]$ can be obtained by the following formula:
 \begin{equation}
-  [\mathbf{J}](\xi,\eta,\zeta)=\dfrac{\partial(x,y,z)}{\partial(\xi,\eta,\zeta)}=\hat{\nabla}\mathbf{x}(\xi,\eta,\zeta)=\sum_{i=1}^{N_{k}}\hat{\nabla}\phi_{i}^{k}(\xi,\eta,\zeta)\mathbf{x}_{i},
+  [\mathbf{J}](\xi,\eta,\zeta)=\dfrac{\partial(x,y,z)}{\partial(\xi,\eta,\zeta)}=\begin{bNiceMatrix}
+    \dfrac{\partial x}{\partial \xi}&\dfrac{\partial x}{\partial \eta}&\dfrac{\partial x}{\partial \zeta}\\
+    \dfrac{\partial y}{\partial \xi}&\dfrac{\partial y}{\partial \eta}&\dfrac{\partial y}{\partial \zeta}\\
+    \dfrac{\partial z}{\partial \xi}&\dfrac{\partial z}{\partial \eta}&\dfrac{\partial z}{\partial \zeta}
+  \end{bNiceMatrix}=\hat{\nabla}\mathbf{x}(\xi,\eta,\zeta)=\sum_{i=1}^{N_{k}}\hat{\nabla}\phi_{i}^{k}(\xi,\eta,\zeta)\mathbf{x}_{i},
 \end{equation}
-and $\hat{\nabla}$ is the gradient operator in the reference element. In the program, we directly use gmsh's API to obtain the derivative values of the basis functions concerning the reference element and the inverse matrix of the Jacobian for each element.
+
+and $\hat{\nabla}$ is the gradient operator in the reference element. The determinant of the Jacobian matrix $|\mathbf{J}|$ can be obtained by the following formula:
+\begin{equation}
+  |\mathbf{J}|(\xi,\eta,\zeta)=\dfrac{\partial x}{\partial \zeta}\dfrac{\partial y}{\partial \xi}\dfrac{\partial z}{\partial \eta}-\dfrac{\partial x}{\partial \xi}\dfrac{\partial y}{\partial \zeta}\dfrac{\partial z}{\partial \eta}-\dfrac{\partial x}{\partial \zeta}\dfrac{\partial y}{\partial \eta}\dfrac{\partial z}{\partial \xi}+\dfrac{\partial x}{\partial \eta}\dfrac{\partial y}{\partial \zeta}\dfrac{\partial z}{\partial \xi}+\dfrac{\partial x}{\partial \xi}\dfrac{\partial y}{\partial \eta}\dfrac{\partial z}{\partial \zeta}-\dfrac{\partial x}{\partial \eta}\dfrac{\partial y}{\partial \xi}\dfrac{\partial z}{\partial \zeta},
+\end{equation}
+and the Jacobian inverse matrix $[\mathbf{J}]^{-1}$ can be obtained by the following formula:
+\begin{equation}
+  [\mathbf{J}]^{-1}(\xi,\eta,\zeta)=\dfrac{\partial(\xi,\eta,\zeta)}{\partial(x,y,z)}=\dfrac{1}{|\mathbf{J}|}\begin{bNiceMatrix}
+    \dfrac{\partial y}{\partial \eta}\dfrac{\partial z}{\partial \zeta}-\dfrac{\partial y}{\partial \zeta}\dfrac{\partial z}{\partial \eta}&\dfrac{\partial x}{\partial \zeta}\dfrac{\partial z}{\partial \eta}-\dfrac{\partial x}{\partial \eta}\dfrac{\partial z}{\partial \zeta}&\dfrac{\partial x}{\partial \eta}\dfrac{\partial y}{\partial \zeta}-\dfrac{\partial x}{\partial \zeta}\dfrac{\partial y}{\partial \eta}\\
+    \dfrac{\partial y}{\partial \zeta}\dfrac{\partial z}{\partial \xi}-\dfrac{\partial y}{\partial \xi}\dfrac{\partial z}{\partial \zeta}&\dfrac{\partial x}{\partial \xi}\dfrac{\partial z}{\partial \zeta}-\dfrac{\partial x}{\partial \zeta}\dfrac{\partial z}{\partial \xi}&\dfrac{\partial x}{\partial \zeta}\dfrac{\partial y}{\partial \xi}-\dfrac{\partial x}{\partial \xi}\dfrac{\partial y}{\partial \zeta}\\
+    \dfrac{\partial y}{\partial \xi}\dfrac{\partial z}{\partial \eta}-\dfrac{\partial y}{\partial \eta}\dfrac{\partial z}{\partial \xi}&\dfrac{\partial x}{\partial \eta}\dfrac{\partial z}{\partial \xi}-\dfrac{\partial x}{\partial \xi}\dfrac{\partial z}{\partial \eta}&\dfrac{\partial x}{\partial \xi}\dfrac{\partial y}{\partial \eta}-\dfrac{\partial x}{\partial \eta}\dfrac{\partial y}{\partial \xi}
+  \end{bNiceMatrix}.
+\end{equation}
+We can use some auxiliary variables to compute the inverse matrix and determinant of the Jacobian matrix, which are defined as
+\begin{equation}
+  \mathbf{a}_{\xi}=\mathbf{x}_{\eta}\times\mathbf{x}_{\zeta},\quad \mathbf{a}_{\eta}=\mathbf{x}_{\zeta}\times\mathbf{x}_{\xi},\quad \mathbf{a}_{\zeta}=\mathbf{x}_{\xi}\times\mathbf{x}_{\eta},
+\end{equation}
+thus the inverse matrix and determinant of the Jacobian matrix can be computed by the following formulas:
+\begin{equation}
+  |\mathbf{J}|(\xi,\eta,\zeta)=\mathbf{a}_{\xi}\cdot\mathbf{x}_{\xi},\quad
+  [\mathbf{J}]^{-1}(\xi,\eta,\zeta)=\dfrac{1}{|\mathbf{J}|}\begin{bNiceMatrix}
+    \mathbf{a}_{\xi}^{\mathrm{T}}\\
+    \mathbf{a}_{\eta}^{\mathrm{T}}\\
+    \mathbf{a}_{\zeta}^{\mathrm{T}}
+  \end{bNiceMatrix}.
+\end{equation}
 
 Next, let's discuss how to compute the derivatives of the basis functions at each element. This is necessary as they appear in the volume integration. Obtaining the derivatives of the basis functions concerning the local coordinates is straightforward since they are polynomials. However, what we need are the derivatives of the basis functions concerning the global coordinates, as we require them for computing the volume integration in the global coordinate system. To achieve this, we need to apply the chain rule, i.e.,
 \begin{equation}
@@ -398,7 +427,15 @@ Then, we calculate the derivative values of the basis functions concerning the a
   \end{aligned}
 \end{equation}
 
-We introduce how to solve for the normal vector on the boundary of the isoparametric element. First, let's consider the two-dimensional case, which involves finding the normal vector to a two-dimensional curve at its boundary. Here, the tangent vector to the two-dimensional curve can be directly obtained. The normal vector can be obtained by rotating the tangent vector by $90^{\circ}$. Specifically,
+At boundary elements we need to compute the value of the determinant of the Jacobian matrix; for interface integrals, the mapping of the Jacobian is different from that of volume integrals:
+\begin{equation}
+  [\mathbf{J}](\xi,\eta)=\dfrac{\partial(x,y,z)}{\partial(\xi,\eta)}=\begin{bNiceMatrix}
+    \dfrac{\partial x}{\partial \xi}&\dfrac{\partial x}{\partial \eta}\\
+    \dfrac{\partial y}{\partial \xi}&\dfrac{\partial y}{\partial \eta}\\
+    \dfrac{\partial z}{\partial \xi}&\dfrac{\partial z}{\partial \eta}
+  \end{bNiceMatrix},\quad |\mathbf{J}|(\xi,\eta)=|\mathbf{x}_{\xi}\times\mathbf{x}_{\eta}|.
+\end{equation}
+Next we introduce how to solve for the normal vector on the boundary of the isoparametric element. First, let's consider the two-dimensional case, which involves finding the normal vector to a two-dimensional curve at its boundary. Here, the tangent vector to the two-dimensional curve can be directly obtained. The normal vector can be obtained by rotating the tangent vector by $90^{\circ}$. Specifically,
 \begin{equation}
   \bm{\tau}=\begin{bNiceMatrix}
     \dfrac{\partial x}{\partial \xi}\\

@@ -26,18 +26,19 @@
 
 namespace SubrosaDG {
 
-template <typename SimulationControl>
+template <typename SimulationControl, SourceTermEnum SourceTermType = SimulationControl::kSourceTerm>
 struct SourceTerm;
-template <typename SimulationControl>
+template <typename SimulationControl, SourceTermEnum SourceTermType = SimulationControl::kSourceTerm>
 struct SourceTermDevice;
-template <typename SimulationControl>
+template <typename SimulationControl, TimeIntegrationEnum TimeIntegrationType = SimulationControl::kTimeIntegration>
 struct TimeIntegration;
 template <typename SimulationControl>
 struct Solver;
 template <typename SimulationControl>
 struct SolverDevice;
 
-template <typename VolumeElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+template <typename VolumeElementTrait, typename SimulationControl,
+          EquationModelEnum EquationModelType = SimulationControl::kEquationModel>
 struct VolumeElementSolverBase;
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -75,7 +76,8 @@ struct VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationMo
       variable_gradient_basis_function_coefficient_;
 };
 
-template <typename VolumeElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+template <typename VolumeElementTrait, typename SimulationControl,
+          EquationModelEnum EquationModelType = SimulationControl::kEquationModel>
 struct VolumeElementSolverDeviceBase;
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -113,7 +115,8 @@ struct VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, Equa
       variable_gradient_basis_function_coefficient_;
 };
 
-template <typename VolumeElementTrait, typename SimulationControl, ViscousFluxEnum ViscousFluxType>
+template <typename VolumeElementTrait, typename SimulationControl,
+          ViscousFluxEnum ViscousFluxType = SimulationControl::kViscousFlux>
 struct VolumeElementGradientSolver;
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -176,7 +179,8 @@ struct VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, Viscou
       variable_interface_gradient_residual_;
 };
 
-template <typename VolumeElementTrait, typename SimulationControl, ViscousFluxEnum ViscousFluxType>
+template <typename VolumeElementTrait, typename SimulationControl,
+          ViscousFluxEnum ViscousFluxType = SimulationControl::kViscousFlux>
 struct VolumeElementGradientSolverDevice;
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -239,7 +243,8 @@ struct VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, 
       variable_interface_gradient_residual_;
 };
 
-template <typename VolumeElementTrait, typename SimulationControl, SourceTermEnum SourceTermType>
+template <typename VolumeElementTrait, typename SimulationControl,
+          SourceTermEnum SourceTermType = SimulationControl::kSourceTerm>
 struct VolumeElementSourceSolver;
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -252,7 +257,8 @@ struct VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SourceTe
       variable_source_quadrature_;
 };
 
-template <typename VolumeElementTrait, typename SimulationControl, SourceTermEnum SourceTermType>
+template <typename VolumeElementTrait, typename SimulationControl,
+          SourceTermEnum SourceTermType = SimulationControl::kSourceTerm>
 struct VolumeElementSourceSolverDevice;
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -266,72 +272,73 @@ struct VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, So
       variable_source_quadrature_;
 };
 
-template <typename VolumeElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+template <typename VolumeElementTrait, typename SimulationControl,
+          EquationModelEnum EquationModelType = SimulationControl::kEquationModel>
 struct VolumeElementSolverData;
 
 template <typename VolumeElementTrait, typename SimulationControl>
 struct VolumeElementSolverData<VolumeElementTrait, SimulationControl, EquationModelEnum::CompressibleEuler>
     : VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler>,
       VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None>,
-      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl> {};
 
 template <typename VolumeElementTrait, typename SimulationControl>
 struct VolumeElementSolverData<VolumeElementTrait, SimulationControl, EquationModelEnum::CompressibleNS>
     : VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::NS>,
       VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, SimulationControl::kViscousFlux>,
-      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl> {};
 
 template <typename VolumeElementTrait, typename SimulationControl>
 struct VolumeElementSolverData<VolumeElementTrait, SimulationControl, EquationModelEnum::IncompressibleEuler>
     : VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler>,
       VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None>,
-      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl> {};
 
 template <typename VolumeElementTrait, typename SimulationControl>
 struct VolumeElementSolverData<VolumeElementTrait, SimulationControl, EquationModelEnum::IncompressibleNS>
     : VolumeElementSolverBase<VolumeElementTrait, SimulationControl, EquationModelEnum::NS>,
       VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, SimulationControl::kViscousFlux>,
-      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+      VolumeElementSourceSolver<VolumeElementTrait, SimulationControl> {};
 
-template <typename VolumeElementTrait, typename SimulationControl, EquationModelEnum EquationModelType>
+template <typename VolumeElementTrait, typename SimulationControl,
+          EquationModelEnum EquationModelType = SimulationControl::kEquationModel>
 struct VolumeElementSolverDataDevice;
 
 template <typename VolumeElementTrait, typename SimulationControl>
 struct VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl, EquationModelEnum::CompressibleEuler>
     : VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler>,
       VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None>,
-      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl> {};
 
 template <typename VolumeElementTrait, typename SimulationControl>
 struct VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl, EquationModelEnum::CompressibleNS>
     : VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::NS>,
-      VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kViscousFlux>,
-      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+      VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl>,
+      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl> {};
 
 template <typename VolumeElementTrait, typename SimulationControl>
 struct VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl, EquationModelEnum::IncompressibleEuler>
     : VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::Euler>,
       VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, ViscousFluxEnum::None>,
-      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl> {};
 
 template <typename VolumeElementTrait, typename SimulationControl>
 struct VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl, EquationModelEnum::IncompressibleNS>
     : VolumeElementSolverDeviceBase<VolumeElementTrait, SimulationControl, EquationModelEnum::NS>,
-      VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kViscousFlux>,
-      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl, SimulationControl::kSourceTerm> {};
+      VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl>,
+      VolumeElementSourceSolverDevice<VolumeElementTrait, SimulationControl> {};
 
 template <typename VolumeElementTrait, typename SimulationControl>
-struct VolumeElementSolver
-    : VolumeElementSolverData<VolumeElementTrait, SimulationControl, SimulationControl::kEquationModel> {
+struct VolumeElementSolver : VolumeElementSolverData<VolumeElementTrait, SimulationControl> {
   Isize number_{0};
 
   inline void initializeVolumeElementSolver(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
                                             [[maybe_unused]] std::stringstream& raw_binary_ss);
 
+  inline void copyVolumeElementBasisFunctionCoefficient();
+
   inline void computeVolumeElementDeltaTime(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
                                             /*const*/ Real courant_friedrichs_lewy_number, /*const*/ Real& delta_time);
-
-  inline void copyVolumeElementBasisFunctionCoefficient();
 
   inline void computeVolumeElementQuadrature(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
                                              [[maybe_unused]] const SourceTerm<SimulationControl>& source_term);
@@ -357,8 +364,7 @@ struct VolumeElementSolver
 };
 
 template <typename VolumeElementTrait, typename SimulationControl>
-struct VolumeElementSolverDevice
-    : VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl, SimulationControl::kEquationModel> {
+struct VolumeElementSolverDevice : VolumeElementSolverDataDevice<VolumeElementTrait, SimulationControl> {
   Isize number_{0};
 
   inline void transferVolumeElementSolverToDevice(
@@ -415,6 +421,12 @@ struct AdjacencyElementSolver {
                                  /*const*/ Isize parent_index_each_type,
                                  /*const*/ Isize quadrature_node_sequence_in_parent);
 
+  inline void computeInteriorAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
+                                                        Solver<SimulationControl>& solver);
+
+  inline void computeBoundaryAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
+                                                        Solver<SimulationControl>& solver);
+
   [[nodiscard]] inline Eigen::Ref<
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
   getVariableVolumeGradientAdjacencyQuadrature(Solver<SimulationControl>& solver,
@@ -428,12 +440,6 @@ struct AdjacencyElementSolver {
                                                   /*const*/ Isize parent_gmsh_type_number,
                                                   /*const*/ Isize parent_index_each_type,
                                                   /*const*/ Isize quadrature_node_sequence_in_parent);
-
-  inline void computeInteriorAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
-                                                        Solver<SimulationControl>& solver);
-
-  inline void computeBoundaryAdjacencyElementQuadrature(const Mesh<SimulationControl>& mesh,
-                                                        Solver<SimulationControl>& solver);
 
   inline void computeInteriorAdjacencyElementGradientQuadrature(const Mesh<SimulationControl>& mesh,
                                                                 Solver<SimulationControl>& solver);
@@ -475,6 +481,12 @@ struct AdjacencyElementSolverDevice {
                                  /*const*/ Isize parent_index_each_type,
                                  /*const*/ Isize quadrature_node_sequence_in_parent);
 
+  inline void computeInteriorAdjacencyElementQuadrature(const MeshDevice<SimulationControl>& mesh,
+                                                        SolverDevice<SimulationControl>& solver);
+
+  inline void computeBoundaryAdjacencyElementQuadrature(const MeshDevice<SimulationControl>& mesh,
+                                                        SolverDevice<SimulationControl>& solver);
+
   [[nodiscard]] inline Device::View<
       Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
   getVariableVolumeGradientAdjacencyQuadrature(SolverDevice<SimulationControl> solver,
@@ -488,12 +500,6 @@ struct AdjacencyElementSolverDevice {
                                                   /*const*/ Isize parent_gmsh_type_number,
                                                   /*const*/ Isize parent_index_each_type,
                                                   /*const*/ Isize quadrature_node_sequence_in_parent);
-
-  inline void computeInteriorAdjacencyElementQuadrature(const MeshDevice<SimulationControl>& mesh,
-                                                        SolverDevice<SimulationControl>& solver);
-
-  inline void computeBoundaryAdjacencyElementQuadrature(const MeshDevice<SimulationControl>& mesh,
-                                                        SolverDevice<SimulationControl>& solver);
 
   inline void computeInteriorAdjacencyElementGradientQuadrature(const MeshDevice<SimulationControl>& mesh,
                                                                 SolverDevice<SimulationControl>& solver);
@@ -518,7 +524,7 @@ struct SolverDeviceBase {
   Device::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
 };
 
-template <typename SimulationControl, int Dimension>
+template <typename SimulationControl, int Dimension = SimulationControl::kDimension>
 struct SolverData;
 
 template <typename SimulationControl>
@@ -543,7 +549,7 @@ struct SolverData<SimulationControl, 3> : SolverBase<SimulationControl> {
   VolumeElementSolver<VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>, SimulationControl> hexahedron_;
 };
 
-template <typename SimulationControl, int Dimension>
+template <typename SimulationControl, int Dimension = SimulationControl::kDimension>
 struct SolverDataDevice;
 
 template <typename SimulationControl>
@@ -572,7 +578,7 @@ struct SolverDataDevice<SimulationControl, 3> : SolverDeviceBase<SimulationContr
 };
 
 template <typename SimulationControl>
-struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
+struct Solver : SolverData<SimulationControl> {
   template <typename VolumeElementTrait>
   static VolumeElementSolver<VolumeElementTrait, SimulationControl> Solver::* getVolumeElement() {
     if constexpr (SimulationControl::kDimension == 1) {
@@ -658,7 +664,7 @@ struct Solver : SolverData<SimulationControl, SimulationControl::kDimension> {
 };
 
 template <typename SimulationControl>
-struct SolverDevice : SolverDataDevice<SimulationControl, SimulationControl::kDimension> {
+struct SolverDevice : SolverDataDevice<SimulationControl> {
   template <typename VolumeElementTrait>
   static VolumeElementSolverDevice<VolumeElementTrait, SimulationControl> SolverDevice::* getVolumeElement() {
     if constexpr (SimulationControl::kDimension == 1) {

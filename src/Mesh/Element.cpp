@@ -58,7 +58,6 @@ inline void VolumeElementMesh<VolumeElementTrait>::getVolumeElementMesh(
   this->local_mass_matrix_inverse_.resize(this->number_);
   this->jacobian_transpose_inverse_multiply_determinate_and_weight_.resize(this->number_);
   this->minimum_edge_.resize(this->number_);
-  this->inner_radius_.resize(this->number_);
   for (Isize i = 0; i < this->number_; i++) {
     const auto gmsh_tag = static_cast<Isize>(element_tags[static_cast<Usize>(i)]);
     this->gmsh_tag_(i) = gmsh_tag;
@@ -81,7 +80,8 @@ inline void VolumeElementMesh<VolumeElementTrait>::getVolumeElementMesh(
     }
   }
   this->getVolumeElementQuality();
-  this->getVolumeElementJacobian();
+  this->computeVolumeElementQuadratureNodeCoordinate();
+  this->computeVolumeElementJacobian();
   this->computeVolumeElementLocalMassMatrixInverse();
 }
 
@@ -544,7 +544,8 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementMesh
                                         adjacency_element_mesh_supplemental_map);
   this->getAdjacencyElementBoundaryMesh(node_coordinate, physical, boundary_tag,
                                         adjacency_element_mesh_supplemental_map);
-  this->getAdjacencyElementJacobian();
+  this->computeAdjacencyElementQuadratureNodeCoordinate();
+  this->computeAdjacencyElementJacobian();
   this->computeAdjacencyElementNormalVector();
 }
 

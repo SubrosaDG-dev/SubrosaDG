@@ -30,6 +30,11 @@ enum class DimensionEnum : std::uint8_t {
   D3,
 };
 
+enum class TopologyEnum : std::uint8_t {
+  Volume,
+  Adjacency,
+};
+
 enum class ElementEnum : std::uint8_t {
   Point,
   Line,

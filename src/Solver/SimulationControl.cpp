@@ -266,21 +266,26 @@ consteval int getElementBasisFunctionNumber() {
   }
 }
 
-inline constexpr std::array<int, 12> kLineQuadratureNumber{1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6};
-inline constexpr std::array<int, 12> kTriangleQuadratureNumber{1, 1, 3, 4, 6, 7, 12, 13, 16, 19, 25, 27};
-inline constexpr std::array<int, 12> kQuadrangleQuadratureNumber{1, 3, 7, 4, 9, 9, 16, 16, 25, 25, 36, 36};
-inline constexpr std::array<int, 12> kTetrahedronQuadratureNumber{1, 1, 4, 5, 11, 14, 24, 31, 43, 53, 126, 126};
-inline constexpr std::array<int, 12> kPyramidQuadratureNumber{1, 1, 8, 8, 27, 27, 64, 64, 125, 125, 216, 216};
-inline constexpr std::array<int, 12> kHexahedronQuadratureNumber{1, 6, 8, 8, 27, 27, 64, 64, 125, 125, 216, 216};
+inline constexpr std::array<int, 16> kLineQuadratureNumber{1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8};
+inline constexpr std::array<int, 16> kTriangleQuadratureNumber{1,  1,  3,  4,  6,  7,  12, 13,
+                                                               16, 19, 25, 27, 33, 37, 42, 48};
+inline constexpr std::array<int, 16> kQuadrangleQuadratureNumber{1,  3,  7,  4,  9,  9,  16, 16,
+                                                                 25, 25, 36, 36, 49, 49, 64, 64};
+inline constexpr std::array<int, 16> kTetrahedronQuadratureNumber{1,  1,  4,   5,   11,  14,  24,  31,
+                                                                  43, 53, 126, 126, 210, 210, 330, 330};
+inline constexpr std::array<int, 16> kPyramidQuadratureNumber{1,   1,   8,   8,   27,  27,  64,  64,
+                                                              125, 125, 216, 216, 343, 343, 512, 512};
+inline constexpr std::array<int, 16> kHexahedronQuadratureNumber{1,   6,   8,   8,   27,  27,  64,  64,
+                                                                 125, 125, 216, 216, 343, 343, 512, 512};
 
 template <int PolynomialOrder>
 consteval int getVolumeElementQuadratureOrder() {
-  return 2 * PolynomialOrder;
+  return 2 * PolynomialOrder + 2;
 }
 
 template <int PolynomialOrder>
 consteval int getAdjacencyElementQuadratureOrder() {
-  return 2 * PolynomialOrder + 1;
+  return 2 * PolynomialOrder + 3;
 }
 
 template <ElementEnum ElementType, int PolynomialOrder>
@@ -383,28 +388,25 @@ getVolumeElementAdjacencyQuadratureSequence() {
 template <ElementEnum ElementType, int PolynomialOrder>
 constexpr std::array<int, getAdjacencyElementQuadratureNumber<ElementType, PolynomialOrder>()>
 getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
+  constexpr int kAdjacencyElementQuadratureNumber{getAdjacencyElementQuadratureNumber<ElementType, PolynomialOrder>()};
   if constexpr (ElementType == ElementEnum::Point) {
     return {0};
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
-    if constexpr (PolynomialOrder == 1) {
+  } else if constexpr (ElementType == ElementEnum::Line) {
+    if constexpr (kAdjacencyElementQuadratureNumber == 2) {
       return {1, 0};
-    }
-    if constexpr (PolynomialOrder == 2) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 3) {
       return {2, 1, 0};
-    }
-    if constexpr (PolynomialOrder == 3) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 4) {
       return {3, 2, 1, 0};
-    }
-    if constexpr (PolynomialOrder == 4) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 5) {
       return {4, 3, 2, 1, 0};
-    }
-    if constexpr (PolynomialOrder == 5) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 6) {
       return {5, 4, 3, 2, 1, 0};
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 7) {
+      return {6, 5, 4, 3, 2, 1, 0};
     }
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
-    if constexpr (PolynomialOrder == 1) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
+    if constexpr (kAdjacencyElementQuadratureNumber == 4) {
       switch (rotation) {
       case 0:
         return {0, 1, 3, 2};
@@ -413,8 +415,7 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       case 2:
         return {0, 2, 1, 3};
       }
-    }
-    if constexpr (PolynomialOrder == 2) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 7) {
       switch (rotation) {
       case 0:
         return {0, 1, 3, 2, 4, 6, 5};
@@ -423,8 +424,7 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       case 2:
         return {0, 2, 1, 3, 5, 4, 6};
       }
-    }
-    if constexpr (PolynomialOrder == 3) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 13) {
       switch (rotation) {
       case 0:
         return {0, 1, 3, 2, 4, 6, 5, 11, 12, 10, 9, 7, 8};
@@ -433,8 +433,7 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       case 2:
         return {0, 2, 1, 3, 5, 4, 6, 10, 11, 12, 7, 8, 9};
       }
-    }
-    if constexpr (PolynomialOrder == 4) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 19) {
       switch (rotation) {
       case 0:
         return {0, 1, 3, 2, 4, 6, 5, 7, 9, 8, 10, 12, 11, 17, 18, 16, 15, 13, 14};
@@ -443,8 +442,7 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       case 2:
         return {0, 2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12, 16, 17, 18, 13, 14, 15};
       }
-    }
-    if constexpr (PolynomialOrder == 5) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 27) {
       switch (rotation) {
       case 0:
         return {0, 2, 1, 3, 5, 4, 6, 8, 7, 9, 11, 10, 12, 14, 13, 19, 20, 18, 17, 15, 16, 25, 26, 24, 23, 21, 22};
@@ -453,10 +451,33 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       case 2:
         return {2, 1, 0, 5, 4, 3, 8, 7, 6, 11, 10, 9, 14, 13, 12, 20, 18, 19, 16, 17, 15, 26, 24, 25, 22, 23, 21};
       }
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 37) {
+      switch (rotation) {
+      case 0:
+        return {0,  1,  3,  2,  4,  6,  5,  7,  9,  8,  10, 12, 11, 13, 15, 14, 16, 18, 17,
+                23, 24, 22, 21, 19, 20, 29, 30, 28, 27, 25, 26, 35, 36, 34, 33, 31, 32};
+      case 1:
+        return {0,  2,  1,  3,  5,  4,  6,  8,  7,  9,  11, 10, 12, 14, 13, 15, 17, 16, 18,
+                22, 23, 24, 19, 20, 21, 28, 29, 30, 25, 26, 27, 34, 35, 36, 31, 32, 33};
+      case 2:
+        return {0,  3,  2,  1,  6,  5,  4,  9,  8,  7,  12, 11, 10, 15, 14, 13, 18, 17, 16,
+                24, 22, 23, 20, 21, 19, 30, 28, 29, 26, 27, 25, 36, 34, 35, 32, 33, 31};
+      }
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 48) {
+      switch (rotation) {
+      case 0:
+        return {0,  2,  1,  3,  5,  4,  6,  8,  7,  9,  11, 10, 12, 14, 13, 15, 17, 16, 22, 23, 21, 20, 18, 19,
+                28, 29, 27, 26, 24, 25, 34, 35, 33, 32, 30, 31, 40, 41, 39, 38, 36, 37, 46, 47, 45, 44, 42, 43};
+      case 1:
+        return {1,  0,  2,  4,  3,  5,  7,  6,  8,  10, 9,  11, 13, 12, 14, 16, 15, 17, 21, 22, 23, 18, 19, 20,
+                27, 28, 29, 24, 25, 26, 33, 34, 35, 30, 31, 32, 39, 40, 41, 36, 37, 38, 45, 46, 47, 42, 43, 44};
+      case 2:
+        return {2,  1,  0,  5,  4,  3,  8,  7,  6,  11, 10, 9,  14, 13, 12, 17, 16, 15, 23, 21, 22, 19, 20, 18,
+                29, 27, 28, 25, 26, 24, 35, 33, 34, 31, 32, 30, 41, 39, 40, 37, 38, 36, 47, 45, 46, 43, 44, 42};
+      }
     }
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
-    if constexpr (PolynomialOrder == 1) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
+    if constexpr (kAdjacencyElementQuadratureNumber == 4) {
       switch (rotation) {
       case 0:
         return {0, 2, 1, 3};
@@ -467,8 +488,7 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       case 3:
         return {1, 0, 3, 2};
       }
-    }
-    if constexpr (PolynomialOrder == 2) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 9) {
       switch (rotation) {
       case 0:
         return {0, 3, 6, 1, 4, 7, 2, 5, 8};
@@ -479,8 +499,7 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       case 3:
         return {2, 1, 0, 5, 4, 3, 8, 7, 6};
       }
-    }
-    if constexpr (PolynomialOrder == 3) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 16) {
       switch (rotation) {
       case 0:
         return {0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15};
@@ -491,8 +510,7 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       case 3:
         return {3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12};
       }
-    }
-    if constexpr (PolynomialOrder == 4) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 25) {
       switch (rotation) {
       case 0:
         return {0, 5, 10, 15, 20, 1, 6, 11, 16, 21, 2, 7, 12, 17, 22, 3, 8, 13, 18, 23, 4, 9, 14, 19, 24};
@@ -503,8 +521,7 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       case 3:
         return {4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 14, 13, 12, 11, 10, 19, 18, 17, 16, 15, 24, 23, 22, 21, 20};
       }
-    }
-    if constexpr (PolynomialOrder == 5) {
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 36) {
       switch (rotation) {
       case 0:
         return {0, 6, 12, 18, 24, 30, 1, 7,  13, 19, 25, 31, 2, 8,  14, 20, 26, 32,
@@ -518,6 +535,40 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       case 3:
         return {5,  4,  3,  2,  1,  0,  11, 10, 9,  8,  7,  6,  17, 16, 15, 14, 13, 12,
                 23, 22, 21, 20, 19, 18, 29, 28, 27, 26, 25, 24, 35, 34, 33, 32, 31, 30};
+      }
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 49) {
+      switch (rotation) {
+      case 0:
+        return {0,  7,  14, 21, 28, 35, 42, 1,  8,  15, 22, 29, 36, 43, 2,  9,  16, 23, 30, 37, 44, 3,  10, 17, 24,
+                31, 38, 45, 4,  11, 18, 25, 32, 39, 46, 5,  12, 19, 26, 33, 40, 47, 6,  13, 20, 27, 34, 41, 48};
+      case 1:
+        return {42, 43, 44, 45, 46, 47, 48, 35, 36, 37, 38, 39, 40, 41, 28, 29, 30, 31, 32, 33, 34, 21, 22, 23, 24,
+                25, 26, 27, 14, 15, 16, 17, 18, 19, 20, 7,  8,  9,  10, 11, 12, 13, 0,  1,  2,  3,  4,  5,  6};
+      case 2:
+        return {48, 41, 34, 27, 20, 13, 6,  47, 40, 33, 26, 19, 12, 5,  46, 39, 32, 25, 18, 11, 4,  45, 38, 31, 24,
+                17, 10, 3,  44, 37, 30, 23, 16, 9,  2,  43, 36, 29, 22, 15, 8,  1,  42, 35, 28, 21, 14, 7,  0};
+      case 3:
+        return {6,  5,  4,  3,  2,  1,  0,  13, 12, 11, 10, 9,  8,  7,  20, 19, 18, 17, 16, 15, 14, 27, 26, 25, 24,
+                23, 22, 21, 34, 33, 32, 31, 30, 29, 28, 41, 40, 39, 38, 37, 36, 35, 48, 47, 46, 45, 44, 43, 42};
+      }
+    } else if constexpr (kAdjacencyElementQuadratureNumber == 64) {
+      switch (rotation) {
+      case 0:
+        return {0,  8,  16, 24, 32, 40, 48, 56, 1,  9,  17, 25, 33, 41, 49, 57, 2,  10, 18, 26, 34, 42,
+                50, 58, 3,  11, 19, 27, 35, 43, 51, 59, 4,  12, 20, 28, 36, 44, 52, 60, 5,  13, 21, 29,
+                37, 45, 53, 61, 6,  14, 22, 30, 38, 46, 54, 62, 7,  15, 23, 31, 39, 47, 55, 63};
+      case 1:
+        return {56, 57, 58, 59, 60, 61, 62, 63, 48, 49, 50, 51, 52, 53, 54, 55, 40, 41, 42, 43, 44, 45,
+                46, 47, 32, 33, 34, 35, 36, 37, 38, 39, 24, 25, 26, 27, 28, 29, 30, 31, 16, 17, 18, 19,
+                20, 21, 22, 23, 8,  9,  10, 11, 12, 13, 14, 15, 0,  1,  2,  3,  4,  5,  6,  7};
+      case 2:
+        return {63, 55, 47, 39, 31, 23, 15, 7,  62, 54, 46, 38, 30, 22, 14, 6,  61, 53, 45, 37, 29, 21,
+                13, 5,  60, 52, 44, 36, 28, 20, 12, 4,  59, 51, 43, 35, 27, 19, 11, 3,  58, 50, 42, 34,
+                26, 18, 10, 2,  57, 49, 41, 33, 25, 17, 9,  1,  56, 48, 40, 32, 24, 16, 8,  0};
+      case 3:
+        return {7,  6,  5,  4,  3,  2,  1,  0,  15, 14, 13, 12, 11, 10, 9,  8,  23, 22, 21, 20, 19, 18,
+                17, 16, 31, 30, 29, 28, 27, 26, 25, 24, 39, 38, 37, 36, 35, 34, 33, 32, 47, 46, 45, 44,
+                43, 42, 41, 40, 55, 54, 53, 52, 51, 50, 49, 48, 63, 62, 61, 60, 59, 58, 57, 56};
       }
     }
   }
