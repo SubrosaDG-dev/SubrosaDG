@@ -13,11 +13,16 @@
 #ifndef SUBROSA_DG_POLYNOMIAL_CPP_
 #define SUBROSA_DG_POLYNOMIAL_CPP_
 
+#include <gmsh.h>
+
 #include <cmath>
+#include <string>
 #include <vector>
 
+#include "Solver/SimulationControl.cpp"
 #include "Utils/BasicDataType.cpp"
 #include "Utils/Constant.cpp"
+#include "Utils/Enum.cpp"
 
 namespace SubrosaDG {
 
@@ -82,6 +87,76 @@ struct Jacobi {
       x[k] = -x[static_cast<Usize>(degree) - k - 1];
     }
     return x;
+  }
+};
+
+template <ElementEnum ElementType, int PolynomialOrder>
+struct Lagrange {
+  static std::vector<Real> points() {
+    constexpr int kElementGmshTypeNumber{getElementGmshTypeNumber<ElementType, PolynomialOrder>()};
+    std::string element_name;
+    int dim;
+    int order;
+    int num_nodes;
+    std::vector<double> local_node_coord;
+    int num_primary_nodes;
+    gmsh::model::mesh::getElementProperties(kElementGmshTypeNumber, element_name, dim, order, num_nodes,
+                                            local_node_coord, num_primary_nodes);
+    return std::vector<Real>{local_node_coord.begin(), local_node_coord.end()};
+  }
+
+  static std::vector<Isize> monomials() {
+    std::vector<Isize> monomials;
+    if constexpr (ElementType == ElementEnum::Line) {
+      for (Isize i = 0; i <= PolynomialOrder; i++) {
+        monomials.emplace_back(i);
+      }
+    } else if constexpr (ElementType == ElementEnum::Triangle) {
+      for (Isize j = 0; j <= PolynomialOrder; j++) {
+        for (Isize i = 0; i <= PolynomialOrder - j; i++) {
+          monomials.emplace_back(i);
+          monomials.emplace_back(j);
+        }
+      }
+    } else if constexpr (ElementType == ElementEnum::Quadrangle) {
+      for (Isize j = 0; j <= PolynomialOrder; j++) {
+        for (Isize i = 0; i <= PolynomialOrder; i++) {
+          monomials.emplace_back(i);
+          monomials.emplace_back(j);
+        }
+      }
+    } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
+      for (Isize k = 0; k <= PolynomialOrder; k++) {
+        for (Isize j = 0; j <= PolynomialOrder - k; j++) {
+          for (Isize i = 0; i <= PolynomialOrder - j - k; i++) {
+            monomials.emplace_back(i);
+            monomials.emplace_back(j);
+            monomials.emplace_back(k);
+          }
+        }
+      }
+    } else if constexpr (ElementType == ElementEnum::Pyramid) {
+      for (Isize k = 0; k <= PolynomialOrder; k++) {
+        for (Isize j = 0; j <= PolynomialOrder - k; j++) {
+          for (Isize i = 0; i <= PolynomialOrder - k; i++) {
+            monomials.emplace_back(i);
+            monomials.emplace_back(j);
+            monomials.emplace_back(k);
+          }
+        }
+      }
+    } else if constexpr (ElementType == ElementEnum::Hexahedron) {
+      for (Isize k = 0; k <= PolynomialOrder; k++) {
+        for (Isize j = 0; j <= PolynomialOrder; j++) {
+          for (Isize i = 0; i <= PolynomialOrder; i++) {
+            monomials.emplace_back(i);
+            monomials.emplace_back(j);
+            monomials.emplace_back(k);
+          }
+        }
+      }
+    }
+    return monomials;
   }
 };
 

@@ -288,9 +288,9 @@ struct VariableDevice {
       }
       VariableDevice<SimulationControl>::template getScalar<ConservedVariableEnum::DensityTotalEnergy>(
           conserved_variable) =
-          density * VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
-                        computational_variable) +
-          velocity.squaredNorm() / 2.0_r;
+          density * (VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                         computational_variable) +
+                     velocity.squaredNorm() / 2.0_r);
     }
     if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
@@ -431,6 +431,16 @@ struct VolumeElementVariable {
         volume_element_solver.variable_basis_function_coefficient_(element_index) *
         volume_element_mesh.nodal_basis_function_.row(quadrature_sequence).transpose();
   }
+
+  static void getRotationVelocity(
+      const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
+      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
+      Eigen::Vector<Real, SimulationControl::kDimension>& quadrature_node_rotation_velocity, const Isize element_index,
+      const Isize quadrature_sequence) {
+    quadrature_node_rotation_velocity.noalias() =
+        volume_element_solver.variable_rotation_velocity_coefficient_(element_index) *
+        volume_element_mesh.nodal_basis_function_.row(quadrature_sequence).transpose();
+  }
 };
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -441,16 +451,35 @@ struct VolumeElementVariableDevice {
       Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>& quadrature_node_conserved_variable,
       const Isize element_index, const Isize quadrature_sequence) {
     const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                                            VolumeElementTrait::kBasisFunctionNumber>>
+                                            VolumeElementTrait::kAllBasisFunctionNumber>>
         variable_basis_function_coefficient = volume_element_solver.variable_basis_function_coefficient_.view(
             element_index, volume_element_solver.number_);
     for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
       Real sum = 0.0_r;
-      for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
+      for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
         sum += variable_basis_function_coefficient(m, n) *
                volume_element_mesh.nodal_basis_function_(quadrature_sequence, n);
       }
       quadrature_node_conserved_variable(m) = sum;
+    }
+  }
+
+  static void getRotationVelocity(
+      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
+      const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>& volume_element_solver,
+      Device::StaticVector<Real, SimulationControl::kDimension>& quadrature_node_rotation_velocity,
+      const Isize element_index, const Isize quadrature_sequence) {
+    const Device::View<
+        const Device::Matrix<Real, SimulationControl::kDimension, VolumeElementTrait::kAllBasisFunctionNumber>>
+        variable_rotation_velocity_coefficient = volume_element_solver.variable_rotation_velocity_coefficient_.view(
+            element_index, volume_element_solver.number_);
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      Real sum = 0.0_r;
+      for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+        sum += variable_rotation_velocity_coefficient(m, n) *
+               volume_element_mesh.nodal_basis_function_(quadrature_sequence, n);
+      }
+      quadrature_node_rotation_velocity(m) = sum;
     }
   }
 };
@@ -522,6 +551,72 @@ struct AdjacencyElementVariable {
       }
     }
   }
+
+  template <typename VolumeElementTrait>
+  static void computeRotationVelocity(
+      const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
+      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
+      Eigen::Vector<Real, SimulationControl::kDimension>& quadrature_node_rotation_velocity,
+      const Isize parent_index_each_type, const Isize adjacency_sequence_in_parent, const Isize quadrature_sequence) {
+    constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber + 1> kAdjacencyQuadratureSequence{
+        getVolumeElementAdjacencyQuadratureSequence<VolumeElementTrait::kElementType,
+                                                    SimulationControl::kPolynomialOrder>()};
+    quadrature_node_rotation_velocity.noalias() =
+        volume_element_solver.variable_rotation_velocity_coefficient_(parent_index_each_type) *
+        volume_element_mesh.nodal_adjacency_basis_function_
+            .row(kAdjacencyQuadratureSequence[static_cast<Usize>(adjacency_sequence_in_parent)] + quadrature_sequence)
+            .transpose();
+  }
+
+  static void getRotationVelocity(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver,
+                                  Eigen::Vector<Real, SimulationControl::kDimension>& quadrature_node_rotation_velocity,
+                                  const Isize parent_gmsh_type_number, const Isize parent_index_each_type,
+                                  const Isize adjacency_sequence_in_parent, const Isize quadrature_sequence) {
+    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+      AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+          VolumeLineTrait<SimulationControl::kPolynomialOrder>>(
+          mesh.line_, solver.line_, quadrature_node_rotation_velocity, parent_index_each_type,
+          adjacency_sequence_in_parent, quadrature_sequence);
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+      if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumeTriangleTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.triangle_, solver.triangle_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      } else if (parent_gmsh_type_number ==
+                 VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.quadrangle_, solver.quadrangle_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+      if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.tetrahedron_, solver.tetrahedron_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      } else if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumePyramidTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.pyramid_, solver.pyramid_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumePyramidTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.pyramid_, solver.pyramid_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      } else if (parent_gmsh_type_number ==
+                 VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.hexahedron_, solver.hexahedron_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      }
+    }
+  }
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -538,12 +633,12 @@ struct AdjacencyElementVariableDevice {
     const Isize row =
         kAdjacencyQuadratureSequence[static_cast<Usize>(adjacency_sequence_in_parent)] + quadrature_sequence;
     const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                                            VolumeElementTrait::kBasisFunctionNumber>>
+                                            VolumeElementTrait::kAllBasisFunctionNumber>>
         variable_basis_function_coefficient = volume_element_solver.variable_basis_function_coefficient_.view(
             parent_index_each_type, volume_element_solver.number_);
     for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
       Real sum = 0.0_r;
-      for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
+      for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
         sum += variable_basis_function_coefficient(m, n) * volume_element_mesh.nodal_adjacency_basis_function_(row, n);
       }
       quadrature_node_conserved_variable(m) = sum;
@@ -596,6 +691,82 @@ struct AdjacencyElementVariableDevice {
         AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::template compute<
             VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>>(
             mesh.hexahedron_, solver.hexahedron_, quadrature_node_conserved_variable, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      }
+    }
+  }
+
+  template <typename VolumeElementTrait>
+  static void computeRotationVelocity(
+      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
+      const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>& volume_element_solver,
+      Device::StaticVector<Real, SimulationControl::kDimension>& quadrature_node_rotation_velocity,
+      const Isize parent_index_each_type, const Isize adjacency_sequence_in_parent, const Isize quadrature_sequence) {
+    constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber + 1> kAdjacencyQuadratureSequence{
+        getVolumeElementAdjacencyQuadratureSequence<VolumeElementTrait::kElementType,
+                                                    SimulationControl::kPolynomialOrder>()};
+    const Isize row =
+        kAdjacencyQuadratureSequence[static_cast<Usize>(adjacency_sequence_in_parent)] + quadrature_sequence;
+    const Device::View<
+        const Device::Matrix<Real, SimulationControl::kDimension, VolumeElementTrait::kAllBasisFunctionNumber>>
+        variable_rotation_velocity_coefficient = volume_element_solver.variable_rotation_velocity_coefficient_.view(
+            parent_index_each_type, volume_element_solver.number_);
+    for (Isize m = 0; m < SimulationControl::kDimension; m++) {
+      Real sum = 0.0_r;
+      for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+        sum +=
+            variable_rotation_velocity_coefficient(m, n) * volume_element_mesh.nodal_adjacency_basis_function_(row, n);
+      }
+      quadrature_node_rotation_velocity(m) = sum;
+    }
+  }
+
+  static void getRotationVelocity(
+      const MeshDevice<SimulationControl>& mesh, const SolverDevice<SimulationControl>& solver,
+      Device::StaticVector<Real, SimulationControl::kDimension>& quadrature_node_rotation_velocity,
+      const Isize parent_gmsh_type_number, const Isize parent_index_each_type, const Isize adjacency_sequence_in_parent,
+      const Isize quadrature_sequence) {
+    if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
+      AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+          VolumeLineTrait<SimulationControl::kPolynomialOrder>>(
+          mesh.line_, solver.line_, quadrature_node_rotation_velocity, parent_index_each_type,
+          adjacency_sequence_in_parent, quadrature_sequence);
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+      if (parent_gmsh_type_number == VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumeTriangleTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.triangle_, solver.triangle_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      } else if (parent_gmsh_type_number ==
+                 VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.quadrangle_, solver.quadrangle_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
+      if (parent_gmsh_type_number == VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.tetrahedron_, solver.tetrahedron_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      } else if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumePyramidTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.pyramid_, solver.pyramid_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      }
+    } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      if (parent_gmsh_type_number == VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumePyramidTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.pyramid_, solver.pyramid_, quadrature_node_rotation_velocity, parent_index_each_type,
+            adjacency_sequence_in_parent, quadrature_sequence);
+      } else if (parent_gmsh_type_number ==
+                 VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+        AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::template computeRotationVelocity<
+            VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>>(
+            mesh.hexahedron_, solver.hexahedron_, quadrature_node_rotation_velocity, parent_index_each_type,
             adjacency_sequence_in_parent, quadrature_sequence);
       }
     }
@@ -862,13 +1033,13 @@ struct VolumeElementVariableGradientDevice {
     if constexpr (ViscousFluxType == ViscousFluxEnum::None) {
       const Device::View<
           const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kBasisFunctionNumber>>
+                               VolumeElementTrait::kAllBasisFunctionNumber>>
           variable_volume_gradient_basis_function_coefficient =
               volume_element_solver.variable_volume_gradient_basis_function_coefficient_.view(
                   element_index, volume_element_solver.number_);
       for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
         Real sum = 0.0_r;
-        for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
+        for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
           sum += variable_volume_gradient_basis_function_coefficient(m, n) *
                  volume_element_mesh.nodal_basis_function_(quadrature_sequence, n);
         }
@@ -877,13 +1048,13 @@ struct VolumeElementVariableGradientDevice {
     } else {
       const Device::View<
           const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kBasisFunctionNumber>>
+                               VolumeElementTrait::kAllBasisFunctionNumber>>
           variable_gradient_basis_function_coefficient =
               volume_element_solver.variable_gradient_basis_function_coefficient_.view(element_index,
                                                                                        volume_element_solver.number_);
       for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
         Real sum = 0.0_r;
-        for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
+        for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
           sum += variable_gradient_basis_function_coefficient(m, n) *
                  volume_element_mesh.nodal_basis_function_(quadrature_sequence, n);
         }
@@ -920,12 +1091,12 @@ struct AdjacencyElementVariableGradient {
     } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR2) {
       const Eigen::Ref<
           const Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                              VolumeElementTrait::kBasisFunctionNumber>>
+                              VolumeElementTrait::kAllBasisFunctionNumber>>
           variable_interface_gradient_basis_function_coefficient =
               volume_element_solver.variable_interface_gradient_basis_function_coefficient_(parent_index_each_type)(
                   Eigen::placeholders::all,
-                  Eigen::seqN(adjacency_sequence_in_parent * VolumeElementTrait::kBasisFunctionNumber,
-                              Eigen::fix<VolumeElementTrait::kBasisFunctionNumber>));
+                  Eigen::seqN(adjacency_sequence_in_parent * VolumeElementTrait::kAllBasisFunctionNumber,
+                              Eigen::fix<VolumeElementTrait::kAllBasisFunctionNumber>));
       quadrature_node_conserved_variable_gradient.noalias() =
           (volume_element_solver.variable_volume_gradient_basis_function_coefficient_(parent_index_each_type) +
            variable_interface_gradient_basis_function_coefficient) *
@@ -1005,13 +1176,13 @@ struct AdjacencyElementVariableGradientDevice {
     if constexpr (ViscousFluxType == ViscousFluxEnum::None) {
       const Device::View<
           const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kBasisFunctionNumber>>
+                               VolumeElementTrait::kAllBasisFunctionNumber>>
           variable_volume_gradient_basis_function_coefficient =
               volume_element_solver.variable_volume_gradient_basis_function_coefficient_.view(
                   parent_index_each_type, volume_element_solver.number_);
       for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
         Real sum = 0.0_r;
-        for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
+        for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
           sum += variable_volume_gradient_basis_function_coefficient(m, n) *
                  volume_element_mesh.nodal_adjacency_basis_function_(row, n);
         }
@@ -1020,13 +1191,13 @@ struct AdjacencyElementVariableGradientDevice {
     } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR1) {
       const Device::View<
           const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kBasisFunctionNumber>>
+                               VolumeElementTrait::kAllBasisFunctionNumber>>
           variable_gradient_basis_function_coefficient =
               volume_element_solver.variable_gradient_basis_function_coefficient_.view(parent_index_each_type,
                                                                                        volume_element_solver.number_);
       for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
         Real sum = 0.0_r;
-        for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
+        for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
           sum += variable_gradient_basis_function_coefficient(m, n) *
                  volume_element_mesh.nodal_adjacency_basis_function_(row, n);
         }
@@ -1035,22 +1206,22 @@ struct AdjacencyElementVariableGradientDevice {
     } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR2) {
       const Device::View<
           const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kBasisFunctionNumber>>
+                               VolumeElementTrait::kAllBasisFunctionNumber>>
           variable_volume_gradient_basis_function_coefficient =
               volume_element_solver.variable_volume_gradient_basis_function_coefficient_.view(
                   parent_index_each_type, volume_element_solver.number_);
       const Device::View<
           const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kBasisFunctionNumber>>
+                               VolumeElementTrait::kAllBasisFunctionNumber>>
           variable_interface_gradient_basis_function_coefficient =
               volume_element_solver.variable_interface_gradient_basis_function_coefficient_.slice(
                   parent_index_each_type, volume_element_solver.number_,
                   Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-                  Device::Slice<VolumeElementTrait::kBasisFunctionNumber>::seqN(
-                      adjacency_sequence_in_parent * VolumeElementTrait::kBasisFunctionNumber));
+                  Device::Slice<VolumeElementTrait::kAllBasisFunctionNumber>::seqN(
+                      adjacency_sequence_in_parent * VolumeElementTrait::kAllBasisFunctionNumber));
       for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
         Real sum = 0.0_r;
-        for (Isize n = 0; n < VolumeElementTrait::kBasisFunctionNumber; n++) {
+        for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
           sum += (variable_volume_gradient_basis_function_coefficient(m, n) +
                   variable_interface_gradient_basis_function_coefficient(m, n)) *
                  volume_element_mesh.nodal_adjacency_basis_function_(row, n);

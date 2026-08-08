@@ -43,12 +43,13 @@ SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (dG) 
 - [x] Add Device structure for computation(sycl::is_device_copyable)
 - [x] Make VariableConvertor adapt to Device matrix struct
 - [x] GPU acceleration(use SYCL)
-- [ ] Add pyramid Lagrange basis function(in device)
+- [x] Add pyramid Lagrange basis function(in device)
 - [ ] Add viscous schemes(Direct-DG)
 - [ ] Change quadrangle quadrature method(use tensor product of GLL*GLL)
 - [ ] Change triangle quadrature method(use Duffy transformation of GLL*GRL)
-- [ ] Arbitrary Lagrangian-Eulerian Method(ALE)
-- [ ] Rotating machine simulation(in ALE framework)
+- [x] Arbitrary Lagrangian-Eulerian Method(ALE)
+- [x] Modify convective flux in ALE framework(Lax-Friedrichs scheme and HLLC scheme)
+- [x] Rotating mesh simulation(in ALE framework)
 - [ ] Inviscid Magneto-hydrodynamics Equation(HLLD scheme)
 - [ ] Local Divergence-free Projector
 - [ ] ~~Change Shock-capturing method(DG/FV hybrid method)~~

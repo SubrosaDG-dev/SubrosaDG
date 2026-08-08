@@ -113,12 +113,6 @@ struct CommandLine {
                    << this->getLineInformation(Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero(),
                                                0.0_r)
                    << '\n';
-    } else {
-      error_finout.seekg(0, std::ios::beg);
-      std::string line;
-      for (int i = 0; i < time_integration.iteration_start_ + 2 && std::getline(error_finout, line); i++) {
-        ;
-      }
     }
     std::string error_string;
     error_string += this->getVariableList() + '\n';
@@ -135,7 +129,7 @@ struct CommandLine {
 
   void updateSolver(const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& new_error,
                     std::fstream& error_finout, const int step) {
-    Real time_value = static_cast<Real>(step) * this->delta_time_;
+    const Real time_value = static_cast<Real>(step) * this->delta_time_;
     error_finout << this->getLineInformation(new_error, time_value) << '\n';
     std::string error_string;
     error_string += this->getVariableList() + '\n';

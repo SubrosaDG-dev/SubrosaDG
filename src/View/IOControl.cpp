@@ -47,7 +47,7 @@ struct AdjacencyElementViewSolver {
 
   template <typename VolumeElementTrait>
   inline void computeAdjacencyPerElementViewVariable(std::stringstream& raw_binary_ss, Isize parent_gmsh_type_number,
-                                                     Isize adjacency_sequence_in_parent, Isize element_index);
+                                                     Isize adjacency_sequence_in_parent, Isize element_local_index);
 
   inline void computeAdjacencyElementViewVariable(
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh, std::stringstream& raw_binary_ss);
@@ -83,6 +83,12 @@ template <typename SimulationControl>
 struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimension> {
   std::filesystem::path raw_binary_path_;
   std::stringstream raw_binary_ss_;
+
+  Real time_value_{0.0};
+  Eigen::Vector<Real, SimulationControl::kDimension> rotation_center_;
+  Eigen::Vector<Real, 3> rotation_axis_;
+  Real rotation_angular_velocity_{0.0};
+  Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> rotation_matrix_;
 
   template <typename VolumeElementTrait>
   static VolumeElementViewSolver<VolumeElementTrait, SimulationControl> ViewSolver::* getVolumeElement() {
@@ -133,7 +139,12 @@ struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimens
 
   inline void computeViewVariable(const Mesh<SimulationControl>& mesh);
 
-  ViewSolver(const Mesh<SimulationControl>& mesh) {
+  inline void computeRotationMatrix();
+
+  ViewSolver(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver) {
+    this->rotation_center_ = solver.rotation_center_;
+    this->rotation_axis_ = solver.rotation_axis_;
+    this->rotation_angular_velocity_ = solver.rotation_angular_velocity_;
     if constexpr (SimulationControl::kDimension == 1) {
       this->line_.view_variable_.resize(mesh.line_.number_);
       this->point_.view_variable_.resize(mesh.point_.boundary_number_);
@@ -208,9 +219,7 @@ struct View {
   int iteration_order_;
   std::filesystem::path output_directory_;
   std::string output_file_name_prefix_;
-  std::fstream error_fin_;
   std::vector<ViewVariableEnum> variable_type_;
-  Eigen::Vector<Real, Eigen::Dynamic> time_value_;
 
   inline std::string getBaseName(std::string_view physical_name, /*const*/ int step);
 
@@ -222,11 +231,13 @@ struct View {
                                   /*const*/ Isize node_index, /*const*/ Isize column);
 
   template <typename AdjacencyElementTrait, typename VolumeElementTrait>
-  inline void computeAdjacencyForce(const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-                                    const ViewVariable<VolumeElementTrait, SimulationControl>& view_variable,
-                                    Eigen::Vector<Real, SimulationControl::kDimension>& force,
-                                    /*const*/ Isize element_index,
-                                    /*const*/ Isize column);
+  inline void computeAdjacencyForce(
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+      const ViewVariable<VolumeElementTrait, SimulationControl>& view_variable,
+      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& rotation_matrix,
+      Eigen::Vector<Real, SimulationControl::kDimension>& force,
+      /*const*/ Isize element_index,
+      /*const*/ Isize column);
 
   template <typename VolumeElementTrait>
   inline void writeVolumeElement(const MeshPhysical& mesh_physical,
@@ -267,6 +278,7 @@ struct View {
       if (!std::filesystem::exists(raw_output_directory)) {
         std::filesystem::create_directories(raw_output_directory);
       }
+      open_mode |= std::ios::app;
     }
     error_finout.open((this->output_directory_ / "error.txt").string(), open_mode);
     error_finout.setf(std::ios::left, std::ios::adjustfield);
@@ -275,7 +287,7 @@ struct View {
 
   void finalizeSolverFinout(std::fstream& error_finout) { error_finout.close(); }
 
-  void initializeViewFin(const int iteration_end, const int error_output_interval, const bool delete_dir) {
+  void initializeViewFout(const bool delete_dir) {
     const std::filesystem::path view_output_directory = this->output_directory_ / "vtu";
     if (delete_dir && SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       if (std::filesystem::exists(view_output_directory)) {
@@ -287,22 +299,7 @@ struct View {
         std::filesystem::create_directories(view_output_directory);
       }
     }
-    this->error_fin_.open((this->output_directory_ / "error.txt").string(), std::ios::in);
-    this->readTimeValue(iteration_end, error_output_interval);
   }
-
-  void readTimeValue(const int iteration_end, const int error_output_interval) {
-    this->time_value_.resize(iteration_end + 1);
-    std::string line;
-    std::getline(this->error_fin_, line);
-    for (int i = 0; i <= iteration_end; i += error_output_interval) {
-      std::getline(this->error_fin_, line);
-      std::stringstream ss(line);
-      ss.ignore(2) >> this->time_value_(i);
-    }
-  }
-
-  void finalizeViewFin() { this->error_fin_.close(); }
 };
 
 }  // namespace SubrosaDG

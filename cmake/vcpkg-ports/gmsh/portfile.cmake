@@ -31,6 +31,7 @@ vcpkg_cmake_configure(
         -DENABLE_MESH=ON
         -DENABLE_ALGLIB=ON
         -DENABLE_ANN=ON
+        -DENABLE_BLOSSOM=ON
         -DENABLE_EIGEN=ON
         -DENABLE_OPENMP=ON
         -DENABLE_OPTHOM=ON
@@ -64,7 +65,6 @@ vcpkg_cmake_configure(
         # Requies dependencies which not included in vcpkg yet
         -DENABLE_3M=OFF
         -DENABLE_BAMG=OFF
-        -DENABLE_BLOSSOM=OFF
         -DENABLE_DINTEGRATION=OFF
         -DENABLE_DOMHEX=OFF
         -DENABLE_FLTK=OFF # Needs executable fltk-config

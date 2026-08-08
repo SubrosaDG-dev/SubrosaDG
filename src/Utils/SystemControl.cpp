@@ -80,6 +80,21 @@ struct System {
     this->solver_.raw_binary_path_ = initial_condition_file;
   }
 
+  template <int Dimension = SimulationControl::kDimension>
+    requires(Dimension >= 2)
+  void setRotation(const Eigen::Vector<Real, SimulationControl::kDimension>& rotation_center,
+                   const Eigen::Vector<Real, 3>& angular_velocity) {
+    this->solver_.rotation_center_ = rotation_center;
+    this->solver_.rotation_axis_ = angular_velocity.normalized();
+    this->solver_.rotation_angular_velocity_ = angular_velocity.norm();
+  }
+
+  template <InteriorConditionEnum InteriorConditionType>
+  void addVolumeCondition(const Isize physical_index) {
+    this->mesh_.physical_.information_[static_cast<Usize>(physical_index) - 1].interior_condition_type_ =
+        InteriorConditionType;
+  }
+
   template <BoundaryConditionEnum BoundaryConditionType>
   void addBoundaryCondition(const Isize physical_index) {
     this->mesh_.physical_.information_[static_cast<Usize>(physical_index) - 1].boundary_condition_type_ =
@@ -103,7 +118,7 @@ struct System {
   void setViewConfig(const std::filesystem::path& output_directory, const std::string_view output_file_name_prefix,
                      const int io_interval = 0) {
     if (io_interval == 0) {
-      std::cout << "Set view interval: ";
+      std::cout << "\nSet view interval: ";
       std::cin >> this->view_.io_interval_;
       if (this->view_.io_interval_ == -1) {
         this->view_.io_interval_ = this->time_integration_.iteration_end_;
@@ -146,11 +161,13 @@ struct System {
     this->solver_device_.transferSolverToDevice(this->solver_);
 #endif  // SUBROSA_DG_GPU
     if (this->time_integration_.delta_time_ == 0.0_r) {
+      this->solver_.rotateMesh(this->mesh_, this->time_integration_, 0);
       this->solver_.computeDeltaTime(this->mesh_, this->time_integration_);
     }
+    this->solver_.raw_binary_ss_ = std::stringstream();
     if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       this->solver_.writeRawBinary(
-          this->mesh_,
+          this->mesh_, this->time_integration_,
           this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, 0));
     } else {
       this->solver_.write_raw_binary_future_ = std::async(std::launch::async, []() {});
@@ -178,7 +195,7 @@ struct System {
         this->solver_device_.transferSolverToHost(this->solver_);
 #endif  // SUBROSA_DG_GPU
         this->solver_.writeRawBinary(
-            this->mesh_,
+            this->mesh_, this->time_integration_,
             this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, i));
       }
       if (this->solver_.relative_error_.array().isNaN().all()) [[unlikely]] {
@@ -194,39 +211,32 @@ struct System {
   }
 
   void view(const bool delete_dir = true) {
+    this->mesh_.resetMesh();
     this->command_line_.initializeView(
         (this->time_integration_.iteration_end_ - this->time_integration_.iteration_start_) / this->view_.io_interval_ +
         1);
-    this->view_.initializeViewFin(this->time_integration_.iteration_end_, this->solver_.error_output_interval_,
-                                  delete_dir);
-#ifndef SUBROSA_DG_DEVELOP
-    oneapi::tbb::task_arena arena(kNumberOfPhysicalCores / 2);
-#else   // SUBROSA_DG_DEVELOP
-    oneapi::tbb::task_arena arena(1);
-#endif  // SUBROSA_DG_DEVELOP
-    arena.execute([&] {
-      tbb::spin_mutex mtx;
-      tbb::enumerable_thread_specific<ViewSolver<SimulationControl>> thread_view_solver(
-          [&] { return ViewSolver<SimulationControl>(this->mesh_); });
-      tbb::parallel_for(tbb::blocked_range<Isize>(this->time_integration_.iteration_start_,
-                                                  this->time_integration_.iteration_end_ + 1),
-                        [&](const tbb::blocked_range<Isize>& range) -> void {
-                          ViewSolver<SimulationControl>& view_solver = thread_view_solver.local();
-                          for (Isize i = range.begin(); i != range.end(); i++) {
-                            if (i % this->view_.io_interval_ == 0) {
-                              view_solver.raw_binary_path_ =
-                                  this->view_.output_directory_ /
-                                  std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, i);
-                              this->view_.stepView(this->mesh_, view_solver, i);
-                              {
-                                tbb::spin_mutex::scoped_lock lock(mtx);
-                                this->command_line_.updateView();
-                              }
-                            }
-                          }
-                        });
-    });
-    this->view_.finalizeViewFin();
+    this->view_.initializeViewFout(delete_dir);
+    oneapi::tbb::global_control global_limit(oneapi::tbb::global_control::max_allowed_parallelism,
+                                             kNumberOfPhysicalCores / 2);
+    tbb::spin_mutex mtx;
+    tbb::enumerable_thread_specific<ViewSolver<SimulationControl>> thread_view_solver(
+        [&] { return ViewSolver<SimulationControl>(this->mesh_, this->solver_); });
+    tbb::parallel_for(
+        tbb::blocked_range<Isize>(this->time_integration_.iteration_start_, this->time_integration_.iteration_end_ + 1),
+        [&](const tbb::blocked_range<Isize>& range) -> void {
+          ViewSolver<SimulationControl>& view_solver = thread_view_solver.local();
+          for (Isize i = range.begin(); i != range.end(); i++) {
+            if (i % this->view_.io_interval_ == 0) {
+              view_solver.raw_binary_path_ =
+                  this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, i);
+              this->view_.stepView(this->mesh_, view_solver, i);
+              {
+                tbb::spin_mutex::scoped_lock lock(mtx);
+                this->command_line_.updateView();
+              }
+            }
+          }
+        });
   }
 
   explicit System() : command_line_(CommandLineEnum::Open) {}

@@ -37,6 +37,7 @@ namespace SubrosaDG {
 struct PhysicalInformation {
   Isize dimension_;
   std::string name_;
+  InteriorConditionEnum interior_condition_type_;
   BoundaryConditionEnum boundary_condition_type_;
 
   Isize element_number_{0};
@@ -87,13 +88,49 @@ struct MeshPhysical {
 };
 
 template <typename AdjacencyElementTrait>
-struct AdjacencyElementMeshSupplemental {
+struct PerAdjacencyElementInformation {
   bool is_recorded_{false};
   Isize right_rotation_{0};
   std::array<Isize, AdjacencyElementTrait::kAllNodeNumber> node_tag_;
   std::vector<Isize> parent_gmsh_tag_;
   std::vector<Isize> adjacency_sequence_;
   std::vector<Isize> parent_gmsh_type_;
+  std::vector<InteriorConditionEnum> parent_interior_condition_type_;
+};
+
+template <typename AdjacencyElementTrait>
+struct AdjacencyElementMeshSupplemental {
+  std::vector<Isize> interior_static_tag_;
+  std::vector<Isize> interior_rotate_tag_;
+  std::vector<Isize> boundary_static_tag_;
+  std::vector<Isize> boundary_rotate_tag_;
+  std::vector<Isize> interface_tag_;
+
+  std::unordered_map<Isize, PerAdjacencyElementInformation<AdjacencyElementTrait>> information_map_;
+
+  template <Is1dElement VolumeElementTrait>
+  inline void getAdjacencyElementPerVolumeInformationMap(const MeshPhysical& physical)
+    requires Is0dElement<AdjacencyElementTrait>;
+
+  template <Is2dElement VolumeElementTrait>
+  inline void getAdjacencyElementPerVolumeInformationMap(const MeshPhysical& physical)
+    requires Is1dElement<AdjacencyElementTrait>;
+
+  template <Is3dElement VolumeElementTrait>
+  inline void getAdjacencyElementPerVolumeInformationMap(const MeshPhysical& physical)
+    requires Is2dElement<AdjacencyElementTrait>;
+
+  inline void fixAdjacencyElementInformationMap(const MeshPhysical& physical)
+    requires Is0dElement<AdjacencyElementTrait>;
+
+  inline void fixAdjacencyElementInformationMap(const MeshPhysical& physical)
+    requires Is1dElement<AdjacencyElementTrait>;
+
+  inline void fixAdjacencyElementInformationMap(const MeshPhysical& physical)
+    requires Is2dElement<AdjacencyElementTrait>;
+
+  template <MeshModelEnum MeshModelType>
+  inline void getAdjacencyElementMeshSupplemental(const MeshPhysical& physical);
 };
 
 template <typename ElementTrait>
@@ -101,7 +138,7 @@ struct ElementMesh {
   Isize number_{0};
   Eigen::Array<Isize, Eigen::Dynamic, 1> gmsh_tag_;
   Eigen::Array<Isize, Eigen::Dynamic, 1> gmsh_physical_index_;
-  Eigen::Array<Isize, Eigen::Dynamic, 1> element_index_;
+  Eigen::Array<InteriorConditionEnum, Eigen::Dynamic, 1> interior_condition_type_;
   Eigen::Array<Eigen::Vector<Isize, ElementTrait::kAllNodeNumber>, Eigen::Dynamic, 1> node_tag_;
   Eigen::Array<Eigen::Vector<Real, ElementTrait::kQuadratureNumber>, Eigen::Dynamic, 1>
       jacobian_determinant_multiply_weight_;
@@ -112,7 +149,7 @@ struct ElementMeshDevice {
   Isize number_{0};
   Device::Array<Isize, Device::Dynamic, 1> gmsh_tag_;
   Device::Array<Isize, Device::Dynamic, 1> gmsh_physical_index_;
-  Device::Array<Isize, Device::Dynamic, 1> element_index_;
+  Device::Array<InteriorConditionEnum, Device::Dynamic, 1> interior_condition_type_;
   Device::Array<Device::Vector<Isize, ElementTrait::kAllNodeNumber>, Device::Dynamic, 1> node_tag_;
   Device::Array<Device::Vector<Real, ElementTrait::kQuadratureNumber>, Device::Dynamic, 1>
       jacobian_determinant_multiply_weight_;
@@ -123,8 +160,9 @@ struct ElementMeshDevice {
     Utils::transferToDevice<Isize, Device::Dynamic, 1>(element_mesh.gmsh_tag_, this->gmsh_tag_);
     this->gmsh_physical_index_.resize(this->number_);
     Utils::transferToDevice<Isize, Device::Dynamic, 1>(element_mesh.gmsh_physical_index_, this->gmsh_physical_index_);
-    this->element_index_.resize(this->number_);
-    Utils::transferToDevice<Isize, Device::Dynamic, 1>(element_mesh.element_index_, this->element_index_);
+    this->interior_condition_type_.resize(this->number_);
+    Utils::transferToDevice<InteriorConditionEnum, Device::Dynamic, 1>(element_mesh.interior_condition_type_,
+                                                                       this->interior_condition_type_);
     this->node_tag_.resize(this->number_);
     Utils::transferToDevice<Isize, ElementTrait::kAllNodeNumber>(element_mesh.node_tag_, this->node_tag_);
     this->jacobian_determinant_multiply_weight_.resize(this->number_);
@@ -137,14 +175,18 @@ template <typename VolumeElementTrait>
 struct VolumeElementMesh : ElementMesh<VolumeElementTrait>,
                            ElementQuadrature<VolumeElementTrait>,
                            VolumeElementBasisFunction<VolumeElementTrait> {
+  Isize static_number_{0};
+  Isize rotate_number_{0};
+
   Eigen::Array<Eigen::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kAllNodeNumber>, Eigen::Dynamic,
                1>
       node_coordinate_;
   Eigen::Array<Eigen::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kQuadratureNumber>,
                Eigen::Dynamic, 1>
       quadrature_node_coordinate_;
-  Eigen::Array<Eigen::Matrix<Real, VolumeElementTrait::kBasisFunctionNumber, VolumeElementTrait::kBasisFunctionNumber>,
-               Eigen::Dynamic, 1>
+  Eigen::Array<
+      Eigen::Matrix<Real, VolumeElementTrait::kAllBasisFunctionNumber, VolumeElementTrait::kAllBasisFunctionNumber>,
+      Eigen::Dynamic, 1>
       local_mass_matrix_inverse_;
   Eigen::Array<Eigen::Matrix<Real, VolumeElementTrait::kDimension,
                              VolumeElementTrait::kDimension * VolumeElementTrait::kQuadratureNumber>,
@@ -152,15 +194,19 @@ struct VolumeElementMesh : ElementMesh<VolumeElementTrait>,
       jacobian_transpose_inverse_multiply_determinate_and_weight_;
   Eigen::Array<Real, Eigen::Dynamic, 1> minimum_edge_;
 
+  Eigen::Array<Eigen::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kAllNodeNumber>, Eigen::Dynamic,
+               1>
+      node_coordinate_initial_;
+
   inline void getVolumeElementMesh(
       const Eigen::Matrix<Real, VolumeElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
       MeshPhysical& physical);
 
   inline void getVolumeElementQuality();
 
-  inline void computeVolumeElementQuadratureNodeCoordinate();
+  inline void computeVolumeElementOtherNodeCoordinate();
 
-  inline void computeVolumeElementJacobian();
+  inline void computeVolumeElementJacobian(/*const*/ bool is_initialization = true);
 
   inline void computeVolumeElementLocalMassMatrixInverse();
 };
@@ -169,6 +215,9 @@ template <typename VolumeElementTrait>
 struct VolumeElementMeshDevice : ElementMeshDevice<VolumeElementTrait>,
                                  ElementQuadratureDevice<VolumeElementTrait>,
                                  VolumeElementBasisFunctionDevice<VolumeElementTrait> {
+  Isize static_number_{0};
+  Isize rotate_number_{0};
+
   Device::Array<Device::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kAllNodeNumber>,
                 Device::Dynamic, 1>
       node_coordinate_;
@@ -176,7 +225,7 @@ struct VolumeElementMeshDevice : ElementMeshDevice<VolumeElementTrait>,
                 Device::Dynamic, 1>
       quadrature_node_coordinate_;
   Device::Array<
-      Device::Matrix<Real, VolumeElementTrait::kBasisFunctionNumber, VolumeElementTrait::kBasisFunctionNumber>,
+      Device::Matrix<Real, VolumeElementTrait::kAllBasisFunctionNumber, VolumeElementTrait::kAllBasisFunctionNumber>,
       Device::Dynamic, 1>
       local_mass_matrix_inverse_;
   Device::Array<Device::Matrix<Real, VolumeElementTrait::kDimension,
@@ -185,7 +234,15 @@ struct VolumeElementMeshDevice : ElementMeshDevice<VolumeElementTrait>,
       jacobian_transpose_inverse_multiply_determinate_and_weight_;
   Device::Array<Real, Device::Dynamic, 1> minimum_edge_;
 
+  Device::Array<Device::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kAllNodeNumber>,
+                Device::Dynamic, 1>
+      node_coordinate_initial_;
+
+  inline void computeVolumeElementJacobian([[maybe_unused]] /*const*/ bool is_initialization = true);
+
   void transferVolumeElementMeshToDevice(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh) {
+    this->static_number_ = volume_element_mesh.static_number_;
+    this->rotate_number_ = volume_element_mesh.rotate_number_;
     this->ElementMeshDevice<VolumeElementTrait>::transferElementMeshToDevice(
         static_cast<const ElementMesh<VolumeElementTrait>&>(volume_element_mesh));
     this->ElementQuadratureDevice<VolumeElementTrait>::transferElementQuadratureToDevice(
@@ -199,8 +256,9 @@ struct VolumeElementMeshDevice : ElementMeshDevice<VolumeElementTrait>,
     Utils::transferToDevice<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kQuadratureNumber>(
         volume_element_mesh.quadrature_node_coordinate_, this->quadrature_node_coordinate_);
     this->local_mass_matrix_inverse_.resize(volume_element_mesh.number_);
-    Utils::transferToDevice<Real, VolumeElementTrait::kBasisFunctionNumber, VolumeElementTrait::kBasisFunctionNumber>(
-        volume_element_mesh.local_mass_matrix_inverse_, this->local_mass_matrix_inverse_);
+    Utils::transferToDevice<Real, VolumeElementTrait::kAllBasisFunctionNumber,
+                            VolumeElementTrait::kAllBasisFunctionNumber>(volume_element_mesh.local_mass_matrix_inverse_,
+                                                                         this->local_mass_matrix_inverse_);
     this->jacobian_transpose_inverse_multiply_determinate_and_weight_.resize(volume_element_mesh.number_);
     Utils::transferToDevice<Real, VolumeElementTrait::kDimension,
                             VolumeElementTrait::kDimension * VolumeElementTrait::kQuadratureNumber>(
@@ -208,6 +266,9 @@ struct VolumeElementMeshDevice : ElementMeshDevice<VolumeElementTrait>,
         this->jacobian_transpose_inverse_multiply_determinate_and_weight_);
     this->minimum_edge_.resize(volume_element_mesh.number_);
     Utils::transferToDevice<Real, Eigen::Dynamic, 1>(volume_element_mesh.minimum_edge_, this->minimum_edge_);
+    this->node_coordinate_initial_.resize(volume_element_mesh.number_);
+    Utils::transferToDevice<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kAllNodeNumber>(
+        volume_element_mesh.node_coordinate_initial_, this->node_coordinate_initial_);
   }
 };
 
@@ -217,10 +278,20 @@ struct AdjacencyElementMesh : ElementMesh<AdjacencyElementTrait>,
                               AdjacencyElementBasisFunction<AdjacencyElementTrait> {
   Isize interior_number_{0};
   Isize boundary_number_{0};
+  Isize interface_number_{0};
+
+  Isize static_number_{0};
+  Isize interior_static_number_{0};
+  Isize boundary_static_number_{0};
+
+  Isize rotate_number_{0};
+  Isize interior_rotate_number_{0};
+  Isize boundary_rotate_number_{0};
 
   Eigen::Array<Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>,
                Eigen::Dynamic, 1>
       node_coordinate_;
+  Eigen::Array<Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>, Eigen::Dynamic, 1> center_node_coordinate_;
   Eigen::Array<Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>,
                Eigen::Dynamic, 1>
       quadrature_node_coordinate_;
@@ -232,43 +303,74 @@ struct AdjacencyElementMesh : ElementMesh<AdjacencyElementTrait>,
   Eigen::Array<Isize, Eigen::Dynamic, 1> adjacency_sequence_in_right_parent_;
   Eigen::Array<Isize, Eigen::Dynamic, 1> left_parent_gmsh_type_number_;
   Eigen::Array<Isize, Eigen::Dynamic, 1> right_parent_gmsh_type_number_;
+  Eigen::Array<Real, Eigen::Dynamic, 1> inner_radius_;
   Eigen::Array<Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>,
                Eigen::Dynamic, 1>
       normal_vector_;
 
-  inline void getAdjacencyElementBoundaryMesh(
-      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
-      MeshPhysical& physical, const std::vector<Isize>& boundary_tag,
-      const std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
-          adjacency_element_mesh_supplemental_map);
+  Eigen::Array<Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>,
+               Eigen::Dynamic, 1>
+      node_coordinate_initial_;
 
   inline void getAdjacencyElementInteriorMesh(
       const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
-      MeshPhysical& physical, const std::vector<Isize>& interior_tag,
-      const std::unordered_map<Isize, AdjacencyElementMeshSupplemental<AdjacencyElementTrait>>&
-          adjacency_element_mesh_supplemental_map);
+      const AdjacencyElementMeshSupplemental<AdjacencyElementTrait>& adjacency_element_mesh_supplemental,
+      MeshPhysical& physical);
+
+  inline void getAdjacencyElementBoundaryMesh(
+      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
+      const AdjacencyElementMeshSupplemental<AdjacencyElementTrait>& adjacency_element_mesh_supplemental,
+      MeshPhysical& physical);
+
+  inline void getAdjacencyElementInterfaceMesh(
+      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
+      const AdjacencyElementMeshSupplemental<AdjacencyElementTrait>& adjacency_element_mesh_supplemental,
+      MeshPhysical& physical);
 
   template <MeshModelEnum MeshModelType>
   inline void getAdjacencyElementMesh(
       const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
       MeshPhysical& physical);
 
-  inline void computeAdjacencyElementQuadratureNodeCoordinate();
+  inline void getAdjacencyElementQuality();
 
-  inline void computeAdjacencyElementJacobian();
+  inline void computeAdjacencyElementOtherNodeCoordinate(/*const*/ bool is_initialization = true);
 
-  inline void computeAdjacencyElementNormalVector();
+  inline void computeAdjacencyElementJacobianDeterminant();
+
+  inline void computeAdjacencyElementNormalVector(/*const*/ bool is_initialization = true);
+
+  [[nodiscard]] inline Isize getAdjacencyElementIndexFromGlobalCoordinate(
+      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& global_coordinate,
+      /*const*/ BoundaryConditionEnum boundary_condition) const;
+
+  inline void computeAdjacencyElementLocalCoordinateFromGlobalCoordinate(
+      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& global_coordinate,
+      Eigen::Vector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
+      /*const*/ Isize element_index, /*const*/ Real tolerance = 1.0e-12_r) const;
 };
 
 template <typename AdjacencyElementTrait>
 struct AdjacencyElementMeshDevice : ElementMeshDevice<AdjacencyElementTrait>,
-                                    ElementQuadratureDevice<AdjacencyElementTrait> {
+                                    ElementQuadratureDevice<AdjacencyElementTrait>,
+                                    AdjacencyElementBasisFunctionDevice<AdjacencyElementTrait> {
   Isize interior_number_{0};
   Isize boundary_number_{0};
+  Isize interface_number_{0};
+
+  Isize static_number_{0};
+  Isize interior_static_number_{0};
+  Isize boundary_static_number_{0};
+
+  Isize rotate_number_{0};
+  Isize interior_rotate_number_{0};
+  Isize boundary_rotate_number_{0};
 
   Device::Array<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>,
                 Device::Dynamic, 1>
       node_coordinate_;
+  Device::Array<Device::Vector<Real, AdjacencyElementTrait::kDimension + 1>, Device::Dynamic, 1>
+      center_node_coordinate_;
   Device::Array<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>,
                 Device::Dynamic, 1>
       quadrature_node_coordinate_;
@@ -280,20 +382,50 @@ struct AdjacencyElementMeshDevice : ElementMeshDevice<AdjacencyElementTrait>,
   Device::Array<Isize, Device::Dynamic, 1> adjacency_sequence_in_right_parent_;
   Device::Array<Isize, Device::Dynamic, 1> left_parent_gmsh_type_number_;
   Device::Array<Isize, Device::Dynamic, 1> right_parent_gmsh_type_number_;
+  Device::Array<Real, Device::Dynamic, 1> inner_radius_;
   Device::Array<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>,
                 Device::Dynamic, 1>
       normal_vector_;
 
+  Device::Array<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>,
+                Device::Dynamic, 1>
+      node_coordinate_initial_;
+
+  inline void computeAdjacencyElementOtherNodeCoordinate([[maybe_unused]] /*const*/ bool is_initialization = true);
+
+  inline void computeAdjacencyElementNormalVector([[maybe_unused]] /*const*/ bool is_initialization = true);
+
+  [[nodiscard]] inline Isize getAdjacencyElementIndexFromGlobalCoordinate(
+      const Device::StaticVector<Real, AdjacencyElementTrait::kDimension + 1>& global_coordinate,
+      /*const*/ BoundaryConditionEnum boundary_condition) const;
+
+  inline void computeAdjacencyElementLocalCoordinateFromGlobalCoordinate(
+      const Device::StaticVector<Real, AdjacencyElementTrait::kDimension + 1>& global_coordinate,
+      Device::StaticVector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
+      /*const*/ Isize element_index, /*const*/ Real tolerance = 1.0e-12_r) const;
+
   void transferAdjacencyElementMeshToDevice(const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh) {
     this->interior_number_ = adjacency_element_mesh.interior_number_;
     this->boundary_number_ = adjacency_element_mesh.boundary_number_;
+    this->interface_number_ = adjacency_element_mesh.interface_number_;
+    this->static_number_ = adjacency_element_mesh.static_number_;
+    this->interior_static_number_ = adjacency_element_mesh.interior_static_number_;
+    this->boundary_static_number_ = adjacency_element_mesh.boundary_static_number_;
+    this->rotate_number_ = adjacency_element_mesh.rotate_number_;
+    this->interior_rotate_number_ = adjacency_element_mesh.interior_rotate_number_;
+    this->boundary_rotate_number_ = adjacency_element_mesh.boundary_rotate_number_;
     this->ElementMeshDevice<AdjacencyElementTrait>::transferElementMeshToDevice(
         static_cast<const ElementMesh<AdjacencyElementTrait>&>(adjacency_element_mesh));
     this->ElementQuadratureDevice<AdjacencyElementTrait>::transferElementQuadratureToDevice(
         static_cast<const ElementQuadrature<AdjacencyElementTrait>&>(adjacency_element_mesh));
+    this->AdjacencyElementBasisFunctionDevice<AdjacencyElementTrait>::transferAdjacencyElementBasisFunctionToDevice(
+        static_cast<const AdjacencyElementBasisFunction<AdjacencyElementTrait>&>(adjacency_element_mesh));
     this->node_coordinate_.resize(adjacency_element_mesh.number_);
     Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>(
         adjacency_element_mesh.node_coordinate_, this->node_coordinate_);
+    this->center_node_coordinate_.resize(adjacency_element_mesh.number_);
+    Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, 1>(
+        adjacency_element_mesh.center_node_coordinate_, this->center_node_coordinate_);
     this->quadrature_node_coordinate_.resize(adjacency_element_mesh.number_);
     Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>(
         adjacency_element_mesh.quadrature_node_coordinate_, this->quadrature_node_coordinate_);
@@ -321,9 +453,14 @@ struct AdjacencyElementMeshDevice : ElementMeshDevice<AdjacencyElementTrait>,
     this->right_parent_gmsh_type_number_.resize(adjacency_element_mesh.number_);
     Utils::transferToDevice<Isize, Device::Dynamic, 1>(adjacency_element_mesh.right_parent_gmsh_type_number_,
                                                        this->right_parent_gmsh_type_number_);
+    this->inner_radius_.resize(adjacency_element_mesh.number_);
+    Utils::transferToDevice<Real, Device::Dynamic, 1>(adjacency_element_mesh.inner_radius_, this->inner_radius_);
     this->normal_vector_.resize(adjacency_element_mesh.number_);
     Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>(
         adjacency_element_mesh.normal_vector_, this->normal_vector_);
+    this->node_coordinate_initial_.resize(adjacency_element_mesh.number_);
+    Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>(
+        adjacency_element_mesh.node_coordinate_initial_, this->node_coordinate_initial_);
   }
 };
 
@@ -350,24 +487,24 @@ struct MeshData;
 
 template <typename SimulationControl>
 struct MeshData<SimulationControl, 1> : MeshDataBase<SimulationControl> {
-  AdjacencyElementMesh<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>> point_;
   VolumeElementMesh<VolumeLineTrait<SimulationControl::kPolynomialOrder>> line_;
+  AdjacencyElementMesh<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>> point_;
 };
 
 template <typename SimulationControl>
 struct MeshData<SimulationControl, 2> : MeshDataBase<SimulationControl> {
-  AdjacencyElementMesh<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>> line_;
   VolumeElementMesh<VolumeTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
   VolumeElementMesh<VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
+  AdjacencyElementMesh<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>> line_;
 };
 
 template <typename SimulationControl>
 struct MeshData<SimulationControl, 3> : MeshDataBase<SimulationControl> {
-  AdjacencyElementMesh<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
-  AdjacencyElementMesh<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
   VolumeElementMesh<VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>> tetrahedron_;
   VolumeElementMesh<VolumePyramidTrait<SimulationControl::kPolynomialOrder>> pyramid_;
   VolumeElementMesh<VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>> hexahedron_;
+  AdjacencyElementMesh<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
+  AdjacencyElementMesh<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
 };
 
 template <typename SimulationControl, int Dimension = SimulationControl::kDimension>
@@ -375,24 +512,24 @@ struct MeshDataDevice;
 
 template <typename SimulationControl>
 struct MeshDataDevice<SimulationControl, 1> : MeshDataDeviceBase<SimulationControl> {
-  AdjacencyElementMeshDevice<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>> point_;
   VolumeElementMeshDevice<VolumeLineTrait<SimulationControl::kPolynomialOrder>> line_;
+  AdjacencyElementMeshDevice<AdjacencyPointTrait<SimulationControl::kPolynomialOrder>> point_;
 };
 
 template <typename SimulationControl>
 struct MeshDataDevice<SimulationControl, 2> : MeshDataDeviceBase<SimulationControl> {
-  AdjacencyElementMeshDevice<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>> line_;
   VolumeElementMeshDevice<VolumeTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
   VolumeElementMeshDevice<VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
+  AdjacencyElementMeshDevice<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>> line_;
 };
 
 template <typename SimulationControl>
 struct MeshDataDevice<SimulationControl, 3> : MeshDataDeviceBase<SimulationControl> {
-  AdjacencyElementMeshDevice<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
-  AdjacencyElementMeshDevice<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
   VolumeElementMeshDevice<VolumeTetrahedronTrait<SimulationControl::kPolynomialOrder>> tetrahedron_;
   VolumeElementMeshDevice<VolumePyramidTrait<SimulationControl::kPolynomialOrder>> pyramid_;
   VolumeElementMeshDevice<VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>> hexahedron_;
+  AdjacencyElementMeshDevice<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>> triangle_;
+  AdjacencyElementMeshDevice<AdjacencyQuadrangleTrait<SimulationControl::kPolynomialOrder>> quadrangle_;
 };
 
 template <typename SimulationControl>
@@ -510,6 +647,37 @@ struct Mesh : MeshData<SimulationControl> {
         this->quadrangle_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
                                                                                           this->physical_);
         this->adjacency_element_number_ += this->quadrangle_.number_;
+      }
+    }
+  }
+
+  void resetMesh() {
+    if constexpr (SimulationControl::kDimension == 2) {
+      if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+        this->triangle_.node_coordinate_ = this->triangle_.node_coordinate_initial_;
+      }
+      if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+        this->quadrangle_.node_coordinate_ = this->quadrangle_.node_coordinate_initial_;
+      }
+      this->line_.node_coordinate_ = this->line_.node_coordinate_initial_;
+      this->line_.computeAdjacencyElementNormalVector();
+    } else if constexpr (SimulationControl::kDimension == 3) {
+      if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+        this->tetrahedron_.node_coordinate_ = this->tetrahedron_.node_coordinate_initial_;
+      }
+      if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+        this->pyramid_.node_coordinate_ = this->pyramid_.node_coordinate_initial_;
+      }
+      if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+        this->hexahedron_.node_coordinate_ = this->hexahedron_.node_coordinate_initial_;
+      }
+      if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
+        this->triangle_.node_coordinate_ = this->triangle_.node_coordinate_initial_;
+        this->triangle_.computeAdjacencyElementNormalVector();
+      }
+      if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
+        this->quadrangle_.node_coordinate_ = this->quadrangle_.node_coordinate_initial_;
+        this->quadrangle_.computeAdjacencyElementNormalVector();
       }
     }
   }

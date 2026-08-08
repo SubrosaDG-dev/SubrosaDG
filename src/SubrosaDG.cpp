@@ -41,6 +41,7 @@
 #include "Solver/ConvectiveFlux.cpp"
 #include "Solver/InitialCondition.cpp"
 #include "Solver/PhysicalModel.cpp"
+#include "Solver/RotatingInterface.cpp"
 #include "Solver/SimulationControl.cpp"
 #include "Solver/SolveControl.cpp"
 #include "Solver/SourceTerm.cpp"

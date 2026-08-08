@@ -76,17 +76,17 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::writeVol
   for (Isize i = 0; i < this->number_; i++) {
     raw_binary_ss.write(
         reinterpret_cast<const char*>(this->variable_basis_function_coefficient_(i).data()),
-        SimulationControl::kConservedVariableNumber * VolumeElementTrait::kBasisFunctionNumber * kRealSize);
+        SimulationControl::kConservedVariableNumber * VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
     if constexpr (IsEuler<SimulationControl::kEquationModel>) {
       raw_binary_ss.write(
           reinterpret_cast<const char*>(this->variable_volume_gradient_basis_function_coefficient_(i).data()),
           SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-              VolumeElementTrait::kBasisFunctionNumber * kRealSize);
+              VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
     }
     if constexpr (IsNS<SimulationControl::kEquationModel>) {
       raw_binary_ss.write(reinterpret_cast<const char*>(this->variable_gradient_basis_function_coefficient_(i).data()),
                           SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                              VolumeElementTrait::kBasisFunctionNumber * kRealSize);
+                              VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
     }
   }
 }
@@ -99,9 +99,9 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::wr
   raw_binary_ss.write(
       reinterpret_cast<const char*>(
           volume_element_solver.variable_basis_function_coefficient_(parent_index_each_type).data()),
-      SimulationControl::kConservedVariableNumber * VolumeElementTrait::kBasisFunctionNumber * kRealSize);
+      SimulationControl::kConservedVariableNumber * VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                VolumeElementTrait::kBasisFunctionNumber>
+                VolumeElementTrait::kAllBasisFunctionNumber>
       variable_gradient_basis_function_coefficient;
   if constexpr (IsEuler<SimulationControl::kEquationModel>) {
     variable_gradient_basis_function_coefficient =
@@ -116,24 +116,26 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::wr
           volume_element_solver.variable_volume_gradient_basis_function_coefficient_(parent_index_each_type) +
           volume_element_solver.variable_interface_gradient_basis_function_coefficient_(parent_index_each_type)(
               Eigen::placeholders::all,
-              Eigen::seqN(adjacency_sequence_in_parent * VolumeElementTrait::kBasisFunctionNumber,
-                          Eigen::fix<VolumeElementTrait::kBasisFunctionNumber>));
+              Eigen::seqN(adjacency_sequence_in_parent * VolumeElementTrait::kAllBasisFunctionNumber,
+                          Eigen::fix<VolumeElementTrait::kAllBasisFunctionNumber>));
     }
   }
   raw_binary_ss.write(reinterpret_cast<const char*>(variable_gradient_basis_function_coefficient.data()),
                       SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                          VolumeElementTrait::kBasisFunctionNumber * kRealSize);
+                          VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::writeBoundaryAdjacencyElementRawBinary(
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh, const Solver<SimulationControl>& solver,
     std::stringstream& raw_binary_ss) const {
-  for (Isize i = adjacency_element_mesh.interior_number_;
-       i < adjacency_element_mesh.boundary_number_ + adjacency_element_mesh.interior_number_; i++) {
-    const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(i);
-    const Isize adjacency_sequence_in_left_parent = adjacency_element_mesh.adjacency_sequence_in_left_parent_(i);
-    const Isize left_parent_gmsh_type_number = adjacency_element_mesh.left_parent_gmsh_type_number_(i);
+  // Isize element_index;
+  for (Isize i = 0; i < adjacency_element_mesh.boundary_number_; i++) {
+    const Isize element_index = i + adjacency_element_mesh.interior_number_;
+    const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
+    const Isize adjacency_sequence_in_left_parent =
+        adjacency_element_mesh.adjacency_sequence_in_left_parent_(element_index);
+    const Isize left_parent_gmsh_type_number = adjacency_element_mesh.left_parent_gmsh_type_number_(element_index);
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
       this->writeBoundaryAdjacencyPerElementRawBinary<VolumeLineTrait<SimulationControl::kPolynomialOrder>>(
           solver.line_, raw_binary_ss, left_parent_index_each_type, adjacency_sequence_in_left_parent);
@@ -171,7 +173,10 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::wr
 
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::writeRawBinary(const Mesh<SimulationControl>& mesh,
+                                                      const TimeIntegration<SimulationControl>& time_integration,
                                                       const std::filesystem::path& raw_binary_path) {
+  const Real time_value = static_cast<Real>(time_integration.iteration_) * time_integration.delta_time_;
+  this->raw_binary_ss_.write(reinterpret_cast<const char*>(&time_value), static_cast<std::streamsize>(sizeof(Real)));
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.writeVolumeElementRawBinary(this->raw_binary_ss_);
     this->point_.writeBoundaryAdjacencyElementRawBinary(mesh.point_, *this, this->raw_binary_ss_);
@@ -207,12 +212,12 @@ inline void Solver<SimulationControl>::writeRawBinary(const Mesh<SimulationContr
 template <typename VolumeElementTrait, typename SimulationControl>
 inline void VolumeElementViewSolver<VolumeElementTrait, SimulationControl>::computeVolumeElementViewVariable(
     const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh, std::stringstream& raw_binary_ss) {
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kBasisFunctionNumber>
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kAllBasisFunctionNumber>
       variable_basis_function_coefficient;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kAllNodeNumber>
       all_conserved_variable;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                VolumeElementTrait::kBasisFunctionNumber>
+                VolumeElementTrait::kAllBasisFunctionNumber>
       variable_gradient_basis_function_coefficient;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 VolumeElementTrait::kAllNodeNumber>
@@ -220,10 +225,10 @@ inline void VolumeElementViewSolver<VolumeElementTrait, SimulationControl>::comp
   for (Isize i = 0; i < volume_element_mesh.number_; i++) {
     raw_binary_ss.read(
         reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
-        SimulationControl::kConservedVariableNumber * VolumeElementTrait::kBasisFunctionNumber * kRealSize);
+        SimulationControl::kConservedVariableNumber * VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
     raw_binary_ss.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                        SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                           VolumeElementTrait::kBasisFunctionNumber * kRealSize);
+                           VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
     all_conserved_variable = variable_basis_function_coefficient;
     this->view_variable_(i).convertComputationalFromConserved(all_conserved_variable);
     all_conserved_gradient_variable = variable_gradient_basis_function_coefficient;
@@ -236,45 +241,45 @@ template <typename VolumeElementTrait>
 inline void
 AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>::computeAdjacencyPerElementViewVariable(
     std::stringstream& raw_binary_ss, const Isize parent_gmsh_type_number, const Isize adjacency_sequence_in_parent,
-    const Isize element_index) {
+    const Isize element_local_index) {
   const std::array<int, AdjacencyElementTrait::kAllNodeNumber> adjacency_view_node_sequence_in_parent{
       getAdjacencyElementViewNodeSequenceInParent<AdjacencyElementTrait::kElementType,
                                                   SimulationControl::kPolynomialOrder>(
           static_cast<int>(parent_gmsh_type_number), static_cast<int>(adjacency_sequence_in_parent))};
-  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kBasisFunctionNumber>
+  Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kAllBasisFunctionNumber>
       variable_basis_function_coefficient;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, AdjacencyElementTrait::kAllNodeNumber>
       all_conserved_variable;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                VolumeElementTrait::kBasisFunctionNumber>
+                VolumeElementTrait::kAllBasisFunctionNumber>
       variable_gradient_basis_function_coefficient;
   Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                 AdjacencyElementTrait::kAllNodeNumber>
       all_conserved_gradient_variable;
   raw_binary_ss.read(
       reinterpret_cast<char*>(variable_basis_function_coefficient.data()),
-      SimulationControl::kConservedVariableNumber * VolumeElementTrait::kBasisFunctionNumber * kRealSize);
+      SimulationControl::kConservedVariableNumber * VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
   raw_binary_ss.read(reinterpret_cast<char*>(variable_gradient_basis_function_coefficient.data()),
                      SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                         VolumeElementTrait::kBasisFunctionNumber * kRealSize);
+                         VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
     all_conserved_variable.col(i) =
         variable_basis_function_coefficient.col(adjacency_view_node_sequence_in_parent[static_cast<Usize>(i)]);
     all_conserved_gradient_variable.col(i) =
         variable_gradient_basis_function_coefficient.col(adjacency_view_node_sequence_in_parent[static_cast<Usize>(i)]);
   }
-  this->view_variable_(element_index).convertComputationalFromConserved(all_conserved_variable);
-  this->view_variable_(element_index).convertPrimitiveGradientFromConservedGradient(all_conserved_gradient_variable);
+  this->view_variable_(element_local_index).convertComputationalFromConserved(all_conserved_variable);
+  this->view_variable_(element_local_index)
+      .convertPrimitiveGradientFromConservedGradient(all_conserved_gradient_variable);
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>::computeAdjacencyElementViewVariable(
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh, std::stringstream& raw_binary_ss) {
   for (Isize i = 0; i < adjacency_element_mesh.boundary_number_; i++) {
-    const Isize adjacency_sequence_in_parent =
-        adjacency_element_mesh.adjacency_sequence_in_left_parent_(i + adjacency_element_mesh.interior_number_);
-    const Isize parent_gmsh_type_number =
-        adjacency_element_mesh.left_parent_gmsh_type_number_(i + adjacency_element_mesh.interior_number_);
+    const Isize element_index = i + adjacency_element_mesh.interior_number_;
+    const Isize adjacency_sequence_in_parent = adjacency_element_mesh.adjacency_sequence_in_left_parent_(element_index);
+    const Isize parent_gmsh_type_number = adjacency_element_mesh.left_parent_gmsh_type_number_(element_index);
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Point) {
       this->computeAdjacencyPerElementViewVariable<VolumeLineTrait<SimulationControl::kPolynomialOrder>>(
           raw_binary_ss, parent_gmsh_type_number, adjacency_sequence_in_parent, i);
@@ -311,6 +316,7 @@ inline void AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>
 template <typename SimulationControl>
 inline void ViewSolver<SimulationControl>::computeViewVariable(const Mesh<SimulationControl>& mesh) {
   RawBinaryCompress::read(this->raw_binary_path_, this->raw_binary_ss_);
+  this->raw_binary_ss_.read(reinterpret_cast<char*>(&this->time_value_), static_cast<std::streamsize>(sizeof(Real)));
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.computeVolumeElementViewVariable(mesh.line_, this->raw_binary_ss_);
     this->point_.computeAdjacencyElementViewVariable(mesh.point_, this->raw_binary_ss_);
@@ -338,6 +344,16 @@ inline void ViewSolver<SimulationControl>::computeViewVariable(const Mesh<Simula
     if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.computeAdjacencyElementViewVariable(mesh.quadrangle_, this->raw_binary_ss_);
     }
+  }
+}
+
+template <typename SimulationControl>
+inline void ViewSolver<SimulationControl>::computeRotationMatrix() {
+  const Real angle = this->time_value_ * this->rotation_angular_velocity_;
+  if constexpr (SimulationControl::kDimension == 2) {
+    Transformation::Rotation::getMatrix(angle, this->rotation_matrix_);
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    Transformation::AngleAxis::getMatrix(this->rotation_axis_, angle, this->rotation_matrix_);
   }
 }
 

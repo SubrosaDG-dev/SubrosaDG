@@ -82,26 +82,27 @@ struct GaussRadauLegendre {
   }
 };
 
+template <ElementEnum ElementType, int QuadratureOrder>
+static std::pair<std::vector<double>, std::vector<double>> getGaussQuadrature() {
+  constexpr int kElementGmshTypeNumber{getElementGmshTypeNumber<ElementType, 1>()};
+  std::vector<double> local_coord;
+  std::vector<double> weights;
+  gmsh::model::mesh::getIntegrationPoints(kElementGmshTypeNumber, std::format("Gauss{}", QuadratureOrder), local_coord,
+                                          weights);
+  return std::make_pair(local_coord, weights);
+}
+
 template <typename ElementTrait>
 struct ElementQuadrature {
-  std::vector<double> local_coord_;
   Eigen::Matrix<Real, ElementTrait::kDimension, ElementTrait::kQuadratureNumber> quadrature_local_coordinate_;
   Eigen::Vector<Real, ElementTrait::kQuadratureNumber> quadrature_weight_;
 
-  static std::pair<std::vector<double>, std::vector<double>> get() {
-    std::vector<double> local_coord;
-    std::vector<double> weights;
-    gmsh::model::mesh::getIntegrationPoints(
-        ElementTrait::kGmshTypeNumber, std::format("Gauss{}", ElementTrait::kQuadratureOrder), local_coord, weights);
-    return std::make_pair(local_coord, weights);
-  }
-
   ElementQuadrature() {
-    const auto& [local_coord, weights] = get();
-    this->local_coord_ = local_coord;
+    const auto& [local_coordinate, weights] =
+        getGaussQuadrature<ElementTrait::kElementType, ElementTrait::kQuadratureOrder>();
     for (Isize i = 0; i < ElementTrait::kQuadratureNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kDimension; j++) {
-        this->quadrature_local_coordinate_(j, i) = static_cast<Real>(local_coord[static_cast<Usize>(i * 3 + j)]);
+        this->quadrature_local_coordinate_(j, i) = static_cast<Real>(local_coordinate[static_cast<Usize>(i * 3 + j)]);
       }
       this->quadrature_weight_(i) = static_cast<Real>(weights[static_cast<Usize>(i)]);
     }
@@ -111,7 +112,7 @@ struct ElementQuadrature {
 template <typename ElementTrait>
 struct ElementQuadratureDevice {
   Device::Matrix<Real, ElementTrait::kDimension, ElementTrait::kQuadratureNumber> quadrature_local_coordinate_;
-  Device::Matrix<Real, ElementTrait::kQuadratureNumber, 1> quadrature_weight_;
+  Device::Vector<Real, ElementTrait::kQuadratureNumber> quadrature_weight_;
 
   void transferElementQuadratureToDevice(const ElementQuadrature<ElementTrait>& element_quadrature) {
     Utils::transferToDevice<Real, ElementTrait::kDimension, ElementTrait::kQuadratureNumber>(

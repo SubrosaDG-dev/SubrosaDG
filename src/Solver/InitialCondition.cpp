@@ -38,7 +38,7 @@ struct InitialCondition {
   static void getVariableBasisFunctionCoefficient(
       const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
       Eigen::Array<
-          Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kBasisFunctionNumber>,
+          Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kAllBasisFunctionNumber>,
           Eigen::Dynamic, 1>& variable_basis_function_coefficient,
       std::stringstream& raw_binary_ss) {
     if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::Function) {
@@ -69,9 +69,9 @@ struct InitialCondition {
       for (Isize i = 0; i < volume_element_mesh.number_; i++) {
         raw_binary_ss.read(
             reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
-            SimulationControl::kConservedVariableNumber * VolumeElementTrait::kBasisFunctionNumber * kRealSize);
+            SimulationControl::kConservedVariableNumber * VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
         raw_binary_ss.seekg(SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                                VolumeElementTrait::kBasisFunctionNumber * kRealSize,
+                                VolumeElementTrait::kAllBasisFunctionNumber * kRealSize,
                             std::ios::cur);
       }
     } else if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LowOrder) {
@@ -79,9 +79,10 @@ struct InitialCondition {
           getElementBasisFunctionNumber<VolumeElementTrait::kElementType, SimulationControl::kPolynomialOrder - 1>()};
       Eigen::Matrix<Real, VolumeElementTrait::kQuadratureNumber, kLowOrderBasisFunctionNumber>
           low_order_nodal_basis_function;
-      const auto& [local_coord, weights] = ElementQuadrature<VolumeElementTrait>::get();
+      const auto& [local_coord, weights] =
+          getGaussQuadrature<VolumeElementTrait::kElementType, VolumeElementTrait::kQuadratureOrder>();
       std::vector<double> low_order_nodal_basis_functions{
-          ElementBasisFunction<VolumeElementTrait::kElementType, VolumeElementTrait::kPolynomialOrder - 1>::get(
+          getLagrangeBasisFunction<VolumeElementTrait::kElementType, VolumeElementTrait::kPolynomialOrder - 1>(
               local_coord, false)};
       for (Isize i = 0; i < VolumeElementTrait::kQuadratureNumber; i++) {
         for (Isize j = 0; j < kLowOrderBasisFunctionNumber; j++) {
@@ -110,12 +111,15 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::initiali
     const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
     [[maybe_unused]] std::stringstream& raw_binary_ss) {
   this->number_ = volume_element_mesh.number_;
+  this->static_number_ = volume_element_mesh.static_number_;
+  this->rotate_number_ = volume_element_mesh.rotate_number_;
   // VolumeElementSolverBase
   this->variable_basis_function_coefficient_last_.resize(this->number_);
   this->variable_basis_function_coefficient_.resize(this->number_);
   this->variable_quadrature_.resize(this->number_);
   this->variable_adjacency_quadrature_.resize(this->number_);
   this->variable_residual_.resize(this->number_);
+  this->variable_rotation_velocity_coefficient_.resize(this->number_);
   if constexpr (IsNS<SimulationControl::kEquationModel>) {
     this->variable_gradient_basis_function_coefficient_.resize(this->number_);
   }
@@ -135,18 +139,24 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::initiali
   }
   InitialCondition<SimulationControl>::getVariableBasisFunctionCoefficient(
       volume_element_mesh, this->variable_basis_function_coefficient_, raw_binary_ss);
+  for (Isize i = 0; i < this->number_; i++) {
+    this->variable_rotation_velocity_coefficient_(i).setZero();
+  }
 }
 
 template <typename VolumeElementTrait, typename SimulationControl>
 inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::transferVolumeElementSolverToDevice(
     const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver) {
   this->number_ = volume_element_solver.number_;
+  this->static_number_ = volume_element_solver.static_number_;
+  this->rotate_number_ = volume_element_solver.rotate_number_;
   // VolumeElementSolverBase
   this->variable_basis_function_coefficient_last_.resize(this->number_);
   this->variable_basis_function_coefficient_.resize(this->number_);
   this->variable_quadrature_.resize(this->number_);
   this->variable_adjacency_quadrature_.resize(this->number_);
   this->variable_residual_.resize(this->number_);
+  this->variable_rotation_velocity_coefficient_.resize(this->number_);
   if constexpr (IsNS<SimulationControl::kEquationModel>) {
     this->variable_gradient_basis_function_coefficient_.resize(this->number_);
   }
@@ -164,8 +174,11 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::tr
   if constexpr (SimulationControl::kSourceTerm == SourceTermEnum::Boussinesq) {
     this->variable_source_quadrature_.resize(this->number_);
   }
-  Utils::transferToDevice<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kBasisFunctionNumber>(
+  Utils::transferToDevice<Real, SimulationControl::kConservedVariableNumber,
+                          VolumeElementTrait::kAllBasisFunctionNumber>(
       volume_element_solver.variable_basis_function_coefficient_, this->variable_basis_function_coefficient_);
+  Utils::transferToDevice<Real, SimulationControl::kDimension, VolumeElementTrait::kAllNodeNumber>(
+      volume_element_solver.variable_rotation_velocity_coefficient_, this->variable_rotation_velocity_coefficient_);
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -174,6 +187,18 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::in
   this->number_ = adjacency_element_mesh.number_;
   this->interior_number_ = adjacency_element_mesh.interior_number_;
   this->boundary_number_ = adjacency_element_mesh.boundary_number_;
+  this->interface_number_ = adjacency_element_mesh.interface_number_;
+  this->static_number_ = adjacency_element_mesh.static_number_;
+  this->interior_static_number_ = adjacency_element_mesh.interior_static_number_;
+  this->boundary_static_number_ = adjacency_element_mesh.boundary_static_number_;
+  this->rotate_number_ = adjacency_element_mesh.rotate_number_;
+  this->interior_rotate_number_ = adjacency_element_mesh.interior_rotate_number_;
+  this->boundary_rotate_number_ = adjacency_element_mesh.boundary_rotate_number_;
+  // AdjacencyElementInterfaceSolver
+  this->interface_right_conserved_variable_.resize(2 * this->interface_number_);
+  if constexpr (IsNS<SimulationControl::kEquationModel>) {
+    this->interface_right_conserved_variable_gradient_.resize(2 * this->interface_number_);
+  }
   this->boundary_dummy_right_computational_variable_.resize(this->boundary_number_);
   tbb::parallel_for(
       tbb::blocked_range<Isize>(0, adjacency_element_mesh.boundary_number_),
@@ -211,6 +236,18 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::transfer
   this->number_ = adjacency_element_solver.number_;
   this->interior_number_ = adjacency_element_solver.interior_number_;
   this->boundary_number_ = adjacency_element_solver.boundary_number_;
+  this->interface_number_ = adjacency_element_solver.interface_number_;
+  this->static_number_ = adjacency_element_solver.static_number_;
+  this->interior_static_number_ = adjacency_element_solver.interior_static_number_;
+  this->boundary_static_number_ = adjacency_element_solver.boundary_static_number_;
+  this->rotate_number_ = adjacency_element_solver.rotate_number_;
+  this->interior_rotate_number_ = adjacency_element_solver.interior_rotate_number_;
+  this->boundary_rotate_number_ = adjacency_element_solver.boundary_rotate_number_;
+  // AdjacencyElementInterfaceSolver
+  this->interface_right_conserved_variable_.resize(2 * this->interface_number_);
+  if constexpr (IsNS<SimulationControl::kEquationModel>) {
+    this->interface_right_conserved_variable_gradient_.resize(2 * this->interface_number_);
+  }
   this->boundary_dummy_right_computational_variable_.resize(this->boundary_number_);
   Utils::transferToDevice<Real, SimulationControl::kComputationalVariableNumber,
                           AdjacencyElementTrait::kQuadratureNumber>(
@@ -220,6 +257,7 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::transfer
 
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::initializeSolver(const Mesh<SimulationControl>& mesh) {
+  this->raw_binary_ss_.seekg(kRealSize, std::ios::beg);
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.initializeVolumeElementSolver(mesh.line_, this->raw_binary_ss_);
     this->point_.initializeAdjacencyElementSolver(mesh.point_);
@@ -248,7 +286,6 @@ inline void Solver<SimulationControl>::initializeSolver(const Mesh<SimulationCon
       this->quadrangle_.initializeAdjacencyElementSolver(mesh.quadrangle_);
     }
   }
-  this->raw_binary_ss_ = std::stringstream();
 }
 
 template <typename SimulationControl>
@@ -281,6 +318,9 @@ inline void SolverDevice<SimulationControl>::transferSolverToDevice(const Solver
       this->quadrangle_.transferAdjacencyElementSolverToDevice(solver.quadrangle_);
     }
   }
+  Utils::transferToDevice<Real, SimulationControl::kDimension>(solver.rotation_center_, this->rotation_center_);
+  Utils::transferToDevice<Real, 3>(solver.rotation_axis_, this->rotation_axis_);
+  this->rotation_angular_velocity_ = solver.rotation_angular_velocity_;
 }
 
 }  // namespace SubrosaDG

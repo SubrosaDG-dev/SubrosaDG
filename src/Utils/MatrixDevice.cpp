@@ -40,12 +40,6 @@ struct ScalarOf<T, std::void_t<typename T::Scalar>> {
 template <typename T>
 concept HasScalar = requires { typename T::Scalar; };
 
-template <typename T>
-concept IsVector = T::Cols == 1;
-
-template <typename T>
-concept IsMatrix = T::Cols != 1;
-
 template <typename Scalar_, int Rows_, int Cols_>
 struct StaticMatrix;
 
@@ -76,48 +70,19 @@ struct View {
   View(const Scalar* data, const Isize outer_stride, const Isize inner_stride)
       : data_(const_cast<Scalar*>(data)), outer_stride_(outer_stride), inner_stride_(inner_stride) {}
 
-  [[nodiscard]] constexpr Isize rows() { return Rows; }
+  [[nodiscard]] constexpr Isize rows() const { return Rows; }
 
-  [[nodiscard]] constexpr Isize cols()
-    requires(IsMatrix<T>)
-  {
-    return Cols;
-  }
+  [[nodiscard]] constexpr Isize cols() const { return Cols; }
 
-  Scalar& operator()(const Isize row)
-    requires(IsVector<T>)
-  {
-    return this->data_[row * this->inner_stride_];
-  }
-  const Scalar& operator()(const Isize row) const
-    requires(IsVector<T>)
-  {
-    return this->data_[row * this->inner_stride_];
-  }
-
-  Scalar& operator()(const Isize row, const Isize col)
-    requires(IsMatrix<T>)
-  {
+  Scalar& operator()(const Isize row, const Isize col = 0) {
     return this->data_[row * this->inner_stride_ + col * this->outer_stride_];
   }
 
-  const Scalar& operator()(const Isize row, const Isize col) const
-    requires(IsMatrix<T>)
-  {
+  const Scalar& operator()(const Isize row, const Isize col = 0) const {
     return this->data_[row * this->inner_stride_ + col * this->outer_stride_];
   }
 
-  void setZero()
-    requires(IsVector<T>)
-  {
-    for (Isize m = 0; m < Rows; m++) {
-      (*this)(m) = Scalar(0);
-    }
-  }
-
-  void setZero()
-    requires(IsMatrix<T>)
-  {
+  void setZero() {
     for (Isize m = 0; m < Rows; m++) {
       for (Isize n = 0; n < Cols; n++) {
         (*this)(m, n) = Scalar(0);
@@ -125,30 +90,19 @@ struct View {
     }
   }
 
-  template <typename OtherT>
-  Scalar dot(const View<OtherT>& other) const
-    requires(IsVector<T> && IsVector<OtherT> && (Rows == OtherT::Rows))
-  {
+  Scalar squaredNorm() const {
     Scalar result = Scalar(0);
     for (Isize m = 0; m < Rows; m++) {
-      result += (*this)(m)*other(m);
-    }
-    return result;
-  }
-
-  Scalar squaredNorm() const
-    requires(IsVector<T>)
-  {
-    Scalar result = Scalar(0);
-    for (Isize m = 0; m < Rows; m++) {
-      result += (*this)(m) * (*this)(m);
+      for (Isize n = 0; n < Cols; n++) {
+        result += (*this)(m, n) * (*this)(m, n);
+      }
     }
     return result;
   }
 
   template <int NewRows, int NewCols = 1>
   [[nodiscard]] View<StaticMatrix<Scalar, NewRows, NewCols>> reshaped()
-    requires(!std::is_const_v<T> && IsVector<T>)
+    requires(!std::is_const_v<T>)
   {
     return View<StaticMatrix<Scalar, NewRows, NewCols>>{this->data_, this->inner_stride_ * NewRows,
                                                         this->inner_stride_};
@@ -156,12 +110,23 @@ struct View {
 
   template <int NewRows, int NewCols = 1>
   [[nodiscard]] View<const StaticMatrix<Scalar, NewRows, NewCols>> reshaped() const
-    requires(std::is_const_v<T> && IsVector<T>)
+    requires(std::is_const_v<T>)
   {
     return View<const StaticMatrix<Scalar, NewRows, NewCols>>{this->data_, this->inner_stride_ * NewRows,
                                                               this->inner_stride_};
   }
 };
+
+template <typename T>
+const sycl::stream& operator<<(const sycl::stream& sout, const View<T>& view) {
+  for (Isize m = 0; m < view.rows(); m++) {
+    for (Isize n = 0; n < view.cols(); n++) {
+      sout << view(m, n) << " ";
+    }
+    sout << sycl::endl;
+  }
+  return sout;
+}
 
 template <typename Scalar_, int Rows_>
 using StaticVector = StaticMatrix<Scalar_, Rows_, 1>;
@@ -180,47 +145,13 @@ struct StaticMatrix {
 
   [[nodiscard]] constexpr Isize rows() const { return Rows_; }
 
-  [[nodiscard]] constexpr Isize cols() const
-    requires(IsMatrix<StaticMatrix<Scalar_, Rows_, Cols_>>)
-  {
-    return Cols_;
-  }
+  [[nodiscard]] constexpr Isize cols() const { return Cols_; }
 
-  Scalar& operator()(const Isize row)
-    requires(IsVector<StaticMatrix<Scalar_, Rows_, Cols_>>)
-  {
-    return this->data_[row];
-  }
+  Scalar& operator()(const Isize row, const Isize col = 0) { return this->data_[row + col * Rows_]; }
 
-  const Scalar& operator()(const Isize row) const
-    requires(IsVector<StaticMatrix<Scalar_, Rows_, Cols_>>)
-  {
-    return this->data_[row];
-  }
+  const Scalar& operator()(const Isize row, const Isize col = 0) const { return this->data_[row + col * Rows_]; }
 
-  Scalar& operator()(const Isize row, const Isize col)
-    requires(IsMatrix<StaticMatrix<Scalar_, Rows_, Cols_>>)
-  {
-    return this->data_[row + col * Rows_];
-  }
-
-  const Scalar& operator()(const Isize row, const Isize col) const
-    requires(IsMatrix<StaticMatrix<Scalar_, Rows_, Cols_>>)
-  {
-    return this->data_[row + col * Rows_];
-  }
-
-  void setZero()
-    requires(IsVector<StaticMatrix<Scalar_, Rows_, Cols_>>)
-  {
-    for (Isize m = 0; m < Rows; m++) {
-      (*this)(m) = Scalar(0);
-    }
-  }
-
-  void setZero()
-    requires(IsMatrix<StaticMatrix<Scalar_, Rows_, Cols_>>)
-  {
+  void setZero() {
     for (Isize m = 0; m < Rows; m++) {
       for (Isize n = 0; n < Cols; n++) {
         (*this)(m, n) = Scalar(0);
@@ -246,6 +177,17 @@ struct StaticMatrix {
 };
 
 template <typename Scalar_, int Rows_, int Cols_>
+const sycl::stream& operator<<(const sycl::stream& sout, const StaticMatrix<Scalar_, Rows_, Cols_>& matrix) {
+  for (Isize m = 0; m < matrix.rows(); m++) {
+    for (Isize n = 0; n < matrix.cols(); n++) {
+      sout << matrix(m, n) << " ";
+    }
+    sout << sycl::endl;
+  }
+  return sout;
+}
+
+template <typename Scalar_, int Rows_, int Cols_>
 struct Matrix {
   using Scalar = Scalar_;
   static constexpr int Rows = Rows_;
@@ -263,35 +205,11 @@ struct Matrix {
 
   [[nodiscard]] constexpr Isize rows() const { return Rows; }
 
-  [[nodiscard]] constexpr Isize cols() const
-    requires(IsMatrix<Matrix<Scalar_, Rows_, Cols_>>)
-  {
-    return Cols;
-  }
+  [[nodiscard]] constexpr Isize cols() const { return Cols; }
 
-  Scalar& operator()(const Isize row)
-    requires(IsVector<Matrix<Scalar_, Rows_, Cols_>>)
-  {
-    return this->data_[row];
-  }
+  Scalar& operator()(const Isize row, const Isize col = 0) { return this->data_[row + col * Rows]; }
 
-  const Scalar& operator()(const Isize row) const
-    requires(IsVector<Matrix<Scalar_, Rows_, Cols_>>)
-  {
-    return this->data_[row];
-  }
-
-  Scalar& operator()(const Isize row, const Isize col)
-    requires(IsMatrix<Matrix<Scalar_, Rows_, Cols_>>)
-  {
-    return this->data_[row + col * Rows];
-  }
-
-  const Scalar& operator()(const Isize row, const Isize col) const
-    requires(IsMatrix<Matrix<Scalar_, Rows_, Cols_>>)
-  {
-    return this->data_[row + col * Rows];
-  }
+  const Scalar& operator()(const Isize row, const Isize col = 0) const { return this->data_[row + col * Rows]; }
 
   template <int OtherRows, int OtherCols = 1>
   [[nodiscard]] View<Matrix<Scalar_, OtherRows, OtherCols>> slice(

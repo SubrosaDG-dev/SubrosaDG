@@ -88,6 +88,12 @@ enum class InitialConditionEnum : std::uint8_t {
   LowOrder,
 };
 
+enum class InteriorConditionEnum : std::uint8_t {
+  Static,
+  Rotate,
+  Interface,
+};
+
 enum class BoundaryConditionEnum : std::uint8_t {
   RiemannFarfield,
   VelocityInflow,
@@ -96,6 +102,9 @@ enum class BoundaryConditionEnum : std::uint8_t {
   IsoThermalNonSlipWall,
   AdiabaticNonSlipWall,
   Periodic,
+
+  InterfaceStatic,
+  InterfaceRotate,
 };
 
 enum class BoundaryTimeEnum : std::uint8_t {

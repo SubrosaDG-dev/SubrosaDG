@@ -237,7 +237,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Tensor<int, 2> cylinder_surface_loop_tag(2, 3);
   Eigen::Tensor<int, 3> farfield_volume_tag(1, 3, 3);
   Eigen::Tensor<int, 2> cylinder_volume_tag(2, 3);
-  std::array<std::vector<int>, 5> physical_group_tag;
+  std::array<std::vector<int>, 4> physical_group_tag;
   gmsh::model::add("cylinder_3d");
   center_point_tag[0] = gmsh::model::geo::addPoint(point_coordinate_x[0], 0.5, 0.2);
   center_point_tag[1] = gmsh::model::geo::addPoint(point_coordinate_x[1], 0.5, 0.2);
@@ -647,7 +647,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   gmsh::model::addPhysicalGroup(2, physical_group_tag[0], 1, "bc-1");
   gmsh::model::addPhysicalGroup(2, physical_group_tag[1], 2, "bc-2");
   gmsh::model::addPhysicalGroup(2, physical_group_tag[2], 3, "bc-3");
-  gmsh::model::addPhysicalGroup(2, physical_group_tag[3], 4, "bc-4");
+  gmsh::model::addPhysicalGroup(3, physical_group_tag[3], 4, "bc-4");
   gmsh::model::addPhysicalGroup(3, physical_group_tag[4], 5, "vc-1");
   gmsh::model::mesh::generate(SimulationControl::kDimension);
   gmsh::model::mesh::setOrder(SimulationControl::kPolynomialOrder);

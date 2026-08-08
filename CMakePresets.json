@@ -28,6 +28,7 @@
             "inherits": "Base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
+                "SUBROSA_DG_GPU": false,
                 "SUBROSA_DG_DEVELOP": true
             }
         },
@@ -38,6 +39,7 @@
             "inherits": "Base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
+                "SUBROSA_DG_GPU": false,
                 "SUBROSA_DG_DEVELOP": true,
                 "SUBROSA_DG_BUILD_EXAMPLES": true
             }
@@ -61,6 +63,7 @@
             "inherits": "Base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "SUBROSA_DG_GPU": false,
                 "SUBROSA_DG_BUILD_EXAMPLES": true
             }
         },
@@ -71,6 +74,7 @@
             "inherits": "Base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
+                "SUBROSA_DG_GPU": false,
                 "SUBROSA_DG_BUILD_EXAMPLES": true
             }
         },
@@ -114,6 +118,7 @@
             "inherits": "Base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
+                "SUBROSA_DG_GPU": false,
                 "SUBROSA_DG_BUILD_DOCS": true,
                 "SUBROSA_DG_DEVELOP": true
             }
