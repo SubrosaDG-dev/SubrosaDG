@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
 }
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
-  const double x = std::sqrt(3.0) / 6.0;
+  const double x = std::numbers::sqrt3_v<double> / 6.0;
   Eigen::Vector<double, 4> farfield_point_coordinate;
   Eigen::Vector<double, 2> sphere_point_coordinate;
   // clang-format off

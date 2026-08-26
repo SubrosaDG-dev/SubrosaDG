@@ -15,8 +15,6 @@
 
 #include <Eigen/Core>
 #include <array>
-#include <sstream>
-#include <string>
 
 #include "Mesh/ReadControl.cpp"
 #include "Solver/PhysicalModel.cpp"

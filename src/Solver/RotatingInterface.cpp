@@ -249,39 +249,57 @@ inline void SolverDevice<SimulationControl>::rotateMesh(MeshDevice<SimulationCon
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
       this->triangle_.rotateVolumeElementMesh(mesh.triangle_, this->rotation_center_, this->rotation_axis_,
                                               this->rotation_angular_velocity_, this->rotation_matrix_);
-      mesh.triangle_.computeVolumeElementJacobian(false);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.rotateVolumeElementMesh(mesh.quadrangle_, this->rotation_center_, this->rotation_axis_,
                                                 this->rotation_angular_velocity_, this->rotation_matrix_);
-      mesh.quadrangle_.computeVolumeElementJacobian(false);
     }
     this->line_.rotateAdjacencyElementMesh(mesh.line_, this->rotation_center_, this->rotation_matrix_);
-    mesh.line_.computeAdjacencyElementOtherNodeCoordinate(false);
-    mesh.line_.computeAdjacencyElementNormalVector(false);
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
       this->tetrahedron_.rotateVolumeElementMesh(mesh.tetrahedron_, this->rotation_center_, this->rotation_axis_,
                                                  this->rotation_angular_velocity_, this->rotation_matrix_);
-      mesh.tetrahedron_.computeVolumeElementJacobian(false);
     }
     if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
       this->pyramid_.rotateVolumeElementMesh(mesh.pyramid_, this->rotation_center_, this->rotation_axis_,
                                              this->rotation_angular_velocity_, this->rotation_matrix_);
-      mesh.pyramid_.computeVolumeElementJacobian(false);
     }
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
       this->hexahedron_.rotateVolumeElementMesh(mesh.hexahedron_, this->rotation_center_, this->rotation_axis_,
                                                 this->rotation_angular_velocity_, this->rotation_matrix_);
-      mesh.hexahedron_.computeVolumeElementJacobian(false);
     }
     if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
       this->triangle_.rotateAdjacencyElementMesh(mesh.triangle_, this->rotation_center_, this->rotation_matrix_);
+    }
+    if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.rotateAdjacencyElementMesh(mesh.quadrangle_, this->rotation_center_, this->rotation_matrix_);
+    }
+  }
+  queue.wait();
+  if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      mesh.triangle_.computeVolumeElementJacobian(false);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      mesh.quadrangle_.computeVolumeElementJacobian(false);
+    }
+    mesh.line_.computeAdjacencyElementOtherNodeCoordinate(false);
+    mesh.line_.computeAdjacencyElementNormalVector(false);
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      mesh.tetrahedron_.computeVolumeElementJacobian(false);
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      mesh.pyramid_.computeVolumeElementJacobian(false);
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      mesh.hexahedron_.computeVolumeElementJacobian(false);
+    }
+    if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
       mesh.triangle_.computeAdjacencyElementOtherNodeCoordinate(false);
       mesh.triangle_.computeAdjacencyElementNormalVector(false);
     }
     if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.rotateAdjacencyElementMesh(mesh.quadrangle_, this->rotation_center_, this->rotation_matrix_);
       mesh.quadrangle_.computeAdjacencyElementOtherNodeCoordinate(false);
       mesh.quadrangle_.computeAdjacencyElementNormalVector(false);
     }

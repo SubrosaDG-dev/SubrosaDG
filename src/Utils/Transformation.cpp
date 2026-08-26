@@ -64,7 +64,7 @@ struct AngleAxis {
 };
 
 struct AngleAxisDevice {
-  static void getMatrix(const Eigen::Vector<Real, 3>& axis, const Real angle,
+  static void getMatrix(const Device::Vector<Real, 3>& axis, const Real angle,
                         Device::Matrix<Real, 3, 3>& rotation_matrix) {
     const Real cos_angle = sycl::cos(angle);
     const Real sin_angle = sycl::sin(angle);

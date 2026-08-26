@@ -12,7 +12,7 @@ dnf clean all
 RUN echo -e "[oneAPI]\nname=Intel® oneAPI repository\nbaseurl=https://yum.repos.intel.com/oneapi\nenabled=1\n\
 gpgcheck=1\nrepo_gpgcheck=1\ngpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB" | \
 tee /etc/yum.repos.d/oneAPI.repo && \
-dnf install -y intel-cpp-essentials && \
+dnf install -y intel-oneapi-compiler-dpcpp-cpp && \
 dnf clean all
 
 RUN dnf install -y intel-compute-runtime oneapi-level-zero && \
