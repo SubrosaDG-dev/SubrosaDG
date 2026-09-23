@@ -588,7 +588,7 @@ inline void Solver<SimulationControl>::computeRelativeError(const Mesh<Simulatio
 template <typename VolumeElementTrait, typename SimulationControl>
 inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::computeVolumeElementRelativeError(
     const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
-    Device::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error) {
+    Device::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error) {
   queue
       .submit([&](sycl::handler& cgh) -> void {
         cgh.parallel_for(getNdRange(this->number_),
@@ -736,11 +736,11 @@ inline void Solver<SimulationControl>::stepSolver(Mesh<SimulationControl>& mesh,
     }
     this->rotateMesh(mesh, time_integration, i);
     this->updateInterfaceVariable(mesh);
-    this->computeGradientQuadrature(mesh);
+    this->computeVolumeGradientQuadrature(mesh);
     this->computeAdjacencyGradientQuadrature(mesh);
     this->computeGradientResidual(mesh);
     this->updateGradientBasisFunctionCoefficient(mesh);
-    this->computeQuadrature(mesh, source_term);
+    this->computeVolumeQuadrature(mesh, source_term);
     this->computeAdjacencyQuadrature(mesh);
     this->computeResidual(mesh);
     this->updateBasisFunctionCoefficient(mesh, time_integration, i);
@@ -755,11 +755,11 @@ inline void SolverDevice<SimulationControl>::stepSolver(MeshDevice<SimulationCon
   for (int i = 0; i < TimeIntegration<SimulationControl>::kStep; i++) {
     this->rotateMesh(mesh, time_integration, i);
     this->updateInterfaceVariable(mesh);
-    this->computeGradientQuadrature(mesh);
+    this->computeVolumeGradientQuadrature(mesh);
     this->computeAdjacencyGradientQuadrature(mesh);
     this->computeGradientResidual(mesh);
     this->updateGradientBasisFunctionCoefficient(mesh);
-    this->computeQuadrature(mesh, source_term);
+    this->computeVolumeQuadrature(mesh, source_term);
     this->computeAdjacencyQuadrature(mesh);
     this->computeResidual(mesh);
     this->updateBasisFunctionCoefficient(mesh, time_integration, i);

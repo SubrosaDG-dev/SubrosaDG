@@ -10,8 +10,8 @@
  * SubrosaDG is free software and is distributed under the MIT license.
  */
 
-#ifndef SUBROSA_DG_CMAKE_HPP_
-#define SUBROSA_DG_CMAKE_HPP_
+#ifndef SUBROSA_DG_CMAKE_CPP_
+#define SUBROSA_DG_CMAKE_CPP_
 
 // clang-format off
 
@@ -32,4 +32,4 @@ inline constexpr int kNumberOfPhysicalCores{@NUMBER_OF_PHYSICAL_CORES@};
 
 // clang-format on
 
-#endif  // SUBROSA_DG_CMAKE_HPP_
+#endif  // SUBROSA_DG_CMAKE_CPP_

@@ -418,7 +418,7 @@ struct VolumeElementSolverDevice : VolumeElementSolverDataDevice<VolumeElementTr
 
   inline void computeVolumeElementRelativeError(
       const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
-      Device::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error);
+      Device::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error);
 
   inline void transferVolumeElementSolverToHost(
       VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver);
@@ -637,7 +637,7 @@ struct AdjacencyElementSolver : AdjacencyElementSolverData<AdjacencyElementTrait
 
   template <typename VolumeElementTrait>
   inline void writeBoundaryAdjacencyPerElementRawBinary(
-      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& element_solver,
+      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
       std::stringstream& raw_binary_ss, /*const*/ Isize parent_index_each_type,
       [[maybe_unused]] /*const*/ Isize adjacency_sequence_in_parent) const;
 
@@ -883,9 +883,9 @@ struct Solver : SolverData<SimulationControl> {
   inline void rotateMesh(Mesh<SimulationControl>& mesh, const TimeIntegration<SimulationControl>& time_integration,
                          /*const*/ int rk_step);
 
-  inline void computeQuadrature(const Mesh<SimulationControl>& mesh, const SourceTerm<SimulationControl>& source_term);
+  inline void computeVolumeQuadrature(const Mesh<SimulationControl>& mesh, const SourceTerm<SimulationControl>& source_term);
 
-  inline void computeGradientQuadrature(const Mesh<SimulationControl>& mesh);
+  inline void computeVolumeGradientQuadrature(const Mesh<SimulationControl>& mesh);
 
   inline void computeAdjacencyQuadrature(const Mesh<SimulationControl>& mesh);
 
@@ -971,10 +971,10 @@ struct SolverDevice : SolverDataDevice<SimulationControl> {
                          const TimeIntegration<SimulationControl>& time_integration,
                          /*const*/ int rk_step);
 
-  inline void computeQuadrature(const MeshDevice<SimulationControl>& mesh,
+  inline void computeVolumeQuadrature(const MeshDevice<SimulationControl>& mesh,
                                 [[maybe_unused]] const SourceTermDevice<SimulationControl>& source_term);
 
-  inline void computeGradientQuadrature(const MeshDevice<SimulationControl>& mesh);
+  inline void computeVolumeGradientQuadrature(const MeshDevice<SimulationControl>& mesh);
 
   inline void computeAdjacencyQuadrature(const MeshDevice<SimulationControl>& mesh);
 

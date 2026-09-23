@@ -1,6 +1,6 @@
 /**
- * @file SimulationControl.cpp
- * @brief The header file of SimulationControl.
+ * @file SystemControl.cpp
+ * @brief The header file of SystemControl.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-11-07

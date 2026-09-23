@@ -90,6 +90,7 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::writeVol
     }
   }
 }
+
 template <typename AdjacencyElementTrait, typename SimulationControl>
 template <typename VolumeElementTrait>
 inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::writeBoundaryAdjacencyPerElementRawBinary(
@@ -129,7 +130,6 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::writeBoundaryAdjacencyElementRawBinary(
     const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh, const Solver<SimulationControl>& solver,
     std::stringstream& raw_binary_ss) const {
-  // Isize element_index;
   for (Isize i = 0; i < adjacency_element_mesh.boundary_number_; i++) {
     const Isize element_index = i + adjacency_element_mesh.interior_number_;
     const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);

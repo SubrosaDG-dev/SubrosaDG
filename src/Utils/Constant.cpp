@@ -22,7 +22,6 @@
 namespace SubrosaDG {
 
 inline constexpr Real kPi{std::numbers::pi_v<Real>};
-inline constexpr Real kEuler{std::numbers::e_v<Real>};
 
 inline constexpr std::streamsize kRealSize{sizeof(Real)};
 

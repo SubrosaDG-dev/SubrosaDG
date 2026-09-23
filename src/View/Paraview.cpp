@@ -61,8 +61,8 @@ inline void View<SimulationControl>::computeViewVariable(
     const ViewVariable<VolumeElementTrait, SimulationControl>& view_variable,
     Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable, const Isize node_index,
     const Isize column) {
-  auto handle_variable = [&](Isize i, ViewVariableEnum variable_x, ViewVariableEnum variable_y,
-                             ViewVariableEnum variable_z) -> void {
+  auto handle_variable = [&](const Isize i, const ViewVariableEnum variable_x, const ViewVariableEnum variable_y,
+                             const ViewVariableEnum variable_z) -> void {
     if constexpr (SimulationControl::kDimension == 1) {
       node_variable(i)(node_index) = view_variable.get(variable_x, column);
     } else if constexpr (SimulationControl::kDimension == 2) {

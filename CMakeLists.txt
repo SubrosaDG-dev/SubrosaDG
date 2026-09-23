@@ -96,9 +96,6 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 # query the system cores number
 cmake_host_system_information(RESULT NUMBER_OF_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)
 
-# add cmake check
-include(CheckCXXCompilerFlag)
-
 # set cxx standard for all target
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

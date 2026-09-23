@@ -48,8 +48,8 @@ using SimulationControl = SubrosaDG::SimulationControl<
 
 template <typename SimulationControl>
 inline void SubrosaDG::InitialCondition<SimulationControl>::computePrimitiveFromCoordinate(
-    const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate,
-    Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& initial_primitive_variable) {
+    const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+    Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>& initial_primitive_variable) {
   initial_primitive_variable = {1.0_r, 0.0,
                                 16.0_r * 2.25_r * coordinate.x() * (0.41_r - coordinate.x()) * coordinate.z() *
                                     (0.41_r - coordinate.z()) / (0.41_r * 0.41_r * 0.41_r * 0.41_r),
@@ -59,7 +59,7 @@ inline void SubrosaDG::InitialCondition<SimulationControl>::computePrimitiveFrom
 template <typename SimulationControl>
 inline void SubrosaDG::BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
     const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
-    Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
+    Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
     const SubrosaDG::Isize gmsh_physical_index) {
   if (gmsh_physical_index == 1) {
     boundary_primitive_variable = {1.0_r, 0.0,
@@ -112,8 +112,8 @@ int main(int argc, char* argv[]) {
 
 // template <typename SimulationControl>
 // inline void SubrosaDG::InitialCondition<SimulationControl>::computePrimitiveFromCoordinate(
-//     const Eigen::Vector<Real, SimulationControl::kDimension>& coordinate,
-//     Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& initial_primitive_variable) {
+//     const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
+//     Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>& initial_primitive_variable) {
 //   initial_primitive_variable = {1.0_r, 0.0,
 //                                 16.0_r * 2.25_r * coordinate.x() * (0.41_r - coordinate.x()) * coordinate.z() *
 //                                     (0.41_r - coordinate.z()) / (0.41_r * 0.41_r * 0.41_r * 0.41_r),
@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
 // template <typename SimulationControl>
 // inline void SubrosaDG::BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
 //     const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
-//     Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
+//     Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
 //     const SubrosaDG::Real time, const SubrosaDG::Isize gmsh_physical_index) {
 //   if (gmsh_physical_index == 1) {
 //     boundary_primitive_variable = {1.0_r, 0.0,

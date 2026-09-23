@@ -33,15 +33,12 @@ template <ElementEnum ElementType>
 consteval int getElementDimension() {
   if constexpr (ElementType == ElementEnum::Point) {
     return 0;
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
+  } else if constexpr (ElementType == ElementEnum::Line) {
     return 1;
-  }
-  if constexpr (ElementType == ElementEnum::Triangle || ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle || ElementType == ElementEnum::Quadrangle) {
     return 2;
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron || ElementType == ElementEnum::Pyramid ||
-                ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron || ElementType == ElementEnum::Pyramid ||
+                       ElementType == ElementEnum::Hexahedron) {
     return 3;
   }
 }
@@ -50,23 +47,17 @@ template <ElementEnum ElementType, int PolynomialOrder>
 consteval int getElementGmshTypeNumber() {
   if constexpr (ElementType == ElementEnum::Point) {
     return 15;
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
+  } else if constexpr (ElementType == ElementEnum::Line) {
     return kLineGmshTypeNumber[PolynomialOrder - 1];
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return kTriangleGmshTypeNumber[PolynomialOrder - 1];
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return kQuadrangleGmshTypeNumber[PolynomialOrder - 1];
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     return kTetrahedronGmshTypeNumber[PolynomialOrder - 1];
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     return kPyramidGmshTypeNumber[PolynomialOrder - 1];
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     return kHexahedronGmshTypeNumber[PolynomialOrder - 1];
   }
 }
@@ -75,23 +66,17 @@ template <ElementEnum ElementType, int PolynomialOrder>
 consteval int getElementNodeNumber() {
   if constexpr (ElementType == ElementEnum::Point) {
     return 1;
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
+  } else if constexpr (ElementType == ElementEnum::Line) {
     return PolynomialOrder + 1;
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return (PolynomialOrder + 1) * (PolynomialOrder + 2) / 2;
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return (PolynomialOrder + 1) * (PolynomialOrder + 1);
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     return (PolynomialOrder + 1) * (PolynomialOrder + 2) * (PolynomialOrder + 3) / 6;
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     return (PolynomialOrder + 1) * (PolynomialOrder + 2) * (2 * PolynomialOrder + 3) / 6;
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     return (PolynomialOrder + 1) * (PolynomialOrder + 1) * (PolynomialOrder + 1);
   }
 }
@@ -100,23 +85,17 @@ template <ElementEnum ElementType>
 consteval int getVolumeElementAdjacencyNumber() {
   if constexpr (ElementType == ElementEnum::Point) {
     return 0;
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
+  } else if constexpr (ElementType == ElementEnum::Line) {
     return 2;
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return 3;
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return 4;
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     return 4;
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     return 5;
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     return 6;
   }
 }
@@ -125,87 +104,73 @@ template <ElementEnum ElementType>
 consteval std::array<ElementEnum, getVolumeElementAdjacencyNumber<ElementType>()> getVolumeElementPerAdjacencyType() {
   if constexpr (ElementType == ElementEnum::Line) {
     return {ElementEnum::Point, ElementEnum::Point};
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return {ElementEnum::Line, ElementEnum::Line, ElementEnum::Line};
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return {ElementEnum::Line, ElementEnum::Line, ElementEnum::Line, ElementEnum::Line};
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     return {ElementEnum::Triangle, ElementEnum::Triangle, ElementEnum::Triangle, ElementEnum::Triangle};
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     return {ElementEnum::Triangle, ElementEnum::Triangle, ElementEnum::Triangle, ElementEnum::Triangle,
             ElementEnum::Quadrangle};
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     return {ElementEnum::Quadrangle, ElementEnum::Quadrangle, ElementEnum::Quadrangle,
             ElementEnum::Quadrangle, ElementEnum::Quadrangle, ElementEnum::Quadrangle};
   }
 }
 
 template <ElementEnum ElementType>
-consteval std::array<int, getVolumeElementAdjacencyNumber<ElementType>()> getVolumeElementPerAdjacencyNodeNumber() {
+consteval std::array<int, getVolumeElementAdjacencyNumber<ElementType>()>
+getVolumeElementPerAdjacencyBasicNodeNumber() {
   if constexpr (ElementType == ElementEnum::Line) {
     return {1, 1};
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return {2, 2, 2};
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return {2, 2, 2, 2};
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     return {3, 3, 3, 3};
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     return {3, 3, 3, 3, 4};
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     return {4, 4, 4, 4, 4, 4};
   }
 }
 
 template <ElementEnum ElementType>
-consteval int getVolumeElementAllAdjacencyNodeNumber() {
-  constexpr std::array<int, getVolumeElementAdjacencyNumber<ElementType>()> kElementPerAdjacencyNodeNumber{
-      getVolumeElementPerAdjacencyNodeNumber<ElementType>()};
-  return std::accumulate(kElementPerAdjacencyNodeNumber.begin(), kElementPerAdjacencyNodeNumber.end(), 0);
+consteval int getVolumeElementAllAdjacencyBasicNodeNumber() {
+  constexpr std::array<int, getVolumeElementAdjacencyNumber<ElementType>()> kElementPerAdjacencyBasicNodeNumber{
+      getVolumeElementPerAdjacencyBasicNodeNumber<ElementType>()};
+  return std::accumulate(kElementPerAdjacencyBasicNodeNumber.begin(), kElementPerAdjacencyBasicNodeNumber.end(), 0);
 }
 
 template <ElementEnum ElementType>
-consteval std::array<int, getVolumeElementAllAdjacencyNodeNumber<ElementType>()>
-getVolumeElementPerAdjacencyNodeIndex() {
+consteval std::array<int, getVolumeElementAllAdjacencyBasicNodeNumber<ElementType>()>
+getVolumeElementPerAdjacencyBasicNodeIndex() {
   // clang-format off
   if constexpr (ElementType == ElementEnum::Line) {
     return {0, 1};
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return {0, 1,
             1, 2,
             2, 0};
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return {0, 1,
             1, 2,
             2, 3,
             3, 0};
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     return {0, 2, 1,
             0, 1, 3,
             0, 3, 2,
             3, 1, 2};
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     return {0, 1, 4,
             3, 0, 4,
             1, 2, 4,
             2, 3, 4,
             0, 3, 2, 1};
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     return {0, 3, 2, 1,
             0, 1, 5, 4,
             0, 4, 7, 3,
@@ -220,23 +185,17 @@ template <ElementEnum ElementType>
 consteval Real getElementMeasure() {
   if constexpr (ElementType == ElementEnum::Point) {
     return 1.0_r;
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
+  } else if constexpr (ElementType == ElementEnum::Line) {
     return 2.0_r;
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return 0.5_r;
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return 4.0_r;
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     return 1.0_r / 6.0_r;
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     return 1.0_r / 3.0_r;
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     return 8.0_r;
   }
 }
@@ -245,23 +204,17 @@ template <ElementEnum ElementType, int PolynomialOrder>
 consteval int getElementBasisFunctionNumber() {
   if constexpr (ElementType == ElementEnum::Point) {
     return 1;
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
+  } else if constexpr (ElementType == ElementEnum::Line) {
     return PolynomialOrder + 1;
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return (PolynomialOrder + 1) * (PolynomialOrder + 2) / 2;
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return (PolynomialOrder + 1) * (PolynomialOrder + 1);
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     return (PolynomialOrder + 1) * (PolynomialOrder + 2) * (PolynomialOrder + 3) / 6;
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     return (PolynomialOrder + 1) * (PolynomialOrder + 2) * (2 * PolynomialOrder + 3) / 6;
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     return (PolynomialOrder + 1) * (PolynomialOrder + 1) * (PolynomialOrder + 1);
   }
 }
@@ -299,23 +252,17 @@ template <ElementEnum ElementType, int PolynomialOrder>
 consteval int getVolumeElementQuadratureNumber() {
   if constexpr (ElementType == ElementEnum::Point) {
     return 1;
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
+  } else if constexpr (ElementType == ElementEnum::Line) {
     return kLineQuadratureNumber[static_cast<Usize>(getVolumeElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return kTriangleQuadratureNumber[static_cast<Usize>(getVolumeElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return kQuadrangleQuadratureNumber[static_cast<Usize>(getVolumeElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     return kTetrahedronQuadratureNumber[static_cast<Usize>(getVolumeElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     return kPyramidQuadratureNumber[static_cast<Usize>(getVolumeElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     return kHexahedronQuadratureNumber[static_cast<Usize>(getVolumeElementQuadratureOrder<PolynomialOrder>())];
   }
 }
@@ -324,14 +271,11 @@ template <ElementEnum ElementType, int PolynomialOrder>
 consteval int getAdjacencyElementQuadratureNumber() {
   if constexpr (ElementType == ElementEnum::Point) {
     return 1;
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
+  } else if constexpr (ElementType == ElementEnum::Line) {
     return kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return kTriangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())];
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return kQuadrangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())];
   }
 }
@@ -341,30 +285,25 @@ consteval std::array<int, getVolumeElementAdjacencyNumber<ElementType>()>
 getVolumeElementPerAdjacencyQuadratureNumber() {
   if constexpr (ElementType == ElementEnum::Line) {
     return {1, 1};
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     constexpr int kLineQuadrature{
         kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
     return {kLineQuadrature, kLineQuadrature, kLineQuadrature};
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     constexpr int kLineQuadrature{
         kLineQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
     return {kLineQuadrature, kLineQuadrature, kLineQuadrature, kLineQuadrature};
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     constexpr int kTriangleQuadrature{
         kTriangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
     return {kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature};
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     constexpr int kTriangleQuadrature{
         kTriangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
     constexpr int kQuadrangleQuadrature{
         kQuadrangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
     return {kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature, kTriangleQuadrature, kQuadrangleQuadrature};
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     constexpr int kQuadrangleQuadrature{
         kQuadrangleQuadratureNumber[static_cast<Usize>(getAdjacencyElementQuadratureOrder<PolynomialOrder>())]};
     return {kQuadrangleQuadrature, kQuadrangleQuadrature, kQuadrangleQuadrature,
@@ -394,7 +333,7 @@ getVolumeElementAdjacencyQuadratureSequence() {
 
 template <ElementEnum ElementType, int PolynomialOrder>
 constexpr std::array<int, getAdjacencyElementQuadratureNumber<ElementType, PolynomialOrder>()>
-getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
+getAdjacencyElementQuadratureSequence([[maybe_unused]] const int rotation) {
   constexpr int kAdjacencyElementQuadratureNumber{getAdjacencyElementQuadratureNumber<ElementType, PolynomialOrder>()};
   if constexpr (ElementType == ElementEnum::Point) {
     return {0};
@@ -819,12 +758,11 @@ getAdjacencyElementQuadratureSequence([[maybe_unused]] int rotation) {
       }
     }
   }
-  return {};
 }
 
 template <ElementEnum ElementType, int PolynomialOrder>
 constexpr std::array<int, getElementNodeNumber<ElementType, PolynomialOrder>()>
-getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int sequence) {
+getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] const int parent, const int sequence) {
   if constexpr (ElementType == ElementEnum::Point) {
     switch (sequence) {
     case 0:
@@ -832,8 +770,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
     case 1:
       return {1};
     }
-  }
-  if constexpr (ElementType == ElementEnum::Line) {
+  } else if constexpr (ElementType == ElementEnum::Line) {
     if (parent == getElementGmshTypeNumber<ElementEnum::Triangle, PolynomialOrder>()) {
       if constexpr (PolynomialOrder == 1) {
         switch (sequence) {
@@ -844,8 +781,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 2:
           return {2, 0};
         }
-      }
-      if constexpr (PolynomialOrder == 2) {
+      } else if constexpr (PolynomialOrder == 2) {
         switch (sequence) {
         case 0:
           return {0, 1, 3};
@@ -854,8 +790,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 2:
           return {2, 0, 5};
         }
-      }
-      if constexpr (PolynomialOrder == 3) {
+      } else if constexpr (PolynomialOrder == 3) {
         switch (sequence) {
         case 0:
           return {0, 1, 3, 4};
@@ -864,8 +799,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 2:
           return {2, 0, 7, 8};
         }
-      }
-      if constexpr (PolynomialOrder == 4) {
+      } else if constexpr (PolynomialOrder == 4) {
         switch (sequence) {
         case 0:
           return {0, 1, 3, 4, 5};
@@ -874,8 +808,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 2:
           return {2, 0, 9, 10, 11};
         }
-      }
-      if constexpr (PolynomialOrder == 5) {
+      } else if constexpr (PolynomialOrder == 5) {
         switch (sequence) {
         case 0:
           return {0, 1, 3, 4, 5, 6};
@@ -885,8 +818,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
           return {2, 0, 11, 12, 13, 14};
         }
       }
-    }
-    if (parent == getElementGmshTypeNumber<ElementEnum::Quadrangle, PolynomialOrder>()) {
+    } else if (parent == getElementGmshTypeNumber<ElementEnum::Quadrangle, PolynomialOrder>()) {
       if constexpr (PolynomialOrder == 1) {
         switch (sequence) {
         case 0:
@@ -898,8 +830,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {3, 0};
         }
-      }
-      if constexpr (PolynomialOrder == 2) {
+      } else if constexpr (PolynomialOrder == 2) {
         switch (sequence) {
         case 0:
           return {0, 1, 4};
@@ -910,8 +841,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {3, 0, 7};
         }
-      }
-      if constexpr (PolynomialOrder == 3) {
+      } else if constexpr (PolynomialOrder == 3) {
         switch (sequence) {
         case 0:
           return {0, 1, 4, 5};
@@ -922,8 +852,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {3, 0, 10, 11};
         }
-      }
-      if constexpr (PolynomialOrder == 4) {
+      } else if constexpr (PolynomialOrder == 4) {
         switch (sequence) {
         case 0:
           return {0, 1, 4, 5, 6};
@@ -934,8 +863,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {3, 0, 13, 14, 15};
         }
-      }
-      if constexpr (PolynomialOrder == 5) {
+      } else if constexpr (PolynomialOrder == 5) {
         switch (sequence) {
         case 0:
           return {0, 1, 4, 5, 6, 7};
@@ -948,8 +876,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         }
       }
     }
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     if (parent == getElementGmshTypeNumber<ElementEnum::Tetrahedron, PolynomialOrder>()) {
       if constexpr (PolynomialOrder == 1) {
         switch (sequence) {
@@ -962,8 +889,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {3, 1, 2};
         }
-      }
-      if constexpr (PolynomialOrder == 2) {
+      } else if constexpr (PolynomialOrder == 2) {
         switch (sequence) {
         case 0:
           return {0, 2, 1, 6, 5, 4};
@@ -974,8 +900,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {3, 1, 2, 9, 5, 8};
         }
-      }
-      if constexpr (PolynomialOrder == 3) {
+      } else if constexpr (PolynomialOrder == 3) {
         switch (sequence) {
         case 0:
           return {0, 2, 1, 9, 8, 7, 6, 5, 4, 16};
@@ -986,8 +911,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {3, 1, 2, 14, 15, 6, 7, 13, 12, 19};
         }
-      }
-      if constexpr (PolynomialOrder == 4) {
+      } else if constexpr (PolynomialOrder == 4) {
         switch (sequence) {
         case 0:
           return {0, 2, 1, 12, 11, 10, 9, 8, 7, 6, 5, 4, 22, 23, 24};
@@ -998,8 +922,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {3, 1, 2, 19, 20, 21, 7, 8, 9, 18, 17, 16, 31, 32, 33};
         }
-      }
-      if constexpr (PolynomialOrder == 5) {
+      } else if constexpr (PolynomialOrder == 5) {
         switch (sequence) {
         case 0:
           return {0, 2, 1, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 28, 29, 30, 31, 32, 33};
@@ -1011,8 +934,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
           return {3, 1, 2, 24, 25, 26, 27, 8, 9, 10, 11, 23, 22, 21, 20, 46, 47, 48, 49, 50, 51};
         }
       }
-    }
-    if (parent == getElementGmshTypeNumber<ElementEnum::Pyramid, PolynomialOrder>()) {
+    } else if (parent == getElementGmshTypeNumber<ElementEnum::Pyramid, PolynomialOrder>()) {
       if constexpr (PolynomialOrder == 1) {
         switch (sequence) {
         case 0:
@@ -1024,8 +946,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {2, 3, 4};
         }
-      }
-      if constexpr (PolynomialOrder == 2) {
+      } else if constexpr (PolynomialOrder == 2) {
         switch (sequence) {
         case 0:
           return {0, 1, 4, 5, 9, 7};
@@ -1036,8 +957,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {2, 3, 4, 10, 12, 11};
         }
-      }
-      if constexpr (PolynomialOrder == 3) {
+      } else if constexpr (PolynomialOrder == 3) {
         switch (sequence) {
         case 0:
           return {0, 1, 4, 5, 6, 13, 14, 10, 9, 21};
@@ -1048,8 +968,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {2, 3, 4, 15, 16, 19, 20, 18, 17, 24};
         }
-      }
-      if constexpr (PolynomialOrder == 4) {
+      } else if constexpr (PolynomialOrder == 4) {
         switch (sequence) {
         case 0:
           return {0, 1, 4, 5, 6, 7, 17, 18, 19, 13, 12, 11, 29, 30, 31};
@@ -1060,8 +979,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 3:
           return {2, 3, 4, 20, 21, 22, 26, 27, 28, 25, 24, 23, 38, 39, 40};
         }
-      }
-      if constexpr (PolynomialOrder == 5) {
+      } else if constexpr (PolynomialOrder == 5) {
         switch (sequence) {
         case 0:
           return {0, 1, 4, 5, 6, 7, 8, 21, 22, 23, 24, 16, 15, 14, 13, 37, 38, 39, 40, 41, 42};
@@ -1074,27 +992,21 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         }
       }
     }
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     if (parent == getElementGmshTypeNumber<ElementEnum::Pyramid, PolynomialOrder>()) {
       if constexpr (PolynomialOrder == 1) {
         return {0, 3, 2, 1};
-      }
-      if constexpr (PolynomialOrder == 2) {
+      } else if constexpr (PolynomialOrder == 2) {
         return {0, 3, 2, 1, 6, 10, 8, 5, 13};
-      }
-      if constexpr (PolynomialOrder == 3) {
+      } else if constexpr (PolynomialOrder == 3) {
         return {0, 3, 2, 1, 7, 8, 16, 15, 12, 11, 6, 5, 25, 26, 27, 28};
-      }
-      if constexpr (PolynomialOrder == 4) {
+      } else if constexpr (PolynomialOrder == 4) {
         return {0, 3, 2, 1, 8, 9, 10, 22, 21, 20, 16, 15, 14, 7, 6, 5, 41, 42, 43, 44, 45, 46, 47, 48, 49};
-      }
-      if constexpr (PolynomialOrder == 5) {
+      } else if constexpr (PolynomialOrder == 5) {
         return {0, 3, 2,  1,  9,  10, 11, 12, 28, 27, 26, 25, 20, 19, 18, 17, 8,  7,
                 6, 5, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76};
       }
-    }
-    if (parent == getElementGmshTypeNumber<ElementEnum::Hexahedron, PolynomialOrder>()) {
+    } else if (parent == getElementGmshTypeNumber<ElementEnum::Hexahedron, PolynomialOrder>()) {
       if constexpr (PolynomialOrder == 1) {
         switch (sequence) {
         case 0:
@@ -1110,8 +1022,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 5:
           return {4, 5, 6, 7};
         }
-      }
-      if constexpr (PolynomialOrder == 2) {
+      } else if constexpr (PolynomialOrder == 2) {
         switch (sequence) {
         case 0:
           return {0, 3, 2, 1, 9, 13, 11, 8, 20};
@@ -1126,8 +1037,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 5:
           return {4, 5, 6, 7, 16, 18, 19, 17, 25};
         }
-      }
-      if constexpr (PolynomialOrder == 3) {
+      } else if constexpr (PolynomialOrder == 3) {
         switch (sequence) {
         case 0:
           return {0, 3, 2, 1, 10, 11, 19, 18, 15, 14, 9, 8, 32, 33, 34, 35};
@@ -1142,8 +1052,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 5:
           return {4, 5, 6, 7, 24, 25, 28, 29, 30, 31, 27, 26, 52, 53, 54, 55};
         }
-      }
-      if constexpr (PolynomialOrder == 4) {
+      } else if constexpr (PolynomialOrder == 4) {
         switch (sequence) {
         case 0:
           return {0, 3, 2, 1, 11, 12, 13, 25, 24, 23, 19, 18, 17, 10, 9, 8, 44, 45, 46, 47, 48, 49, 50, 51, 52};
@@ -1158,8 +1067,7 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] int parent, int seq
         case 5:
           return {4, 5, 6, 7, 32, 33, 34, 38, 39, 40, 41, 42, 43, 37, 36, 35, 89, 90, 91, 92, 93, 94, 95, 96, 97};
         }
-      }
-      if constexpr (PolynomialOrder == 5) {
+      } else if constexpr (PolynomialOrder == 5) {
         switch (sequence) {
         case 0:
           return {0, 3, 2,  1,  12, 13, 14, 15, 31, 30, 29, 28, 23, 22, 21, 20, 11, 10,
@@ -1199,20 +1107,15 @@ template <ElementEnum ElementType>
 consteval std::array<int, getElementVtkElementNumber<ElementType>()> getElementVtkTypeNumber() {
   if constexpr (ElementType == ElementEnum::Line) {
     return {68};
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     return {69};
-  }
-  if constexpr (ElementType == ElementEnum::Quadrangle) {
+  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
     return {70};
-  }
-  if constexpr (ElementType == ElementEnum::Tetrahedron) {
+  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
     return {71};
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     return {71, 71};
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     return {72};
   }
 }
@@ -1239,51 +1142,38 @@ consteval std::array<int, getElementVtkAllNodeNumber<ElementType, PolynomialOrde
   if constexpr (ElementType == ElementEnum::Line) {
     if constexpr (PolynomialOrder == 1) {
       return {0, 1};
-    }
-    if constexpr (PolynomialOrder == 2) {
+    } else if constexpr (PolynomialOrder == 2) {
       return {0, 1, 2};
-    }
-    if constexpr (PolynomialOrder == 3) {
+    } else if constexpr (PolynomialOrder == 3) {
       return {0, 1, 2, 3};
-    }
-    if constexpr (PolynomialOrder == 4) {
+    } else if constexpr (PolynomialOrder == 4) {
       return {0, 1, 2, 3, 4};
-    }
-    if constexpr (PolynomialOrder == 5) {
+    } else if constexpr (PolynomialOrder == 5) {
       return {0, 1, 2, 3, 4, 5};
     }
-  }
-  if constexpr (ElementType == ElementEnum::Triangle) {
+  } else if constexpr (ElementType == ElementEnum::Triangle) {
     if constexpr (PolynomialOrder == 1) {
       return {0, 1, 2};
-    }
-    if constexpr (PolynomialOrder == 2) {
+    } else if constexpr (PolynomialOrder == 2) {
       return {0, 1, 2, 3, 4, 5};
-    }
-    if constexpr (PolynomialOrder == 3) {
+    } else if constexpr (PolynomialOrder == 3) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    }
-    if constexpr (PolynomialOrder == 4) {
+    } else if constexpr (PolynomialOrder == 4) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
-    }
-    if constexpr (PolynomialOrder == 5) {
+    } else if constexpr (PolynomialOrder == 5) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
     }
   }
   if constexpr (ElementType == ElementEnum::Quadrangle) {
     if constexpr (PolynomialOrder == 1) {
       return {0, 1, 2, 3};
-    }
-    if constexpr (PolynomialOrder == 2) {
+    } else if constexpr (PolynomialOrder == 2) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8};
-    }
-    if constexpr (PolynomialOrder == 3) {
+    } else if constexpr (PolynomialOrder == 3) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 9, 8, 11, 10, 12, 13, 15, 14};
-    }
-    if constexpr (PolynomialOrder == 4) {
+    } else if constexpr (PolynomialOrder == 4) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 11, 10, 15, 14, 13, 16, 20, 17, 23, 24, 21, 19, 22, 18};
-    }
-    if constexpr (PolynomialOrder == 5) {
+    } else if constexpr (PolynomialOrder == 5) {
       return {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 15, 14, 13, 12, 19, 18,
               17, 16, 20, 24, 25, 21, 31, 32, 33, 26, 30, 35, 34, 27, 23, 29, 28, 22};
     }
@@ -1291,68 +1181,54 @@ consteval std::array<int, getElementVtkAllNodeNumber<ElementType, PolynomialOrde
   if constexpr (ElementType == ElementEnum::Tetrahedron) {
     if constexpr (PolynomialOrder == 1) {
       return {0, 1, 2, 3};
-    }
-    if constexpr (PolynomialOrder == 2) {
+    } else if constexpr (PolynomialOrder == 2) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 9, 8};
-    }
-    if constexpr (PolynomialOrder == 3) {
+    } else if constexpr (PolynomialOrder == 3) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 10, 15, 14, 13, 12, 17, 19, 18, 16};
-    }
-    if constexpr (PolynomialOrder == 4) {
+    } else if constexpr (PolynomialOrder == 4) {
       return {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 15, 14, 13, 21, 20,
               19, 18, 17, 16, 25, 26, 27, 33, 31, 32, 28, 29, 30, 22, 23, 24, 34};
-    }
-    if constexpr (PolynomialOrder == 5) {
+    } else if constexpr (PolynomialOrder == 5) {
       return {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 19, 18, 17,
               16, 27, 26, 25, 24, 23, 22, 21, 20, 34, 35, 36, 37, 38, 39, 48, 46, 47, 51,
               49, 50, 40, 41, 42, 43, 44, 45, 28, 29, 30, 31, 32, 33, 52, 53, 54, 55};
     }
-  }
-  if constexpr (ElementType == ElementEnum::Pyramid) {
+  } else if constexpr (ElementType == ElementEnum::Pyramid) {
     if constexpr (PolynomialOrder == 1) {
       return {0, 1, 3, 4, 2, 3, 1, 4};
-    }
-    if constexpr (PolynomialOrder == 2) {
+    } else if constexpr (PolynomialOrder == 2) {
       return {0, 1, 3, 4, 5, 13, 6, 7, 9, 12, 2, 3, 1, 4, 10, 13, 8, 11, 12, 9};
-    }
-    if constexpr (PolynomialOrder == 3) {
+    } else if constexpr (PolynomialOrder == 3) {
       return {0, 1, 3, 4, 5,  6,  28, 26, 8,  7,  9,  10, 13, 14, 19, 20, 21, 29, 22, 25,
               2, 3, 1, 4, 15, 16, 26, 28, 11, 12, 17, 18, 19, 20, 13, 14, 24, 29, 23, 27};
-    }
-    if constexpr (PolynomialOrder == 4) {
+    } else if constexpr (PolynomialOrder == 4) {
       return {0,  1,  3,  4,  5,  6,  7,  44, 49, 42, 10, 9,  8,  11, 12, 13, 17, 18, 19, 26, 27, 28, 29, 30,
               31, 53, 54, 51, 33, 34, 32, 41, 45, 48, 50, 2,  3,  1,  4,  20, 21, 22, 42, 49, 44, 14, 15, 16,
               23, 24, 25, 26, 27, 28, 17, 18, 19, 38, 39, 40, 51, 54, 53, 36, 37, 35, 43, 47, 46, 52};
-    }
-    if constexpr (PolynomialOrder == 5) {
+    } else if constexpr (PolynomialOrder == 5) {
       return {0,  1,  3,  4,  5,  6,  7,  8,  64, 76, 74, 62, 12, 11, 10, 9,  13, 14, 15, 16, 21, 22, 23,
               24, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 80, 81, 78, 89, 86, 90, 44, 45, 43, 47, 48, 46,
               61, 66, 71, 65, 73, 72, 77, 82, 83, 84, 2,  3,  1,  4,  25, 26, 27, 28, 62, 74, 76, 64, 17,
               18, 19, 20, 29, 30, 31, 32, 33, 34, 35, 36, 21, 22, 23, 24, 55, 56, 57, 58, 59, 60, 78, 81,
               80, 86, 89, 90, 50, 51, 49, 53, 54, 52, 63, 70, 67, 69, 75, 68, 79, 87, 85, 88};
     }
-  }
-  if constexpr (ElementType == ElementEnum::Hexahedron) {
+  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
     if constexpr (PolynomialOrder == 1) {
       return {0, 1, 2, 3, 4, 5, 6, 7};
-    }
-    if constexpr (PolynomialOrder == 2) {
+    } else if constexpr (PolynomialOrder == 2) {
       return {0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 13, 9, 16, 18, 19, 17, 10, 12, 15, 14, 22, 23, 21, 24, 20, 25, 26};
-    }
-    if constexpr (PolynomialOrder == 3) {
+    } else if constexpr (PolynomialOrder == 3) {
       return {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  14, 15, 19, 18, 10, 11, 24, 25, 28, 29, 31, 30,
               26, 27, 12, 13, 16, 17, 22, 23, 20, 21, 40, 43, 41, 42, 44, 45, 47, 46, 36, 37, 39, 38,
               49, 48, 50, 51, 32, 35, 33, 34, 52, 53, 55, 54, 56, 57, 59, 58, 60, 61, 63, 62};
-    }
-    if constexpr (PolynomialOrder == 4) {
+    } else if constexpr (PolynomialOrder == 4) {
       return {0,   1,   2,   3,   4,   5,   6,   7,   8,   9,   10,  17,  18,  19,  25,  24,  23,  11,  12,  13,  32,
               33,  34,  38,  39,  40,  43,  42,  41,  35,  36,  37,  14,  15,  16,  20,  21,  22,  29,  30,  31,  26,
               27,  28,  62,  69,  65,  66,  70,  68,  63,  67,  64,  71,  75,  72,  78,  79,  76,  74,  77,  73,  53,
               57,  54,  60,  61,  58,  56,  59,  55,  81,  84,  80,  85,  88,  87,  82,  86,  83,  44,  51,  47,  48,
               52,  50,  45,  49,  46,  89,  93,  90,  96,  97,  94,  92,  95,  91,  98,  106, 99,  107, 118, 109, 101,
               111, 100, 108, 119, 110, 120, 124, 121, 113, 122, 112, 102, 114, 103, 115, 123, 116, 105, 117, 104};
-    }
-    if constexpr (PolynomialOrder == 5) {
+    } else if constexpr (PolynomialOrder == 5) {
       return {0,   1,   2,   3,   4,   5,   6,   7,   8,   9,   10,  11,  20,  21,  22,  23,  31,  30,  29,  28,
               12,  13,  14,  15,  40,  41,  42,  43,  48,  49,  50,  51,  55,  54,  53,  52,  44,  45,  46,  47,
               16,  17,  18,  19,  24,  25,  26,  27,  36,  37,  38,  39,  32,  33,  34,  35,  88,  99,  98,  91,
@@ -1387,7 +1263,7 @@ struct VolumeElementTrait : ElementTrait<ElementType, PolynomialOrder> {
   static constexpr int kQuadratureOrder{getVolumeElementQuadratureOrder<PolynomialOrder>()};
   static constexpr int kQuadratureNumber{getVolumeElementQuadratureNumber<ElementType, PolynomialOrder>()};
   static constexpr int kAdjacencyNumber{getVolumeElementAdjacencyNumber<ElementType>()};
-  static constexpr int kAllAdjacencyNodeNumber{getVolumeElementAllAdjacencyNodeNumber<ElementType>()};
+  static constexpr int kAllAdjacencyBasicNodeNumber{getVolumeElementAllAdjacencyBasicNodeNumber<ElementType>()};
   static constexpr int kAllAdjacencyQuadratureNumber{
       getVolumeElementAllAdjacencyQuadratureNumber<ElementType, PolynomialOrder>()};
 };

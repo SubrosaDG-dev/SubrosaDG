@@ -248,7 +248,6 @@ struct Variable {
               Variable<SimulationControl>::template getScalar<PrimitiveVariableEnum::Temperature>(primitive_variable));
       Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
           computational_variable) = internal_energy;
-      ;
       Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(computational_variable) =
           PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
               density, internal_energy);
@@ -412,7 +411,6 @@ struct VariableDevice {
                   primitive_variable));
       VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
           computational_variable) = internal_energy;
-      ;
       VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
           computational_variable) =
           PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
@@ -1420,6 +1418,8 @@ struct ViewVariable {
             Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(computational_variable),
             Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(
                 computational_variable));
+      } else {
+        return 0.0_r;
       }
     case ViewVariableEnum::Vorticity:
       if constexpr (SimulationControl::kDimension == 2) {

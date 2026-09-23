@@ -177,7 +177,7 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeV
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl>::computeQuadrature(
+inline void Solver<SimulationControl>::computeVolumeQuadrature(
     const Mesh<SimulationControl>& mesh, [[maybe_unused]] const SourceTerm<SimulationControl>& source_term) {
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.computeVolumeElementQuadrature(mesh.line_, source_term);
@@ -309,7 +309,7 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
 }
 
 template <typename SimulationControl>
-inline void SolverDevice<SimulationControl>::computeQuadrature(
+inline void SolverDevice<SimulationControl>::computeVolumeQuadrature(
     const MeshDevice<SimulationControl>& mesh,
     [[maybe_unused]] const SourceTermDevice<SimulationControl>& source_term) {
   if constexpr (SimulationControl::kDimension == 1) {
@@ -361,7 +361,7 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeV
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl>::computeGradientQuadrature(const Mesh<SimulationControl>& mesh) {
+inline void Solver<SimulationControl>::computeVolumeGradientQuadrature(const Mesh<SimulationControl>& mesh) {
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.computeVolumeElementGradientQuadrature(mesh.line_);
   } else if constexpr (SimulationControl::kDimension == 2) {
@@ -422,7 +422,7 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
 }
 
 template <typename SimulationControl>
-inline void SolverDevice<SimulationControl>::computeGradientQuadrature(const MeshDevice<SimulationControl>& mesh) {
+inline void SolverDevice<SimulationControl>::computeVolumeGradientQuadrature(const MeshDevice<SimulationControl>& mesh) {
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.computeVolumeElementGradientQuadrature(mesh.line_);
   } else if constexpr (SimulationControl::kDimension == 2) {
@@ -940,7 +940,6 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeI
   const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   queue.submit([&](sycl::handler& cgh) -> void {
-    sycl::stream out(8192, 1024, cgh);
     cgh.parallel_for(getNdRange(this->interior_number_), [=, this](sycl::nd_item<1> index) -> void {
       const auto i = static_cast<Isize>(index.get_global_id(0));
       if (i >= this->interior_number_) {

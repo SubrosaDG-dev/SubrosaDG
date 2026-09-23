@@ -32,7 +32,7 @@ struct ViscousFlux {
           quadrature_node_primitive_variable_gradient,
       Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>&
           viscous_raw_flux) {
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompressibleNS) {
+    if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
       RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(viscous_raw_flux) =
           Eigen::Vector<Real, SimulationControl::kDimension>::Zero();
       const Eigen::Ref<const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
@@ -59,7 +59,7 @@ struct ViscousFlux {
               VariableGradient<SimulationControl>::template getScalarGradient<PrimitiveVariableEnum::Temperature>(
                   quadrature_node_primitive_variable_gradient);
     }
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompressibleNS) {
+    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(viscous_raw_flux) =
           Eigen::Vector<Real, SimulationControl::kDimension>::Zero();
       const Eigen::Ref<const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>>
@@ -206,7 +206,7 @@ struct ViscousFluxDevice {
           quadrature_node_primitive_variable_gradient,
       Device::StaticMatrix<Real, SimulationControl::kDimension, SimulationControl::kConservedVariableNumber>&
           viscous_raw_flux) {
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::CompressibleNS) {
+    if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
       Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> density_flux =
           RawFluxDevice<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(
               viscous_raw_flux);
@@ -254,7 +254,7 @@ struct ViscousFluxDevice {
         energy_flux(m) += thermal_conductivity * temperature_gradient(m);
       }
     }
-    if constexpr (SimulationControl::kEquationModel == EquationModelEnum::IncompressibleNS) {
+    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       Device::View<Device::StaticVector<Real, SimulationControl::kDimension>> density_flux =
           RawFluxDevice<SimulationControl>::template getScalarDimension<ConservedVariableEnum::Density>(
               viscous_raw_flux);

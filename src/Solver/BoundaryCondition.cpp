@@ -1312,7 +1312,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::up
           Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> boundary_computational_variable;
           for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
             BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
-                adjacency_element_mesh.quadrature_node_coordinate_.col(j), boundary_primitive_variable,
+                adjacency_element_mesh.quadrature_node_coordinate_(element_index).col(j), boundary_primitive_variable,
                 (static_cast<Real>(time_integration.iteration_) +
                  TimeIntegration<SimulationControl>::kButcherCoefficients[static_cast<Usize>(rk_step)]) *
                     time_integration.delta_time_,
