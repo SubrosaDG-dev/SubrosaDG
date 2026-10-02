@@ -1091,7 +1091,6 @@ getAdjacencyElementViewNodeSequenceInParent([[maybe_unused]] const int parent, c
       }
     }
   }
-  return {};
 }
 
 template <ElementEnum ElementType>

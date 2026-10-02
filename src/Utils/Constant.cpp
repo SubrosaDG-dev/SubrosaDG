@@ -48,6 +48,12 @@ inline sycl::nd_range<1> getNdRange(const int batch_size) {
   return {sycl::range<1>(static_cast<std::size_t>(getGlobalSize(batch_size))), sycl::range<1>(kLocalSize)};
 }
 
+inline sycl::nd_range<2> getNdRange(const int row_batch_size, const int column_batch_size) {
+  return {sycl::range<2>(static_cast<std::size_t>(getGlobalSize(row_batch_size)),
+                         static_cast<std::size_t>(column_batch_size)),
+          sycl::range<2>(kLocalSize, 1)};
+}
+
 inline namespace Literals {
 
 constexpr Real operator""_deg(long double x) { return static_cast<Real>(x) * kPi / 180.0_r; }

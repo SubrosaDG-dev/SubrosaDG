@@ -82,7 +82,6 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
       return kAdjacencyQuadratureSequence[static_cast<Usize>(adjacency_sequence_in_parent)];
     }
   }
-  std::unreachable();
 }
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -124,8 +123,7 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeV
                                                 volume_element_mesh.jacobian_determinant_multiply_weight_(i)(j));
           }
         }
-      }
-      if constexpr (IsNS<SimulationControl::kEquationModel>) {
+      } else if constexpr (IsNS<SimulationControl::kEquationModel>) {
         Eigen::Vector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
         Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> quadrature_node_conserved_variable;
         Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> quadrature_node_computational_variable;
@@ -250,8 +248,7 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
                                                 jacobian_determinant_multiply_weight(j));
           }
         }
-      }
-      if constexpr (IsNS<SimulationControl::kEquationModel>) {
+      } else if constexpr (IsNS<SimulationControl::kEquationModel>) {
         Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
         Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> quadrature_node_conserved_variable;
         Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
@@ -422,7 +419,8 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::co
 }
 
 template <typename SimulationControl>
-inline void SolverDevice<SimulationControl>::computeVolumeGradientQuadrature(const MeshDevice<SimulationControl>& mesh) {
+inline void SolverDevice<SimulationControl>::computeVolumeGradientQuadrature(
+    const MeshDevice<SimulationControl>& mesh) {
   if constexpr (SimulationControl::kDimension == 1) {
     this->line_.computeVolumeElementGradientQuadrature(mesh.line_);
   } else if constexpr (SimulationControl::kDimension == 2) {
@@ -481,7 +479,6 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::getVariableAdj
           .col(quadrature_node_sequence_in_parent);
     }
   }
-  std::unreachable();
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -533,7 +530,6 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::getVaria
           Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
     }
   }
-  std::unreachable();
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -574,7 +570,10 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
                 left_quadrature_node_computational_variable;
             Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>
                 right_quadrature_node_computational_variable;
+            Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
+                quadrature_node_variable_adjacency_quadrature;
             for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+              const Isize right_quadrature_sequence = adjacency_element_quadrature_sequence[static_cast<Usize>(j)];
               AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
                   mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
                   left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
@@ -583,12 +582,21 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
                   left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
               AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::get(
                   mesh, solver, right_quadrature_node_conserved_variable, right_parent_gmsh_type_number,
-                  right_parent_index_each_type, adjacency_sequence_in_right_parent,
-                  adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
+                  right_parent_index_each_type, adjacency_sequence_in_right_parent, right_quadrature_sequence);
               Variable<SimulationControl>::convertComputationalFromConserved(
                   left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
               Variable<SimulationControl>::convertComputationalFromConserved(
                   right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable);
+              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
+                  adjacency_element_mesh.normal_vector_(element_index).col(j);
+              const Real jacobian_determinant_multiply_weight =
+                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j);
+              quadrature_node_variable_adjacency_quadrature.setZero();
+              ConvectiveFlux<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
+                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
+                  left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
+                  right_quadrature_node_computational_variable, quadrature_node_variable_adjacency_quadrature,
+                  jacobian_determinant_multiply_weight);
               Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
                   left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                       solver, left_parent_gmsh_type_number, left_parent_index_each_type,
@@ -596,21 +604,11 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
               Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
                   right_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                       solver, right_parent_gmsh_type_number, right_parent_index_each_type,
-                      right_adjacency_accumulate_quadrature_number +
-                          adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
-              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
-                  adjacency_element_mesh.normal_vector_(element_index).col(j);
-              left_quadrature_node_variable_adjacency_quadrature.setZero();
-              right_quadrature_node_variable_adjacency_quadrature.setZero();
-              ConvectiveFlux<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
-                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-                  left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-                  right_quadrature_node_computational_variable, left_quadrature_node_variable_adjacency_quadrature,
-                  right_quadrature_node_variable_adjacency_quadrature,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+                      right_adjacency_accumulate_quadrature_number + right_quadrature_sequence);
+              left_quadrature_node_variable_adjacency_quadrature = quadrature_node_variable_adjacency_quadrature;
+              right_quadrature_node_variable_adjacency_quadrature = -quadrature_node_variable_adjacency_quadrature;
             }
-          }
-          if constexpr (IsNS<SimulationControl::kEquationModel>) {
+          } else if constexpr (IsNS<SimulationControl::kEquationModel>) {
             Eigen::Vector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
             Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
             Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> right_quadrature_node_conserved_variable;
@@ -626,7 +624,10 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
                 left_quadrature_node_primitive_variable_gradient;
             Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
                 right_quadrature_node_primitive_variable_gradient;
+            Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
+                quadrature_node_variable_adjacency_quadrature;
             for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+              const Isize right_quadrature_sequence = adjacency_element_quadrature_sequence[static_cast<Usize>(j)];
               AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
                   mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
                   left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
@@ -635,8 +636,7 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
                   left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
               AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::get(
                   mesh, solver, right_quadrature_node_conserved_variable, right_parent_gmsh_type_number,
-                  right_parent_index_each_type, adjacency_sequence_in_right_parent,
-                  adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
+                  right_parent_index_each_type, adjacency_sequence_in_right_parent, right_quadrature_sequence);
               Variable<SimulationControl>::convertComputationalFromConserved(
                   left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
               Variable<SimulationControl>::convertComputationalFromConserved(
@@ -648,14 +648,28 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
               AdjacencyElementVariableGradient<AdjacencyElementTrait, SimulationControl>::template get<
                   SimulationControl::kViscousFlux>(mesh, solver, right_quadrature_node_conserved_variable_gradient,
                                                    right_parent_gmsh_type_number, right_parent_index_each_type,
-                                                   adjacency_sequence_in_right_parent,
-                                                   adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
+                                                   adjacency_sequence_in_right_parent, right_quadrature_sequence);
               VariableGradient<SimulationControl>::convertPrimitiveFromConserved(
                   left_quadrature_node_computational_variable, left_quadrature_node_conserved_variable_gradient,
                   left_quadrature_node_primitive_variable_gradient);
               VariableGradient<SimulationControl>::convertPrimitiveFromConserved(
                   right_quadrature_node_computational_variable, right_quadrature_node_conserved_variable_gradient,
                   right_quadrature_node_primitive_variable_gradient);
+              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
+                  adjacency_element_mesh.normal_vector_(element_index).col(j);
+              const Real jacobian_determinant_multiply_weight =
+                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j);
+              quadrature_node_variable_adjacency_quadrature.setZero();
+              ConvectiveFlux<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
+                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
+                  left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
+                  right_quadrature_node_computational_variable, quadrature_node_variable_adjacency_quadrature,
+                  jacobian_determinant_multiply_weight);
+              ViscousFlux<SimulationControl>::minusVariableInteriorAdjacencyQuadratureNormalFlux(
+                  normal_vector, left_quadrature_node_computational_variable,
+                  left_quadrature_node_primitive_variable_gradient, right_quadrature_node_computational_variable,
+                  right_quadrature_node_primitive_variable_gradient, quadrature_node_variable_adjacency_quadrature,
+                  jacobian_determinant_multiply_weight);
               Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
                   left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                       solver, left_parent_gmsh_type_number, left_parent_index_each_type,
@@ -663,24 +677,9 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
               Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
                   right_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                       solver, right_parent_gmsh_type_number, right_parent_index_each_type,
-                      right_adjacency_accumulate_quadrature_number +
-                          adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
-              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
-                  adjacency_element_mesh.normal_vector_(element_index).col(j);
-              left_quadrature_node_variable_adjacency_quadrature.setZero();
-              right_quadrature_node_variable_adjacency_quadrature.setZero();
-              ConvectiveFlux<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
-                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-                  left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-                  right_quadrature_node_computational_variable, left_quadrature_node_variable_adjacency_quadrature,
-                  right_quadrature_node_variable_adjacency_quadrature,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
-              ViscousFlux<SimulationControl>::minusVariableInteriorAdjacencyQuadratureNormalFlux(
-                  normal_vector, left_quadrature_node_computational_variable,
-                  left_quadrature_node_primitive_variable_gradient, right_quadrature_node_computational_variable,
-                  right_quadrature_node_primitive_variable_gradient, left_quadrature_node_variable_adjacency_quadrature,
-                  right_quadrature_node_variable_adjacency_quadrature,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+                      right_adjacency_accumulate_quadrature_number + right_quadrature_sequence);
+              left_quadrature_node_variable_adjacency_quadrature = quadrature_node_variable_adjacency_quadrature;
+              right_quadrature_node_variable_adjacency_quadrature = -quadrature_node_variable_adjacency_quadrature;
             }
           }
         }
@@ -693,8 +692,9 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(Mesh<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   tbb::parallel_for(
-      tbb::blocked_range<Isize>(0, this->boundary_number_), [&](const tbb::blocked_range<Isize>& range) -> void {
-        for (Isize i = range.begin(); i != range.end(); i++) {
+      tbb::blocked_range2d<Isize>(0, this->boundary_number_, 1, 0, AdjacencyElementTrait::kQuadratureNumber, 1),
+      [&](const tbb::blocked_range2d<Isize>& range) -> void {
+        for (Isize i = range.rows().begin(); i != range.rows().end(); i++) {
           const Isize element_index = i + this->interior_number_;
           const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
           const Isize adjacency_sequence_in_left_parent =
@@ -713,7 +713,9 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
                 left_quadrature_node_computational_variable;
             Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>
                 boundary_quadrature_node_computational_variable;
-            for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+            Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
+                quadrature_node_variable_adjacency_quadrature;
+            for (Isize j = range.cols().begin(); j != range.cols().end(); j++) {
               AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
                   mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
                   left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
@@ -726,21 +728,23 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
                   right_quadrature_node_computational_variable =
                       this->boundary_dummy_right_computational_variable_(i).col(
                           j);  // the index use i not element_index
+              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
+                  adjacency_element_mesh.normal_vector_(element_index).col(j);
+              const Real jacobian_determinant_multiply_weight =
+                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j);
+              quadrature_node_variable_adjacency_quadrature.setZero();
+              ConvectiveFlux<SimulationControl>::addVariableBoundaryAdjacencyQuadratureNormalFlux(
+                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_computational_variable,
+                  right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable,
+                  quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
+                  jacobian_determinant_multiply_weight);
               Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
                   left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                       solver, left_parent_gmsh_type_number, left_parent_index_each_type,
                       left_adjacency_accumulate_quadrature_number + j);
-              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
-                  adjacency_element_mesh.normal_vector_(element_index).col(j);
-              left_quadrature_node_variable_adjacency_quadrature.setZero();
-              ConvectiveFlux<SimulationControl>::addVariableBoundaryAdjacencyQuadratureNormalFlux(
-                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_computational_variable,
-                  right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable,
-                  left_quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+              left_quadrature_node_variable_adjacency_quadrature = quadrature_node_variable_adjacency_quadrature;
             }
-          }
-          if constexpr (IsNS<SimulationControl::kEquationModel>) {
+          } else if constexpr (IsNS<SimulationControl::kEquationModel>) {
             Eigen::Vector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
             Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
             Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>
@@ -751,7 +755,9 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
                 left_quadrature_node_primitive_variable_gradient;
             Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>
                 boundary_quadrature_node_computational_variable;
-            for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+            Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
+                quadrature_node_variable_adjacency_quadrature;
+            for (Isize j = range.cols().begin(); j != range.cols().end(); j++) {
               AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
                   mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
                   left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
@@ -771,23 +777,26 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::co
               VariableGradient<SimulationControl>::convertPrimitiveFromConserved(
                   left_quadrature_node_computational_variable, left_quadrature_node_conserved_variable_gradient,
                   left_quadrature_node_primitive_variable_gradient);
+              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
+                  adjacency_element_mesh.normal_vector_(element_index).col(j);
+              const Real jacobian_determinant_multiply_weight =
+                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j);
+              quadrature_node_variable_adjacency_quadrature.setZero();
+              ConvectiveFlux<SimulationControl>::addVariableBoundaryAdjacencyQuadratureNormalFlux(
+                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_computational_variable,
+                  right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable,
+                  quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
+                  jacobian_determinant_multiply_weight);
+              ViscousFlux<SimulationControl>::minusVariableBoundaryAdjacencyQuadratureNormalFlux(
+                  normal_vector, left_quadrature_node_computational_variable,
+                  left_quadrature_node_primitive_variable_gradient, boundary_quadrature_node_computational_variable,
+                  quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
+                  jacobian_determinant_multiply_weight);
               Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
                   left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                       solver, left_parent_gmsh_type_number, left_parent_index_each_type,
                       left_adjacency_accumulate_quadrature_number + j);
-              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
-                  adjacency_element_mesh.normal_vector_(element_index).col(j);
-              left_quadrature_node_variable_adjacency_quadrature.setZero();
-              ConvectiveFlux<SimulationControl>::addVariableBoundaryAdjacencyQuadratureNormalFlux(
-                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_computational_variable,
-                  right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable,
-                  left_quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
-              ViscousFlux<SimulationControl>::minusVariableBoundaryAdjacencyQuadratureNormalFlux(
-                  normal_vector, left_quadrature_node_computational_variable,
-                  left_quadrature_node_primitive_variable_gradient, boundary_quadrature_node_computational_variable,
-                  left_quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+              left_quadrature_node_variable_adjacency_quadrature = quadrature_node_variable_adjacency_quadrature;
             }
           }
         }
@@ -801,8 +810,9 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInterfa
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(Mesh<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   tbb::parallel_for(
-      tbb::blocked_range<Isize>(0, 2 * this->interface_number_), [&](const tbb::blocked_range<Isize>& range) -> void {
-        for (Isize i = range.begin(); i != range.end(); i++) {
+      tbb::blocked_range2d<Isize>(0, 2 * this->interface_number_, 1, 0, AdjacencyElementTrait::kQuadratureNumber, 1),
+      [&](const tbb::blocked_range2d<Isize>& range) -> void {
+        for (Isize i = range.rows().begin(); i != range.rows().end(); i++) {
           const Isize element_index = i + this->interior_number_ + this->boundary_number_;
           const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
           const Isize adjacency_sequence_in_left_parent =
@@ -819,7 +829,9 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInterfa
                 left_quadrature_node_computational_variable;
             Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>
                 right_quadrature_node_computational_variable;
-            for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+            Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
+                quadrature_node_variable_adjacency_quadrature;
+            for (Isize j = range.cols().begin(); j != range.cols().end(); j++) {
               AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
                   mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
                   left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
@@ -833,21 +845,23 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInterfa
                       this->interface_right_conserved_variable_(i).col(j);  // the index use i not element_index
               Variable<SimulationControl>::convertComputationalFromConserved(
                   right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable);
+              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
+                  adjacency_element_mesh.normal_vector_(element_index).col(j);
+              const Real jacobian_determinant_multiply_weight =
+                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j);
+              quadrature_node_variable_adjacency_quadrature.setZero();
+              ConvectiveFlux<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
+                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
+                  left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
+                  right_quadrature_node_computational_variable, quadrature_node_variable_adjacency_quadrature,
+                  jacobian_determinant_multiply_weight);
               Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
                   left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                       solver, left_parent_gmsh_type_number, left_parent_index_each_type,
                       left_adjacency_accumulate_quadrature_number + j);
-              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
-                  adjacency_element_mesh.normal_vector_(element_index).col(j);
-              left_quadrature_node_variable_adjacency_quadrature.setZero();
-              ConvectiveFlux<SimulationControl>::addVariableInterfaceAdjacencyQuadratureNormalFlux(
-                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-                  left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-                  right_quadrature_node_computational_variable, left_quadrature_node_variable_adjacency_quadrature,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+              left_quadrature_node_variable_adjacency_quadrature = quadrature_node_variable_adjacency_quadrature;
             }
-          }
-          if constexpr (IsNS<SimulationControl::kEquationModel>) {
+          } else if constexpr (IsNS<SimulationControl::kEquationModel>) {
             Eigen::Vector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
             Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
             Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>
@@ -860,7 +874,9 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInterfa
                 left_quadrature_node_primitive_variable_gradient;
             Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
                 right_quadrature_node_primitive_variable_gradient;
-            for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+            Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
+                quadrature_node_variable_adjacency_quadrature;
+            for (Isize j = range.cols().begin(); j != range.cols().end(); j++) {
               AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
                   mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
                   left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
@@ -888,23 +904,26 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInterfa
               VariableGradient<SimulationControl>::convertPrimitiveFromConserved(
                   right_quadrature_node_computational_variable, right_quadrature_node_conserved_variable_gradient,
                   right_quadrature_node_primitive_variable_gradient);
+              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
+                  adjacency_element_mesh.normal_vector_(element_index).col(j);
+              const Real jacobian_determinant_multiply_weight =
+                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j);
+              quadrature_node_variable_adjacency_quadrature.setZero();
+              ConvectiveFlux<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
+                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
+                  left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
+                  right_quadrature_node_computational_variable, quadrature_node_variable_adjacency_quadrature,
+                  jacobian_determinant_multiply_weight);
+              ViscousFlux<SimulationControl>::minusVariableInteriorAdjacencyQuadratureNormalFlux(
+                  normal_vector, left_quadrature_node_computational_variable,
+                  left_quadrature_node_primitive_variable_gradient, right_quadrature_node_computational_variable,
+                  right_quadrature_node_primitive_variable_gradient, quadrature_node_variable_adjacency_quadrature,
+                  jacobian_determinant_multiply_weight);
               Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
                   left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                       solver, left_parent_gmsh_type_number, left_parent_index_each_type,
                       left_adjacency_accumulate_quadrature_number + j);
-              const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
-                  adjacency_element_mesh.normal_vector_(element_index).col(j);
-              left_quadrature_node_variable_adjacency_quadrature.setZero();
-              ConvectiveFlux<SimulationControl>::addVariableInterfaceAdjacencyQuadratureNormalFlux(
-                  normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-                  left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-                  right_quadrature_node_computational_variable, left_quadrature_node_variable_adjacency_quadrature,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
-              ViscousFlux<SimulationControl>::minusVariableInterfaceAdjacencyQuadratureNormalFlux(
-                  normal_vector, left_quadrature_node_computational_variable,
-                  left_quadrature_node_primitive_variable_gradient, right_quadrature_node_computational_variable,
-                  right_quadrature_node_primitive_variable_gradient, left_quadrature_node_variable_adjacency_quadrature,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+              left_quadrature_node_variable_adjacency_quadrature = quadrature_node_variable_adjacency_quadrature;
             }
           }
         }
@@ -973,7 +992,10 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeI
             left_quadrature_node_computational_variable;
         Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
             right_quadrature_node_computational_variable;
+        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+            quadrature_node_variable_adjacency_quadrature;
         for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+          const Isize right_quadrature_sequence = adjacency_element_quadrature_sequence[static_cast<Usize>(j)];
           AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
               mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
               left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
@@ -982,12 +1004,24 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeI
               left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
           AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
               mesh, solver, right_quadrature_node_conserved_variable, right_parent_gmsh_type_number,
-              right_parent_index_each_type, adjacency_sequence_in_right_parent,
-              adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
+              right_parent_index_each_type, adjacency_sequence_in_right_parent, right_quadrature_sequence);
           VariableDevice<SimulationControl>::convertComputationalFromConserved(
               left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
           VariableDevice<SimulationControl>::convertComputationalFromConserved(
               right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable);
+          const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
+              adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
+                                                          Device::Slice<SimulationControl::kDimension>::all(),
+                                                          Device::Slice<1>::seqN(j));
+          const Real jacobian_determinant_multiply_weight =
+              adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(element_index,
+                                                                                adjacency_element_mesh.number_)(j);
+          quadrature_node_variable_adjacency_quadrature.setZero();
+          ConvectiveFluxDevice<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
+              normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
+              left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
+              right_quadrature_node_computational_variable, quadrature_node_variable_adjacency_quadrature,
+              jacobian_determinant_multiply_weight);
           Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
               left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                   solver, left_parent_gmsh_type_number, left_parent_index_each_type,
@@ -995,25 +1029,13 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeI
           Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
               right_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                   solver, right_parent_gmsh_type_number, right_parent_index_each_type,
-                  right_adjacency_accumulate_quadrature_number +
-                      adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
-          const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
-              adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
-                                                          Device::Slice<SimulationControl::kDimension>::all(),
-                                                          Device::Slice<1>::seqN(j));
-          const Device::View<const Device::Vector<Real, AdjacencyElementTrait::kQuadratureNumber>>
-              jacobian_determinant_multiply_weight = adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(
-                  element_index, adjacency_element_mesh.number_);
-          left_quadrature_node_variable_adjacency_quadrature.setZero();
-          right_quadrature_node_variable_adjacency_quadrature.setZero();
-          ConvectiveFluxDevice<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
-              normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-              left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-              right_quadrature_node_computational_variable, left_quadrature_node_variable_adjacency_quadrature,
-              right_quadrature_node_variable_adjacency_quadrature, jacobian_determinant_multiply_weight(j));
+                  right_adjacency_accumulate_quadrature_number + right_quadrature_sequence);
+          for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+            left_quadrature_node_variable_adjacency_quadrature(m) = quadrature_node_variable_adjacency_quadrature(m);
+            right_quadrature_node_variable_adjacency_quadrature(m) = -quadrature_node_variable_adjacency_quadrature(m);
+          }
         }
-      }
-      if constexpr (IsNS<SimulationControl::kEquationModel>) {
+      } else if constexpr (IsNS<SimulationControl::kEquationModel>) {
         Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
         Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
         Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
@@ -1030,7 +1052,10 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeI
             left_quadrature_node_primitive_variable_gradient;
         Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
             right_quadrature_node_primitive_variable_gradient;
+        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+            quadrature_node_variable_adjacency_quadrature;
         for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+          const Isize right_quadrature_sequence = adjacency_element_quadrature_sequence[static_cast<Usize>(j)];
           AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
               mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
               left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
@@ -1039,8 +1064,7 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeI
               left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
           AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
               mesh, solver, right_quadrature_node_conserved_variable, right_parent_gmsh_type_number,
-              right_parent_index_each_type, adjacency_sequence_in_right_parent,
-              adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
+              right_parent_index_each_type, adjacency_sequence_in_right_parent, right_quadrature_sequence);
           VariableDevice<SimulationControl>::convertComputationalFromConserved(
               left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
           VariableDevice<SimulationControl>::convertComputationalFromConserved(
@@ -1052,14 +1076,31 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeI
           AdjacencyElementVariableGradientDevice<AdjacencyElementTrait, SimulationControl>::template get<
               SimulationControl::kViscousFlux>(mesh, solver, right_quadrature_node_conserved_variable_gradient,
                                                right_parent_gmsh_type_number, right_parent_index_each_type,
-                                               adjacency_sequence_in_right_parent,
-                                               adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
+                                               adjacency_sequence_in_right_parent, right_quadrature_sequence);
           VariableGradientDevice<SimulationControl>::convertPrimitiveFromConserved(
               left_quadrature_node_computational_variable, left_quadrature_node_conserved_variable_gradient,
               left_quadrature_node_primitive_variable_gradient);
           VariableGradientDevice<SimulationControl>::convertPrimitiveFromConserved(
               right_quadrature_node_computational_variable, right_quadrature_node_conserved_variable_gradient,
               right_quadrature_node_primitive_variable_gradient);
+          const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
+              adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
+                                                          Device::Slice<SimulationControl::kDimension>::all(),
+                                                          Device::Slice<1>::seqN(j));
+          const Real jacobian_determinant_multiply_weight =
+              adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(element_index,
+                                                                                adjacency_element_mesh.number_)(j);
+          quadrature_node_variable_adjacency_quadrature.setZero();
+          ConvectiveFluxDevice<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
+              normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
+              left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
+              right_quadrature_node_computational_variable, quadrature_node_variable_adjacency_quadrature,
+              jacobian_determinant_multiply_weight);
+          ViscousFluxDevice<SimulationControl>::minusVariableInteriorAdjacencyQuadratureNormalFlux(
+              normal_vector, left_quadrature_node_computational_variable,
+              left_quadrature_node_primitive_variable_gradient, right_quadrature_node_computational_variable,
+              right_quadrature_node_primitive_variable_gradient, quadrature_node_variable_adjacency_quadrature,
+              jacobian_determinant_multiply_weight);
           Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
               left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                   solver, left_parent_gmsh_type_number, left_parent_index_each_type,
@@ -1067,27 +1108,11 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeI
           Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
               right_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
                   solver, right_parent_gmsh_type_number, right_parent_index_each_type,
-                  right_adjacency_accumulate_quadrature_number +
-                      adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
-          const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
-              adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
-                                                          Device::Slice<SimulationControl::kDimension>::all(),
-                                                          Device::Slice<1>::seqN(j));
-          const Device::View<const Device::Vector<Real, AdjacencyElementTrait::kQuadratureNumber>>
-              jacobian_determinant_multiply_weight = adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(
-                  element_index, adjacency_element_mesh.number_);
-          left_quadrature_node_variable_adjacency_quadrature.setZero();
-          right_quadrature_node_variable_adjacency_quadrature.setZero();
-          ConvectiveFluxDevice<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
-              normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-              left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-              right_quadrature_node_computational_variable, left_quadrature_node_variable_adjacency_quadrature,
-              right_quadrature_node_variable_adjacency_quadrature, jacobian_determinant_multiply_weight(j));
-          ViscousFluxDevice<SimulationControl>::minusVariableInteriorAdjacencyQuadratureNormalFlux(
-              normal_vector, left_quadrature_node_computational_variable,
-              left_quadrature_node_primitive_variable_gradient, right_quadrature_node_computational_variable,
-              right_quadrature_node_primitive_variable_gradient, left_quadrature_node_variable_adjacency_quadrature,
-              right_quadrature_node_variable_adjacency_quadrature, jacobian_determinant_multiply_weight(j));
+                  right_adjacency_accumulate_quadrature_number + right_quadrature_sequence);
+          for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+            left_quadrature_node_variable_adjacency_quadrature(m) = quadrature_node_variable_adjacency_quadrature(m);
+            right_quadrature_node_variable_adjacency_quadrature(m) = -quadrature_node_variable_adjacency_quadrature(m);
+          }
         }
       }
     });
@@ -1101,127 +1126,138 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeB
   const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   queue.submit([&](sycl::handler& cgh) -> void {
-    cgh.parallel_for(getNdRange(this->boundary_number_), [=, this](sycl::nd_item<1> index) -> void {
-      const auto i = static_cast<Isize>(index.get_global_id(0));
-      if (i >= this->boundary_number_) {
-        return;
-      }
-      const Isize element_index = i + this->interior_number_;
-      const AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>* self = this;
-      const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
-      const Isize adjacency_sequence_in_left_parent =
-          adjacency_element_mesh.adjacency_sequence_in_left_parent_(element_index);
-      const Isize left_parent_gmsh_type_number = adjacency_element_mesh.left_parent_gmsh_type_number_(element_index);
-      const Isize left_adjacency_accumulate_quadrature_number =
-          getAdjacencyElementAccumulateQuadratureNumber<AdjacencyElementTrait, SimulationControl>(
-              left_parent_gmsh_type_number, adjacency_sequence_in_left_parent);
-      const BoundaryConditionEnum boundary_condition_type =
-          adjacency_element_mesh.boundary_condition_type_(element_index);
-      if constexpr (IsEuler<SimulationControl::kEquationModel>) {
-        Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
-        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
-        Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-            left_quadrature_node_computational_variable;
-        Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-            right_quadrature_node_computational_variable;
-        Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-            boundary_quadrature_node_computational_variable;
-        for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
-              mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
-              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
-          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
-              mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
-              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
-          VariableDevice<SimulationControl>::convertComputationalFromConserved(
-              left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
-          const Device::View<const Device::Vector<Real, SimulationControl::kComputationalVariableNumber>>
-              boundary_dummy_right_computational_variable = self->boundary_dummy_right_computational_variable_.slice(
-                  i, this->boundary_number_, Device::Slice<SimulationControl::kComputationalVariableNumber>::all(),
-                  Device::Slice<1>::seqN(j));  // the index use i not element_index
-          for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
-            right_quadrature_node_computational_variable(m) = boundary_dummy_right_computational_variable(m);
+    cgh.parallel_for(
+        getNdRange(this->boundary_number_, AdjacencyElementTrait::kQuadratureNumber),
+        [=, this](sycl::nd_item<2> index) -> void {
+          const auto i = static_cast<Isize>(index.get_global_id(0));
+          const auto j = static_cast<Isize>(index.get_global_id(1));
+          if (i >= this->boundary_number_ || j >= AdjacencyElementTrait::kQuadratureNumber) {
+            return;
           }
-          Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-              left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
-                  solver, left_parent_gmsh_type_number, left_parent_index_each_type,
-                  left_adjacency_accumulate_quadrature_number + j);
-          const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
-              adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
-                                                          Device::Slice<SimulationControl::kDimension>::all(),
-                                                          Device::Slice<1>::seqN(j));
-          const Device::View<const Device::Vector<Real, AdjacencyElementTrait::kQuadratureNumber>>
-              jacobian_determinant_multiply_weight = adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(
-                  element_index, adjacency_element_mesh.number_);
-          left_quadrature_node_variable_adjacency_quadrature.setZero();
-          ConvectiveFluxDevice<SimulationControl>::addVariableBoundaryAdjacencyQuadratureNormalFlux(
-              normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_computational_variable,
-              right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable,
-              left_quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
-              jacobian_determinant_multiply_weight(j));
-        }
-      }
-      if constexpr (IsNS<SimulationControl::kEquationModel>) {
-        Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
-        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
-        Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-            left_quadrature_node_computational_variable;
-        Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-            right_quadrature_node_computational_variable;
-        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
-            left_quadrature_node_conserved_variable_gradient;
-        Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
-            left_quadrature_node_primitive_variable_gradient;
-        Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-            boundary_quadrature_node_computational_variable;
-        for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
-              mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
-              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
-          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
-              mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
-              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
-          VariableDevice<SimulationControl>::convertComputationalFromConserved(
-              left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
-          const Device::View<const Device::Vector<Real, SimulationControl::kComputationalVariableNumber>>
-              boundary_dummy_right_computational_variable = self->boundary_dummy_right_computational_variable_.slice(
-                  i, this->boundary_number_, Device::Slice<SimulationControl::kComputationalVariableNumber>::all(),
-                  Device::Slice<1>::seqN(j));  // the index use i not element_index
-          for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
-            right_quadrature_node_computational_variable(m) = boundary_dummy_right_computational_variable(m);
+          const Isize element_index = i + this->interior_number_;
+          const AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>* self = this;
+          const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
+          const Isize adjacency_sequence_in_left_parent =
+              adjacency_element_mesh.adjacency_sequence_in_left_parent_(element_index);
+          const Isize left_parent_gmsh_type_number =
+              adjacency_element_mesh.left_parent_gmsh_type_number_(element_index);
+          const Isize left_adjacency_accumulate_quadrature_number =
+              getAdjacencyElementAccumulateQuadratureNumber<AdjacencyElementTrait, SimulationControl>(
+                  left_parent_gmsh_type_number, adjacency_sequence_in_left_parent);
+          const BoundaryConditionEnum boundary_condition_type =
+              adjacency_element_mesh.boundary_condition_type_(element_index);
+          if constexpr (IsEuler<SimulationControl::kEquationModel>) {
+            Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+                left_quadrature_node_conserved_variable;
+            Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+                left_quadrature_node_computational_variable;
+            Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+                right_quadrature_node_computational_variable;
+            Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+                boundary_quadrature_node_computational_variable;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+                quadrature_node_variable_adjacency_quadrature;
+            AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
+                mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
+                left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+            AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
+                mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
+                left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+            VariableDevice<SimulationControl>::convertComputationalFromConserved(
+                left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
+            const Device::View<const Device::Vector<Real, SimulationControl::kComputationalVariableNumber>>
+                boundary_dummy_right_computational_variable = self->boundary_dummy_right_computational_variable_.slice(
+                    i, this->boundary_number_, Device::Slice<SimulationControl::kComputationalVariableNumber>::all(),
+                    Device::Slice<1>::seqN(j));  // the index use i not element_index
+            for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+              right_quadrature_node_computational_variable(m) = boundary_dummy_right_computational_variable(m);
+            }
+            const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
+                adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
+                                                            Device::Slice<SimulationControl::kDimension>::all(),
+                                                            Device::Slice<1>::seqN(j));
+            const Real jacobian_determinant_multiply_weight =
+                adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(element_index,
+                                                                                  adjacency_element_mesh.number_)(j);
+            quadrature_node_variable_adjacency_quadrature.setZero();
+            ConvectiveFluxDevice<SimulationControl>::addVariableBoundaryAdjacencyQuadratureNormalFlux(
+                normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_computational_variable,
+                right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable,
+                quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
+                jacobian_determinant_multiply_weight);
+            Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+                left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
+                    solver, left_parent_gmsh_type_number, left_parent_index_each_type,
+                    left_adjacency_accumulate_quadrature_number + j);
+            for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+              left_quadrature_node_variable_adjacency_quadrature(m) = quadrature_node_variable_adjacency_quadrature(m);
+            }
+          } else if constexpr (IsNS<SimulationControl::kEquationModel>) {
+            Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+                left_quadrature_node_conserved_variable;
+            Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+                left_quadrature_node_computational_variable;
+            Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+                right_quadrature_node_computational_variable;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
+                left_quadrature_node_conserved_variable_gradient;
+            Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
+                left_quadrature_node_primitive_variable_gradient;
+            Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+                boundary_quadrature_node_computational_variable;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+                quadrature_node_variable_adjacency_quadrature;
+            AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
+                mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
+                left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+            AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
+                mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
+                left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+            VariableDevice<SimulationControl>::convertComputationalFromConserved(
+                left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
+            const Device::View<const Device::Vector<Real, SimulationControl::kComputationalVariableNumber>>
+                boundary_dummy_right_computational_variable = self->boundary_dummy_right_computational_variable_.slice(
+                    i, this->boundary_number_, Device::Slice<SimulationControl::kComputationalVariableNumber>::all(),
+                    Device::Slice<1>::seqN(j));  // the index use i not element_index
+            for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+              right_quadrature_node_computational_variable(m) = boundary_dummy_right_computational_variable(m);
+            }
+            AdjacencyElementVariableGradientDevice<AdjacencyElementTrait, SimulationControl>::template get<
+                SimulationControl::kViscousFlux>(mesh, solver, left_quadrature_node_conserved_variable_gradient,
+                                                 left_parent_gmsh_type_number, left_parent_index_each_type,
+                                                 adjacency_sequence_in_left_parent, j);
+            VariableGradientDevice<SimulationControl>::convertPrimitiveFromConserved(
+                left_quadrature_node_computational_variable, left_quadrature_node_conserved_variable_gradient,
+                left_quadrature_node_primitive_variable_gradient);
+            const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
+                adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
+                                                            Device::Slice<SimulationControl::kDimension>::all(),
+                                                            Device::Slice<1>::seqN(j));
+            const Real jacobian_determinant_multiply_weight =
+                adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(element_index,
+                                                                                  adjacency_element_mesh.number_)(j);
+            quadrature_node_variable_adjacency_quadrature.setZero();
+            ConvectiveFluxDevice<SimulationControl>::addVariableBoundaryAdjacencyQuadratureNormalFlux(
+                normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_computational_variable,
+                right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable,
+                quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
+                jacobian_determinant_multiply_weight);
+            ViscousFluxDevice<SimulationControl>::minusVariableBoundaryAdjacencyQuadratureNormalFlux(
+                normal_vector, left_quadrature_node_computational_variable,
+                left_quadrature_node_primitive_variable_gradient, boundary_quadrature_node_computational_variable,
+                quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
+                jacobian_determinant_multiply_weight);
+            Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+                left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
+                    solver, left_parent_gmsh_type_number, left_parent_index_each_type,
+                    left_adjacency_accumulate_quadrature_number + j);
+            for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+              left_quadrature_node_variable_adjacency_quadrature(m) = quadrature_node_variable_adjacency_quadrature(m);
+            }
           }
-          AdjacencyElementVariableGradientDevice<AdjacencyElementTrait, SimulationControl>::template get<
-              SimulationControl::kViscousFlux>(mesh, solver, left_quadrature_node_conserved_variable_gradient,
-                                               left_parent_gmsh_type_number, left_parent_index_each_type,
-                                               adjacency_sequence_in_left_parent, j);
-          VariableGradientDevice<SimulationControl>::convertPrimitiveFromConserved(
-              left_quadrature_node_computational_variable, left_quadrature_node_conserved_variable_gradient,
-              left_quadrature_node_primitive_variable_gradient);
-          Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-              left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
-                  solver, left_parent_gmsh_type_number, left_parent_index_each_type,
-                  left_adjacency_accumulate_quadrature_number + j);
-          const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
-              adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
-                                                          Device::Slice<SimulationControl::kDimension>::all(),
-                                                          Device::Slice<1>::seqN(j));
-          const Device::View<const Device::Vector<Real, AdjacencyElementTrait::kQuadratureNumber>>
-              jacobian_determinant_multiply_weight = adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(
-                  element_index, adjacency_element_mesh.number_);
-          left_quadrature_node_variable_adjacency_quadrature.setZero();
-          ConvectiveFluxDevice<SimulationControl>::addVariableBoundaryAdjacencyQuadratureNormalFlux(
-              normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_computational_variable,
-              right_quadrature_node_computational_variable, boundary_quadrature_node_computational_variable,
-              left_quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
-              jacobian_determinant_multiply_weight(j));
-          ViscousFluxDevice<SimulationControl>::minusVariableBoundaryAdjacencyQuadratureNormalFlux(
-              normal_vector, left_quadrature_node_computational_variable,
-              left_quadrature_node_primitive_variable_gradient, boundary_quadrature_node_computational_variable,
-              left_quadrature_node_variable_adjacency_quadrature, boundary_condition_type,
-              jacobian_determinant_multiply_weight(j));
-        }
-      }
-    });
+        });
   });
 }
 
@@ -1232,145 +1268,156 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeI
   const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   queue.submit([&](sycl::handler& cgh) -> void {
-    cgh.parallel_for(getNdRange(2 * this->interface_number_), [=, this](sycl::nd_item<1> index) -> void {
-      const auto i = static_cast<Isize>(index.get_global_id(0));
-      if (i >= 2 * this->interface_number_) {
-        return;
-      }
-      const Isize element_index = i + this->interior_number_ + this->boundary_number_;
-      const AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>* self = this;
-      const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
-      const Isize adjacency_sequence_in_left_parent =
-          adjacency_element_mesh.adjacency_sequence_in_left_parent_(element_index);
-      const Isize left_parent_gmsh_type_number = adjacency_element_mesh.left_parent_gmsh_type_number_(element_index);
-      const Isize left_adjacency_accumulate_quadrature_number =
-          getAdjacencyElementAccumulateQuadratureNumber<AdjacencyElementTrait, SimulationControl>(
-              left_parent_gmsh_type_number, adjacency_sequence_in_left_parent);
-      if constexpr (IsEuler<SimulationControl::kEquationModel>) {
-        Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
-        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
-        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
-            right_quadrature_node_conserved_variable;
-        Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-            left_quadrature_node_computational_variable;
-        Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-            right_quadrature_node_computational_variable;
-        for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
-              mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
-              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
-          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
-              mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
-              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
-          const Device::View<const Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-              interface_right_conserved_variable = self->interface_right_conserved_variable_.slice(
-                  i, 2 * this->interface_number_, Device::Slice<SimulationControl::kConservedVariableNumber>::all(),
-                  Device::Slice<1>::seqN(j));  // the index use i not element_index
-          for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
-            right_quadrature_node_conserved_variable(m) = interface_right_conserved_variable(m);
+    cgh.parallel_for(
+        getNdRange(2 * this->interface_number_, AdjacencyElementTrait::kQuadratureNumber),
+        [=, this](sycl::nd_item<2> index) -> void {
+          const auto i = static_cast<Isize>(index.get_global_id(0));
+          const auto j = static_cast<Isize>(index.get_global_id(1));
+          if (i >= 2 * this->interface_number_ || j >= AdjacencyElementTrait::kQuadratureNumber) {
+            return;
           }
-          VariableDevice<SimulationControl>::convertComputationalFromConserved(
-              left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
-          VariableDevice<SimulationControl>::convertComputationalFromConserved(
-              right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable);
-          Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-              left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
-                  solver, left_parent_gmsh_type_number, left_parent_index_each_type,
-                  left_adjacency_accumulate_quadrature_number + j);
-          const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
-              adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
-                                                          Device::Slice<SimulationControl::kDimension>::all(),
-                                                          Device::Slice<1>::seqN(j));
-          const Device::View<const Device::Vector<Real, AdjacencyElementTrait::kQuadratureNumber>>
-              jacobian_determinant_multiply_weight = adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(
-                  element_index, adjacency_element_mesh.number_);
-          left_quadrature_node_variable_adjacency_quadrature.setZero();
-          ConvectiveFluxDevice<SimulationControl>::addVariableInterfaceAdjacencyQuadratureNormalFlux(
-              normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-              left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-              right_quadrature_node_computational_variable, left_quadrature_node_variable_adjacency_quadrature,
-              jacobian_determinant_multiply_weight(j));
-        }
-      }
-      if constexpr (IsNS<SimulationControl::kEquationModel>) {
-        Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
-        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
-        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
-            right_quadrature_node_conserved_variable;
-        Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-            left_quadrature_node_computational_variable;
-        Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-            right_quadrature_node_computational_variable;
-        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
-            left_quadrature_node_conserved_variable_gradient;
-        Device::StaticVector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
-            right_quadrature_node_conserved_variable_gradient;
-        Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
-            left_quadrature_node_primitive_variable_gradient;
-        Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
-            right_quadrature_node_primitive_variable_gradient;
-        for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
-              mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
-              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
-          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
-              mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
-              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
-          const Device::View<const Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-              interface_right_conserved_variable = self->interface_right_conserved_variable_.slice(
-                  i, 2 * this->interface_number_, Device::Slice<SimulationControl::kConservedVariableNumber>::all(),
-                  Device::Slice<1>::seqN(j));  // the index use i not element_index
-          for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
-            right_quadrature_node_conserved_variable(m) = interface_right_conserved_variable(m);
+          const Isize element_index = i + this->interior_number_ + this->boundary_number_;
+          const AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>* self = this;
+          const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
+          const Isize adjacency_sequence_in_left_parent =
+              adjacency_element_mesh.adjacency_sequence_in_left_parent_(element_index);
+          const Isize left_parent_gmsh_type_number =
+              adjacency_element_mesh.left_parent_gmsh_type_number_(element_index);
+          const Isize left_adjacency_accumulate_quadrature_number =
+              getAdjacencyElementAccumulateQuadratureNumber<AdjacencyElementTrait, SimulationControl>(
+                  left_parent_gmsh_type_number, adjacency_sequence_in_left_parent);
+          if constexpr (IsEuler<SimulationControl::kEquationModel>) {
+            Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+                left_quadrature_node_conserved_variable;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+                right_quadrature_node_conserved_variable;
+            Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+                left_quadrature_node_computational_variable;
+            Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+                right_quadrature_node_computational_variable;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+                quadrature_node_variable_adjacency_quadrature;
+            AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
+                mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
+                left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+            AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
+                mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
+                left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+            const Device::View<const Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+                interface_right_conserved_variable = self->interface_right_conserved_variable_.slice(
+                    i, 2 * this->interface_number_, Device::Slice<SimulationControl::kConservedVariableNumber>::all(),
+                    Device::Slice<1>::seqN(j));  // the index use i not element_index
+            for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+              right_quadrature_node_conserved_variable(m) = interface_right_conserved_variable(m);
+            }
+            VariableDevice<SimulationControl>::convertComputationalFromConserved(
+                left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
+            VariableDevice<SimulationControl>::convertComputationalFromConserved(
+                right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable);
+            const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
+                adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
+                                                            Device::Slice<SimulationControl::kDimension>::all(),
+                                                            Device::Slice<1>::seqN(j));
+            const Real jacobian_determinant_multiply_weight =
+                adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(element_index,
+                                                                                  adjacency_element_mesh.number_)(j);
+            quadrature_node_variable_adjacency_quadrature.setZero();
+            ConvectiveFluxDevice<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
+                normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
+                left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
+                right_quadrature_node_computational_variable, quadrature_node_variable_adjacency_quadrature,
+                jacobian_determinant_multiply_weight);
+            Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+                left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
+                    solver, left_parent_gmsh_type_number, left_parent_index_each_type,
+                    left_adjacency_accumulate_quadrature_number + j);
+            for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+              left_quadrature_node_variable_adjacency_quadrature(m) = quadrature_node_variable_adjacency_quadrature(m);
+            }
+          } else if constexpr (IsNS<SimulationControl::kEquationModel>) {
+            Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+                left_quadrature_node_conserved_variable;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+                right_quadrature_node_conserved_variable;
+            Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+                left_quadrature_node_computational_variable;
+            Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+                right_quadrature_node_computational_variable;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
+                left_quadrature_node_conserved_variable_gradient;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
+                right_quadrature_node_conserved_variable_gradient;
+            Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
+                left_quadrature_node_primitive_variable_gradient;
+            Device::StaticVector<Real, SimulationControl::kPrimitiveVariableNumber * SimulationControl::kDimension>
+                right_quadrature_node_primitive_variable_gradient;
+            Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+                quadrature_node_variable_adjacency_quadrature;
+            AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
+                mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
+                left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+            AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
+                mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
+                left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+            const Device::View<const Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+                interface_right_conserved_variable = self->interface_right_conserved_variable_.slice(
+                    i, 2 * this->interface_number_, Device::Slice<SimulationControl::kConservedVariableNumber>::all(),
+                    Device::Slice<1>::seqN(j));  // the index use i not element_index
+            for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+              right_quadrature_node_conserved_variable(m) = interface_right_conserved_variable(m);
+            }
+            VariableDevice<SimulationControl>::convertComputationalFromConserved(
+                left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
+            VariableDevice<SimulationControl>::convertComputationalFromConserved(
+                right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable);
+            AdjacencyElementVariableGradientDevice<AdjacencyElementTrait, SimulationControl>::template get<
+                SimulationControl::kViscousFlux>(mesh, solver, left_quadrature_node_conserved_variable_gradient,
+                                                 left_parent_gmsh_type_number, left_parent_index_each_type,
+                                                 adjacency_sequence_in_left_parent, j);
+            const Device::View<
+                const Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+                interface_right_conserved_variable_gradient = self->interface_right_conserved_variable_gradient_.slice(
+                    i, 2 * this->interface_number_,
+                    Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+                    Device::Slice<1>::seqN(j));  // the index use i not element_index
+            for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+              right_quadrature_node_conserved_variable_gradient(m) = interface_right_conserved_variable_gradient(m);
+            }
+            VariableGradientDevice<SimulationControl>::convertPrimitiveFromConserved(
+                left_quadrature_node_computational_variable, left_quadrature_node_conserved_variable_gradient,
+                left_quadrature_node_primitive_variable_gradient);
+            VariableGradientDevice<SimulationControl>::convertPrimitiveFromConserved(
+                right_quadrature_node_computational_variable, right_quadrature_node_conserved_variable_gradient,
+                right_quadrature_node_primitive_variable_gradient);
+            const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
+                adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
+                                                            Device::Slice<SimulationControl::kDimension>::all(),
+                                                            Device::Slice<1>::seqN(j));
+            const Real jacobian_determinant_multiply_weight =
+                adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(element_index,
+                                                                                  adjacency_element_mesh.number_)(j);
+            quadrature_node_variable_adjacency_quadrature.setZero();
+            ConvectiveFluxDevice<SimulationControl>::addVariableInteriorAdjacencyQuadratureNormalFlux(
+                normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
+                left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
+                right_quadrature_node_computational_variable, quadrature_node_variable_adjacency_quadrature,
+                jacobian_determinant_multiply_weight);
+            ViscousFluxDevice<SimulationControl>::minusVariableInteriorAdjacencyQuadratureNormalFlux(
+                normal_vector, left_quadrature_node_computational_variable,
+                left_quadrature_node_primitive_variable_gradient, right_quadrature_node_computational_variable,
+                right_quadrature_node_primitive_variable_gradient, quadrature_node_variable_adjacency_quadrature,
+                jacobian_determinant_multiply_weight);
+            Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+                left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
+                    solver, left_parent_gmsh_type_number, left_parent_index_each_type,
+                    left_adjacency_accumulate_quadrature_number + j);
+            for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+              left_quadrature_node_variable_adjacency_quadrature(m) = quadrature_node_variable_adjacency_quadrature(m);
+            }
           }
-          VariableDevice<SimulationControl>::convertComputationalFromConserved(
-              left_quadrature_node_conserved_variable, left_quadrature_node_computational_variable);
-          VariableDevice<SimulationControl>::convertComputationalFromConserved(
-              right_quadrature_node_conserved_variable, right_quadrature_node_computational_variable);
-          AdjacencyElementVariableGradientDevice<AdjacencyElementTrait, SimulationControl>::template get<
-              SimulationControl::kViscousFlux>(mesh, solver, left_quadrature_node_conserved_variable_gradient,
-                                               left_parent_gmsh_type_number, left_parent_index_each_type,
-                                               adjacency_sequence_in_left_parent, j);
-          const Device::View<
-              const Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-              interface_right_conserved_variable_gradient = self->interface_right_conserved_variable_gradient_.slice(
-                  i, 2 * this->interface_number_,
-                  Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-                  Device::Slice<1>::seqN(j));  // the index use i not element_index
-          for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
-            right_quadrature_node_conserved_variable_gradient(m) = interface_right_conserved_variable_gradient(m);
-          }
-          VariableGradientDevice<SimulationControl>::convertPrimitiveFromConserved(
-              left_quadrature_node_computational_variable, left_quadrature_node_conserved_variable_gradient,
-              left_quadrature_node_primitive_variable_gradient);
-          VariableGradientDevice<SimulationControl>::convertPrimitiveFromConserved(
-              right_quadrature_node_computational_variable, right_quadrature_node_conserved_variable_gradient,
-              right_quadrature_node_primitive_variable_gradient);
-          Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-              left_quadrature_node_variable_adjacency_quadrature = this->getVariableAdjacencyQuadrature(
-                  solver, left_parent_gmsh_type_number, left_parent_index_each_type,
-                  left_adjacency_accumulate_quadrature_number + j);
-          const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
-              adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
-                                                          Device::Slice<SimulationControl::kDimension>::all(),
-                                                          Device::Slice<1>::seqN(j));
-          const Device::View<const Device::Vector<Real, AdjacencyElementTrait::kQuadratureNumber>>
-              jacobian_determinant_multiply_weight = adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(
-                  element_index, adjacency_element_mesh.number_);
-          left_quadrature_node_variable_adjacency_quadrature.setZero();
-          ConvectiveFluxDevice<SimulationControl>::addVariableInterfaceAdjacencyQuadratureNormalFlux(
-              normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-              left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-              right_quadrature_node_computational_variable, left_quadrature_node_variable_adjacency_quadrature,
-              jacobian_determinant_multiply_weight(j));
-          ViscousFluxDevice<SimulationControl>::minusVariableInterfaceAdjacencyQuadratureNormalFlux(
-              normal_vector, left_quadrature_node_computational_variable,
-              left_quadrature_node_primitive_variable_gradient, right_quadrature_node_computational_variable,
-              right_quadrature_node_primitive_variable_gradient, left_quadrature_node_variable_adjacency_quadrature,
-              jacobian_determinant_multiply_weight(j));
-        }
-      }
-    });
+        });
   });
 }
 
@@ -1434,7 +1481,6 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::getVariableVol
           .col(quadrature_node_sequence_in_parent);
     }
   }
-  std::unreachable();
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -1488,7 +1534,6 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::getVaria
           Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
     }
   }
-  std::unreachable();
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -1528,7 +1573,6 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::getVariableInt
           .col(quadrature_node_sequence_in_parent);
     }
   }
-  std::unreachable();
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -1582,7 +1626,6 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::getVaria
           Device::Slice<1>::seqN(quadrature_node_sequence_in_parent));
     }
   }
-  std::unreachable();
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -1618,14 +1661,24 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInterio
                   right_parent_gmsh_type_number_number, adjacency_sequence_in_right_parent);
           Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
           Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> right_quadrature_node_conserved_variable;
+          Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
+              quadrature_node_variable_gradient_adjacency_quadrature;
           for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+            const Isize right_quadrature_sequence = adjacency_element_quadrature_sequence[static_cast<Usize>(j)];
             AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::get(
                 mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
                 left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
             AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::get(
                 mesh, solver, right_quadrature_node_conserved_variable, right_parent_gmsh_type_number_number,
-                right_parent_index_each_type, adjacency_sequence_in_right_parent,
-                adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
+                right_parent_index_each_type, adjacency_sequence_in_right_parent, right_quadrature_sequence);
+            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
+                adjacency_element_mesh.normal_vector_(element_index).col(j);
+            const Real jacobian_determinant_multiply_weight =
+                adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j);
+            quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+            GradientFlux<SimulationControl>::computeVariableVolumeGradientInteriorAdjacencyQuadratureNormalFlux(
+                normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+                quadrature_node_variable_gradient_adjacency_quadrature, jacobian_determinant_multiply_weight);
             Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
                 left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
                     this->getVariableVolumeGradientAdjacencyQuadrature(solver, left_parent_gmsh_type_number,
@@ -1635,16 +1688,16 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInterio
                 right_quadrature_node_variable_volume_gradient_adjacency_quadrature =
                     this->getVariableVolumeGradientAdjacencyQuadrature(
                         solver, right_parent_gmsh_type_number_number, right_parent_index_each_type,
-                        right_adjacency_accumulate_quadrature_number +
-                            adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
-            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
-                adjacency_element_mesh.normal_vector_(element_index).col(j);
-            GradientFlux<SimulationControl>::computeVariableVolumeGradientInteriorAdjacencyQuadratureNormalFlux(
-                normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
-                left_quadrature_node_variable_volume_gradient_adjacency_quadrature,
-                right_quadrature_node_variable_volume_gradient_adjacency_quadrature,
-                adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+                        right_adjacency_accumulate_quadrature_number + right_quadrature_sequence);
+            left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
+                quadrature_node_variable_gradient_adjacency_quadrature;
+            right_quadrature_node_variable_volume_gradient_adjacency_quadrature =
+                -quadrature_node_variable_gradient_adjacency_quadrature;
             if constexpr (IsNS<SimulationControl::kEquationModel>) {
+              quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+              GradientFlux<SimulationControl>::computeVariableInterfaceGradientInteriorAdjacencyQuadratureNormalFlux(
+                  normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+                  quadrature_node_variable_gradient_adjacency_quadrature, jacobian_determinant_multiply_weight);
               Eigen::Ref<
                   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
                   left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
@@ -1656,13 +1709,13 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInterio
                   right_quadrature_node_variable_interface_gradient_adjacency_quadrature =
                       this->getVariableInterfaceGradientAdjacencyQuadrature(
                           solver, right_parent_gmsh_type_number_number, right_parent_index_each_type,
-                          right_adjacency_accumulate_quadrature_number +
-                              adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
-              GradientFlux<SimulationControl>::computeVariableInterfaceGradientInteriorAdjacencyQuadratureNormalFlux(
-                  normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
-                  left_quadrature_node_variable_interface_gradient_adjacency_quadrature,
-                  right_quadrature_node_variable_interface_gradient_adjacency_quadrature,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+                          right_adjacency_accumulate_quadrature_number + right_quadrature_sequence);
+              // NOTE: Here h_int(u^-,u^+;n)=(u^+ - u^-)n/2, so the interface gradient flux on the left and right have
+              // the same sign
+              left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
+                  quadrature_node_variable_gradient_adjacency_quadrature;
+              right_quadrature_node_variable_interface_gradient_adjacency_quadrature =
+                  quadrature_node_variable_gradient_adjacency_quadrature;
             }
           }
         }
@@ -1676,8 +1729,9 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeBoundar
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(Mesh<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   tbb::parallel_for(
-      tbb::blocked_range<Isize>(0, this->boundary_number_), [&](const tbb::blocked_range<Isize>& range) -> void {
-        for (Isize i = range.begin(); i != range.end(); i++) {
+      tbb::blocked_range2d<Isize>(0, this->boundary_number_, 1, 0, AdjacencyElementTrait::kQuadratureNumber, 1),
+      [&](const tbb::blocked_range2d<Isize>& range) -> void {
+        for (Isize i = range.rows().begin(); i != range.rows().end(); i++) {
           const Isize element_index = i + this->interior_number_;
           const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
           const Isize adjacency_sequence_in_left_parent =
@@ -1696,7 +1750,9 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeBoundar
           // for possible subsequent use in the NS equations.
           Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>
               boundary_quadrature_node_interface_gradient_variable;
-          for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+          Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
+              quadrature_node_variable_gradient_adjacency_quadrature;
+          for (Isize j = range.cols().begin(); j != range.cols().end(); j++) {
             AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
                 mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
                 left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
@@ -1706,29 +1762,36 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeBoundar
             const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
                 right_quadrature_node_computational_variable =
                     this->boundary_dummy_right_computational_variable_(i).col(j);  // the index use i not element_index
+            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
+                adjacency_element_mesh.normal_vector_(element_index).col(j);
+            const Real jacobian_determinant_multiply_weight =
+                adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j);
+            quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+            GradientFlux<SimulationControl>::computeVariableVolumeGradientBoundaryAdjacencyQuadratureNormalFlux(
+                normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
+                right_quadrature_node_computational_variable, boundary_quadrature_node_interface_gradient_variable,
+                quadrature_node_variable_gradient_adjacency_quadrature, boundary_condition_type,
+                jacobian_determinant_multiply_weight);
             Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
                 left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
                     this->getVariableVolumeGradientAdjacencyQuadrature(solver, left_parent_gmsh_type_number,
                                                                        left_parent_index_each_type,
                                                                        left_adjacency_accumulate_quadrature_number + j);
-            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
-                adjacency_element_mesh.normal_vector_(element_index).col(j);
-            GradientFlux<SimulationControl>::computeVariableVolumeGradientBoundaryAdjacencyQuadratureNormalFlux(
-                normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-                right_quadrature_node_computational_variable, boundary_quadrature_node_interface_gradient_variable,
-                left_quadrature_node_variable_volume_gradient_adjacency_quadrature, boundary_condition_type,
-                adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+            left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
+                quadrature_node_variable_gradient_adjacency_quadrature;
             if constexpr (IsNS<SimulationControl::kEquationModel>) {
+              quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+              GradientFlux<SimulationControl>::computeVariableInterfaceGradientBoundaryAdjacencyQuadratureNormalFlux(
+                  normal_vector, boundary_quadrature_node_interface_gradient_variable,
+                  quadrature_node_variable_gradient_adjacency_quadrature, jacobian_determinant_multiply_weight);
               Eigen::Ref<
                   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
                   left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
                       this->getVariableInterfaceGradientAdjacencyQuadrature(
                           solver, left_parent_gmsh_type_number, left_parent_index_each_type,
                           left_adjacency_accumulate_quadrature_number + j);
-              GradientFlux<SimulationControl>::computeVariableInterfaceGradientBoundaryAdjacencyQuadratureNormalFlux(
-                  normal_vector, boundary_quadrature_node_interface_gradient_variable,
-                  left_quadrature_node_variable_interface_gradient_adjacency_quadrature,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+              left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
+                  quadrature_node_variable_gradient_adjacency_quadrature;
             }
           }
         }
@@ -1742,8 +1805,9 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInterfa
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(Mesh<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   tbb::parallel_for(
-      tbb::blocked_range<Isize>(0, 2 * this->interface_number_), [&](const tbb::blocked_range<Isize>& range) -> void {
-        for (Isize i = range.begin(); i != range.end(); i++) {
+      tbb::blocked_range2d<Isize>(0, 2 * this->interface_number_, 1, 0, AdjacencyElementTrait::kQuadratureNumber, 1),
+      [&](const tbb::blocked_range2d<Isize>& range) -> void {
+        for (Isize i = range.rows().begin(); i != range.rows().end(); i++) {
           const Isize element_index = i + this->interior_number_ + this->boundary_number_;
           const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
           const Isize adjacency_sequence_in_left_parent =
@@ -1754,35 +1818,44 @@ AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeInterfa
               getAdjacencyElementAccumulateQuadratureNumber<AdjacencyElementTrait, SimulationControl>(
                   left_parent_gmsh_type_number, adjacency_sequence_in_left_parent);
           Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
-          for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+          Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
+              quadrature_node_variable_gradient_adjacency_quadrature;
+          for (Isize j = range.cols().begin(); j != range.cols().end(); j++) {
             AdjacencyElementVariable<AdjacencyElementTrait, SimulationControl>::get(
                 mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
                 left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
             const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>&
                 right_quadrature_node_conserved_variable =
                     this->interface_right_conserved_variable_(i).col(j);  // the index use i not element_index
+
+            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
+                adjacency_element_mesh.normal_vector_(element_index).col(j);
+            const Real jacobian_determinant_multiply_weight =
+                adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j);
+            quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+            GradientFlux<SimulationControl>::computeVariableVolumeGradientInteriorAdjacencyQuadratureNormalFlux(
+                normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+                quadrature_node_variable_gradient_adjacency_quadrature, jacobian_determinant_multiply_weight);
             Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
                 left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
                     this->getVariableVolumeGradientAdjacencyQuadrature(solver, left_parent_gmsh_type_number,
                                                                        left_parent_index_each_type,
                                                                        left_adjacency_accumulate_quadrature_number + j);
-            const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector =
-                adjacency_element_mesh.normal_vector_(element_index).col(j);
-            GradientFlux<SimulationControl>::computeVariableVolumeGradientInterfaceAdjacencyQuadratureNormalFlux(
-                normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
-                left_quadrature_node_variable_volume_gradient_adjacency_quadrature,
-                adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+            left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
+                quadrature_node_variable_gradient_adjacency_quadrature;
             if constexpr (IsNS<SimulationControl::kEquationModel>) {
+              quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+              GradientFlux<SimulationControl>::computeVariableInterfaceGradientInteriorAdjacencyQuadratureNormalFlux(
+                  normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+                  quadrature_node_variable_gradient_adjacency_quadrature, jacobian_determinant_multiply_weight);
               Eigen::Ref<
                   Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
                   left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
                       this->getVariableInterfaceGradientAdjacencyQuadrature(
                           solver, left_parent_gmsh_type_number, left_parent_index_each_type,
                           left_adjacency_accumulate_quadrature_number + j);
-              GradientFlux<SimulationControl>::computeVariableInterfaceGradientInterfaceAdjacencyQuadratureNormalFlux(
-                  normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
-                  left_quadrature_node_variable_interface_gradient_adjacency_quadrature,
-                  adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(j));
+              left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
+                  quadrature_node_variable_gradient_adjacency_quadrature;
             }
           }
         }
@@ -1845,14 +1918,27 @@ inline void AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationContro
               right_parent_gmsh_type_number_number, adjacency_sequence_in_right_parent);
       Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
       Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> right_quadrature_node_conserved_variable;
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
+          quadrature_node_variable_gradient_adjacency_quadrature;
       for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+        const Isize right_quadrature_sequence = adjacency_element_quadrature_sequence[static_cast<Usize>(j)];
         AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
             mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
             left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
         AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
             mesh, solver, right_quadrature_node_conserved_variable, right_parent_gmsh_type_number_number,
-            right_parent_index_each_type, adjacency_sequence_in_right_parent,
-            adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
+            right_parent_index_each_type, adjacency_sequence_in_right_parent, right_quadrature_sequence);
+        const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
+            adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
+                                                        Device::Slice<SimulationControl::kDimension>::all(),
+                                                        Device::Slice<1>::seqN(j));
+        const Real jacobian_determinant_multiply_weight =
+            adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(element_index,
+                                                                              adjacency_element_mesh.number_)(j);
+        quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+        GradientFluxDevice<SimulationControl>::computeVariableVolumeGradientInteriorAdjacencyQuadratureNormalFlux(
+            normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+            quadrature_node_variable_gradient_adjacency_quadrature, jacobian_determinant_multiply_weight);
         Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
             left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
                 this->getVariableVolumeGradientAdjacencyQuadrature(solver, left_parent_gmsh_type_number,
@@ -1862,21 +1948,18 @@ inline void AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationContro
             right_quadrature_node_variable_volume_gradient_adjacency_quadrature =
                 this->getVariableVolumeGradientAdjacencyQuadrature(
                     solver, right_parent_gmsh_type_number_number, right_parent_index_each_type,
-                    right_adjacency_accumulate_quadrature_number +
-                        adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
-        const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
-            adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
-                                                        Device::Slice<SimulationControl::kDimension>::all(),
-                                                        Device::Slice<1>::seqN(j));
-        const Device::View<const Device::Vector<Real, AdjacencyElementTrait::kQuadratureNumber>>
-            jacobian_determinant_multiply_weight = adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(
-                element_index, adjacency_element_mesh.number_);
-        GradientFluxDevice<SimulationControl>::computeVariableVolumeGradientInteriorAdjacencyQuadratureNormalFlux(
-            normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
-            left_quadrature_node_variable_volume_gradient_adjacency_quadrature,
-            right_quadrature_node_variable_volume_gradient_adjacency_quadrature,
-            jacobian_determinant_multiply_weight(j));
+                    right_adjacency_accumulate_quadrature_number + right_quadrature_sequence);
+        for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+          left_quadrature_node_variable_volume_gradient_adjacency_quadrature(m) =
+              quadrature_node_variable_gradient_adjacency_quadrature(m);
+          right_quadrature_node_variable_volume_gradient_adjacency_quadrature(m) =
+              -quadrature_node_variable_gradient_adjacency_quadrature(m);
+        }
         if constexpr (IsNS<SimulationControl::kEquationModel>) {
+          quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+          GradientFluxDevice<SimulationControl>::computeVariableInterfaceGradientInteriorAdjacencyQuadratureNormalFlux(
+              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+              quadrature_node_variable_gradient_adjacency_quadrature, jacobian_determinant_multiply_weight);
           Device::View<
               Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
               left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
@@ -1888,13 +1971,15 @@ inline void AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationContro
               right_quadrature_node_variable_interface_gradient_adjacency_quadrature =
                   this->getVariableInterfaceGradientAdjacencyQuadrature(
                       solver, right_parent_gmsh_type_number_number, right_parent_index_each_type,
-                      right_adjacency_accumulate_quadrature_number +
-                          adjacency_element_quadrature_sequence[static_cast<Usize>(j)]);
-          GradientFluxDevice<SimulationControl>::computeVariableInterfaceGradientInteriorAdjacencyQuadratureNormalFlux(
-              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
-              left_quadrature_node_variable_interface_gradient_adjacency_quadrature,
-              right_quadrature_node_variable_interface_gradient_adjacency_quadrature,
-              jacobian_determinant_multiply_weight(j));
+                      right_adjacency_accumulate_quadrature_number + right_quadrature_sequence);
+          // NOTE: Here h_int(u^-,u^+;n)=(u^+ - u^-)n/2, so the interface gradient flux on the left and right have the
+          // same sign
+          for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+            left_quadrature_node_variable_interface_gradient_adjacency_quadrature(m) =
+                quadrature_node_variable_gradient_adjacency_quadrature(m);
+            right_quadrature_node_variable_interface_gradient_adjacency_quadrature(m) =
+                quadrature_node_variable_gradient_adjacency_quadrature(m);
+          }
         }
       }
     });
@@ -1908,73 +1993,89 @@ inline void AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationContro
   const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   queue.submit([&](sycl::handler& cgh) -> void {
-    cgh.parallel_for(getNdRange(this->boundary_number_), [=, this](sycl::nd_item<1> index) -> void {
-      const auto i = static_cast<Isize>(index.get_global_id(0));
-      if (i >= this->boundary_number_) {
-        return;
-      }
-      const Isize element_index = i + this->interior_number_;
-      const AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>* self = this;
-      const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
-      const Isize adjacency_sequence_in_left_parent =
-          adjacency_element_mesh.adjacency_sequence_in_left_parent_(element_index);
-      const Isize left_parent_gmsh_type_number = adjacency_element_mesh.left_parent_gmsh_type_number_(element_index);
-      const Isize left_adjacency_accumulate_quadrature_number =
-          getAdjacencyElementAccumulateQuadratureNumber<AdjacencyElementTrait, SimulationControl>(
-              left_parent_gmsh_type_number, adjacency_sequence_in_left_parent);
-      const BoundaryConditionEnum boundary_condition_type =
-          adjacency_element_mesh.boundary_condition_type_(element_index);
-      Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
-      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
-      Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
-          right_quadrature_node_computational_variable;
-      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
-          boundary_quadrature_node_interface_gradient_variable;
-      for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-        AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
-            mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number, left_parent_index_each_type,
-            adjacency_sequence_in_left_parent, j);
-        AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
-            mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
-            left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
-        const Device::View<const Device::Vector<Real, SimulationControl::kComputationalVariableNumber>>
-            boundary_dummy_right_computational_variable = self->boundary_dummy_right_computational_variable_.slice(
-                i, this->boundary_number_, Device::Slice<SimulationControl::kComputationalVariableNumber>::all(),
-                Device::Slice<1>::seqN(j));  // the index use i not element_index
-        for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
-          right_quadrature_node_computational_variable(m) = boundary_dummy_right_computational_variable(m);
-        }
-        Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-            left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
-                this->getVariableVolumeGradientAdjacencyQuadrature(solver, left_parent_gmsh_type_number,
-                                                                   left_parent_index_each_type,
-                                                                   left_adjacency_accumulate_quadrature_number + j);
-        const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
-            adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
-                                                        Device::Slice<SimulationControl::kDimension>::all(),
-                                                        Device::Slice<1>::seqN(j));
-        const Device::View<const Device::Vector<Real, AdjacencyElementTrait::kQuadratureNumber>>
-            jacobian_determinant_multiply_weight = adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(
-                element_index, adjacency_element_mesh.number_);
-        GradientFluxDevice<SimulationControl>::computeVariableVolumeGradientBoundaryAdjacencyQuadratureNormalFlux(
-            normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-            right_quadrature_node_computational_variable, boundary_quadrature_node_interface_gradient_variable,
-            left_quadrature_node_variable_volume_gradient_adjacency_quadrature, boundary_condition_type,
-            jacobian_determinant_multiply_weight(j));
-        if constexpr (IsNS<SimulationControl::kEquationModel>) {
+    cgh.parallel_for(
+        getNdRange(this->boundary_number_, AdjacencyElementTrait::kQuadratureNumber),
+        [=, this](sycl::nd_item<2> index) -> void {
+          const auto i = static_cast<Isize>(index.get_global_id(0));
+          const auto j = static_cast<Isize>(index.get_global_id(1));
+          if (i >= this->boundary_number_ || j >= AdjacencyElementTrait::kQuadratureNumber) {
+            return;
+          }
+          const Isize element_index = i + this->interior_number_;
+          const AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>* self = this;
+          const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
+          const Isize adjacency_sequence_in_left_parent =
+              adjacency_element_mesh.adjacency_sequence_in_left_parent_(element_index);
+          const Isize left_parent_gmsh_type_number =
+              adjacency_element_mesh.left_parent_gmsh_type_number_(element_index);
+          const Isize left_adjacency_accumulate_quadrature_number =
+              getAdjacencyElementAccumulateQuadratureNumber<AdjacencyElementTrait, SimulationControl>(
+                  left_parent_gmsh_type_number, adjacency_sequence_in_left_parent);
+          const BoundaryConditionEnum boundary_condition_type =
+              adjacency_element_mesh.boundary_condition_type_(element_index);
+          Device::StaticVector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
+          Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+              left_quadrature_node_conserved_variable;
+          Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>
+              right_quadrature_node_computational_variable;
+          Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+              boundary_quadrature_node_interface_gradient_variable;
+          Device::StaticVector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
+              quadrature_node_variable_gradient_adjacency_quadrature;
+          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::getRotationVelocity(
+              mesh, solver, quadrature_node_rotation_velocity, left_parent_gmsh_type_number,
+              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
+              mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
+              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+          const Device::View<const Device::Vector<Real, SimulationControl::kComputationalVariableNumber>>
+              boundary_dummy_right_computational_variable = self->boundary_dummy_right_computational_variable_.slice(
+                  i, this->boundary_number_, Device::Slice<SimulationControl::kComputationalVariableNumber>::all(),
+                  Device::Slice<1>::seqN(j));  // the index use i not element_index
+          for (Isize m = 0; m < SimulationControl::kComputationalVariableNumber; m++) {
+            right_quadrature_node_computational_variable(m) = boundary_dummy_right_computational_variable(m);
+          }
+          const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
+              adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
+                                                          Device::Slice<SimulationControl::kDimension>::all(),
+                                                          Device::Slice<1>::seqN(j));
+          const Real jacobian_determinant_multiply_weight =
+              adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(element_index,
+                                                                                adjacency_element_mesh.number_)(j);
+          quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+          GradientFluxDevice<SimulationControl>::computeVariableVolumeGradientBoundaryAdjacencyQuadratureNormalFlux(
+              normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
+              right_quadrature_node_computational_variable, boundary_quadrature_node_interface_gradient_variable,
+              quadrature_node_variable_gradient_adjacency_quadrature, boundary_condition_type,
+              jacobian_determinant_multiply_weight);
           Device::View<
               Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-              left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
-                  this->getVariableInterfaceGradientAdjacencyQuadrature(
-                      solver, left_parent_gmsh_type_number, left_parent_index_each_type,
-                      left_adjacency_accumulate_quadrature_number + j);
-          GradientFluxDevice<SimulationControl>::computeVariableInterfaceGradientBoundaryAdjacencyQuadratureNormalFlux(
-              normal_vector, boundary_quadrature_node_interface_gradient_variable,
-              left_quadrature_node_variable_interface_gradient_adjacency_quadrature,
-              jacobian_determinant_multiply_weight(j));
-        }
-      }
-    });
+              left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
+                  this->getVariableVolumeGradientAdjacencyQuadrature(solver, left_parent_gmsh_type_number,
+                                                                     left_parent_index_each_type,
+                                                                     left_adjacency_accumulate_quadrature_number + j);
+          for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+            left_quadrature_node_variable_volume_gradient_adjacency_quadrature(m) =
+                quadrature_node_variable_gradient_adjacency_quadrature(m);
+          }
+          if constexpr (IsNS<SimulationControl::kEquationModel>) {
+            quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+            GradientFluxDevice<SimulationControl>::
+                computeVariableInterfaceGradientBoundaryAdjacencyQuadratureNormalFlux(
+                    normal_vector, boundary_quadrature_node_interface_gradient_variable,
+                    quadrature_node_variable_gradient_adjacency_quadrature, jacobian_determinant_multiply_weight);
+            Device::View<
+                Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+                left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
+                    this->getVariableInterfaceGradientAdjacencyQuadrature(
+                        solver, left_parent_gmsh_type_number, left_parent_index_each_type,
+                        left_adjacency_accumulate_quadrature_number + j);
+            for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+              left_quadrature_node_variable_interface_gradient_adjacency_quadrature(m) =
+                  quadrature_node_variable_gradient_adjacency_quadrature(m);
+            }
+          }
+        });
   });
 }
 
@@ -1985,63 +2086,79 @@ inline void AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationContro
   const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   queue.submit([&](sycl::handler& cgh) -> void {
-    cgh.parallel_for(getNdRange(2 * this->interface_number_), [=, this](sycl::nd_item<1> index) -> void {
-      const auto i = static_cast<Isize>(index.get_global_id(0));
-      if (i >= 2 * this->interface_number_) {
-        return;
-      }
-      const Isize element_index = i + this->interior_number_ + this->boundary_number_;
-      const AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>* self = this;
-      const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
-      const Isize adjacency_sequence_in_left_parent =
-          adjacency_element_mesh.adjacency_sequence_in_left_parent_(element_index);
-      const Isize left_parent_gmsh_type_number = adjacency_element_mesh.left_parent_gmsh_type_number_(element_index);
-      const Isize left_adjacency_accumulate_quadrature_number =
-          getAdjacencyElementAccumulateQuadratureNumber<AdjacencyElementTrait, SimulationControl>(
-              left_parent_gmsh_type_number, adjacency_sequence_in_left_parent);
-      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> left_quadrature_node_conserved_variable;
-      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> right_quadrature_node_conserved_variable;
-      for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-        AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
-            mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
-            left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
-        const Device::View<const Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-            interface_right_conserved_variable = self->interface_right_conserved_variable_.slice(
-                i, 2 * this->interface_number_, Device::Slice<SimulationControl::kConservedVariableNumber>::all(),
-                Device::Slice<1>::seqN(j));  // the index use i not element_index
-        for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
-          right_quadrature_node_conserved_variable(m) = interface_right_conserved_variable(m);
-        }
-        Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-            left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
-                this->getVariableVolumeGradientAdjacencyQuadrature(solver, left_parent_gmsh_type_number,
-                                                                   left_parent_index_each_type,
-                                                                   left_adjacency_accumulate_quadrature_number + j);
-        const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
-            adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
-                                                        Device::Slice<SimulationControl::kDimension>::all(),
-                                                        Device::Slice<1>::seqN(j));
-        const Device::View<const Device::Vector<Real, AdjacencyElementTrait::kQuadratureNumber>>
-            jacobian_determinant_multiply_weight = adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(
-                element_index, adjacency_element_mesh.number_);
-        GradientFluxDevice<SimulationControl>::computeVariableVolumeGradientInterfaceAdjacencyQuadratureNormalFlux(
-            normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
-            left_quadrature_node_variable_volume_gradient_adjacency_quadrature,
-            jacobian_determinant_multiply_weight(j));
-        if constexpr (IsNS<SimulationControl::kEquationModel>) {
+    cgh.parallel_for(
+        getNdRange(2 * this->interface_number_, AdjacencyElementTrait::kQuadratureNumber),
+        [=, this](sycl::nd_item<2> index) -> void {
+          const auto i = static_cast<Isize>(index.get_global_id(0));
+          const auto j = static_cast<Isize>(index.get_global_id(1));
+          if (i >= 2 * this->interface_number_ || j >= AdjacencyElementTrait::kQuadratureNumber) {
+            return;
+          }
+          const Isize element_index = i + this->interior_number_ + this->boundary_number_;
+          const AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>* self = this;
+          const Isize left_parent_index_each_type = adjacency_element_mesh.left_parent_index_each_type_(element_index);
+          const Isize adjacency_sequence_in_left_parent =
+              adjacency_element_mesh.adjacency_sequence_in_left_parent_(element_index);
+          const Isize left_parent_gmsh_type_number =
+              adjacency_element_mesh.left_parent_gmsh_type_number_(element_index);
+          const Isize left_adjacency_accumulate_quadrature_number =
+              getAdjacencyElementAccumulateQuadratureNumber<AdjacencyElementTrait, SimulationControl>(
+                  left_parent_gmsh_type_number, adjacency_sequence_in_left_parent);
+          Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+              left_quadrature_node_conserved_variable;
+          Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>
+              right_quadrature_node_conserved_variable;
+          Device::StaticVector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>
+              quadrature_node_variable_gradient_adjacency_quadrature;
+          AdjacencyElementVariableDevice<AdjacencyElementTrait, SimulationControl>::get(
+              mesh, solver, left_quadrature_node_conserved_variable, left_parent_gmsh_type_number,
+              left_parent_index_each_type, adjacency_sequence_in_left_parent, j);
+          const Device::View<const Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
+              interface_right_conserved_variable = self->interface_right_conserved_variable_.slice(
+                  i, 2 * this->interface_number_, Device::Slice<SimulationControl::kConservedVariableNumber>::all(),
+                  Device::Slice<1>::seqN(j));  // the index use i not element_index
+          for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+            right_quadrature_node_conserved_variable(m) = interface_right_conserved_variable(m);
+          }
+          const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector =
+              adjacency_element_mesh.normal_vector_.slice(element_index, adjacency_element_mesh.number_,
+                                                          Device::Slice<SimulationControl::kDimension>::all(),
+                                                          Device::Slice<1>::seqN(j));
+          const Real jacobian_determinant_multiply_weight =
+              adjacency_element_mesh.jacobian_determinant_multiply_weight_.view(element_index,
+                                                                                adjacency_element_mesh.number_)(j);
+          quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+          GradientFluxDevice<SimulationControl>::computeVariableVolumeGradientInteriorAdjacencyQuadratureNormalFlux(
+              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+              quadrature_node_variable_gradient_adjacency_quadrature, jacobian_determinant_multiply_weight);
           Device::View<
               Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-              left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
-                  this->getVariableInterfaceGradientAdjacencyQuadrature(
-                      solver, left_parent_gmsh_type_number, left_parent_index_each_type,
-                      left_adjacency_accumulate_quadrature_number + j);
-          GradientFluxDevice<SimulationControl>::computeVariableInterfaceGradientInterfaceAdjacencyQuadratureNormalFlux(
-              normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
-              left_quadrature_node_variable_interface_gradient_adjacency_quadrature,
-              jacobian_determinant_multiply_weight(j));
-        }
-      }
-    });
+              left_quadrature_node_variable_volume_gradient_adjacency_quadrature =
+                  this->getVariableVolumeGradientAdjacencyQuadrature(solver, left_parent_gmsh_type_number,
+                                                                     left_parent_index_each_type,
+                                                                     left_adjacency_accumulate_quadrature_number + j);
+          for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+            left_quadrature_node_variable_volume_gradient_adjacency_quadrature(m) =
+                quadrature_node_variable_gradient_adjacency_quadrature(m);
+          }
+          if constexpr (IsNS<SimulationControl::kEquationModel>) {
+            quadrature_node_variable_gradient_adjacency_quadrature.setZero();
+            GradientFluxDevice<SimulationControl>::
+                computeVariableInterfaceGradientInteriorAdjacencyQuadratureNormalFlux(
+                    normal_vector, left_quadrature_node_conserved_variable, right_quadrature_node_conserved_variable,
+                    quadrature_node_variable_gradient_adjacency_quadrature, jacobian_determinant_multiply_weight);
+            Device::View<
+                Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+                left_quadrature_node_variable_interface_gradient_adjacency_quadrature =
+                    this->getVariableInterfaceGradientAdjacencyQuadrature(
+                        solver, left_parent_gmsh_type_number, left_parent_index_each_type,
+                        left_adjacency_accumulate_quadrature_number + j);
+            for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+              left_quadrature_node_variable_interface_gradient_adjacency_quadrature(m) =
+                  quadrature_node_variable_gradient_adjacency_quadrature(m);
+            }
+          }
+        });
   });
 }
 

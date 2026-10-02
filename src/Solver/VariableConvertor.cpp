@@ -58,7 +58,6 @@ struct VariableIndex {
         return SimulationControl::kDimension + 1;
       }
     }
-    std::unreachable();
   }
 
   template <ComputationalVariableEnum ComputationalVariableType>
@@ -95,7 +94,6 @@ struct VariableIndex {
         return SimulationControl::kDimension + 2;
       }
     }
-    std::unreachable();
   }
 
   template <PrimitiveVariableEnum PrimitiveVariableType>
@@ -114,7 +112,6 @@ struct VariableIndex {
         return SimulationControl::kDimension + 1;
       }
     }
-    std::unreachable();
   }
 
   template <VariableGradientEnum VariableGradientType>
@@ -126,7 +123,6 @@ struct VariableIndex {
     } else if constexpr (VariableGradientType == VariableGradientEnum::Z) {
       return 2;
     }
-    std::unreachable();
   }
 };
 
@@ -158,8 +154,7 @@ struct Variable {
           density * (Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
                          computational_variable) +
                      velocity.squaredNorm() / 2.0_r);
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density =
           Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(computational_variable);
       Variable<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(conserved_variable) = density;
@@ -196,8 +191,7 @@ struct Variable {
       Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(computational_variable) =
           PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
               density, internal_energy);
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density =
           Variable<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(conserved_variable);
       Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(computational_variable) =
@@ -235,8 +229,7 @@ struct Variable {
       Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Pressure>(computational_variable) =
           PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
               density, internal_energy);
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density =
           Variable<SimulationControl>::template getScalar<PrimitiveVariableEnum::Density>(primitive_variable);
       Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(computational_variable) =
@@ -290,8 +283,7 @@ struct VariableDevice {
           density * (VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
                          computational_variable) +
                      velocity.squaredNorm() / 2.0_r);
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
           computational_variable);
       VariableDevice<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(conserved_variable) =
@@ -338,8 +330,7 @@ struct VariableDevice {
           computational_variable) =
           PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
               density, internal_energy);
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density =
           VariableDevice<SimulationControl>::template getScalar<ConservedVariableEnum::Density>(conserved_variable);
       VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
@@ -391,8 +382,7 @@ struct VariableDevice {
           computational_variable) =
           PhysicalModel<SimulationControl, PhysicalModelData>::computePressureFromDensityInternalEnergy(
               density, internal_energy);
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density =
           VariableDevice<SimulationControl>::template getScalar<PrimitiveVariableEnum::Density>(primitive_variable);
       VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
@@ -836,8 +826,7 @@ struct VariableGradient {
       }
       VariableGradient<SimulationControl>::template getScalarGradient<PrimitiveVariableEnum::Temperature>(
           primitive_variable_gradient) = temperature_gradient;
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density =
           Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(computational_variable);
       const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> density_gradient =
@@ -951,8 +940,7 @@ struct VariableGradientDevice {
                 (density_total_energy_gradient(m) - density_gradient(m) * total_energy) / density -
                 velocity_gradient_dot_velocity);
       }
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
           computational_variable);
       const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> density_gradient =

@@ -134,37 +134,6 @@ inline void SubrosaDG::BoundaryCondition<SimulationControl>::computePrimitiveFro
   }
 }
 
-template <typename SimulationControl>
-inline void SubrosaDG::BoundaryConditionDevice<SimulationControl>::computePrimitiveFromCoordinate(
-    const SubrosaDG::Device::View<const Device::Vector<SubrosaDG::Real, SimulationControl::kDimension>> coordinate,
-    SubrosaDG::Device::StaticVector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>&
-        boundary_primitive_variable,
-    const SubrosaDG::Real time, const SubrosaDG::Isize gmsh_physical_index) {
-  if (gmsh_physical_index == 1) {
-    boundary_primitive_variable(0) = 1.0_r;
-    boundary_primitive_variable(1) = 4.0_r * 1.5_r * sycl::sin(SubrosaDG::kPi * time / 8.0_r) * coordinate(1) *
-                                     (0.41_r - coordinate(1)) / (0.41_r * 0.41_r);
-    boundary_primitive_variable(2) = 0.0_r;
-    boundary_primitive_variable(3) = 1.0_r;
-  } else if (gmsh_physical_index == 2) {
-    boundary_primitive_variable(0) = 1.0_r;
-    boundary_primitive_variable(1) = 4.0_r * 1.5_r * sycl::sin(SubrosaDG::kPi * time / 8.0_r) * coordinate(1) *
-                                     (0.41_r - coordinate(1)) / (0.41_r * 0.41_r);
-    boundary_primitive_variable(2) = 0.0_r;
-    boundary_primitive_variable(3) = 1.0_r;
-  } else if (gmsh_physical_index == 3) {
-    boundary_primitive_variable(0) = 1.0_r;
-    boundary_primitive_variable(1) = 0.0_r;
-    boundary_primitive_variable(2) = 0.0_r;
-    boundary_primitive_variable(3) = 1.0_r;
-  } else if (gmsh_physical_index == 4) {
-    boundary_primitive_variable(0) = 1.0_r;
-    boundary_primitive_variable(1) = 0.0_r;
-    boundary_primitive_variable(2) = 0.0_r;
-    boundary_primitive_variable(3) = 1.0_r;
-  }
-}
-
 int main(int argc, char* argv[]) {
   static_cast<void>(argc);
   static_cast<void>(argv);

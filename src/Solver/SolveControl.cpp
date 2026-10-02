@@ -829,18 +829,15 @@ struct Solver : SolverData<SimulationControl> {
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (VolumeElementTrait::kElementType == ElementEnum::Triangle) {
         return &Solver<SimulationControl>::triangle_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &Solver<SimulationControl>::quadrangle_;
       }
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (VolumeElementTrait::kElementType == ElementEnum::Tetrahedron) {
         return &Solver<SimulationControl>::tetrahedron_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
         return &Solver<SimulationControl>::pyramid_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
         return &Solver<SimulationControl>::hexahedron_;
       }
     }
@@ -860,8 +857,7 @@ struct Solver : SolverData<SimulationControl> {
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
         return &Solver<SimulationControl>::triangle_;
-      }
-      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &Solver<SimulationControl>::quadrangle_;
       }
     }
@@ -883,7 +879,8 @@ struct Solver : SolverData<SimulationControl> {
   inline void rotateMesh(Mesh<SimulationControl>& mesh, const TimeIntegration<SimulationControl>& time_integration,
                          /*const*/ int rk_step);
 
-  inline void computeVolumeQuadrature(const Mesh<SimulationControl>& mesh, const SourceTerm<SimulationControl>& source_term);
+  inline void computeVolumeQuadrature(const Mesh<SimulationControl>& mesh,
+                                      const SourceTerm<SimulationControl>& source_term);
 
   inline void computeVolumeGradientQuadrature(const Mesh<SimulationControl>& mesh);
 
@@ -922,18 +919,15 @@ struct SolverDevice : SolverDataDevice<SimulationControl> {
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (VolumeElementTrait::kElementType == ElementEnum::Triangle) {
         return &SolverDevice<SimulationControl>::triangle_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &SolverDevice<SimulationControl>::quadrangle_;
       }
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (VolumeElementTrait::kElementType == ElementEnum::Tetrahedron) {
         return &SolverDevice<SimulationControl>::tetrahedron_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
         return &SolverDevice<SimulationControl>::pyramid_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
         return &SolverDevice<SimulationControl>::hexahedron_;
       }
     }
@@ -953,8 +947,7 @@ struct SolverDevice : SolverDataDevice<SimulationControl> {
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
         return &SolverDevice<SimulationControl>::triangle_;
-      }
-      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &SolverDevice<SimulationControl>::quadrangle_;
       }
     }
@@ -972,7 +965,7 @@ struct SolverDevice : SolverDataDevice<SimulationControl> {
                          /*const*/ int rk_step);
 
   inline void computeVolumeQuadrature(const MeshDevice<SimulationControl>& mesh,
-                                [[maybe_unused]] const SourceTermDevice<SimulationControl>& source_term);
+                                      [[maybe_unused]] const SourceTermDevice<SimulationControl>& source_term);
 
   inline void computeVolumeGradientQuadrature(const MeshDevice<SimulationControl>& mesh);
 

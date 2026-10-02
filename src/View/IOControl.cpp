@@ -99,18 +99,15 @@ struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimens
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (VolumeElementTrait::kElementType == ElementEnum::Triangle) {
         return &ViewSolver::triangle_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &ViewSolver::quadrangle_;
       }
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (VolumeElementTrait::kElementType == ElementEnum::Tetrahedron) {
         return &ViewSolver::tetrahedron_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
         return &ViewSolver::pyramid_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
         return &ViewSolver::hexahedron_;
       }
     }
@@ -130,8 +127,7 @@ struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimens
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
         return &ViewSolver::triangle_;
-      }
-      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &ViewSolver::quadrangle_;
       }
     }

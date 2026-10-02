@@ -1,4 +1,4 @@
-FROM fedora:43
+FROM fedora:44
 
 RUN groupadd --gid 1000 user && \
 useradd -s /bin/bash --uid 1000 --gid 1000 -m user && \

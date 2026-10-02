@@ -29,12 +29,10 @@ struct Environment {
 #ifdef SUBROSA_DG_DEVELOP
     global_limit_ =
         std::make_unique<oneapi::tbb::global_control>(oneapi::tbb::global_control::max_allowed_parallelism, 1);
-    omp_set_num_threads(1);
     gmsh::option::setNumber("General.NumThreads", 1);
 #else   // SUBROSA_DG_DEVELOP
     global_limit_ = std::make_unique<oneapi::tbb::global_control>(oneapi::tbb::global_control::max_allowed_parallelism,
                                                                   kNumberOfPhysicalCores - 1);
-    omp_set_num_threads(kNumberOfPhysicalCores - 1);
     gmsh::option::setNumber("General.NumThreads", kNumberOfPhysicalCores - 1);
 #endif  // SUBROSA_DG_DEVELOP
   }

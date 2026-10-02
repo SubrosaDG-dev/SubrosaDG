@@ -50,8 +50,7 @@ struct ConvectiveFlux {
           velocity.squaredNorm() / 2.0_r;
       RawFlux<SimulationControl>::template getScalarDimension<ConservedVariableEnum::DensityTotalEnergy>(
           convective_raw_flux) = (density * total_energy + pressure) * velocity;
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
           quadrature_node_computational_variable);
       const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> velocity =
@@ -104,8 +103,7 @@ struct ConvectiveFlux {
           velocity.squaredNorm() / 2.0_r;
       NormalFlux<SimulationControl>::template getScalar<ConservedVariableEnum::DensityTotalEnergy>(
           convective_normal_flux) += (density * total_energy + pressure) * normal_velocity;
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
           quadrature_node_computational_variable);
       const Eigen::Ref<const Eigen::Vector<Real, SimulationControl::kDimension>> velocity =
@@ -529,10 +527,7 @@ struct ConvectiveFlux {
       const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& right_quadrature_node_conserved_variable,
       const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
           right_quadrature_node_computational_variable,
-      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
-          left_quadrature_node_variable_adjacency_quadrature,
-      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
-          right_quadrature_node_variable_adjacency_quadrature,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& quadrature_node_variable_adjacency_quadrature,
       const Real jacobian_determinant_multiply_weight) {
     Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> convective_normal_flux;
     if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Central) {
@@ -561,9 +556,7 @@ struct ConvectiveFlux {
       //     left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
       //     right_quadrature_node_computational_variable, convective_normal_flux);
     }
-    left_quadrature_node_variable_adjacency_quadrature.noalias() +=
-        convective_normal_flux * jacobian_determinant_multiply_weight;
-    right_quadrature_node_variable_adjacency_quadrature.noalias() -=
+    quadrature_node_variable_adjacency_quadrature.noalias() +=
         convective_normal_flux * jacobian_determinant_multiply_weight;
   }
 
@@ -576,8 +569,7 @@ struct ConvectiveFlux {
           right_quadrature_node_computational_variable,
       Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
           boundary_quadrature_node_computational_variable,
-      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
-          left_quadrature_node_variable_adjacency_quadrature,
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& quadrature_node_variable_adjacency_quadrature,
       const BoundaryConditionEnum boundary_condition_type, const Real jacobian_determinant_multiply_weight) {
     Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> boundary_quadrature_node_conserved_variable;
     BoundaryCondition<SimulationControl>::computeBoundaryVariable(
@@ -593,49 +585,7 @@ struct ConvectiveFlux {
     ConvectiveFlux<SimulationControl>::minusNormalALEFlux(normal_vector, quadrature_node_rotation_velocity,
                                                           boundary_quadrature_node_conserved_variable,
                                                           convective_normal_flux);
-    left_quadrature_node_variable_adjacency_quadrature += convective_normal_flux * jacobian_determinant_multiply_weight;
-  }
-
-  static void addVariableInterfaceAdjacencyQuadratureNormalFlux(
-      const Eigen::Vector<Real, SimulationControl::kDimension>& normal_vector,
-      const Eigen::Vector<Real, SimulationControl::kDimension>& quadrature_node_rotation_velocity,
-      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& left_quadrature_node_conserved_variable,
-      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
-          left_quadrature_node_computational_variable,
-      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& right_quadrature_node_conserved_variable,
-      const Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber>&
-          right_quadrature_node_computational_variable,
-      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>>
-          left_quadrature_node_variable_adjacency_quadrature,
-      const Real jacobian_determinant_multiply_weight) {
-    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> convective_normal_flux;
-    if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Central) {
-      ConvectiveFlux<SimulationControl>::computeCentralFlux(
-          normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-          left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-          right_quadrature_node_computational_variable, convective_normal_flux);
-    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::LaxFriedrichs) {
-      ConvectiveFlux<SimulationControl>::computeLaxFriedrichsFlux(
-          normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-          left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-          right_quadrature_node_computational_variable, convective_normal_flux);
-    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::HLLC) {
-      ConvectiveFlux<SimulationControl>::computeHLLCFlux(
-          normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-          left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-          right_quadrature_node_computational_variable, convective_normal_flux);
-    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Roe) {
-      // ConvectiveFlux<SimulationControl>::computeRoeFlux(
-      //     normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-      //     left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-      //     right_quadrature_node_computational_variable, convective_normal_flux);
-    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Exact) {
-      // ConvectiveFlux<SimulationControl>::computeExactFlux(
-      //     normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-      //     left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-      //     right_quadrature_node_computational_variable, convective_normal_flux);
-    }
-    left_quadrature_node_variable_adjacency_quadrature.noalias() +=
+    quadrature_node_variable_adjacency_quadrature.noalias() +=
         convective_normal_flux * jacobian_determinant_multiply_weight;
   }
 };
@@ -679,8 +629,7 @@ struct ConvectiveFluxDevice {
       for (Isize m = 0; m < SimulationControl::kDimension; m++) {
         energy_flux(m) = (density * total_energy + pressure) * velocity(m);
       }
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
           quadrature_node_computational_variable);
       const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> velocity =
@@ -759,8 +708,7 @@ struct ConvectiveFluxDevice {
           velocity.squaredNorm() / 2.0_r;
       NormalFluxDevice<SimulationControl>::template getScalar<ConservedVariableEnum::DensityTotalEnergy>(
           convective_normal_flux) += (density * total_energy + pressure) * normal_velocity;
-    }
-    if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
+    } else if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       const Real density = VariableDevice<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
           quadrature_node_computational_variable);
       const Device::View<const Device::StaticVector<Real, SimulationControl::kDimension>> velocity =
@@ -1173,10 +1121,8 @@ struct ConvectiveFluxDevice {
           right_quadrature_node_conserved_variable,
       const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
           right_quadrature_node_computational_variable,
-      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-          left_quadrature_node_variable_adjacency_quadrature,
-      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-          right_quadrature_node_variable_adjacency_quadrature,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          quadrature_node_variable_adjacency_quadrature,
       const Real jacobian_determinant_multiply_weight) {
     Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> convective_normal_flux;
     if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Central) {
@@ -1205,9 +1151,7 @@ struct ConvectiveFluxDevice {
       //     right_quadrature_node_computational_variable, convective_normal_flux);
     }
     for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
-      left_quadrature_node_variable_adjacency_quadrature(m) +=
-          convective_normal_flux(m) * jacobian_determinant_multiply_weight;
-      right_quadrature_node_variable_adjacency_quadrature(m) -=
+      quadrature_node_variable_adjacency_quadrature(m) +=
           convective_normal_flux(m) * jacobian_determinant_multiply_weight;
     }
   }
@@ -1221,8 +1165,8 @@ struct ConvectiveFluxDevice {
           right_quadrature_node_computational_variable,
       Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
           boundary_quadrature_node_computational_variable,
-      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-          left_quadrature_node_variable_adjacency_quadrature,
+      Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
+          quadrature_node_variable_adjacency_quadrature,
       const BoundaryConditionEnum boundary_condition_type, const Real jacobian_determinant_multiply_weight) {
     Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> boundary_quadrature_node_conserved_variable;
     BoundaryConditionDevice<SimulationControl>::computeBoundaryVariable(
@@ -1239,53 +1183,7 @@ struct ConvectiveFluxDevice {
                                                                 boundary_quadrature_node_conserved_variable,
                                                                 convective_normal_flux);
     for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
-      left_quadrature_node_variable_adjacency_quadrature(m) +=
-          convective_normal_flux(m) * jacobian_determinant_multiply_weight;
-    }
-  }
-
-  static void addVariableInterfaceAdjacencyQuadratureNormalFlux(
-      const Device::View<const Device::Vector<Real, SimulationControl::kDimension>> normal_vector,
-      const Device::StaticVector<Real, SimulationControl::kDimension>& quadrature_node_rotation_velocity,
-      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
-          left_quadrature_node_conserved_variable,
-      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
-          left_quadrature_node_computational_variable,
-      const Device::StaticVector<Real, SimulationControl::kConservedVariableNumber>&
-          right_quadrature_node_conserved_variable,
-      const Device::StaticVector<Real, SimulationControl::kComputationalVariableNumber>&
-          right_quadrature_node_computational_variable,
-      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>>
-          left_quadrature_node_variable_adjacency_quadrature,
-      const Real jacobian_determinant_multiply_weight) {
-    Device::StaticVector<Real, SimulationControl::kConservedVariableNumber> convective_normal_flux;
-    if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Central) {
-      ConvectiveFluxDevice<SimulationControl>::computeCentralFlux(
-          normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_computational_variable,
-          right_quadrature_node_computational_variable, convective_normal_flux);
-    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::LaxFriedrichs) {
-      ConvectiveFluxDevice<SimulationControl>::computeLaxFriedrichsFlux(
-          normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-          left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-          right_quadrature_node_computational_variable, convective_normal_flux);
-    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::HLLC) {
-      ConvectiveFluxDevice<SimulationControl>::computeHLLCFlux(
-          normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-          left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-          right_quadrature_node_computational_variable, convective_normal_flux);
-    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Roe) {
-      // ConvectiveFluxDevice<SimulationControl>::computeRoeFlux(
-      //     normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-      //     left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-      //     right_quadrature_node_computational_variable, convective_normal_flux);
-    } else if constexpr (SimulationControl::kConvectiveFlux == ConvectiveFluxEnum::Exact) {
-      // ConvectiveFluxDevice<SimulationControl>::computeExactFlux(
-      //     normal_vector, quadrature_node_rotation_velocity, left_quadrature_node_conserved_variable,
-      //     left_quadrature_node_computational_variable, right_quadrature_node_conserved_variable,
-      //     right_quadrature_node_computational_variable, convective_normal_flux);
-    }
-    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
-      left_quadrature_node_variable_adjacency_quadrature(m) +=
+      quadrature_node_variable_adjacency_quadrature(m) +=
           convective_normal_flux(m) * jacobian_determinant_multiply_weight;
     }
   }

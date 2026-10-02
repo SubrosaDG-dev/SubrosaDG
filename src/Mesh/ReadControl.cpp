@@ -543,18 +543,15 @@ struct Mesh : MeshData<SimulationControl> {
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (VolumeElementTrait::kElementType == ElementEnum::Triangle) {
         return &Mesh::triangle_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &Mesh::quadrangle_;
       }
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (VolumeElementTrait::kElementType == ElementEnum::Tetrahedron) {
         return &Mesh::tetrahedron_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
         return &Mesh::pyramid_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
         return &Mesh::hexahedron_;
       }
     }
@@ -574,8 +571,7 @@ struct Mesh : MeshData<SimulationControl> {
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
         return &Mesh::triangle_;
-      }
-      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &Mesh::quadrangle_;
       }
     }
@@ -694,18 +690,15 @@ struct MeshDevice : MeshDataDevice<SimulationControl> {
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (VolumeElementTrait::kElementType == ElementEnum::Triangle) {
         return &MeshDevice::triangle_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &MeshDevice::quadrangle_;
       }
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (VolumeElementTrait::kElementType == ElementEnum::Tetrahedron) {
         return &MeshDevice::tetrahedron_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Pyramid) {
         return &MeshDevice::pyramid_;
-      }
-      if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
+      } else if constexpr (VolumeElementTrait::kElementType == ElementEnum::Hexahedron) {
         return &MeshDevice::hexahedron_;
       }
     }
@@ -725,8 +718,7 @@ struct MeshDevice : MeshDataDevice<SimulationControl> {
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Triangle) {
         return &MeshDevice::triangle_;
-      }
-      if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+      } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
         return &MeshDevice::quadrangle_;
       }
     }

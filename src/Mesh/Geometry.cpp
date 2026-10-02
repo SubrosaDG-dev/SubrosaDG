@@ -29,22 +29,27 @@ namespace SubrosaDG {
 
 template <typename VolumeElementTrait>
 inline void VolumeElementMesh<VolumeElementTrait>::getVolumeElementQuality() {
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
-  for (Isize i = 0; i < this->number_; i++) {
-    std::vector<double> element_min_edge;
-    gmsh::model::mesh::getElementQualities({static_cast<std::size_t>(this->gmsh_tag_(i))}, element_min_edge, "minEdge");
-    this->minimum_edge_(i) = static_cast<Real>(element_min_edge[0]);
+  std::vector<std::size_t> element_tags(static_cast<std::size_t>(this->number_));
+  for (Usize i = 0; i < static_cast<Usize>(this->number_); i++) {
+    element_tags[i] = static_cast<std::size_t>(this->gmsh_tag_(i));
+  }
+  std::vector<double> element_min_edge;
+  gmsh::model::mesh::getElementQualities(element_tags, element_min_edge, "minEdge");
+  for (Usize i = 0; i < static_cast<Usize>(this->number_); i++) {
+    this->minimum_edge_(i) = static_cast<Real>(element_min_edge[i]);
   }
 }
 
 template <typename AdjacencyElementTrait>
 inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementQuality() {
-#pragma omp parallel for default(none) schedule(nonmonotonic : auto) shared(Eigen::Dynamic)
-  for (Isize i = 0; i < this->number_; i++) {
-    std::vector<double> element_inner_radius;
-    gmsh::model::mesh::getElementQualities({static_cast<std::size_t>(this->gmsh_tag_(i))}, element_inner_radius,
-                                           "innerRadius");
-    this->inner_radius_(i) = static_cast<Real>(element_inner_radius[0]);
+  std::vector<std::size_t> element_tags(static_cast<std::size_t>(this->number_));
+  for (Usize i = 0; i < static_cast<Usize>(this->number_); i++) {
+    element_tags[i] = static_cast<std::size_t>(this->gmsh_tag_(i));
+  }
+  std::vector<double> element_inner_radius;
+  gmsh::model::mesh::getElementQualities(element_tags, element_inner_radius, "innerRadius");
+  for (Usize i = 0; i < static_cast<Usize>(this->number_); i++) {
+    this->inner_radius_(i) = static_cast<Real>(element_inner_radius[i]);
   }
 }
 
