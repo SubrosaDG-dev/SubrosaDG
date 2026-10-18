@@ -15,6 +15,7 @@
 
 #include <gmsh.h>
 
+#include <Eigen/Core>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -87,6 +88,17 @@ struct Jacobi {
       x[k] = -x[static_cast<Usize>(degree) - k - 1];
     }
     return x;
+  }
+};
+
+template <int PolynomialOrder>
+struct Bernstein {
+  static Real value(const Isize index, const Real coordinate) {
+    Real coefficient = 1.0_r;
+    for (Isize i = 1; i <= index; i++) {
+      coefficient *= static_cast<Real>(PolynomialOrder - i + 1) / static_cast<Real>(i);
+    }
+    return coefficient * std::pow(coordinate, index) * std::pow(1.0_r - coordinate, PolynomialOrder - index);
   }
 };
 

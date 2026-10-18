@@ -740,6 +740,9 @@ inline void Solver<SimulationControl>::stepSolver(Mesh<SimulationControl>& mesh,
     this->computeAdjacencyGradientQuadrature(mesh);
     this->computeGradientResidual(mesh);
     this->updateGradientBasisFunctionCoefficient(mesh);
+    if constexpr (IsNS<SimulationControl::kEquationModel>) {
+      this->updateInterfaceVariableGradient(mesh);
+    }
     this->computeVolumeQuadrature(mesh, source_term);
     this->computeAdjacencyQuadrature(mesh);
     this->computeResidual(mesh);
@@ -759,6 +762,9 @@ inline void SolverDevice<SimulationControl>::stepSolver(MeshDevice<SimulationCon
     this->computeAdjacencyGradientQuadrature(mesh);
     this->computeGradientResidual(mesh);
     this->updateGradientBasisFunctionCoefficient(mesh);
+    if constexpr (IsNS<SimulationControl::kEquationModel>) {
+      this->updateInterfaceVariableGradient(mesh);
+    }
     this->computeVolumeQuadrature(mesh, source_term);
     this->computeAdjacencyQuadrature(mesh);
     this->computeResidual(mesh);

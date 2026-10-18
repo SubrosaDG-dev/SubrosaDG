@@ -192,7 +192,7 @@ inline void Solver<SimulationControl>::rotateMesh(Mesh<SimulationControl>& mesh,
       mesh.quadrangle_.computeVolumeElementJacobian(false);
     }
     this->line_.rotateAdjacencyElementMesh(mesh.line_, this->rotation_center_, this->rotation_matrix_);
-    mesh.line_.computeAdjacencyElementOtherNodeCoordinate(false);
+    mesh.line_.computeAdjacencyElementQuadratureNodeCoordinate(false);
     mesh.line_.computeAdjacencyElementNormalVector(false);
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
@@ -212,12 +212,12 @@ inline void Solver<SimulationControl>::rotateMesh(Mesh<SimulationControl>& mesh,
     }
     if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
       this->triangle_.rotateAdjacencyElementMesh(mesh.triangle_, this->rotation_center_, this->rotation_matrix_);
-      mesh.triangle_.computeAdjacencyElementOtherNodeCoordinate(false);
+      mesh.triangle_.computeAdjacencyElementQuadratureNodeCoordinate(false);
       mesh.triangle_.computeAdjacencyElementNormalVector(false);
     }
     if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.rotateAdjacencyElementMesh(mesh.quadrangle_, this->rotation_center_, this->rotation_matrix_);
-      mesh.quadrangle_.computeAdjacencyElementOtherNodeCoordinate(false);
+      mesh.quadrangle_.computeAdjacencyElementQuadratureNodeCoordinate(false);
       mesh.quadrangle_.computeAdjacencyElementNormalVector(false);
     }
   }
@@ -283,7 +283,7 @@ inline void SolverDevice<SimulationControl>::rotateMesh(MeshDevice<SimulationCon
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
       mesh.quadrangle_.computeVolumeElementJacobian(false);
     }
-    mesh.line_.computeAdjacencyElementOtherNodeCoordinate(false);
+    mesh.line_.computeAdjacencyElementQuadratureNodeCoordinate(false);
     mesh.line_.computeAdjacencyElementNormalVector(false);
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
@@ -296,11 +296,11 @@ inline void SolverDevice<SimulationControl>::rotateMesh(MeshDevice<SimulationCon
       mesh.hexahedron_.computeVolumeElementJacobian(false);
     }
     if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
-      mesh.triangle_.computeAdjacencyElementOtherNodeCoordinate(false);
+      mesh.triangle_.computeAdjacencyElementQuadratureNodeCoordinate(false);
       mesh.triangle_.computeAdjacencyElementNormalVector(false);
     }
     if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
-      mesh.quadrangle_.computeAdjacencyElementOtherNodeCoordinate(false);
+      mesh.quadrangle_.computeAdjacencyElementQuadratureNodeCoordinate(false);
       mesh.quadrangle_.computeAdjacencyElementNormalVector(false);
     }
   }
@@ -308,187 +308,9 @@ inline void SolverDevice<SimulationControl>::rotateMesh(MeshDevice<SimulationCon
 }
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
-template <typename VolumeElementTrait>
-inline void
-AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeAdjacencyPerElementInterfaceVariable(
-    const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
-    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
-    const Eigen::Vector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
-    Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable,
-    const Isize parent_index_each_type, const Isize adjacency_sequence_in_parent) {
-  Eigen::Vector<Real, VolumeElementTrait::kDimension> volume_local_coordinate;
-  adjacency_element_mesh.template getAdjacencyElementParentVolumeLocalCoordinate<VolumeElementTrait>(
-      volume_element_mesh.lagrange_basic_node_coordinate_, adjacency_local_coordinate, volume_local_coordinate,
-      adjacency_sequence_in_parent);
-  Eigen::Vector<Real, VolumeElementTrait::kAllBasisFunctionNumber> volume_basis_function_value;
-  volume_element_mesh.computeLagrangeValue(volume_local_coordinate, volume_basis_function_value);
-  interface_conserved_variable.noalias() =
-      volume_element_solver.variable_basis_function_coefficient_(parent_index_each_type) * volume_basis_function_value;
-}
-
-template <typename AdjacencyElementTrait, typename SimulationControl>
-template <typename VolumeElementTrait, ViscousFluxEnum ViscousFluxType>
-inline void
-AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::computeAdjacencyPerElementInterfaceVariable(
-    const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
-    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
-    const Eigen::Vector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
-    Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable,
-    Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-        interface_conserved_variable_gradient,
-    const Isize parent_index_each_type, const Isize adjacency_sequence_in_parent) {
-  Eigen::Vector<Real, VolumeElementTrait::kDimension> volume_local_coordinate;
-  adjacency_element_mesh.template getAdjacencyElementParentVolumeLocalCoordinate<VolumeElementTrait>(
-      volume_element_mesh.lagrange_basic_node_coordinate_, adjacency_local_coordinate, volume_local_coordinate,
-      adjacency_sequence_in_parent);
-  Eigen::Vector<Real, VolumeElementTrait::kAllBasisFunctionNumber> volume_basis_function_value;
-  volume_element_mesh.computeLagrangeValue(volume_local_coordinate, volume_basis_function_value);
-  interface_conserved_variable.noalias() =
-      volume_element_solver.variable_basis_function_coefficient_(parent_index_each_type) * volume_basis_function_value;
-  if constexpr (ViscousFluxType == ViscousFluxEnum::None) {
-    interface_conserved_variable_gradient.noalias() =
-        volume_element_solver.variable_volume_gradient_basis_function_coefficient_(parent_index_each_type) *
-        volume_basis_function_value;
-  } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR1) {
-    interface_conserved_variable_gradient.noalias() =
-        volume_element_solver.variable_gradient_basis_function_coefficient_(parent_index_each_type) *
-        volume_basis_function_value;
-  } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR2) {
-    const Eigen::Ref<
-        const Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                            VolumeElementTrait::kAllBasisFunctionNumber>>
-        variable_interface_gradient_basis_function_coefficient =
-            volume_element_solver.variable_interface_gradient_basis_function_coefficient_(parent_index_each_type)(
-                Eigen::placeholders::all,
-                Eigen::seqN(adjacency_sequence_in_parent * VolumeElementTrait::kAllBasisFunctionNumber,
-                            Eigen::fix<VolumeElementTrait::kAllBasisFunctionNumber>));
-    interface_conserved_variable_gradient.noalias() =
-        (volume_element_solver.variable_volume_gradient_basis_function_coefficient_(parent_index_each_type) +
-         variable_interface_gradient_basis_function_coefficient) *
-        volume_basis_function_value;
-  }
-}
-
-template <typename AdjacencyElementTrait, typename SimulationControl>
-template <typename VolumeElementTrait>
-inline void
-AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeAdjacencyPerElementInterfaceVariable(
-    const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
-    const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh,
-    const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>& volume_element_solver,
-    const Device::StaticVector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
-    Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable,
-    const Isize parent_index_each_type, const Isize adjacency_sequence_in_parent) {
-  Device::StaticVector<Real, VolumeElementTrait::kDimension> volume_local_coordinate;
-  adjacency_element_mesh.template getAdjacencyElementParentVolumeLocalCoordinate<VolumeElementTrait>(
-      volume_element_mesh.lagrange_basic_node_coordinate_, adjacency_local_coordinate, volume_local_coordinate,
-      adjacency_sequence_in_parent);
-  Device::StaticVector<Real, VolumeElementTrait::kAllBasisFunctionNumber> volume_basis_function_value;
-  volume_element_mesh.computeLagrangeValue(volume_local_coordinate, volume_basis_function_value);
-  const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                                          VolumeElementTrait::kAllBasisFunctionNumber>>
-      variable_basis_function_coefficient = volume_element_solver.variable_basis_function_coefficient_.view(
-          parent_index_each_type, volume_element_solver.number_);
-  for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
-    Real sum = 0.0_r;
-    for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
-      sum += variable_basis_function_coefficient(m, n) * volume_basis_function_value(n);
-    }
-    interface_conserved_variable(m) = sum;
-  }
-}
-
-template <typename AdjacencyElementTrait, typename SimulationControl>
-template <typename VolumeElementTrait, ViscousFluxEnum ViscousFluxType>
-inline void
-AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::computeAdjacencyPerElementInterfaceVariable(
-    const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
-    const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh,
-    const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>& volume_element_solver,
-    const Device::StaticVector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
-    Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable,
-    Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-        interface_conserved_variable_gradient,
-    const Isize parent_index_each_type, const Isize adjacency_sequence_in_parent) {
-  Device::StaticVector<Real, VolumeElementTrait::kDimension> volume_local_coordinate;
-  adjacency_element_mesh.template getAdjacencyElementParentVolumeLocalCoordinate<VolumeElementTrait>(
-      volume_element_mesh.lagrange_basic_node_coordinate_, adjacency_local_coordinate, volume_local_coordinate,
-      adjacency_sequence_in_parent);
-  Device::StaticVector<Real, VolumeElementTrait::kAllBasisFunctionNumber> volume_basis_function_value;
-  volume_element_mesh.computeLagrangeValue(volume_local_coordinate, volume_basis_function_value);
-  const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                                          VolumeElementTrait::kAllBasisFunctionNumber>>
-      variable_basis_function_coefficient = volume_element_solver.variable_basis_function_coefficient_.view(
-          parent_index_each_type, volume_element_solver.number_);
-  for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
-    Real sum = 0.0_r;
-    for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
-      sum += variable_basis_function_coefficient(m, n) * volume_basis_function_value(n);
-    }
-    interface_conserved_variable(m) = sum;
-  }
-  if constexpr (ViscousFluxType == ViscousFluxEnum::None) {
-    const Device::View<
-        const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             VolumeElementTrait::kAllBasisFunctionNumber>>
-        variable_volume_gradient_basis_function_coefficient =
-            volume_element_solver.variable_volume_gradient_basis_function_coefficient_.view(
-                parent_index_each_type, volume_element_solver.number_);
-    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
-      Real sum = 0.0_r;
-      for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
-        sum += variable_volume_gradient_basis_function_coefficient(m, n) * volume_basis_function_value(n);
-      }
-      interface_conserved_variable_gradient(m) = sum;
-    }
-  } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR1) {
-    const Device::View<
-        const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             VolumeElementTrait::kAllBasisFunctionNumber>>
-        variable_gradient_basis_function_coefficient =
-            volume_element_solver.variable_gradient_basis_function_coefficient_.view(parent_index_each_type,
-                                                                                     volume_element_solver.number_);
-    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
-      Real sum = 0.0_r;
-      for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
-        sum += variable_gradient_basis_function_coefficient(m, n) * volume_basis_function_value(n);
-      }
-      interface_conserved_variable_gradient(m) = sum;
-    }
-  } else if constexpr (ViscousFluxType == ViscousFluxEnum::BR2) {
-    const Device::View<
-        const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             VolumeElementTrait::kAllBasisFunctionNumber>>
-        variable_volume_gradient_basis_function_coefficient =
-            volume_element_solver.variable_volume_gradient_basis_function_coefficient_.view(
-                parent_index_each_type, volume_element_solver.number_);
-    const Device::View<
-        const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             VolumeElementTrait::kAllBasisFunctionNumber>>
-        variable_interface_gradient_basis_function_coefficient =
-            volume_element_solver.variable_interface_gradient_basis_function_coefficient_.slice(
-                parent_index_each_type, volume_element_solver.number_,
-                Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-                Device::Slice<VolumeElementTrait::kAllBasisFunctionNumber>::seqN(
-                    adjacency_sequence_in_parent * VolumeElementTrait::kAllBasisFunctionNumber));
-    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
-      Real sum = 0.0_r;
-      for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
-        sum += (variable_volume_gradient_basis_function_coefficient(m, n) +
-                variable_interface_gradient_basis_function_coefficient(m, n)) *
-               volume_basis_function_value(n);
-      }
-      interface_conserved_variable_gradient(m) = sum;
-    }
-  }
-}
-
-template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementInterfaceVariable(
-    const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver) {
-  const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
+    Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver) {
+  AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(Mesh<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   auto compute = [&]<typename VolumeElementTrait>(
                      const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
@@ -496,45 +318,38 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::up
                      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
                      const Isize parent_index_each_type, const Isize adjacency_sequence_in_parent, const Isize i,
                      const Isize j) -> void {
-    if constexpr (IsEuler<SimulationControl::kEquationModel>) {
-      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable =
-          this->interface_right_conserved_variable_(i).col(j);
-      this->template computeAdjacencyPerElementInterfaceVariable<VolumeElementTrait>(
-          volume_element_mesh, adjacency_element_mesh, volume_element_solver, adjacency_local_coordinate,
-          interface_conserved_variable, parent_index_each_type, adjacency_sequence_in_parent);
-    }
-    if constexpr (IsNS<SimulationControl::kEquationModel>) {
-      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable =
-          this->interface_right_conserved_variable_(i).col(j);
-      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-          interface_conserved_variable_gradient = this->interface_right_conserved_variable_gradient_(i).col(j);
-      this->template computeAdjacencyPerElementInterfaceVariable<VolumeElementTrait, SimulationControl::kViscousFlux>(
-          volume_element_mesh, adjacency_element_mesh, volume_element_solver, adjacency_local_coordinate,
-          interface_conserved_variable, interface_conserved_variable_gradient, parent_index_each_type,
-          adjacency_sequence_in_parent);
-    }
+    Eigen::Vector<Real, VolumeElementTrait::kDimension> volume_local_coordinate;
+    adjacency_element_mesh.template getAdjacencyElementParentVolumeLocalCoordinate<VolumeElementTrait>(
+        volume_element_mesh.lagrange_basic_node_coordinate_, adjacency_local_coordinate, volume_local_coordinate,
+        adjacency_sequence_in_parent);
+    adjacency_element_mesh.interface_volume_local_coordinate_(i).col(j) = volume_local_coordinate;
+    Eigen::Vector<Real, VolumeElementTrait::kAllBasisFunctionNumber> interface_volume_basis_function;
+    volume_element_mesh.computeLagrangeValue(volume_local_coordinate, interface_volume_basis_function);
+    this->interface_right_conserved_variable_(i).col(j) =
+        volume_element_solver.variable_basis_function_coefficient_(parent_index_each_type) *
+        interface_volume_basis_function;
   };
   tbb::parallel_for(
       tbb::blocked_range<Isize>(0, 2 * this->interface_number_), [&](const tbb::blocked_range<Isize>& range) -> void {
         for (Isize i = range.begin(); i != range.end(); i++) {
           const Isize element_index = i + this->interior_number_ + this->boundary_number_;
-          const BoundaryConditionEnum boundary_condition_type =
-              adjacency_element_mesh.boundary_condition_type_(element_index);
           Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> adjacency_quadrature_node_coordinate;
           Eigen::Vector<Real, AdjacencyElementTrait::kDimension> adjacency_local_coordinate;
           for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
             adjacency_quadrature_node_coordinate =
                 adjacency_element_mesh.quadrature_node_coordinate_(element_index).col(j);
-            const Isize interface_element_index = adjacency_element_mesh.getAdjacencyElementIndexFromGlobalCoordinate(
-                adjacency_quadrature_node_coordinate, boundary_condition_type);
+            const Isize interface_opposite_element_index =
+                adjacency_element_mesh.getAdjacencyOppositeElementIndexFromGlobalCoordinate(
+                    solver.rotation_center_, solver.rotation_matrix_, adjacency_quadrature_node_coordinate, i);
+            adjacency_element_mesh.interface_opposite_element_index_(i)(j) = interface_opposite_element_index;
             const Isize interface_parent_index_each_type =
-                adjacency_element_mesh.left_parent_index_each_type_(interface_element_index);
+                adjacency_element_mesh.left_parent_index_each_type_(interface_opposite_element_index);
             const Isize adjacency_sequence_in_interface_parent =
-                adjacency_element_mesh.adjacency_sequence_in_left_parent_(interface_element_index);
+                adjacency_element_mesh.adjacency_sequence_in_left_parent_(interface_opposite_element_index);
             const Isize interface_parent_gmsh_type_number =
-                adjacency_element_mesh.left_parent_gmsh_type_number_(interface_element_index);
+                adjacency_element_mesh.left_parent_gmsh_type_number_(interface_opposite_element_index);
             adjacency_element_mesh.computeAdjacencyElementLocalCoordinateFromGlobalCoordinate(
-                adjacency_quadrature_node_coordinate, adjacency_local_coordinate, interface_element_index);
+                adjacency_quadrature_node_coordinate, adjacency_local_coordinate, interface_opposite_element_index);
             if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
               if (interface_parent_gmsh_type_number ==
                   VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
@@ -567,9 +382,85 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::up
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void
+AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementInterfaceVariableGradient(
+    const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver) {
+  const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
+      mesh.*(Mesh<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
+  auto compute = [&]<typename VolumeElementTrait>(
+                     const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
+                     const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
+                     const Isize parent_index_each_type, [[maybe_unused]] const Isize adjacency_sequence_in_parent,
+                     const Isize i, const Isize j) -> void {
+    const Eigen::Vector<Real, VolumeElementTrait::kDimension> volume_local_coordinate =
+        adjacency_element_mesh.interface_volume_local_coordinate_(i).col(j);
+    Eigen::Vector<Real, VolumeElementTrait::kAllBasisFunctionNumber> interface_volume_basis_function;
+    volume_element_mesh.computeLagrangeValue(volume_local_coordinate, interface_volume_basis_function);
+    if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
+      this->interface_right_conserved_variable_gradient_(i).col(j) =
+          volume_element_solver.variable_gradient_basis_function_coefficient_(parent_index_each_type) *
+          interface_volume_basis_function;
+    } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
+      const Eigen::Ref<
+          const Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                              VolumeElementTrait::kAllBasisFunctionNumber>>
+          variable_interface_gradient_basis_function_coefficient =
+              volume_element_solver.variable_interface_gradient_basis_function_coefficient_(parent_index_each_type)(
+                  Eigen::placeholders::all,
+                  Eigen::seqN(adjacency_sequence_in_parent * VolumeElementTrait::kAllBasisFunctionNumber,
+                              Eigen::fix<VolumeElementTrait::kAllBasisFunctionNumber>));
+      this->interface_right_conserved_variable_gradient_(i).col(j) =
+          (volume_element_solver.variable_volume_gradient_basis_function_coefficient_(parent_index_each_type) +
+           variable_interface_gradient_basis_function_coefficient) *
+          interface_volume_basis_function;
+    }
+  };
+  tbb::parallel_for(
+      tbb::blocked_range<Isize>(0, 2 * this->interface_number_), [&](const tbb::blocked_range<Isize>& range) -> void {
+        for (Isize i = range.begin(); i != range.end(); i++) {
+          for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+            const Isize interface_opposite_element_index =
+                adjacency_element_mesh.interface_opposite_element_index_(i)(j);
+            const Isize interface_parent_index_each_type =
+                adjacency_element_mesh.left_parent_index_each_type_(interface_opposite_element_index);
+            const Isize adjacency_sequence_in_interface_parent =
+                adjacency_element_mesh.adjacency_sequence_in_left_parent_(interface_opposite_element_index);
+            const Isize interface_parent_gmsh_type_number =
+                adjacency_element_mesh.left_parent_gmsh_type_number_(interface_opposite_element_index);
+            if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+              if (interface_parent_gmsh_type_number ==
+                  VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+                compute.template operator()<VolumeTriangleTrait<SimulationControl::kPolynomialOrder>>(
+                    mesh.triangle_, solver.triangle_, interface_parent_index_each_type,
+                    adjacency_sequence_in_interface_parent, i, j);
+              } else if (interface_parent_gmsh_type_number ==
+                         VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+                compute.template operator()<VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>>(
+                    mesh.quadrangle_, solver.quadrangle_, interface_parent_index_each_type,
+                    adjacency_sequence_in_interface_parent, i, j);
+              }
+            } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+              if (interface_parent_gmsh_type_number ==
+                  VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+                compute.template operator()<VolumePyramidTrait<SimulationControl::kPolynomialOrder>>(
+                    mesh.pyramid_, solver.pyramid_, interface_parent_index_each_type,
+                    adjacency_sequence_in_interface_parent, i, j);
+              } else if (interface_parent_gmsh_type_number ==
+                         VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+                compute.template operator()<VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>>(
+                    mesh.hexahedron_, solver.hexahedron_, interface_parent_index_each_type,
+                    adjacency_sequence_in_interface_parent, i, j);
+              }
+            }
+          }
+        }
+      });
+}
+
+template <typename AdjacencyElementTrait, typename SimulationControl>
+inline void
 AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementInterfaceVariable(
-    const MeshDevice<SimulationControl>& mesh, const SolverDevice<SimulationControl>& solver) {
-  const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh =
+    MeshDevice<SimulationControl>& mesh, const SolverDevice<SimulationControl>& solver) {
+  AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh =
       mesh.*(MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
   auto compute = [=, this]<typename VolumeElementTrait>(
                      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
@@ -577,28 +468,32 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::updateAd
                      const Device::StaticVector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
                      const Isize parent_index_each_type, const Isize adjacency_sequence_in_parent, const Isize i,
                      const Isize j) -> void {
-    if constexpr (IsEuler<SimulationControl::kEquationModel>) {
-      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable =
-          this->interface_right_conserved_variable_.slice(
-              i, 2 * this->interface_number_, Device::Slice<SimulationControl::kConservedVariableNumber>::all(),
-              Device::Slice<1>::seqN(j));
-      this->template computeAdjacencyPerElementInterfaceVariable<VolumeElementTrait>(
-          volume_element_mesh, adjacency_element_mesh, volume_element_solver, adjacency_local_coordinate,
-          interface_conserved_variable, parent_index_each_type, adjacency_sequence_in_parent);
-    } else if constexpr (IsNS<SimulationControl::kEquationModel>) {
-      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable =
-          this->interface_right_conserved_variable_.slice(
-              i, 2 * this->interface_number_, Device::Slice<SimulationControl::kConservedVariableNumber>::all(),
-              Device::Slice<1>::seqN(j));
-      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-          interface_conserved_variable_gradient = this->interface_right_conserved_variable_gradient_.slice(
-              i, 2 * this->interface_number_,
-              Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-              Device::Slice<1>::seqN(j));
-      this->template computeAdjacencyPerElementInterfaceVariable<VolumeElementTrait, SimulationControl::kViscousFlux>(
-          volume_element_mesh, adjacency_element_mesh, volume_element_solver, adjacency_local_coordinate,
-          interface_conserved_variable, interface_conserved_variable_gradient, parent_index_each_type,
-          adjacency_sequence_in_parent);
+    Device::StaticVector<Real, VolumeElementTrait::kDimension> volume_local_coordinate;
+    adjacency_element_mesh.template getAdjacencyElementParentVolumeLocalCoordinate<VolumeElementTrait>(
+        volume_element_mesh.lagrange_basic_node_coordinate_, adjacency_local_coordinate, volume_local_coordinate,
+        adjacency_sequence_in_parent);
+    Device::View<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>>
+        interface_volume_local_coordinate =
+            adjacency_element_mesh.interface_volume_local_coordinate_.view(i, 2 * this->interface_number_);
+    for (Isize m = 0; m < VolumeElementTrait::kDimension; m++) {
+      interface_volume_local_coordinate(m, j) = volume_local_coordinate(m);
+    }
+    Device::StaticVector<Real, VolumeElementTrait::kAllBasisFunctionNumber> interface_volume_basis_function;
+    volume_element_mesh.computeLagrangeValue(volume_local_coordinate, interface_volume_basis_function);
+    const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                                            VolumeElementTrait::kAllBasisFunctionNumber>>
+        variable_basis_function_coefficient = volume_element_solver.variable_basis_function_coefficient_.view(
+            parent_index_each_type, volume_element_solver.number_);
+    Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable =
+        this->interface_right_conserved_variable_.slice(
+            i, 2 * this->interface_number_, Device::Slice<SimulationControl::kConservedVariableNumber>::all(),
+            Device::Slice<1>::seqN(j));
+    for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+      Real sum = 0.0_r;
+      for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+        sum += variable_basis_function_coefficient(m, n) * interface_volume_basis_function(n);
+      }
+      interface_conserved_variable(m) = sum;
     }
   };
   queue.submit([&](sycl::handler& cgh) -> void {
@@ -608,20 +503,22 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::updateAd
         return;
       }
       const Isize element_index = i + this->interior_number_ + this->boundary_number_;
-      const BoundaryConditionEnum boundary_condition_type =
-          adjacency_element_mesh.boundary_condition_type_(element_index);
       Device::StaticVector<Real, AdjacencyElementTrait::kDimension + 1> adjacency_quadrature_node_coordinate;
       Device::StaticVector<Real, AdjacencyElementTrait::kDimension> adjacency_local_coordinate;
       const Device::View<
           const Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>>
           quadrature_node_coordinate =
               adjacency_element_mesh.quadrature_node_coordinate_.view(element_index, this->number_);
+      Device::View<Device::Vector<Isize, AdjacencyElementTrait::kQuadratureNumber>> interface_opposite_element_index =
+          adjacency_element_mesh.interface_opposite_element_index_.view(i, 2 * this->interface_number_);
       for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
         for (Isize m = 0; m < AdjacencyElementTrait::kDimension + 1; m++) {
           adjacency_quadrature_node_coordinate(m) = quadrature_node_coordinate(m, j);
         }
-        const Isize interface_element_index = adjacency_element_mesh.getAdjacencyElementIndexFromGlobalCoordinate(
-            adjacency_quadrature_node_coordinate, boundary_condition_type);
+        const Isize interface_element_index =
+            adjacency_element_mesh.getAdjacencyOppositeElementIndexFromGlobalCoordinate(
+                solver.rotation_center_, solver.rotation_matrix_, adjacency_quadrature_node_coordinate, i);
+        interface_opposite_element_index(j) = interface_element_index;
         const Isize interface_parent_index_each_type =
             adjacency_element_mesh.left_parent_index_each_type_(interface_element_index);
         const Isize adjacency_sequence_in_interface_parent =
@@ -660,8 +557,122 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::updateAd
   });
 }
 
+template <typename AdjacencyElementTrait, typename SimulationControl>
+inline void
+AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementInterfaceVariableGradient(
+    const MeshDevice<SimulationControl>& mesh, const SolverDevice<SimulationControl>& solver) {
+  const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh =
+      mesh.*(MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
+  auto compute = [=, this]<typename VolumeElementTrait>(
+                     const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
+                     const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>& volume_element_solver,
+                     const Isize parent_index_each_type, [[maybe_unused]] const Isize adjacency_sequence_in_parent,
+                     const Isize i, const Isize j) -> void {
+    const Device::View<
+        const Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>>
+        interface_volume_local_coordinate =
+            adjacency_element_mesh.interface_volume_local_coordinate_.view(i, 2 * this->interface_number_);
+    Device::StaticVector<Real, VolumeElementTrait::kDimension> volume_local_coordinate;
+    for (Isize m = 0; m < VolumeElementTrait::kDimension; m++) {
+      volume_local_coordinate(m) = interface_volume_local_coordinate(m, j);
+    }
+    Device::StaticVector<Real, VolumeElementTrait::kAllBasisFunctionNumber> interface_volume_basis_function;
+    volume_element_mesh.computeLagrangeValue(volume_local_coordinate, interface_volume_basis_function);
+    Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
+        interface_conserved_variable_gradient = this->interface_right_conserved_variable_gradient_.slice(
+            i, 2 * this->interface_number_,
+            Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+            Device::Slice<1>::seqN(j));
+    if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
+      const Device::View<
+          const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kAllBasisFunctionNumber>>
+          variable_gradient_basis_function_coefficient =
+              volume_element_solver.variable_gradient_basis_function_coefficient_.view(parent_index_each_type,
+                                                                                       volume_element_solver.number_);
+      for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+        Real sum = 0.0_r;
+        for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+          sum += variable_gradient_basis_function_coefficient(m, n) * interface_volume_basis_function(n);
+        }
+        interface_conserved_variable_gradient(m) = sum;
+      }
+    } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
+      const Device::View<
+          const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kAllBasisFunctionNumber>>
+          variable_volume_gradient_basis_function_coefficient =
+              volume_element_solver.variable_volume_gradient_basis_function_coefficient_.view(
+                  parent_index_each_type, volume_element_solver.number_);
+      const Device::View<
+          const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kAllBasisFunctionNumber>>
+          variable_interface_gradient_basis_function_coefficient =
+              volume_element_solver.variable_interface_gradient_basis_function_coefficient_.slice(
+                  parent_index_each_type, volume_element_solver.number_,
+                  Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
+                  Device::Slice<VolumeElementTrait::kAllBasisFunctionNumber>::seqN(
+                      adjacency_sequence_in_parent * VolumeElementTrait::kAllBasisFunctionNumber));
+      for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+        Real sum = 0.0_r;
+        for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+          sum += (variable_volume_gradient_basis_function_coefficient(m, n) +
+                  variable_interface_gradient_basis_function_coefficient(m, n)) *
+                 interface_volume_basis_function(n);
+        }
+        interface_conserved_variable_gradient(m) = sum;
+      }
+    }
+  };
+  queue.submit([&](sycl::handler& cgh) -> void {
+    cgh.parallel_for(getNdRange(2 * this->interface_number_), [=, this](sycl::nd_item<1> index) -> void {
+      const auto i = static_cast<Isize>(index.get_global_id(0));
+      if (i >= 2 * this->interface_number_) {
+        return;
+      }
+      const Device::View<const Device::Vector<Isize, AdjacencyElementTrait::kQuadratureNumber>>
+          interface_opposite_element_index =
+              adjacency_element_mesh.interface_opposite_element_index_.view(i, 2 * this->interface_number_);
+      for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
+        const Isize interface_element_index = interface_opposite_element_index(j);
+        const Isize interface_parent_index_each_type =
+            adjacency_element_mesh.left_parent_index_each_type_(interface_element_index);
+        const Isize adjacency_sequence_in_interface_parent =
+            adjacency_element_mesh.adjacency_sequence_in_left_parent_(interface_element_index);
+        const Isize interface_parent_gmsh_type_number =
+            adjacency_element_mesh.left_parent_gmsh_type_number_(interface_element_index);
+        if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+          if (interface_parent_gmsh_type_number ==
+              VolumeTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+            compute.template operator()<VolumeTriangleTrait<SimulationControl::kPolynomialOrder>>(
+                mesh.triangle_, solver.triangle_, interface_parent_index_each_type,
+                adjacency_sequence_in_interface_parent, i, j);
+          } else if (interface_parent_gmsh_type_number ==
+                     VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+            compute.template operator()<VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>>(
+                mesh.quadrangle_, solver.quadrangle_, interface_parent_index_each_type,
+                adjacency_sequence_in_interface_parent, i, j);
+          }
+        } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
+          if (interface_parent_gmsh_type_number ==
+              VolumePyramidTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+            compute.template operator()<VolumePyramidTrait<SimulationControl::kPolynomialOrder>>(
+                mesh.pyramid_, solver.pyramid_, interface_parent_index_each_type,
+                adjacency_sequence_in_interface_parent, i, j);
+          } else if (interface_parent_gmsh_type_number ==
+                     VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
+            compute.template operator()<VolumeHexahedronTrait<SimulationControl::kPolynomialOrder>>(
+                mesh.hexahedron_, solver.hexahedron_, interface_parent_index_each_type,
+                adjacency_sequence_in_interface_parent, i, j);
+          }
+        }
+      }
+    });
+  });
+}
+
 template <typename SimulationControl>
-inline void Solver<SimulationControl>::updateInterfaceVariable(const Mesh<SimulationControl>& mesh) {
+inline void Solver<SimulationControl>::updateInterfaceVariable(Mesh<SimulationControl>& mesh) {
   if constexpr (SimulationControl::kDimension == 2) {
     this->line_.updateAdjacencyElementInterfaceVariable(mesh, *this);
   } else if constexpr (SimulationControl::kDimension == 3) {
@@ -670,11 +681,31 @@ inline void Solver<SimulationControl>::updateInterfaceVariable(const Mesh<Simula
 }
 
 template <typename SimulationControl>
-inline void SolverDevice<SimulationControl>::updateInterfaceVariable(const MeshDevice<SimulationControl>& mesh) {
+inline void Solver<SimulationControl>::updateInterfaceVariableGradient(const Mesh<SimulationControl>& mesh) {
+  if constexpr (SimulationControl::kDimension == 2) {
+    this->line_.updateAdjacencyElementInterfaceVariableGradient(mesh, *this);
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    this->quadrangle_.updateAdjacencyElementInterfaceVariableGradient(mesh, *this);
+  }
+}
+
+template <typename SimulationControl>
+inline void SolverDevice<SimulationControl>::updateInterfaceVariable(MeshDevice<SimulationControl>& mesh) {
   if constexpr (SimulationControl::kDimension == 2) {
     this->line_.updateAdjacencyElementInterfaceVariable(mesh, *this);
   } else if constexpr (SimulationControl::kDimension == 3) {
     this->quadrangle_.updateAdjacencyElementInterfaceVariable(mesh, *this);
+  }
+  queue.wait();
+}
+
+template <typename SimulationControl>
+inline void SolverDevice<SimulationControl>::updateInterfaceVariableGradient(
+    const MeshDevice<SimulationControl>& mesh) {
+  if constexpr (SimulationControl::kDimension == 2) {
+    this->line_.updateAdjacencyElementInterfaceVariableGradient(mesh, *this);
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    this->quadrangle_.updateAdjacencyElementInterfaceVariableGradient(mesh, *this);
   }
   queue.wait();
 }

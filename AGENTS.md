@@ -1,86 +1,98 @@
 # AGENTS.md
 
-This document defines how coding agents should work in this repository.
+Instructions for coding agents working on SubrosaDG.
 
-## 1) Project snapshot
+## Project
 
-- **Project**: SubrosaDG
-- **Language**: C++23
-- **Build system**: CMake + Ninja + vcpkg
-- **Main code**: `src/`
-- **Examples**: `examples/`
-- **Build output**: `build/`
+SubrosaDG is a C++23 CFD solver based on the high-order discontinuous Galerkin (DG) method. It uses a template-based architecture, Eigen for matrix operations, Gmsh for meshes, oneTBB for CPU parallelism, and SYCL for device execution. GPU build options target Intel, NVIDIA, and AMD devices through the SYCL toolchain.
 
-SubrosaDG is a high-order DG CFD solver with CPU/GPU backends (SYCL/CUDA/ROCm options in CMake).
+## Repository map
 
-## 2) Environment assumptions
+- `src/Mesh/`: mesh reading, geometry, elements, basis functions, and quadrature.
+- `src/Solver/`: physical models, numerical fluxes, boundary conditions, spatial discretization, and time integration.
+- `src/Utils/`: shared types, concepts, constants, device matrices, and system control.
+- `src/View/`: raw binary output, ParaView output, and runtime display.
+- `examples/`: runnable simulation cases; each `.cpp` file defines an executable with the same base name.
+- `cmake/`: build helpers, generated-source templates, and vcpkg overlays.
+- `docs/`: Doxygen configuration and LaTeX development notes.
+- `utils/`: the development executable source and editor/debugger tooling.
+- `develop/`: experiments, scripts, and development notes.
+- `libs/`: bundled dependencies.
+- `build/`: build products, executables in `build/bin/`, and simulation results in `build/out/`.
 
-- Out-of-source build is required (already configured to use `build/`).
-- `VCPKG_ROOT` must be set in the environment.
-- CMake presets are defined in `CMakePresets.json`.
-- On Linux, this project enforces Fedora in top-level CMake logic.
+## Workflow
 
-## 3) Preferred workflow for agents
+- Read the relevant implementation and configuration before editing. Prefer current source and CMake files when older development notes disagree with them.
+- Keep changes focused on the requested task. Reuse existing helpers and preserve unrelated local changes.
+- Agents may configure, build, run a relevant example, and perform targeted formatting or static analysis as needed for the task without asking for separate permission. When testing is needed and the required environment is available, build and run one representative example relevant to the change.
+- A documentation-only change normally does not require compilation.
+- Report what changed, what was checked, and what remains unverified. Never describe a suggested command as having been executed.
 
-1. Read relevant files first; avoid speculative edits.
-2. Make **minimal, surgical** changes tied to the request.
-3. Keep style consistent with existing code.
-4. Do **not** run validation/build/test commands unless the user explicitly asks.
-5. Do not modify unrelated files.
+## Build environment
 
-## 4) Build commands (for user manual validation)
+- Use CMake 3.30 or newer, Ninja, and a working vcpkg installation referenced by `VCPKG_ROOT`.
+- Out-of-source builds are required. Configure presets are defined in `CMakePresets.json` and share the `build/` directory.
+- On Linux, the current build requires Fedora and selects Intel oneAPI `icpx` at `/opt/intel/oneapi/compiler/latest/bin/icpx`. IntelSYCL and oneTBB are required even for the CPU configuration.
+- Before validation, run `source /opt/intel/oneapi/setvars.sh` in the shell used to configure, build, and run the example. Keep these commands in the same shell session, or initialize oneAPI again in each new shell.
+- The macOS CMake branch selects Homebrew LLVM. Do not assume a backend works on a platform without verification.
+- GPU presets use architecture-specific SYCL targets configured in `CMakeLists.txt`. Check the installed compiler, runtime, and target hardware before attempting GPU validation.
+- Reconfigure when switching presets. Preserve existing build outputs and user settings; do not delete `build/` as a routine troubleshooting step.
+- For validation, always configure with `Build examples in release`, regardless of the currently active preset. There is no need to preserve or restore the previous preset.
 
-Agents should not execute these by default. They are listed for the user to run manually:
+## Build and run reference
 
-```bash
-cmake --preset "Build develop in debug"
-cmake --build build -j
+Run validation from the repository root using the `Build examples in release` preset and one relevant example. Enable `SubrosaDG::CommandLineEnum::Agent` on the example's `system` before running it. For examples without an agent command-line option, construct the system as follows:
+
+```cpp
+SubrosaDG::System<SimulationControl> system{SubrosaDG::CommandLineEnum::Agent};
 ```
 
-For examples:
-
 ```bash
-cmake --preset "Build examples in debug"
-cmake --build build -j
+# Initialize oneAPI, then configure and validate one example in Agent mode.
+source /opt/intel/oneapi/setvars.sh
+cmake --preset "Build examples in release"
+cmake --build build --target vortex_2d_ceuler --parallel
+./build/bin/vortex_2d_ceuler
 ```
 
-For docs:
+Avoid the `all_examples` target for routine validation; building and running one relevant example is sufficient.
 
-```bash
-cmake --preset "Build docs"
-cmake --build build -j
-```
+Examples contain their simulation settings in source and may generate meshes and replace results under `build/out/<example_name>/`. Inspect the case and existing output before running it.
 
-> Validation ownership: **user-only by default**.
+## Code conventions
 
-## 5) Code conventions to respect
+- Follow the existing C++23 template-based design and the `SubrosaDG` namespace conventions.
+- Many files under `src/` have a `.cpp` extension but are included as headers and use include guards. Preserve this structure; do not turn them into separate translation units without an explicit architectural reason.
+- Follow `.clang-format`, `.clang-tidy`, and `.editorconfig`. C++ formatting uses Google style, two-space indentation, and a 120-column limit.
+- Use `CamelCase` for types and namespaces, `camelBack` for functions, `lower_case` for variables, a trailing underscore for data members, and `kCamelCase` for compile-time constants. Follow nearby exceptions when required by an existing interface.
+- Reuse project scalar/index types and host/device abstractions. Preserve matrix dimensions, storage order, and device-copyability assumptions.
+- Prioritize runtime performance in core numerical computations. Avoid excessive `throw` statements, exception handling, and repeated defensive checks, especially in hot loops, flux evaluation, matrix operations, and device kernels. Do not use exceptions for normal control flow or add exception-based checks to device kernels.
+- Validate inputs and configuration at setup or I/O boundaries where practical, then rely on established invariants in the computation path. Prefer compile-time constraints or debug assertions for internal invariants when appropriate. Reserve exceptions for meaningful failures outside performance-critical paths; do not silently ignore errors or remove necessary correctness checks merely to avoid exceptions.
+- Explain non-obvious numerical reasoning and invariants in concise comments. Update relevant documentation when behavior or public interfaces change.
+- When formatting, format only the affected files. The CMake `clang-format` target rewrites all collected source and example files.
 
-- Use **C++23** idioms already present in codebase.
-- Follow `.clang-format` and `.clang-tidy` configuration.
-- Reuse existing utilities/helpers before introducing new abstractions.
-- Avoid broad error swallowing and silent fallbacks.
-- Keep comments concise and only where logic is non-obvious.
+## Generated files and dependencies
 
-## 6) Repository map (quick)
+- `src/SubrosaDG.cpp` is generated during configuration from `cmake/source/SubrosaDG.cpp.in` and the source list collected in `cmake/GlobFiles.cmake`. Make persistent changes in the template or collection logic.
+- `build/include/Cmake.cpp` is generated from `cmake/source/Cmake.cpp.in`.
+- CMake also generates VS Code settings and debugger configuration. Preserve user customizations and edit the corresponding templates when changing shared defaults.
+- Do not modify bundled libraries, dependency versions, or vcpkg overlays unless required by the task.
+- Keep generated meshes, simulation results, binaries, and profiling reports out of source changes. Preserve existing reference data.
 
-- `src/`: core solver implementation
-- `examples/`: runnable cases
-- `docs/`: documentation and Doxygen config
-- `cmake/`: CMake modules, triplets, helper scripts
-- `libs/`: third-party or internal library sources
-- `utils/`: developer utilities and tooling assets
+## Numerical validation and performance
 
-## 7) Safety rules for agents
+- The current CMake configuration does not register a CTest suite. When testing is needed, use one existing case in `examples/` directly; a separate test suite is not required for routine changes.
+- Avoid excessive testing. Do not run every example or expand validation across multiple cases or configurations unless the user explicitly requests broader coverage. Once the selected example passes, stop testing unless a subsequent change or failure requires a targeted rerun.
+- For solver changes, check numerical behavior as well as compilation and process exit status. Choose relevant quantities such as residuals, conservation errors, analytical-solution errors, or lift/drag coefficients.
+- Choose one example that best represents the affected solver behavior, use the `Build examples in release` preset, and enable `CommandLineEnum::Agent`. Report the scope tested without claiming coverage of all dimensions, element types, physical models, or backends.
+- Preserve numerical schemes, boundary-condition semantics, and precision unless changing them is part of the task. Explain intentional numerical changes and their expected effects.
+- For performance comparisons, keep the case, mesh, polynomial order, hardware, compiler configuration, and output settings consistent. Separate initialization and warm-up from steady-state timing.
+- Recheck numerical results after changes to arithmetic order, precision, memory layout, or parallel execution. Claim speedups only when supported by comparable measurements.
+- If the required environment is unavailable, state the limitation and provide the exact commands needed for follow-up validation.
 
-- Never run destructive git commands (`reset --hard`, forced checkout) unless explicitly requested.
-- Do not commit secrets or credentials.
-- Do not rewrite history unless explicitly requested.
-- If unexpected unrelated local changes exist, leave them untouched.
+## Git and change safety
 
-## 8) Definition of done
-
-A task is complete only when:
-
-1. Requested code/docs changes are implemented.
-2. Agent provides suggested validation commands, but does not execute them unless explicitly requested.
-3. Changes are scoped, coherent, and do not regress known behavior.
+- Preserve unrelated edits and user-provided data.
+- Do not use destructive Git commands or rewrite history unless explicitly requested.
+- Do not include secrets, credentials, or machine-specific generated artifacts in commits.
+- Before handing off, review the diff for accidental changes and clearly distinguish completed work from pending validation.

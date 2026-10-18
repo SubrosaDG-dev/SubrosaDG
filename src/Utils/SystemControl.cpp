@@ -52,10 +52,14 @@ struct System {
   SolverDevice<SimulationControl> solver_device_;
 #endif  // SUBROSA_DG_GPU
 
-  void setMesh(const std::filesystem::path& mesh_file_path) { this->mesh_.initializeMesh(mesh_file_path); }
+  void setMesh(const std::filesystem::path& mesh_file_path) {
+    this->command_line_.initializeMesh(mesh_file_path);
+    this->mesh_.initializeMesh(mesh_file_path);
+  }
 
   void setMesh(const std::filesystem::path& mesh_file_path,
                const std::function<void(const std::filesystem::path& mesh_file_path)>& generate_mesh_function) {
+    this->command_line_.initializeMesh(mesh_file_path);
     if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       generate_mesh_function(mesh_file_path);
     }
@@ -138,7 +142,7 @@ struct System {
   }
 
   void synchronize() {
-    this->mesh_.readMeshElement();
+    this->mesh_.readMeshElement(this->solver_.rotation_center_, this->solver_.rotation_axis_);
 #ifdef SUBROSA_DG_GPU
     this->mesh_device_.transferMeshToDevice(this->mesh_);
 #endif  // SUBROSA_DG_GPU
@@ -151,10 +155,12 @@ struct System {
           std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, this->time_integration_.iteration_start_);
       RawBinaryCompress::read(this->solver_.raw_binary_path_, this->solver_.raw_binary_ss_);
     }
+    this->command_line_.finalizeMesh(this->mesh_.node_number_, this->mesh_.volume_element_number_);
     this->command_line_.printInformation();
   }
 
   void solve(const bool delete_dir = true) {
+    bool diverged = false;
     this->view_.initializeSolverFinout(this->solver_.error_finout_, delete_dir);
     this->solver_.initializeSolver(this->mesh_);
 #ifdef SUBROSA_DG_GPU
@@ -173,7 +179,7 @@ struct System {
       this->solver_.write_raw_binary_future_ = std::async(std::launch::async, []() {});
     }
     this->command_line_.initializeSolver(this->time_integration_, this->solver_.error_finout_,
-                                         this->solver_.error_output_interval_);
+                                         this->solver_.error_output_interval_, this->view_.output_directory_);
     for (int i = this->time_integration_.iteration_start_ + 1; i <= this->time_integration_.iteration_end_; i++) {
 #ifndef SUBROSA_DG_GPU
       this->solver_.stepSolver(this->mesh_, this->source_term_, this->time_integration_);
@@ -188,6 +194,12 @@ struct System {
         this->solver_device_.computeRelativeError(this->mesh_device_, this->solver_);
 #endif  // SUBROSA_DG_GPU
         this->command_line_.updateSolver(this->solver_.relative_error_, this->solver_.error_finout_, i);
+        // Check only a freshly computed sample; any NaN or infinity stops this run.
+        if (!this->solver_.relative_error_.allFinite()) [[unlikely]] {
+          this->command_line_.reportNonfiniteResidual(this->solver_.relative_error_, i);
+          diverged = true;
+          break;
+        }
       }
       if (i % this->view_.io_interval_ == 0) [[unlikely]] {
         this->solver_.write_raw_binary_future_.get();
@@ -198,23 +210,23 @@ struct System {
             this->mesh_, this->time_integration_,
             this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, i));
       }
-      if (this->solver_.relative_error_.array().isNaN().all()) [[unlikely]] {
-        if (this->view_.io_interval_ == this->time_integration_.iteration_end_) {
-          this->view_.io_interval_ = i;
-        }
-        this->time_integration_.iteration_end_ = i;
-        break;
-      }
     }
     this->solver_.write_raw_binary_future_.get();
     this->view_.finalizeSolverFinout(this->solver_.error_finout_);
+    this->command_line_.finalizeSolver(this->time_integration_.iteration_, !diverged);
+    if (diverged) {
+      std::exit(EXIT_FAILURE);
+    }
   }
 
   void view(const bool delete_dir = true) {
+    const int start = this->time_integration_.iteration_start_;
+    const int end = this->time_integration_.iteration_end_;
+    const int interval = this->view_.io_interval_;
+    // Count the exact multiples visited by the loop, including zero when present.
+    const int snapshots = end / interval - (start == 0 ? -1 : (start - 1) / interval);
+    this->command_line_.initializeView(snapshots, this->view_.output_directory_ / "vtu");
     this->mesh_.resetMesh();
-    this->command_line_.initializeView(
-        (this->time_integration_.iteration_end_ - this->time_integration_.iteration_start_) / this->view_.io_interval_ +
-        1);
     this->view_.initializeViewFout(delete_dir);
     oneapi::tbb::global_control global_limit(oneapi::tbb::global_control::max_allowed_parallelism,
                                              kNumberOfPhysicalCores / 2);
@@ -237,6 +249,7 @@ struct System {
             }
           }
         });
+    this->command_line_.finalizeView();
   }
 
   explicit System() : command_line_(CommandLineEnum::Open) {}

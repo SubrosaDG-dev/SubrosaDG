@@ -68,7 +68,7 @@ struct ElementBasisFunction {
       }
       monomial_value(i) = product;
     }
-    basis_function_value = this->lagrange_p1_coefficient_matrix_.transpose() * monomial_value;
+    basis_function_value.noalias() = this->lagrange_p1_coefficient_matrix_.transpose() * monomial_value;
   }
 
   void computeLagrangeValue(const Eigen::Vector<Real, ElementTrait::kDimension>& local_coordinate,
@@ -86,7 +86,7 @@ struct ElementBasisFunction {
       }
       monomial_value(i) = product;
     }
-    basis_function_value = this->lagrange_coefficient_matrix_.transpose() * monomial_value;
+    basis_function_value.noalias() = this->lagrange_coefficient_matrix_.transpose() * monomial_value;
   }
 
   // NOTE: The gradient value is not implemented for the pyramid element since it is not used in the current
@@ -114,7 +114,7 @@ struct ElementBasisFunction {
         monomial_gradient_value(i, j) = product;
       }
     }
-    basis_function_gradient_value = monomial_gradient_value.transpose() * this->lagrange_coefficient_matrix_;
+    basis_function_gradient_value.noalias() = monomial_gradient_value.transpose() * this->lagrange_coefficient_matrix_;
   }
 
   ElementBasisFunction() {
@@ -345,8 +345,9 @@ struct VolumeElementBasisFunction : ElementBasisFunction<VolumeElementTrait> {
           getVolumeElementPerAdjacencyType<VolumeElementTrait::kElementType>()};
       constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kVolumeElementPerAdjacencyBasicNodeNumber{
           getVolumeElementPerAdjacencyBasicNodeNumber<VolumeElementTrait::kElementType>()};
-      constexpr std::array<int, VolumeElementTrait::kAllAdjacencyBasicNodeNumber> kVolumeElementPerAdjacencyBasicNodeIndex{
-          getVolumeElementPerAdjacencyBasicNodeIndex<VolumeElementTrait::kElementType>()};
+      constexpr std::array<int, VolumeElementTrait::kAllAdjacencyBasicNodeNumber>
+          kVolumeElementPerAdjacencyBasicNodeIndex{
+              getVolumeElementPerAdjacencyBasicNodeIndex<VolumeElementTrait::kElementType>()};
       constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kVolumeElementPerAdjacencyQuadratureNumber{
           getVolumeElementPerAdjacencyQuadratureNumber<VolumeElementTrait::kElementType,
                                                        VolumeElementTrait::kPolynomialOrder>()};
@@ -452,8 +453,9 @@ struct AdjacencyElementBasisFunction : ElementBasisFunction<AdjacencyElementTrai
       const Isize adjacency_sequence) const {
     constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kVolumeElementPerAdjacencyBasicNodeNumber{
         getVolumeElementPerAdjacencyBasicNodeNumber<VolumeElementTrait::kElementType>()};
-    constexpr std::array<int, VolumeElementTrait::kAllAdjacencyBasicNodeNumber> kVolumeElementPerAdjacencyBasicNodeIndex{
-        getVolumeElementPerAdjacencyBasicNodeIndex<VolumeElementTrait::kElementType>()};
+    constexpr std::array<int, VolumeElementTrait::kAllAdjacencyBasicNodeNumber>
+        kVolumeElementPerAdjacencyBasicNodeIndex{
+            getVolumeElementPerAdjacencyBasicNodeIndex<VolumeElementTrait::kElementType>()};
     Eigen::Vector<Real, AdjacencyElementTrait::kP1BasisFunctionNumber> adjacency_p1_basis_function_value;
     this->computeLagrangeP1Value(adjacency_local_coordinate, adjacency_p1_basis_function_value);
     Eigen::Matrix<Real, VolumeElementTrait::kDimension, AdjacencyElementTrait::kBasicNodeNumber>
@@ -466,7 +468,7 @@ struct AdjacencyElementBasisFunction : ElementBasisFunction<AdjacencyElementTrai
       adjacency_basic_node_coordinate.col(i) = volume_basic_node_coordinate.col(
           kVolumeElementPerAdjacencyBasicNodeIndex[static_cast<Usize>(node_column + i)]);
     }
-    volume_local_coordinate = adjacency_basic_node_coordinate * adjacency_p1_basis_function_value;
+    volume_local_coordinate.noalias() = adjacency_basic_node_coordinate * adjacency_p1_basis_function_value;
   }
 
   AdjacencyElementBasisFunction() {
@@ -513,8 +515,9 @@ struct AdjacencyElementBasisFunctionDevice : ElementBasisFunctionDevice<Adjacenc
       const Isize adjacency_sequence) const {
     constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kVolumeElementPerAdjacencyBasicNodeNumber{
         getVolumeElementPerAdjacencyBasicNodeNumber<VolumeElementTrait::kElementType>()};
-    constexpr std::array<int, VolumeElementTrait::kAllAdjacencyBasicNodeNumber> kVolumeElementPerAdjacencyBasicNodeIndex{
-        getVolumeElementPerAdjacencyBasicNodeIndex<VolumeElementTrait::kElementType>()};
+    constexpr std::array<int, VolumeElementTrait::kAllAdjacencyBasicNodeNumber>
+        kVolumeElementPerAdjacencyBasicNodeIndex{
+            getVolumeElementPerAdjacencyBasicNodeIndex<VolumeElementTrait::kElementType>()};
     Device::StaticVector<Real, AdjacencyElementTrait::kP1BasisFunctionNumber> adjacency_p1_basis_function_value;
     this->computeLagrangeP1Value(adjacency_local_coordinate, adjacency_p1_basis_function_value);
     Device::StaticMatrix<Real, VolumeElementTrait::kDimension, AdjacencyElementTrait::kBasicNodeNumber>

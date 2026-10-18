@@ -92,6 +92,8 @@ struct PerAdjacencyElementInformation {
   bool is_recorded_{false};
   Isize right_rotation_{0};
   std::array<Isize, AdjacencyElementTrait::kAllNodeNumber> node_tag_;
+  // for rotate adjacency element, the first parent is the left parent, and the second parent is the right parent.
+  std::array<Isize, AdjacencyElementTrait::kAllNodeNumber> right_node_tag_;
   std::vector<Isize> parent_gmsh_tag_;
   std::vector<Isize> adjacency_sequence_;
   std::vector<Isize> parent_gmsh_type_;
@@ -204,7 +206,7 @@ struct VolumeElementMesh : ElementMesh<VolumeElementTrait>,
 
   inline void getVolumeElementQuality();
 
-  inline void computeVolumeElementOtherNodeCoordinate();
+  inline void computeVolumeElementQuadratureNodeCoordinate();
 
   inline void computeVolumeElementJacobian(/*const*/ bool is_initialization = true);
 
@@ -291,7 +293,6 @@ struct AdjacencyElementMesh : ElementMesh<AdjacencyElementTrait>,
   Eigen::Array<Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>,
                Eigen::Dynamic, 1>
       node_coordinate_;
-  Eigen::Array<Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>, Eigen::Dynamic, 1> center_node_coordinate_;
   Eigen::Array<Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>,
                Eigen::Dynamic, 1>
       quadrature_node_coordinate_;
@@ -303,7 +304,6 @@ struct AdjacencyElementMesh : ElementMesh<AdjacencyElementTrait>,
   Eigen::Array<Isize, Eigen::Dynamic, 1> adjacency_sequence_in_right_parent_;
   Eigen::Array<Isize, Eigen::Dynamic, 1> left_parent_gmsh_type_number_;
   Eigen::Array<Isize, Eigen::Dynamic, 1> right_parent_gmsh_type_number_;
-  Eigen::Array<Real, Eigen::Dynamic, 1> inner_radius_;
   Eigen::Array<Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>,
                Eigen::Dynamic, 1>
       normal_vector_;
@@ -311,6 +311,24 @@ struct AdjacencyElementMesh : ElementMesh<AdjacencyElementTrait>,
   Eigen::Array<Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>,
                Eigen::Dynamic, 1>
       node_coordinate_initial_;
+
+  Eigen::Array<Eigen::Vector<Isize, AdjacencyElementTrait::kQuadratureNumber>, Eigen::Dynamic, 1>
+      interface_opposite_element_index_;
+  Eigen::Array<Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>,
+               Eigen::Dynamic, 1>
+      interface_volume_local_coordinate_;
+
+  // for 1d interface elements
+  Eigen::Array<Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>, Eigen::Dynamic, 1> center_node_coordinate_;
+  // for 2d interface elements
+  Eigen::Array<Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>, Eigen::Dynamic, 1> vertical_vector_;
+  Eigen::Array<Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAdjacencyNumber>,
+               Eigen::Dynamic, 1>
+      edge_normal_vector_;
+
+  Eigen::Array<Isize, Eigen::Dynamic, 1> interface_candidate_group_;
+  Eigen::Array<Isize, Eigen::Dynamic, 1> interface_candidate_offset_;
+  Eigen::Array<Isize, Eigen::Dynamic, 1> interface_candidate_index_;
 
   inline void getAdjacencyElementInteriorMesh(
       const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
@@ -332,22 +350,29 @@ struct AdjacencyElementMesh : ElementMesh<AdjacencyElementTrait>,
       const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, Eigen::Dynamic>& node_coordinate,
       MeshPhysical& physical);
 
-  inline void getAdjacencyElementQuality();
-
-  inline void computeAdjacencyElementOtherNodeCoordinate(/*const*/ bool is_initialization = true);
+  inline void computeAdjacencyElementQuadratureNodeCoordinate(/*const*/ bool is_initialization = true);
 
   inline void computeAdjacencyElementJacobianDeterminant();
 
   inline void computeAdjacencyElementNormalVector(/*const*/ bool is_initialization = true);
 
-  [[nodiscard]] inline Isize getAdjacencyElementIndexFromGlobalCoordinate(
+  inline void computeAdjacencyElementInterfaceSelectionGeometry();
+
+  inline void initializeInterfaceCandidateCache(
+      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& rotation_center,
+      const Eigen::Vector<Real, 3>& rotation_axis);
+
+  [[nodiscard]] inline Isize getAdjacencyOppositeElementIndexFromGlobalCoordinate(
+      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& rotation_center,
+      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kDimension + 1>&
+          rotation_matrix,
       const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& global_coordinate,
-      /*const*/ BoundaryConditionEnum boundary_condition) const;
+      /*const*/ Isize interface_local_index) const;
 
   inline void computeAdjacencyElementLocalCoordinateFromGlobalCoordinate(
       const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& global_coordinate,
       Eigen::Vector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
-      /*const*/ Isize element_index, /*const*/ Real tolerance = 1.0e-12_r) const;
+      /*const*/ Isize element_index) const;
 };
 
 template <typename AdjacencyElementTrait>
@@ -369,8 +394,6 @@ struct AdjacencyElementMeshDevice : ElementMeshDevice<AdjacencyElementTrait>,
   Device::Array<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>,
                 Device::Dynamic, 1>
       node_coordinate_;
-  Device::Array<Device::Vector<Real, AdjacencyElementTrait::kDimension + 1>, Device::Dynamic, 1>
-      center_node_coordinate_;
   Device::Array<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>,
                 Device::Dynamic, 1>
       quadrature_node_coordinate_;
@@ -382,7 +405,6 @@ struct AdjacencyElementMeshDevice : ElementMeshDevice<AdjacencyElementTrait>,
   Device::Array<Isize, Device::Dynamic, 1> adjacency_sequence_in_right_parent_;
   Device::Array<Isize, Device::Dynamic, 1> left_parent_gmsh_type_number_;
   Device::Array<Isize, Device::Dynamic, 1> right_parent_gmsh_type_number_;
-  Device::Array<Real, Device::Dynamic, 1> inner_radius_;
   Device::Array<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>,
                 Device::Dynamic, 1>
       normal_vector_;
@@ -391,18 +413,40 @@ struct AdjacencyElementMeshDevice : ElementMeshDevice<AdjacencyElementTrait>,
                 Device::Dynamic, 1>
       node_coordinate_initial_;
 
-  inline void computeAdjacencyElementOtherNodeCoordinate([[maybe_unused]] /*const*/ bool is_initialization = true);
+  Device::Array<Device::Vector<Isize, AdjacencyElementTrait::kQuadratureNumber>, Device::Dynamic, 1>
+      interface_opposite_element_index_;
+  Device::Array<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>,
+                Device::Dynamic, 1>
+      interface_volume_local_coordinate_;
+
+  // for 1d interface elements
+  Device::Array<Device::Vector<Real, AdjacencyElementTrait::kDimension + 1>, Device::Dynamic, 1>
+      center_node_coordinate_;
+  // for 2d interface elements
+  Device::Array<Device::Vector<Real, AdjacencyElementTrait::kDimension + 1>, Device::Dynamic, 1> vertical_vector_;
+  Device::Array<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAdjacencyNumber>,
+                Device::Dynamic, 1>
+      edge_normal_vector_;
+
+  Device::Array<Isize, Device::Dynamic, 1> interface_candidate_group_;
+  Device::Array<Isize, Device::Dynamic, 1> interface_candidate_offset_;
+  Device::Array<Isize, Device::Dynamic, 1> interface_candidate_index_;
+
+  inline void computeAdjacencyElementQuadratureNodeCoordinate([[maybe_unused]] /*const*/ bool is_initialization = true);
 
   inline void computeAdjacencyElementNormalVector([[maybe_unused]] /*const*/ bool is_initialization = true);
 
-  [[nodiscard]] inline Isize getAdjacencyElementIndexFromGlobalCoordinate(
+  [[nodiscard]] inline Isize getAdjacencyOppositeElementIndexFromGlobalCoordinate(
+      const Device::Vector<Real, AdjacencyElementTrait::kDimension + 1>& rotation_center,
+      const Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kDimension + 1>&
+          rotation_matrix,
       const Device::StaticVector<Real, AdjacencyElementTrait::kDimension + 1>& global_coordinate,
-      /*const*/ BoundaryConditionEnum boundary_condition) const;
+      /*const*/ Isize interface_local_index) const;
 
   inline void computeAdjacencyElementLocalCoordinateFromGlobalCoordinate(
       const Device::StaticVector<Real, AdjacencyElementTrait::kDimension + 1>& global_coordinate,
       Device::StaticVector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
-      /*const*/ Isize element_index, /*const*/ Real tolerance = 1.0e-12_r) const;
+      /*const*/ Isize element_index) const;
 
   void transferAdjacencyElementMeshToDevice(const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh) {
     this->interior_number_ = adjacency_element_mesh.interior_number_;
@@ -423,9 +467,6 @@ struct AdjacencyElementMeshDevice : ElementMeshDevice<AdjacencyElementTrait>,
     this->node_coordinate_.resize(adjacency_element_mesh.number_);
     Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>(
         adjacency_element_mesh.node_coordinate_, this->node_coordinate_);
-    this->center_node_coordinate_.resize(adjacency_element_mesh.number_);
-    Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, 1>(
-        adjacency_element_mesh.center_node_coordinate_, this->center_node_coordinate_);
     this->quadrature_node_coordinate_.resize(adjacency_element_mesh.number_);
     Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>(
         adjacency_element_mesh.quadrature_node_coordinate_, this->quadrature_node_coordinate_);
@@ -453,14 +494,36 @@ struct AdjacencyElementMeshDevice : ElementMeshDevice<AdjacencyElementTrait>,
     this->right_parent_gmsh_type_number_.resize(adjacency_element_mesh.number_);
     Utils::transferToDevice<Isize, Device::Dynamic, 1>(adjacency_element_mesh.right_parent_gmsh_type_number_,
                                                        this->right_parent_gmsh_type_number_);
-    this->inner_radius_.resize(adjacency_element_mesh.number_);
-    Utils::transferToDevice<Real, Device::Dynamic, 1>(adjacency_element_mesh.inner_radius_, this->inner_radius_);
     this->normal_vector_.resize(adjacency_element_mesh.number_);
     Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>(
         adjacency_element_mesh.normal_vector_, this->normal_vector_);
     this->node_coordinate_initial_.resize(adjacency_element_mesh.number_);
     Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>(
         adjacency_element_mesh.node_coordinate_initial_, this->node_coordinate_initial_);
+    this->interface_opposite_element_index_.resize(2 * adjacency_element_mesh.interface_number_);
+    Utils::transferToDevice<Isize, AdjacencyElementTrait::kQuadratureNumber, 1>(
+        adjacency_element_mesh.interface_opposite_element_index_, this->interface_opposite_element_index_);
+    this->interface_volume_local_coordinate_.resize(2 * adjacency_element_mesh.interface_number_);
+    Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>(
+        adjacency_element_mesh.interface_volume_local_coordinate_, this->interface_volume_local_coordinate_);
+    this->center_node_coordinate_.resize(2 * adjacency_element_mesh.interface_number_);
+    Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, 1>(
+        adjacency_element_mesh.center_node_coordinate_, this->center_node_coordinate_);
+    this->vertical_vector_.resize(2 * adjacency_element_mesh.interface_number_);
+    Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, 1>(adjacency_element_mesh.vertical_vector_,
+                                                                            this->vertical_vector_);
+    this->edge_normal_vector_.resize(2 * adjacency_element_mesh.interface_number_);
+    Utils::transferToDevice<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAdjacencyNumber>(
+        adjacency_element_mesh.edge_normal_vector_, this->edge_normal_vector_);
+    this->interface_candidate_group_.resize(adjacency_element_mesh.interface_candidate_group_.size());
+    Utils::transferToDevice<Isize, Device::Dynamic, 1>(adjacency_element_mesh.interface_candidate_group_,
+                                                       this->interface_candidate_group_);
+    this->interface_candidate_offset_.resize(adjacency_element_mesh.interface_candidate_offset_.size());
+    Utils::transferToDevice<Isize, Device::Dynamic, 1>(adjacency_element_mesh.interface_candidate_offset_,
+                                                       this->interface_candidate_offset_);
+    this->interface_candidate_index_.resize(adjacency_element_mesh.interface_candidate_index_.size());
+    Utils::transferToDevice<Isize, Device::Dynamic, 1>(adjacency_element_mesh.interface_candidate_index_,
+                                                       this->interface_candidate_index_);
   }
 };
 
@@ -600,7 +663,8 @@ struct Mesh : MeshData<SimulationControl> {
     this->physical_.getInformation();
   }
 
-  void readMeshElement() {
+  void readMeshElement([[maybe_unused]] const Eigen::Vector<Real, SimulationControl::kDimension>& rotation_center,
+                       [[maybe_unused]] const Eigen::Vector<Real, 3>& rotation_axis) {
     if constexpr (SimulationControl::kDimension == 1) {
       this->line_.getVolumeElementMesh(this->node_coordinate_, this->physical_);
       this->volume_element_number_ += this->line_.number_;
@@ -620,6 +684,7 @@ struct Mesh : MeshData<SimulationControl> {
       this->line_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
                                                                                   this->physical_);
       this->adjacency_element_number_ += this->line_.number_;
+      this->line_.initializeInterfaceCandidateCache(rotation_center, rotation_axis);
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
         this->tetrahedron_.getVolumeElementMesh(this->node_coordinate_, this->physical_);
@@ -643,6 +708,7 @@ struct Mesh : MeshData<SimulationControl> {
         this->quadrangle_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
                                                                                           this->physical_);
         this->adjacency_element_number_ += this->quadrangle_.number_;
+        this->quadrangle_.initializeInterfaceCandidateCache(rotation_center, rotation_axis);
       }
     }
   }

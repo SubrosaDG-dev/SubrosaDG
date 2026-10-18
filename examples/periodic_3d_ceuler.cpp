@@ -50,7 +50,8 @@ inline void SubrosaDG::InitialCondition<SimulationControl>::computePrimitiveFrom
 template <typename SimulationControl>
 inline void SubrosaDG::BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
     [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
-    [[maybe_unused]] Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
+    [[maybe_unused]] Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>&
+        boundary_primitive_variable,
     [[maybe_unused]] const SubrosaDG::Isize gmsh_physical_index) {}
 
 int main(int argc, char* argv[]) {

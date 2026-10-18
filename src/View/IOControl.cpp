@@ -187,10 +187,18 @@ struct ViewSupplemental {
   Eigen::Vector<Real, SimulationControl::kDimension> force_{Eigen::Vector<Real, SimulationControl::kDimension>::Zero()};
 
   ViewSupplemental(const Mesh<SimulationControl>& mesh, const std::vector<ViewVariableEnum>& variable_type,
-                   const Isize physical_index) {
+                   const std::vector<Isize>& physical_indices) {
+    Isize node_number = 0;
+    Isize vtk_node_number = 0;
+    Isize vtk_element_number = 0;
+    for (const Isize physical_index : physical_indices) {
+      const PhysicalInformation& physical_information = mesh.physical_.information_[static_cast<Usize>(physical_index)];
+      node_number += physical_information.node_number_;
+      vtk_node_number += physical_information.vtk_node_number_;
+      vtk_element_number += physical_information.vtk_element_number_;
+    }
     this->data_set_data_.resize(variable_type.size() + 3);
-    const PhysicalInformation& physical_information = mesh.physical_.information_[static_cast<Usize>(physical_index)];
-    this->node_coordinate_.resize(Eigen::NoChange, physical_information.node_number_);
+    this->node_coordinate_.resize(Eigen::NoChange, node_number);
     this->node_coordinate_.setZero();
     this->node_variable_.resize(static_cast<Isize>(variable_type.size()));
     for (Isize i = 0; const auto variable : variable_type) {
@@ -198,14 +206,14 @@ struct ViewSupplemental {
           (variable == ViewVariableEnum::Velocity || variable == ViewVariableEnum::MachNumber ||
            variable == ViewVariableEnum::HeatFlux ||
            (variable == ViewVariableEnum::Vorticity && SimulationControl::kDimension == 3))) {
-        this->node_variable_(i++).resize(3 * physical_information.node_number_);
+        this->node_variable_(i++).resize(3 * node_number);
       } else {
-        this->node_variable_(i++).resize(physical_information.node_number_);
+        this->node_variable_(i++).resize(node_number);
       }
     }
-    this->element_connectivity_.resize(physical_information.vtk_node_number_);
-    this->element_offset_.resize(physical_information.vtk_element_number_);
-    this->element_type_.resize(physical_information.vtk_element_number_);
+    this->element_connectivity_.resize(vtk_node_number);
+    this->element_offset_.resize(vtk_element_number);
+    this->element_type_.resize(vtk_element_number);
   }
 };
 
@@ -256,7 +264,7 @@ struct View {
 
   template <int Dimension, TopologyEnum TopologyType>
   inline void writeView(const Mesh<SimulationControl>& mesh, const ViewSolver<SimulationControl>& view_solver,
-                        const std::string& base_name, /*const*/ int step, /*const*/ Isize physical_index);
+                        const std::vector<Isize>& physical_indices, const std::string& base_name, /*const*/ int step);
 
   inline void stepView(const Mesh<SimulationControl>& mesh, ViewSolver<SimulationControl>& view_solver,
                        /*const*/ int step);
@@ -276,6 +284,7 @@ struct View {
       }
       open_mode |= std::ios::app;
     }
+    error_finout.exceptions(std::ios::failbit | std::ios::badbit);
     error_finout.open((this->output_directory_ / "error.txt").string(), open_mode);
     error_finout.setf(std::ios::left, std::ios::adjustfield);
     error_finout.setf(std::ios::scientific, std::ios::floatfield);

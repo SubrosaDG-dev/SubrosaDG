@@ -166,10 +166,10 @@ template <typename Scalar, int Rows, int Cols>
   requires(!Device::HasScalar<Scalar>)
 inline void checkDeviceData(const Eigen::Matrix<Scalar, Rows, Cols>& matrix_host,
                             const Device::Matrix<Scalar, Rows, Cols>& matrix_device,
-                            const std::string_view variable_name, const Real tolerance = 1.0e-12_r) {
+                            const std::string_view variable_name) {
   Eigen::Matrix<Scalar, Rows, Cols> matrix_copy;
   queue.memcpy(matrix_copy.data(), matrix_device.data(), Rows * Cols * sizeof(Scalar)).wait();
-  if (!matrix_host.isApprox(matrix_copy, tolerance)) {
+  if (!matrix_host.isApprox(matrix_copy, kRealTolerance)) {
     std::cerr << std::format("Device matrix {} does not match host matrix within tolerance!", variable_name) << '\n';
   }
   std::cout << std::format("Device matrix {} checkDeviceData passed!", variable_name) << '\n';
@@ -179,11 +179,11 @@ template <typename Scalar, int Rows, int Cols>
   requires(!Device::HasScalar<Scalar>)
 inline void checkDeviceData(const Eigen::Array<Scalar, Eigen::Dynamic, 1>& array_host,
                             const Device::Array<Scalar, Device::Dynamic, 1>& array_device,
-                            const std::string_view variable_name, const Real tolerance = 1.0e-12_r) {
+                            const std::string_view variable_name) {
   const auto size = static_cast<std::size_t>(array_host.size());
   Eigen::Array<Scalar, Eigen::Dynamic, 1> array_copy(size);
   queue.memcpy(array_copy.data(), array_device.data(), size * sizeof(Scalar)).wait();
-  if (!array_host.isApprox(array_copy, tolerance)) {
+  if (!array_host.isApprox(array_copy, kRealTolerance)) {
     std::cerr << std::format("Device scalar array {} does not match host scalar array within tolerance!", variable_name)
               << '\n';
   }
@@ -194,7 +194,7 @@ template <typename Scalar, int Rows, int Cols>
   requires(!Device::HasScalar<Scalar>)
 inline void checkDeviceData(const Eigen::Array<Eigen::Matrix<Scalar, Rows, Cols>, Eigen::Dynamic, 1>& array_host,
                             const Device::Array<Device::Matrix<Scalar, Rows, Cols>, Device::Dynamic, 1>& array_device,
-                            const std::string_view variable_name, const Real tolerance = 1.0e-12_r) {
+                            const std::string_view variable_name) {
   const auto size = static_cast<std::size_t>(array_host.size());
   Scalar* array_span_host = sycl::malloc_host<Scalar>(size * Rows * Cols, queue);
   queue.memcpy(array_span_host, array_device.data(), size * Rows * Cols * sizeof(Scalar)).wait();
@@ -202,7 +202,7 @@ inline void checkDeviceData(const Eigen::Array<Eigen::Matrix<Scalar, Rows, Cols>
     Eigen::Map<Eigen::Matrix<Scalar, Rows, Cols>, Eigen::Unaligned, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>
         array_span_map(array_span_host + i,
                        Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(array_host.size() * Rows, array_host.size()));
-    if (!array_host(i).isApprox(array_span_map, tolerance)) {
+    if (!array_host(i).isApprox(array_span_map, kRealTolerance)) {
       std::cerr << std::format("Device matrix array {} element {} does not match host array element within tolerance!",
                                variable_name, i)
                 << '\n';

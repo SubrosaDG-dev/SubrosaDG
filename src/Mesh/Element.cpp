@@ -21,7 +21,6 @@
 #include <array>
 #include <cstddef>
 #include <format>
-#include <iostream>
 #include <magic_enum/magic_enum.hpp>
 #include <stdexcept>
 #include <unordered_map>
@@ -126,6 +125,10 @@ inline void AdjacencyElementMeshSupplemental<AdjacencyElementTrait>::getAdjacenc
             static_cast<Isize>(adjacency_node_tags[i * AdjacencyElementTrait::kAllNodeNumber + j]);
       }
     } else {
+      for (Usize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
+        this->information_map_[edge_tag].right_node_tag_[j] =
+            static_cast<Isize>(adjacency_node_tags[i * AdjacencyElementTrait::kAllNodeNumber + j]);
+      }
       this->information_map_[edge_tag].is_recorded_ = true;
     }
     const std::pair<Isize, Isize> parent_and_self_sequence =
@@ -178,6 +181,10 @@ inline void AdjacencyElementMeshSupplemental<AdjacencyElementTrait>::getAdjacenc
       if (this->information_map_[face_tag].is_recorded_) [[unlikely]] {
         throw std::runtime_error(fmt::format("The adjacency element with node tag {} is recorded more than twice.",
                                              fmt::join(this->information_map_[face_tag].node_tag_, " ")));
+      }
+      for (Usize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
+        this->information_map_[face_tag].right_node_tag_[j] =
+            static_cast<Isize>(adjacency_node_tags[i * AdjacencyElementTrait::kAllNodeNumber + j]);
       }
       for (Usize j = 0; j < AdjacencyElementTrait::kBasicNodeNumber; j++) {
         right_basic_node_tag[j] = adjacency_node_tags[i * AdjacencyElementTrait::kAllNodeNumber + j];
@@ -449,16 +456,16 @@ inline void VolumeElementMesh<VolumeElementTrait>::getVolumeElementMesh(
   }
   this->static_number_ = static_cast<Isize>(static_element_index.size());
   this->rotate_number_ = static_cast<Isize>(rotate_element_index.size());
+  std::size_t source_element_index;
   for (Isize i = 0; i < this->number_; i++) {
     if (i < this->static_number_) {
-      this->gmsh_tag_(i) =
-          static_cast<Isize>(element_tags[static_cast<Usize>(static_element_index[static_cast<Usize>(i)])]);
+      source_element_index = static_element_index[static_cast<Usize>(i)];
       this->interior_condition_type_(i) = InteriorConditionEnum::Static;
     } else {
-      this->gmsh_tag_(i) = static_cast<Isize>(
-          element_tags[static_cast<Usize>(rotate_element_index[static_cast<Usize>(i - this->static_number_)])]);
+      source_element_index = rotate_element_index[static_cast<Usize>(i - this->static_number_)];
       this->interior_condition_type_(i) = InteriorConditionEnum::Rotate;
     }
+    this->gmsh_tag_(i) = static_cast<Isize>(element_tags[source_element_index]);
     const auto gmsh_physical_index = static_cast<Usize>(
         physical.gmsh_tag_to_element_physical_information_.at(this->gmsh_tag_(i)).gmsh_physical_index_);
     this->gmsh_physical_index_(i) = static_cast<Isize>(gmsh_physical_index);
@@ -470,15 +477,15 @@ inline void VolumeElementMesh<VolumeElementTrait>::getVolumeElementMesh(
     physical.information_[gmsh_physical_index - 1].vtk_node_number_ += VolumeElementTrait::kVtkAllNodeNumber;
     physical.gmsh_tag_to_element_physical_information_[this->gmsh_tag_(i)].element_index_ = i;
     for (Isize j = 0; j < VolumeElementTrait::kAllNodeNumber; j++) {
-      const auto node_tag =
-          static_cast<Isize>(node_tags[static_cast<Usize>(i * VolumeElementTrait::kAllNodeNumber + j)]);
+      const auto node_tag = static_cast<Isize>(
+          node_tags[source_element_index * VolumeElementTrait::kAllNodeNumber + static_cast<Usize>(j)]);
       this->node_coordinate_(i).col(j) = node_coordinate.col(node_tag - 1);
       this->node_tag_(i)(j) = node_tag;
     }
     this->node_coordinate_initial_(i) = this->node_coordinate_(i);
   }
   this->getVolumeElementQuality();
-  this->computeVolumeElementOtherNodeCoordinate();
+  this->computeVolumeElementQuadratureNodeCoordinate();
   this->computeVolumeElementJacobian();
   this->computeVolumeElementLocalMassMatrixInverse();
 }
@@ -576,8 +583,10 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementBoun
     try {
       this->gmsh_tag_(element_index) = node_tag_element_map.at(node_tag);
     } catch (const std::out_of_range& error) {
-      std::cout << fmt::format("Cannot find adjacency element with node tag: {}", fmt::join(node_tag, " ")) << '\n';
-      std::cout << "Check your physical group definition or computational mesh type." << '\n';
+      throw std::runtime_error(
+          fmt::format("Cannot find adjacency element with node tag: {}. Check your physical group definition or "
+                      "computational mesh type.",
+                      fmt::join(node_tag, " ")));
     }
     const auto gmsh_physical_index = static_cast<Usize>(
         physical.gmsh_tag_to_element_physical_information_.at(this->gmsh_tag_(element_index)).gmsh_physical_index_);
@@ -612,108 +621,43 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementInte
   std::vector<std::size_t> interface_gmsh_tag(2 * static_cast<Usize>(this->interface_number_));
   std::vector<std::size_t> interface_node_tag(
       2 * static_cast<Usize>(this->interface_number_ * AdjacencyElementTrait::kAllNodeNumber));
-  std::vector<std::size_t> reverse_interface_gmsh_tag(static_cast<Usize>(this->interface_number_));
   for (Isize i = 0; i < this->interface_number_; i++) {
     const PerAdjacencyElementInformation<AdjacencyElementTrait>& adjacency_element_information =
         adjacency_element_mesh_supplemental.information_map_.at(
             adjacency_element_mesh_supplemental.interface_tag_[static_cast<Usize>(i)]);
-    const Isize interface_static_index = i + this->interior_number_ + this->boundary_number_;
-    const Isize interface_rotate_index = i + this->interior_number_ + this->boundary_number_ + this->interface_number_;
-    this->gmsh_tag_(interface_static_index) = static_cast<Isize>(max_tag) + i + 1;
-    this->gmsh_tag_(interface_rotate_index) = static_cast<Isize>(max_tag) + i + this->interface_number_ + 1;
-    interface_gmsh_tag[static_cast<Usize>(i)] = static_cast<std::size_t>(this->gmsh_tag_(interface_static_index));
-    interface_gmsh_tag[static_cast<Usize>(i + this->interface_number_)] =
-        static_cast<std::size_t>(this->gmsh_tag_(interface_rotate_index));
-    this->interior_condition_type_(interface_static_index) = InteriorConditionEnum::Interface;
-    this->interior_condition_type_(interface_rotate_index) = InteriorConditionEnum::Interface;
-    this->boundary_condition_type_(interface_static_index) = BoundaryConditionEnum::InterfaceStatic;
-    this->boundary_condition_type_(interface_rotate_index) = BoundaryConditionEnum::InterfaceRotate;
-    physical.gmsh_tag_to_element_physical_information_[this->gmsh_tag_(interface_static_index)].element_index_ =
-        interface_static_index;
-    physical.gmsh_tag_to_element_physical_information_[this->gmsh_tag_(interface_rotate_index)].element_index_ =
-        interface_rotate_index;
-    if (adjacency_element_information.parent_interior_condition_type_[0] == InteriorConditionEnum::Static) {
+    for (Usize parent = 0; parent < 2; parent++) {
+      const bool is_static =
+          adjacency_element_information.parent_interior_condition_type_[parent] == InteriorConditionEnum::Static;
+      const Isize interface_local_index = i + (is_static ? 0 : this->interface_number_);
+      const Isize element_index = this->interior_number_ + this->boundary_number_ + interface_local_index;
+      this->gmsh_tag_(element_index) =
+          static_cast<Isize>(max_tag) + i + 1 + static_cast<Isize>(parent) * this->interface_number_;
+      interface_gmsh_tag[static_cast<Usize>(interface_local_index)] =
+          static_cast<std::size_t>(this->gmsh_tag_(element_index));
+      physical.gmsh_tag_to_element_physical_information_[this->gmsh_tag_(element_index)].element_index_ = element_index;
+      this->interior_condition_type_(element_index) = InteriorConditionEnum::Interface;
+      this->boundary_condition_type_(element_index) =
+          is_static ? BoundaryConditionEnum::InterfaceStatic : BoundaryConditionEnum::InterfaceRotate;
+      const std::array<Isize, AdjacencyElementTrait::kAllNodeNumber>& parent_node_tag =
+          parent == 0 ? adjacency_element_information.node_tag_ : adjacency_element_information.right_node_tag_;
       for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
-        this->node_coordinate_(interface_static_index).col(j) =
-            node_coordinate.col(adjacency_element_information.node_tag_[static_cast<Usize>(j)] - 1);
-        this->node_tag_(interface_static_index)(j) = adjacency_element_information.node_tag_[static_cast<Usize>(j)];
-        interface_node_tag[static_cast<Usize>(i * AdjacencyElementTrait::kAllNodeNumber + j)] =
-            static_cast<std::size_t>(adjacency_element_information.node_tag_[static_cast<Usize>(j)]);
-        interface_node_tag[static_cast<Usize>((i + this->interface_number_) * AdjacencyElementTrait::kAllNodeNumber +
-                                              j)] =
-            static_cast<std::size_t>(adjacency_element_information.node_tag_[static_cast<Usize>(j)]);
+        const Isize node_tag = parent_node_tag[static_cast<Usize>(j)];
+        this->node_tag_(element_index)(j) = node_tag;
+        this->node_coordinate_(element_index).col(j) = node_coordinate.col(node_tag - 1);
+        interface_node_tag[static_cast<Usize>(interface_local_index * AdjacencyElementTrait::kAllNodeNumber + j)] =
+            static_cast<std::size_t>(node_tag);
       }
-      this->left_parent_index_each_type_(interface_static_index) =
-          physical.gmsh_tag_to_element_physical_information_.at(adjacency_element_information.parent_gmsh_tag_[0])
+      this->left_parent_index_each_type_(element_index) =
+          physical.gmsh_tag_to_element_physical_information_.at(adjacency_element_information.parent_gmsh_tag_[parent])
               .element_index_;
-      this->adjacency_sequence_in_left_parent_(interface_static_index) =
-          adjacency_element_information.adjacency_sequence_[0];
-      this->left_parent_gmsh_type_number_(interface_static_index) = adjacency_element_information.parent_gmsh_type_[0];
-      this->left_parent_index_each_type_(interface_rotate_index) =
-          physical.gmsh_tag_to_element_physical_information_.at(adjacency_element_information.parent_gmsh_tag_[1])
-              .element_index_;
-      this->adjacency_sequence_in_left_parent_(interface_rotate_index) =
-          adjacency_element_information.adjacency_sequence_[1];
-      this->left_parent_gmsh_type_number_(interface_rotate_index) = adjacency_element_information.parent_gmsh_type_[1];
-      reverse_interface_gmsh_tag[static_cast<Usize>(i)] =
-          static_cast<std::size_t>(this->gmsh_tag_(interface_rotate_index));
-    } else {
-      for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
-        this->node_coordinate_(interface_rotate_index).col(j) =
-            node_coordinate.col(adjacency_element_information.node_tag_[static_cast<Usize>(j)] - 1);
-        this->node_tag_(interface_rotate_index)(j) = adjacency_element_information.node_tag_[static_cast<Usize>(j)];
-        interface_node_tag[static_cast<Usize>((i + this->interface_number_) * AdjacencyElementTrait::kAllNodeNumber +
-                                              j)] =
-            static_cast<std::size_t>(adjacency_element_information.node_tag_[static_cast<Usize>(j)]);
-        interface_node_tag[static_cast<Usize>(i * AdjacencyElementTrait::kAllNodeNumber + j)] =
-            static_cast<std::size_t>(adjacency_element_information.node_tag_[static_cast<Usize>(j)]);
-      }
-      this->left_parent_index_each_type_(interface_rotate_index) =
-          physical.gmsh_tag_to_element_physical_information_.at(adjacency_element_information.parent_gmsh_tag_[0])
-              .element_index_;
-      this->adjacency_sequence_in_left_parent_(interface_rotate_index) =
-          adjacency_element_information.adjacency_sequence_[0];
-      this->left_parent_gmsh_type_number_(interface_rotate_index) = adjacency_element_information.parent_gmsh_type_[0];
-      this->left_parent_index_each_type_(interface_static_index) =
-          physical.gmsh_tag_to_element_physical_information_.at(adjacency_element_information.parent_gmsh_tag_[1])
-              .element_index_;
-      this->adjacency_sequence_in_left_parent_(interface_static_index) =
-          adjacency_element_information.adjacency_sequence_[1];
-      this->left_parent_gmsh_type_number_(interface_static_index) = adjacency_element_information.parent_gmsh_type_[1];
-      reverse_interface_gmsh_tag[static_cast<Usize>(i)] =
-          static_cast<std::size_t>(this->gmsh_tag_(interface_static_index));
+      this->adjacency_sequence_in_left_parent_(element_index) =
+          adjacency_element_information.adjacency_sequence_[parent];
+      this->left_parent_gmsh_type_number_(element_index) = adjacency_element_information.parent_gmsh_type_[parent];
+      this->node_coordinate_initial_(element_index) = this->node_coordinate_(element_index);
     }
   }
   gmsh::model::mesh::addElementsByType(entity_tag, AdjacencyElementTrait::kGmshTypeNumber, interface_gmsh_tag,
                                        interface_node_tag);
-  gmsh::model::mesh::reverseElements(reverse_interface_gmsh_tag);
-  std::vector<std::size_t> element_tags;
-  std::vector<std::size_t> node_tags;
-  gmsh::model::mesh::getElementsByType(AdjacencyElementTrait::kGmshTypeNumber, element_tags, node_tags, entity_tag);
-  for (Isize i = 0; i < this->interface_number_; i++) {
-    const PerAdjacencyElementInformation<AdjacencyElementTrait>& adjacency_element_information =
-        adjacency_element_mesh_supplemental.information_map_.at(
-            adjacency_element_mesh_supplemental.interface_tag_[static_cast<Usize>(i)]);
-    const Isize interface_static_index = i + this->interior_number_ + this->boundary_number_;
-    const Isize interface_rotate_index = i + this->interior_number_ + this->boundary_number_ + this->interface_number_;
-    if (adjacency_element_information.parent_interior_condition_type_[0] == InteriorConditionEnum::Static) {
-      for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
-        const auto node_tag = static_cast<Isize>(
-            node_tags[static_cast<Usize>((i + this->interface_number_) * AdjacencyElementTrait::kAllNodeNumber + j)]);
-        this->node_coordinate_(interface_rotate_index).col(j) = node_coordinate.col(node_tag - 1);
-        this->node_tag_(interface_rotate_index)(j) = node_tag;
-      }
-    } else {
-      for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
-        const auto node_tag =
-            static_cast<Isize>(node_tags[static_cast<Usize>(i * AdjacencyElementTrait::kAllNodeNumber + j)]);
-        this->node_coordinate_(interface_static_index).col(j) = node_coordinate.col(node_tag - 1);
-        this->node_tag_(interface_static_index)(j) = node_tag;
-      }
-    }
-    this->node_coordinate_initial_(interface_static_index) = this->node_coordinate_(interface_static_index);
-    this->node_coordinate_initial_(interface_rotate_index) = this->node_coordinate_(interface_rotate_index);
-  }
 }
 
 template <typename AdjacencyElementTrait>
@@ -739,7 +683,6 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementMesh
   this->node_tag_.resize(this->number_);
   this->jacobian_determinant_multiply_weight_.resize(this->number_);
   this->node_coordinate_.resize(this->number_);
-  this->center_node_coordinate_.resize(this->number_);
   this->quadrature_node_coordinate_.resize(this->number_);
   this->adjacency_right_rotation_.resize(this->number_);
   this->boundary_condition_type_.resize(this->number_);
@@ -749,16 +692,20 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyElementMesh
   this->adjacency_sequence_in_right_parent_.resize(this->number_);
   this->left_parent_gmsh_type_number_.resize(this->number_);
   this->right_parent_gmsh_type_number_.resize(this->number_);
-  this->inner_radius_.resize(this->number_);
   this->normal_vector_.resize(this->number_);
   this->node_coordinate_initial_.resize(this->number_);
+  this->interface_opposite_element_index_.resize(2 * this->interface_number_);
+  this->interface_volume_local_coordinate_.resize(2 * this->interface_number_);
+  this->center_node_coordinate_.resize(2 * this->interface_number_);
+  this->vertical_vector_.resize(2 * this->interface_number_);
+  this->edge_normal_vector_.resize(2 * this->interface_number_);
   this->getAdjacencyElementInteriorMesh(node_coordinate, adjacency_element_mesh_supplemental, physical);
   this->getAdjacencyElementBoundaryMesh(node_coordinate, adjacency_element_mesh_supplemental, physical);
   this->getAdjacencyElementInterfaceMesh(node_coordinate, adjacency_element_mesh_supplemental, physical);
-  this->getAdjacencyElementQuality();
-  this->computeAdjacencyElementOtherNodeCoordinate();
+  this->computeAdjacencyElementQuadratureNodeCoordinate();
   this->computeAdjacencyElementJacobianDeterminant();
   this->computeAdjacencyElementNormalVector();
+  this->computeAdjacencyElementInterfaceSelectionGeometry();
 }
 
 }  // namespace SubrosaDG

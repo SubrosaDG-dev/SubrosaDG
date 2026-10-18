@@ -570,28 +570,11 @@ struct AdjacencyElementSolver : AdjacencyElementSolverData<AdjacencyElementTrait
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
       const TimeIntegration<SimulationControl>& time_integration, /*const*/ int rk_step);
 
-  template <typename VolumeElementTrait>
-  inline void computeAdjacencyPerElementInterfaceVariable(
-      const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
-      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
-      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable,
-      /*const*/ Isize parent_index_each_type, /*const*/ Isize adjacency_sequence_in_parent);
-
-  template <typename VolumeElementTrait, ViscousFluxEnum ViscousFluxType>
-  inline void computeAdjacencyPerElementInterfaceVariable(
-      const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
-      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
-      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable,
-      Eigen::Ref<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-          interface_conserved_variable_gradient,
-      /*const*/ Isize parent_index_each_type, /*const*/ Isize adjacency_sequence_in_parent);
-
-  inline void updateAdjacencyElementInterfaceVariable(const Mesh<SimulationControl>& mesh,
+  inline void updateAdjacencyElementInterfaceVariable(Mesh<SimulationControl>& mesh,
                                                       const Solver<SimulationControl>& solver);
+
+  inline void updateAdjacencyElementInterfaceVariableGradient(const Mesh<SimulationControl>& mesh,
+                                                              const Solver<SimulationControl>& solver);
 
   inline void rotateAdjacencyElementMesh(
       AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
@@ -665,32 +648,11 @@ struct AdjacencyElementSolverDevice : AdjacencyElementSolverDataDevice<Adjacency
   inline void transferAdjacencyElementSolverToDevice(
       const AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>& adjacency_element_solver);
 
-  inline void updateAdjacencyElementBoundaryVariable(
-      const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh,
-      const TimeIntegration<SimulationControl>& time_integration, /*const*/ int rk_step);
-
-  template <typename VolumeElementTrait>
-  inline void computeAdjacencyPerElementInterfaceVariable(
-      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
-      const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh,
-      const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>& volume_element_solver,
-      const Device::StaticVector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
-      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable,
-      /*const*/ Isize parent_index_each_type, /*const*/ Isize adjacency_sequence_in_parent);
-
-  template <typename VolumeElementTrait, ViscousFluxEnum ViscousFluxType>
-  inline void computeAdjacencyPerElementInterfaceVariable(
-      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
-      const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh,
-      const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>& volume_element_solver,
-      const Device::StaticVector<Real, AdjacencyElementTrait::kDimension>& adjacency_local_coordinate,
-      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber>> interface_conserved_variable,
-      Device::View<Device::Vector<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>>
-          interface_conserved_variable_gradient,
-      /*const*/ Isize parent_index_each_type, /*const*/ Isize adjacency_sequence_in_parent);
-
-  inline void updateAdjacencyElementInterfaceVariable(const MeshDevice<SimulationControl>& mesh,
+  inline void updateAdjacencyElementInterfaceVariable(MeshDevice<SimulationControl>& mesh,
                                                       const SolverDevice<SimulationControl>& solver);
+
+  inline void updateAdjacencyElementInterfaceVariableGradient(const MeshDevice<SimulationControl>& mesh,
+                                                              const SolverDevice<SimulationControl>& solver);
 
   inline void rotateAdjacencyElementMesh(
       AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh,
@@ -869,7 +831,9 @@ struct Solver : SolverData<SimulationControl> {
   inline void updateBoundaryVariable(const Mesh<SimulationControl>& mesh,
                                      const TimeIntegration<SimulationControl>& time_integration, /*const*/ int rk_step);
 
-  inline void updateInterfaceVariable(const Mesh<SimulationControl>& mesh);
+  inline void updateInterfaceVariable(Mesh<SimulationControl>& mesh);
+
+  inline void updateInterfaceVariableGradient(const Mesh<SimulationControl>& mesh);
 
   inline void copyBasisFunctionCoefficient();
 
@@ -956,7 +920,9 @@ struct SolverDevice : SolverDataDevice<SimulationControl> {
 
   inline void transferSolverToDevice(const Solver<SimulationControl>& solver);
 
-  inline void updateInterfaceVariable(const MeshDevice<SimulationControl>& mesh);
+  inline void updateInterfaceVariable(MeshDevice<SimulationControl>& mesh);
+
+  inline void updateInterfaceVariableGradient(const MeshDevice<SimulationControl>& mesh);
 
   inline void copyBasisFunctionCoefficient();
 

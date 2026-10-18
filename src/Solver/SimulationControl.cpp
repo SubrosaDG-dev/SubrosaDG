@@ -181,25 +181,6 @@ getVolumeElementPerAdjacencyBasicNodeIndex() {
   // clang-format on
 }
 
-template <ElementEnum ElementType>
-consteval Real getElementMeasure() {
-  if constexpr (ElementType == ElementEnum::Point) {
-    return 1.0_r;
-  } else if constexpr (ElementType == ElementEnum::Line) {
-    return 2.0_r;
-  } else if constexpr (ElementType == ElementEnum::Triangle) {
-    return 0.5_r;
-  } else if constexpr (ElementType == ElementEnum::Quadrangle) {
-    return 4.0_r;
-  } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
-    return 1.0_r / 6.0_r;
-  } else if constexpr (ElementType == ElementEnum::Pyramid) {
-    return 1.0_r / 3.0_r;
-  } else if constexpr (ElementType == ElementEnum::Hexahedron) {
-    return 8.0_r;
-  }
-}
-
 template <ElementEnum ElementType, int PolynomialOrder>
 consteval int getElementBasisFunctionNumber() {
   if constexpr (ElementType == ElementEnum::Point) {
@@ -242,10 +223,6 @@ consteval int getVolumeElementQuadratureOrder() {
 template <int PolynomialOrder>
 consteval int getAdjacencyElementQuadratureOrder() {
   return 2 * PolynomialOrder + 3;
-
-  // NOTE: More accurate quadrature order can be used for the interface element, which shows better convergence behavior
-  // in the rotating mesh test.
-  // return 4 * PolynomialOrder + 3;
 }
 
 template <ElementEnum ElementType, int PolynomialOrder>
@@ -1271,6 +1248,7 @@ template <ElementEnum ElementType, int PolynomialOrder>
 struct AdjacencyElementTrait : ElementTrait<ElementType, PolynomialOrder> {
   static constexpr int kQuadratureOrder{getAdjacencyElementQuadratureOrder<PolynomialOrder>()};
   static constexpr int kQuadratureNumber{getAdjacencyElementQuadratureNumber<ElementType, PolynomialOrder>()};
+  static constexpr int kAdjacencyNumber{getVolumeElementAdjacencyNumber<ElementType>()};
 };
 
 template <int PolynomialOrder>

@@ -22,6 +22,7 @@ namespace SubrosaDG {
 enum class CommandLineEnum : std::uint8_t {
   Open,
   Close,
+  Agent,
 };
 
 enum class DimensionEnum : std::uint8_t {

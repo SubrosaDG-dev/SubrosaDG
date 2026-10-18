@@ -219,8 +219,7 @@ inline void View<SimulationControl>::writeField(const Mesh<SimulationControl>& m
       if constexpr (TopologyType == TopologyEnum::Volume) {
         this->writeVolumeElement<VolumeLineTrait<SimulationControl::kPolynomialOrder>>(
             mesh.physical_, mesh.line_, view_solver, view_supplemental, physical_index, i);
-      }
-      if constexpr (TopologyType == TopologyEnum::Adjacency) {
+      } else if constexpr (TopologyType == TopologyEnum::Adjacency) {
         this->writeAdjacencyElement<AdjacencyLineTrait<SimulationControl::kPolynomialOrder>>(
             mesh.physical_, mesh.line_, view_solver, view_supplemental, physical_index, i);
       }
@@ -233,8 +232,7 @@ inline void View<SimulationControl>::writeField(const Mesh<SimulationControl>& m
           this->writeVolumeElement<VolumeQuadrangleTrait<SimulationControl::kPolynomialOrder>>(
               mesh.physical_, mesh.quadrangle_, view_solver, view_supplemental, physical_index, i);
         }
-      }
-      if constexpr (TopologyType == TopologyEnum::Adjacency) {
+      } else if constexpr (TopologyType == TopologyEnum::Adjacency) {
         if (element_gmsh_type == AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>::kGmshTypeNumber) {
           this->writeAdjacencyElement<AdjacencyTriangleTrait<SimulationControl::kPolynomialOrder>>(
               mesh.physical_, mesh.triangle_, view_solver, view_supplemental, physical_index, i);
@@ -263,11 +261,14 @@ template <typename SimulationControl>
 template <int Dimension, TopologyEnum TopologyType>
 inline void View<SimulationControl>::writeView(const Mesh<SimulationControl>& mesh,
                                                const ViewSolver<SimulationControl>& view_solver,
-                                               const std::string& base_name, const int step,
-                                               const Isize physical_index) {
-  ViewSupplemental<SimulationControl> view_supplemental(mesh, this->variable_type_, physical_index);
+                                               const std::vector<Isize>& physical_indices, const std::string& base_name,
+                                               const int step) {
+  ViewSupplemental<SimulationControl> view_supplemental(mesh, this->variable_type_, physical_indices);
   this->getDataSetInformation(view_supplemental.data_set_information_);
-  this->writeField<Dimension, TopologyType>(mesh, view_solver, view_supplemental, physical_index);
+  // Keep element-local DG nodes while continuing output offsets across physical groups.
+  for (const Isize physical_index : physical_indices) {
+    this->writeField<Dimension, TopologyType>(mesh, view_solver, view_supplemental, physical_index);
+  }
   vtu11::Vtu11UnstructuredMesh mesh_data{
       {view_supplemental.node_coordinate_.data(),
        view_supplemental.node_coordinate_.data() + view_supplemental.node_coordinate_.size()},
@@ -298,27 +299,26 @@ inline void View<SimulationControl>::stepView(const Mesh<SimulationControl>& mes
                                               ViewSolver<SimulationControl>& view_solver, const int step) {
   view_solver.computeViewVariable(mesh);
   view_solver.computeRotationMatrix();
+  std::vector<Isize> volume_physical_indices;
+  std::vector<Isize> adjacency_physical_indices;
   for (Isize i = 0; i < mesh.physical_.number_; i++) {
-    const PhysicalInformation& physical_information = mesh.physical_.information_[static_cast<Usize>(i)];
-    if ((physical_information.dimension_ == SimulationControl::kDimension) ||
-        isWall(physical_information.boundary_condition_type_)) {
-      const std::string base_name = this->getBaseName(physical_information.name_, step);
-      if constexpr (SimulationControl::kDimension == 1) {
-        if (physical_information.dimension_ == 1) {
-          this->writeView<1, TopologyEnum::Volume>(mesh, view_solver, base_name, step, i);
-        }
-      } else if constexpr (SimulationControl::kDimension == 2) {
-        if (physical_information.dimension_ == 1) {
-          this->writeView<1, TopologyEnum::Adjacency>(mesh, view_solver, base_name, step, i);
-        } else if (physical_information.dimension_ == 2) {
-          this->writeView<2, TopologyEnum::Volume>(mesh, view_solver, base_name, step, i);
-        }
-      } else if constexpr (SimulationControl::kDimension == 3) {
-        if (physical_information.dimension_ == 2) {
-          this->writeView<2, TopologyEnum::Adjacency>(mesh, view_solver, base_name, step, i);
-        } else if (physical_information.dimension_ == 3) {
-          this->writeView<3, TopologyEnum::Volume>(mesh, view_solver, base_name, step, i);
-        }
+    if (mesh.physical_.information_[static_cast<Usize>(i)].dimension_ == SimulationControl::kDimension) {
+      volume_physical_indices.emplace_back(i);
+    }
+  }
+  if (!volume_physical_indices.empty()) {
+    this->writeView<SimulationControl::kDimension, TopologyEnum::Volume>(mesh, view_solver, volume_physical_indices,
+                                                                         this->getBaseName("vc-1", step), step);
+  }
+  if constexpr (SimulationControl::kDimension >= 2) {
+    for (Isize i = 0; i < mesh.physical_.number_; i++) {
+      const PhysicalInformation& physical_information = mesh.physical_.information_[static_cast<Usize>(i)];
+      if (physical_information.dimension_ == SimulationControl::kDimension - 1 &&
+          isWall(physical_information.boundary_condition_type_)) {
+        adjacency_physical_indices.clear();
+        adjacency_physical_indices.emplace_back(i);
+        this->writeView<SimulationControl::kDimension - 1, TopologyEnum::Adjacency>(
+            mesh, view_solver, adjacency_physical_indices, this->getBaseName(physical_information.name_, step), step);
       }
     }
   }

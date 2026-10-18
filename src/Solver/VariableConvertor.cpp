@@ -33,8 +33,8 @@ struct VariableIndex {
     if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
       if constexpr (ConservedVariableType == ConservedVariableEnum::Density) {
         return 0;
-      } else if constexpr (ConservedVariableType == ConservedVariableEnum::MomentumX ||
-                           ConservedVariableType == ConservedVariableEnum::Momentum) {
+      } else if constexpr (ConservedVariableType == ConservedVariableEnum::Momentum ||
+                           ConservedVariableType == ConservedVariableEnum::MomentumX) {
         return 1;
       } else if constexpr (ConservedVariableType == ConservedVariableEnum::MomentumY) {
         return 2;
@@ -47,8 +47,8 @@ struct VariableIndex {
     if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       if constexpr (ConservedVariableType == ConservedVariableEnum::Density) {
         return 0;
-      } else if constexpr (ConservedVariableType == ConservedVariableEnum::MomentumX ||
-                           ConservedVariableType == ConservedVariableEnum::Momentum) {
+      } else if constexpr (ConservedVariableType == ConservedVariableEnum::Momentum ||
+                           ConservedVariableType == ConservedVariableEnum::MomentumX) {
         return 1;
       } else if constexpr (ConservedVariableType == ConservedVariableEnum::MomentumY) {
         return 2;
@@ -65,8 +65,8 @@ struct VariableIndex {
     if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
       if constexpr (ComputationalVariableType == ComputationalVariableEnum::Density) {
         return 0;
-      } else if constexpr (ComputationalVariableType == ComputationalVariableEnum::VelocityX ||
-                           ComputationalVariableType == ComputationalVariableEnum::Velocity) {
+      } else if constexpr (ComputationalVariableType == ComputationalVariableEnum::Velocity ||
+                           ComputationalVariableType == ComputationalVariableEnum::VelocityX) {
         return 1;
       } else if constexpr (ComputationalVariableType == ComputationalVariableEnum::VelocityY) {
         return 2;
@@ -81,8 +81,8 @@ struct VariableIndex {
     if constexpr (IsIncompressible<SimulationControl::kEquationModel>) {
       if constexpr (ComputationalVariableType == ComputationalVariableEnum::Density) {
         return 0;
-      } else if constexpr (ComputationalVariableType == ComputationalVariableEnum::VelocityX ||
-                           ComputationalVariableType == ComputationalVariableEnum::Velocity) {
+      } else if constexpr (ComputationalVariableType == ComputationalVariableEnum::Velocity ||
+                           ComputationalVariableType == ComputationalVariableEnum::VelocityX) {
         return 1;
       } else if constexpr (ComputationalVariableType == ComputationalVariableEnum::VelocityY) {
         return 2;
@@ -101,8 +101,8 @@ struct VariableIndex {
     if constexpr (IsEuler<SimulationControl::kEquationModel> || IsNS<SimulationControl::kEquationModel>) {
       if constexpr (PrimitiveVariableType == PrimitiveVariableEnum::Density) {
         return 0;
-      } else if constexpr (PrimitiveVariableType == PrimitiveVariableEnum::VelocityX ||
-                           PrimitiveVariableType == PrimitiveVariableEnum::Velocity) {
+      } else if constexpr (PrimitiveVariableType == PrimitiveVariableEnum::Velocity ||
+                           PrimitiveVariableType == PrimitiveVariableEnum::VelocityX) {
         return 1;
       } else if constexpr (PrimitiveVariableType == PrimitiveVariableEnum::VelocityY) {
         return 2;

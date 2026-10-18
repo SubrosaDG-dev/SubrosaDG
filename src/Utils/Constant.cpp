@@ -28,6 +28,7 @@ inline constexpr std::streamsize kRealSize{sizeof(Real)};
 inline constexpr Real kRealMin{std::numeric_limits<Real>::min()};
 inline constexpr Real kRealMax{std::numeric_limits<Real>::max()};
 inline constexpr Real kRealEpsilon{std::numeric_limits<Real>::epsilon()};
+inline constexpr Real kRealTolerance{std::numeric_limits<Real>::epsilon() * 100.0_r};
 inline constexpr int kRealSignificantDigits{std::numeric_limits<Real>::digits10};
 
 #if !defined(SUBROSA_DG_GPU) || defined(SUBROSA_DG_DEVELOP)
