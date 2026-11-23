@@ -2,7 +2,7 @@
  * @file CommandLine.cpp
  * @brief The header file of SubrosaDG command line output.
  *
- * @author Yufei.Liu, Calm.Liu#outlook.com | Chenyu.Bao, bcynuaa#163.com
+ * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2023-12-06
  *
  * @version 0.1.0
@@ -16,123 +16,73 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
+#include <array>
 #include <chrono>
 #include <cmath>
-#include <concepts>
+#include <cstddef>
 #include <deque>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <regex>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <sycl/sycl.hpp>
 #include <tqdm.hpp>
 #include <type_traits>
-#include <vector>
 
 #include "Cmake.cpp"
 #include "Solver/TimeIntegration.cpp"
 #include "Utils/BasicDataType.cpp"
+#include "Utils/Concept.cpp"
 #include "Utils/Constant.cpp"
 #include "Utils/Enum.cpp"
 
 namespace SubrosaDG {
 
-// clang-format off
-
-#define RESET       "\033[0m"
-#define BLACK       "\033[30m"             /* Black */
-#define RED         "\033[31m"             /* Red */
-#define GREEN       "\033[32m"             /* Green */
-#define YELLOW      "\033[33m"             /* Yellow */
-#define BLUE        "\033[34m"             /* Blue */
-#define MAGENTA     "\033[35m"             /* Magenta */
-#define CYAN        "\033[36m"             /* Cyan */
-#define WHITE       "\033[37m"             /* White */
-#define BOLDBLACK   "\033[1m\033[30m"      /* Bold Black */
-#define BOLDRED     "\033[1m\033[31m"      /* Bold Red */
-#define BOLDGREEN   "\033[1m\033[32m"      /* Bold Green */
-#define BOLDYELLOW  "\033[1m\033[33m"      /* Bold Yellow */
-#define BOLDBLUE    "\033[1m\033[34m"      /* Bold Blue */
-#define BOLDMAGENTA "\033[1m\033[35m"      /* Bold Magenta */
-#define BOLDCYAN    "\033[1m\033[36m"      /* Bold Cyan */
-#define BOLDWHITE   "\033[1m\033[37m"      /* Bold White */
-
-// clang-format on
-
-struct CommandLineJson {
-  std::string fields_;
-
-  static std::string quote(const std::string_view value) {
-    std::string result{"\""};
-    for (const char character : value) {
-      switch (character) {
-      case '"':
-        result += "\\\"";
-        break;
-      case '\\':
-        result += "\\\\";
-        break;
-      case '\n':
-        result += "\\n";
-        break;
-      case '\r':
-        result += "\\r";
-        break;
-      case '\t':
-        result += "\\t";
-        break;
-      default:
-        if (static_cast<unsigned char>(character) < 0x20) {
-          result += std::format("\\u{:04x}", static_cast<unsigned char>(character));
-        } else {
-          result += static_cast<char>(character);
-        }
-      }
-    }
-    return result + '"';
-  }
-
-  CommandLineJson& addEncoded(const std::string_view key, const std::string_view value) {
-    if (!this->fields_.empty()) {
-      this->fields_ += ',';
-    }
-    this->fields_ += quote(key) + ':' + std::string(value);
-    return *this;
-  }
-
-  CommandLineJson& add(const std::string_view key, const std::string_view value) {
-    return this->addEncoded(key, quote(value));
-  }
-
-  template <std::integral Value>
-  CommandLineJson& add(const std::string_view key, const Value value) {
-    return this->addEncoded(key, std::format("{}", value));
-  }
-
-  template <std::floating_point Value>
-  CommandLineJson& add(const std::string_view key, const Value value) {
-    // std::format without the L specifier is independent of the global locale.
-    return this->addEncoded(key, std::isfinite(value) ? std::format("{}", value) : "null");
-  }
-
-  CommandLineJson& add(const std::string_view key, const CommandLineJson& value) {
-    return this->addEncoded(key, value.str());
-  }
-
-  CommandLineJson& addNull(const std::string_view key) { return this->addEncoded(key, "null"); }
-
-  [[nodiscard]] std::string str() const { return '{' + this->fields_ + '}'; }
-};
+inline constexpr std::string_view kAnsiReset{"\033[0m"};
+inline constexpr std::string_view kAnsiRed{"\033[31m"};
+inline constexpr std::string_view kAnsiBlue{"\033[34m"};
+inline constexpr std::string_view kAnsiMagenta{"\033[35m"};
 
 template <typename SimulationControl>
-struct CommandLineResidual {
-  static std::string_view variableName(const int index) {
-    constexpr std::string_view kNames[]{"rho", "rho*u", "rho*v", "rho*w"};
+struct CommandLine {
+  using Clock = std::chrono::steady_clock;
+
+  static constexpr int kHistoryLineNumber = 10;
+  static constexpr std::chrono::seconds kProgressInterval{5};
+
+  struct ResidualRecord {
+    Real time_;
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> residual_;
+  };
+
+  CommandLineEnum command_line_type_;
+  Real delta_time_{0.0_r};
+
+  std::deque<ResidualRecord> residual_history_;
+  Tqdm::ProgressBar solver_progress_bar_;
+  Tqdm::ProgressBar view_progress_bar_;
+
+  Clock::time_point run_start_{Clock::now()};
+  Clock::time_point phase_start_{run_start_};
+  Clock::time_point last_progress_{run_start_};
+  int iteration_end_{0};
+  int residual_step_{-1};
+  int snapshot_total_{0};
+  int snapshot_completed_{0};
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> latest_residual_{
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero()};
+  std::filesystem::path output_directory_;
+  std::filesystem::path mesh_file_path_;
+
+  [[nodiscard]] static constexpr std::string_view getVariableName(const int index) {
+    constexpr std::array<std::string_view, 4> kNames{"rho", "rho*u", "rho*v", "rho*w"};
     if (index <= SimulationControl::kDimension) {
-      return kNames[index];
+      return kNames[static_cast<Usize>(index)];
     }
     if constexpr (IsCompressible<SimulationControl::kEquationModel>) {
       return "rho*E";
@@ -141,116 +91,129 @@ struct CommandLineResidual {
     }
   }
 
-  static std::string header() {
+  [[nodiscard]] static std::string getResidualHeader() {
     std::string line = std::format("|{:^13}|", "Time");
-    for (int i = 0; i < SimulationControl::kConservedVariableNumber; ++i) {
-      line += std::format("{:^13}|", variableName(i));
+    for (int i = 0; i < SimulationControl::kConservedVariableNumber; i++) {
+      line += std::format("{:^13}|", CommandLine::getVariableName(i));
     }
     return line;
   }
 
-  static std::string row(const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual,
-                         const Real time) {
-    std::string line = std::format("|{:^13.5e}|", time);
-    for (int i = 0; i < SimulationControl::kConservedVariableNumber; ++i) {
+  [[nodiscard]] static std::string getResidualLine(
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual, const Real time_value) {
+    std::string line = std::format("|{:^13.5e}|", time_value);
+    for (int i = 0; i < SimulationControl::kConservedVariableNumber; i++) {
       line += std::format("{:^13.5e}|", residual(i));
     }
     return line;
   }
 
-  static CommandLineJson values(const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual) {
-    CommandLineJson fields;
-    for (int i = 0; i < SimulationControl::kConservedVariableNumber; ++i) {
-      fields.add(variableName(i), residual(i));
+  [[nodiscard]] static nlohmann::ordered_json getResidualJson(
+      const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual) {
+    nlohmann::ordered_json residual_json = nlohmann::ordered_json::object();
+    for (int i = 0; i < SimulationControl::kConservedVariableNumber; i++) {
+      const std::string variable_name{CommandLine::getVariableName(i)};
+      if (std::isfinite(residual(i))) {
+        residual_json[variable_name] = residual(i);
+      } else {
+        residual_json[variable_name] = nullptr;
+      }
     }
-    return fields;
+    return residual_json;
   }
 
-  static CommandLineJson nonfiniteValues(
+  [[nodiscard]] static nlohmann::ordered_json getNonfiniteResidualJson(
       const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual) {
-    CommandLineJson fields;
-    for (int i = 0; i < SimulationControl::kConservedVariableNumber; ++i) {
+    nlohmann::ordered_json nonfinite_json = nlohmann::ordered_json::object();
+    for (int i = 0; i < SimulationControl::kConservedVariableNumber; i++) {
       if (!std::isfinite(residual(i))) {
         std::string_view value;
         if (std::isnan(residual(i))) {
           value = "nan";
-        } else if (residual(i) > 0) {
+        } else if (residual(i) > 0.0_r) {
           value = "inf";
         } else {
           value = "-inf";
         }
-        fields.add(variableName(i), value);
+        nonfinite_json[std::string{CommandLine::getVariableName(i)}] = value;
       }
     }
-    return fields;
+    return nonfinite_json;
   }
-};
 
-template <typename SimulationControl>
-struct CommandLineTerminal {
-  static constexpr int kHistoryLines = 10;
+  [[nodiscard]] static double getElapsedSeconds(const Clock::time_point start_time) {
+    return std::chrono::duration<double>(Clock::now() - start_time).count();
+  }
 
-  struct Sample {
-    Real time_;
-    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> residual_;
-  };
+  [[nodiscard]] bool isProgressDue() const { return Clock::now() - this->last_progress_ >= kProgressInterval; }
 
-  std::deque<Sample> history_;
-  Tqdm::ProgressBar solver_progress_bar_;
-  Tqdm::ProgressBar view_progress_bar_;
+  void emitEvent(const std::string_view event, const nlohmann::ordered_json& payload) {
+    nlohmann::ordered_json record = nlohmann::ordered_json::object({
+        {"event", event},
+        {"elapsed_s", CommandLine::getElapsedSeconds(this->run_start_)},
+    });
+    record.update(payload);
+    std::cout << record.dump() << '\n' << std::flush;
+    this->last_progress_ = Clock::now();
+  }
 
-  std::string solverTable() const {
-    std::string table = CommandLineResidual<SimulationControl>::header() + '\n';
-    for (const auto& sample : this->history_) {
-      table += CommandLineResidual<SimulationControl>::row(sample.residual_, sample.time_) + '\n';
+  [[nodiscard]] nlohmann::ordered_json getSolverEventJson(const int step) const {
+    nlohmann::ordered_json event_json = nlohmann::ordered_json::object({
+        {"step", step},
+        {"step_end", this->iteration_end_},
+        {"time", static_cast<Real>(step) * this->delta_time_},
+        {"phase_elapsed_s", CommandLine::getElapsedSeconds(this->phase_start_)},
+    });
+    if (this->residual_step_ < 0) {
+      event_json["residual_step"] = nullptr;
+      event_json["residual"] = nullptr;
+    } else {
+      event_json["residual_step"] = this->residual_step_;
+      event_json["residual"] = CommandLine::getResidualJson(this->latest_residual_);
+    }
+    return event_json;
+  }
+
+  [[nodiscard]] nlohmann::ordered_json getViewEventJson() const {
+    return nlohmann::ordered_json::object({
+        {"snapshots_completed", this->snapshot_completed_},
+        {"snapshots_total", this->snapshot_total_},
+        {"phase_elapsed_s", CommandLine::getElapsedSeconds(this->phase_start_)},
+    });
+  }
+
+  [[nodiscard]] std::string getSolverTable() const {
+    std::string table = CommandLine::getResidualHeader() + '\n';
+    for (const ResidualRecord& record : this->residual_history_) {
+      table += CommandLine::getResidualLine(record.residual_, record.time_) + '\n';
     }
     return table;
   }
 
   static void printGmshInformation() {
-    std::string information;
-    gmsh::option::getString("General.BuildInfo", information);
+    std::string gmsh_information;
+    gmsh::option::getString("General.BuildInfo", gmsh_information);
     const std::regex separator(";\\s*");
-    std::cout << "Gmsh Info:\n" << std::regex_replace(information, separator, "\n") << "\n\n";
+    std::cout << "Gmsh Info:\n" << std::regex_replace(gmsh_information, separator, "\n") << "\n\n";
   }
 
-  void initializeSolver(const int start, const int end, const int interval) {
-    this->history_.assign(kHistoryLines,
-                          Sample{0.0_r, Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero()});
-    this->solver_progress_bar_.restart();
-    this->solver_progress_bar_ << this->solverTable();
-    this->solver_progress_bar_.initialize(start, end, interval, kHistoryLines + 2);
-  }
-
-  void updateSolver(const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual, const Real time) {
-    this->history_.pop_front();
-    this->history_.push_back({time, residual});
-    this->solver_progress_bar_ << this->solverTable();
-    this->solver_progress_bar_.update();
-  }
-
-  void initializeView(const int count) {
-    std::cout << '\n';
-    this->view_progress_bar_.restart();
-    this->view_progress_bar_.initialize(0, count);
-  }
-
-  void updateView() { this->view_progress_bar_.update(); }
-
-  void printInformation() {
+  void printInformation() const {
+    if (this->command_line_type_ != CommandLineEnum::Open) {
+      return;
+    }
     std::stringstream information;
-    information << "\n";
+    information << '\n';
     information << R"(#)" << R"(#######################################################)" << R"(#)" << '\n'
-                << R"(#)" << RED << R"(   ____        _                        )" << BLUE << R"( ____   ____   )"
-                << RESET << R"(#)" << '\n'
-                << R"(#)" << RED << R"(  / ___| _   _| |__  _ __ ___  ___  __ _)" << BLUE << R"(|  _ \ / ___|  )"
-                << RESET << R"(#)" << '\n'
-                << R"(#)" << RED << R"(  \___ \| | | | '_ \| '__/ _ \/ __|/ _` )" << MAGENTA << R"(|)" << BLUE
-                << R"( | | | |  _   )" << RESET << R"(#)" << '\n'
-                << R"(#)" << RED << R"(   ___) | |_| | |_) | | | (_) \__ \ (_| )" << MAGENTA << R"(|)" << BLUE
-                << R"( |_| | |_| |  )" << RESET << R"(#)" << '\n'
-                << R"(#)" << RED << R"(  |____/ \__,_|_.__/|_|  \___/|___/\__,_)" << MAGENTA << R"(|)" << BLUE
-                << R"(____/ \____|  )" << RESET << R"(#)" << '\n'
+                << R"(#)" << kAnsiRed << R"(   ____        _                        )" << kAnsiBlue
+                << R"( ____   ____   )" << kAnsiReset << R"(#)" << '\n'
+                << R"(#)" << kAnsiRed << R"(  / ___| _   _| |__  _ __ ___  ___  __ _)" << kAnsiBlue
+                << R"(|  _ \ / ___|  )" << kAnsiReset << R"(#)" << '\n'
+                << R"(#)" << kAnsiRed << R"(  \___ \| | | | '_ \| '__/ _ \/ __|/ _` )" << kAnsiMagenta << R"(|)"
+                << kAnsiBlue << R"( | | | |  _   )" << kAnsiReset << R"(#)" << '\n'
+                << R"(#)" << kAnsiRed << R"(   ___) | |_| | |_) | | | (_) \__ \ (_| )" << kAnsiMagenta << R"(|)"
+                << kAnsiBlue << R"( |_| | |_| |  )" << kAnsiReset << R"(#)" << '\n'
+                << R"(#)" << kAnsiRed << R"(  |____/ \__,_|_.__/|_|  \___/|___/\__,_)" << kAnsiMagenta << R"(|)"
+                << kAnsiBlue << R"(____/ \____|  )" << kAnsiReset << R"(#)" << '\n'
                 << R"(#)" << R"(                                                       )" << R"(#)" << '\n'
                 << R"(#)" << R"(#######################################################)" << R"(#)" << '\n';
     information << std::format("Version: {}", kSubrosaDGVersionString) << '\n';
@@ -259,13 +222,13 @@ struct CommandLineTerminal {
                 << '\n';
 #ifndef SUBROSA_DG_GPU
     information << std::format("CPU Device: {}", kDevice.get_info<sycl::info::device::name>()) << '\n';
-    information << std::format("Number of physical cores: {}", kNumberOfPhysicalCores) << "\n";
-    information << std::format("Eigen SIMD Instructions: {}", Eigen::SimdInstructionSetsInUse()) << "\n";
+    information << std::format("Number of physical cores: {}", kNumberOfPhysicalCores) << '\n';
+    information << std::format("Eigen SIMD Instructions: {}", Eigen::SimdInstructionSetsInUse()) << '\n';
 #else   // SUBROSA_DG_GPU
     information << std::format("GPU Device: {}", kDevice.get_info<sycl::info::device::name>()) << '\n';
     information << std::format("Memory Size: {:.2f} GiB",
                                static_cast<Real>(kDevice.get_info<sycl::info::device::global_mem_size>()) /
-                                   std::pow(1024.0_r, 3))
+                                   (1024.0_r * 1024.0_r * 1024.0_r))
                 << '\n';
     information << std::format("Compute Capability: {}", kDevice.get_info<sycl::info::device::backend_version>())
                 << '\n';
@@ -273,271 +236,168 @@ struct CommandLineTerminal {
     std::cout << information.str() << '\n';
   }
 
-  CommandLineTerminal() { printGmshInformation(); }
-};
-
-template <typename SimulationControl>
-struct CommandLineAgent {
-  using Clock = std::chrono::steady_clock;
-  static constexpr std::chrono::seconds kProgressInterval{5};
-  Clock::time_point run_start_{Clock::now()};
-  Clock::time_point phase_start_{run_start_};
-  Clock::time_point last_progress_{run_start_};
-  Real delta_time_{0.0_r};
-  int step_end_{0};
-  int residual_step_{-1};
-  int snapshots_total_{0};
-  int snapshots_completed_{0};
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> latest_residual_;
-  std::filesystem::path output_directory_;
-  std::filesystem::path mesh_file_;
-
-  static double secondsSince(const Clock::time_point start) {
-    return std::chrono::duration<double>(Clock::now() - start).count();
-  }
-
-  [[nodiscard]] bool progressDue() const { return Clock::now() - this->last_progress_ >= kProgressInterval; }
-
-  void emit(const std::string_view event, CommandLineJson fields = {}) {
-    fields.add("event", event).add("elapsed_s", secondsSince(this->run_start_));
-    std::cout << fields.str() + '\n' << std::flush;
-    this->last_progress_ = Clock::now();
-  }
-
-  [[nodiscard]] CommandLineJson solverFields(const int step) const {
-    CommandLineJson fields;
-    fields.add("step", step)
-        .add("step_end", this->step_end_)
-        .add("time", static_cast<Real>(step) * this->delta_time_)
-        .add("phase_elapsed_s", secondsSince(this->phase_start_));
-    if (this->residual_step_ < 0) {
-      fields.addNull("residual_step").addNull("residual");
-    } else {
-      fields.add("residual_step", this->residual_step_)
-          .add("residual", CommandLineResidual<SimulationControl>::values(this->latest_residual_));
-    }
-    return fields;
-  }
-
-  [[nodiscard]] CommandLineJson viewFields() const {
-    return CommandLineJson{}
-        .add("snapshots_completed", this->snapshots_completed_)
-        .add("snapshots_total", this->snapshots_total_)
-        .add("phase_elapsed_s", secondsSince(this->phase_start_));
-  }
-
   void diagnostic(const std::string_view level, const std::string_view phase, const std::string_view code,
                   const std::string_view message) {
-    this->emit(level, CommandLineJson{}.add("phase", phase).add("code", code).add("message", message));
-  }
-
-  void initializeMesh(const std::filesystem::path& mesh_file) {
-    this->mesh_file_ = mesh_file;
-    this->phase_start_ = Clock::now();
-    this->emit("mesh_started", CommandLineJson{}.add("mesh_file", mesh_file.string()));
-  }
-
-  void finalizeMesh(const Isize nodes, const Isize volume_elements) {
-    this->emit("mesh_ready", CommandLineJson{}
-                                 .add("mesh_file", this->mesh_file_.string())
-                                 .add("dimension", SimulationControl::kDimension)
-                                 .add("polynomial_order", SimulationControl::kPolynomialOrder)
-                                 .add("nodes", nodes)
-                                 .add("volume_elements", volume_elements)
-                                 .add("phase_elapsed_s", secondsSince(this->phase_start_)));
-  }
-
-  void initializeSolver(const int start, const int end, const Real dt, const std::filesystem::path& directory) {
-    this->phase_start_ = Clock::now();
-    this->step_end_ = end;
-    this->delta_time_ = dt;
-    this->residual_step_ = -1;
-    this->output_directory_ = directory;
-    this->emit("solver_started", CommandLineJson{}
-                                     .add("step_start", start)
-                                     .add("step_end", end)
-                                     .add("dt", dt)
-                                     .add("output_directory", directory.string())
-                                     .add("error_file", (directory / "error.txt").string())
-                                     .add("progress_interval_s", kProgressInterval.count()));
-  }
-
-  void updateSolver(const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual, const int step) {
-    this->latest_residual_ = residual;
-    this->residual_step_ = step;
-    if (this->progressDue()) {
-      this->emit("solver_progress", this->solverFields(step));
-    }
-  }
-
-  void reportNonfiniteResidual(const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual,
-                               const int step) {
-    this->emit("error", CommandLineJson{}
-                            .add("phase", "solver")
-                            .add("code", "nonfinite_residual")
-                            .add("message", "Non-finite residual detected")
-                            .add("step", step)
-                            .add("variables", CommandLineResidual<SimulationControl>::nonfiniteValues(residual)));
-  }
-
-  void finalizeSolver(const int step, const bool completed) {
-    auto fields = this->solverFields(step);
-    fields.add("status", completed ? "completed" : "failed")
-        .add("reason", completed ? "reached_end" : "nonfinite_residual")
-        .add("error_file", (this->output_directory_ / "error.txt").string());
-    this->emit("solver_finished", fields);
-  }
-
-  void initializeView(const int count, const std::filesystem::path& directory) {
-    this->phase_start_ = Clock::now();
-    this->snapshots_total_ = count;
-    this->snapshots_completed_ = 0;
-    this->output_directory_ = directory;
-    this->emit("view_started",
-               CommandLineJson{}.add("snapshots_total", count).add("output_directory", directory.string()));
-  }
-
-  void updateView() {
-    ++this->snapshots_completed_;
-    if (this->progressDue()) {
-      this->emit("view_progress", this->viewFields());
-    }
-  }
-
-  void finalizeView() {
-    auto fields = this->viewFields();
-    fields.add("status", "completed").add("output_directory", this->output_directory_.string());
-    this->emit("view_finished", fields);
-  }
-
-  CommandLineAgent() {
-    gmsh::option::setNumber("General.Terminal", 0);
-    gmsh::option::setNumber("General.Verbosity", 2);
-    gmsh::logger::start();
-    this->emit("run_started", CommandLineJson{}
-                                  .add("version", kSubrosaDGVersionString)
-                                  .add("build_type", kSubrosaDGBuildType)
-                                  .add("precision", std::is_same_v<Real, double> ? "double" : "float")
-                                  .add("device", kDevice.get_info<sycl::info::device::name>()));
-  }
-
-  ~CommandLineAgent() { gmsh::logger::stop(); }
-};
-
-// Own the selected renderer and the residual file format; simulation policy stays in System.
-template <typename SimulationControl>
-struct CommandLine {
-  CommandLineEnum command_line_type_;
-  Real delta_time_{0.0_r};
-  std::optional<CommandLineTerminal<SimulationControl>> terminal_;
-  std::optional<CommandLineAgent<SimulationControl>> agent_;
-
-  explicit CommandLine(const CommandLineEnum type) : command_line_type_(type) {
-    switch (type) {
-    case CommandLineEnum::Open:
-      this->terminal_.emplace();
-      break;
-    case CommandLineEnum::Agent:
-      this->agent_.emplace();
-      break;
-    case CommandLineEnum::Close:
-      gmsh::option::setNumber("General.Terminal", 0);
-      break;
-    }
-  }
-
-  void printInformation() {
-    if (this->terminal_) {
-      this->terminal_->printInformation();
-    }
-  }
-
-  void diagnostic(const std::string_view level, const std::string_view phase, const std::string_view code,
-                  const std::string_view message) {
-    if (this->agent_) {
-      this->agent_->diagnostic(level, phase, code, message);
+    if (this->command_line_type_ == CommandLineEnum::Agent) {
+      this->emitEvent(level, nlohmann::ordered_json::object({
+                                 {"phase", phase},
+                                 {"code", code},
+                                 {"message", message},
+                             }));
     } else {
       // Fatal diagnostics remain visible even when ordinary progress is disabled.
       std::cerr << std::format("{} [{} / {}]: {}\n", level, phase, code, message) << std::flush;
     }
   }
-  void initializeMesh(const std::filesystem::path& file) {
-    if (this->agent_) {
-      this->agent_->initializeMesh(file);
+
+  void initializeMesh(const std::filesystem::path& mesh_file_path) {
+    if (this->command_line_type_ == CommandLineEnum::Agent) {
+      this->mesh_file_path_ = mesh_file_path;
+      this->phase_start_ = Clock::now();
+      this->emitEvent("mesh_started", nlohmann::ordered_json::object({{"mesh_file", mesh_file_path.string()}}));
     }
   }
 
-  void finalizeMesh(const Isize nodes, const Isize elements) {
-    if (this->agent_) {
-      this->agent_->finalizeMesh(nodes, elements);
+  void finalizeMesh(const Isize node_number, const Isize volume_element_number) {
+    if (this->command_line_type_ == CommandLineEnum::Agent) {
+      this->emitEvent("mesh_ready", nlohmann::ordered_json::object({
+                                        {"mesh_file", this->mesh_file_path_.string()},
+                                        {"dimension", SimulationControl::kDimension},
+                                        {"polynomial_order", SimulationControl::kPolynomialOrder},
+                                        {"nodes", node_number},
+                                        {"volume_elements", volume_element_number},
+                                        {"phase_elapsed_s", CommandLine::getElapsedSeconds(this->phase_start_)},
+                                    }));
     }
   }
 
-  void initializeSolver(const TimeIntegration<SimulationControl>& time, std::fstream& error_file,
-                        const int error_interval, const std::filesystem::path& directory = {}) {
-    this->delta_time_ = time.delta_time_;
+  void initializeSolver(const TimeIntegration<SimulationControl>& time_integration, std::fstream& error_finout,
+                        const int error_output_interval, const std::filesystem::path& output_directory = {}) {
+    this->delta_time_ = time_integration.delta_time_;
     if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
-      error_file << CommandLineResidual<SimulationControl>::header() << '\n'
-                 << CommandLineResidual<SimulationControl>::row(
-                        Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero(), 0.0_r)
-                 << '\n';
+      error_finout << CommandLine::getResidualHeader() << '\n'
+                   << CommandLine::getResidualLine(
+                          Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero(), 0.0_r)
+                   << '\n';
     }
-    if (this->terminal_) {
-      this->terminal_->initializeSolver(time.iteration_start_, time.iteration_end_, error_interval);
-    }
-    if (this->agent_) {
-      this->agent_->initializeSolver(time.iteration_start_, time.iteration_end_, time.delta_time_, directory);
+    if (this->command_line_type_ == CommandLineEnum::Open) {
+      this->residual_history_.assign(
+          static_cast<std::size_t>(kHistoryLineNumber),
+          ResidualRecord{0.0_r, Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero()});
+      this->solver_progress_bar_.restart();
+      this->solver_progress_bar_ << this->getSolverTable();
+      this->solver_progress_bar_.initialize(time_integration.iteration_start_, time_integration.iteration_end_,
+                                            error_output_interval, kHistoryLineNumber + 2);
+    } else if (this->command_line_type_ == CommandLineEnum::Agent) {
+      this->phase_start_ = Clock::now();
+      this->iteration_end_ = time_integration.iteration_end_;
+      this->residual_step_ = -1;
+      this->output_directory_ = output_directory;
+      this->emitEvent("solver_started", nlohmann::ordered_json::object({
+                                            {"step_start", time_integration.iteration_start_},
+                                            {"step_end", time_integration.iteration_end_},
+                                            {"dt", time_integration.delta_time_},
+                                            {"output_directory", output_directory.string()},
+                                            {"error_file", (output_directory / "error.txt").string()},
+                                            {"progress_interval_s", kProgressInterval.count()},
+                                        }));
     }
   }
 
   void updateSolver(const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual,
-                    std::fstream& error_file, const int step) {
-    const Real time = static_cast<Real>(step) * this->delta_time_;
-    error_file << CommandLineResidual<SimulationControl>::row(residual, time) << '\n';
-    if (this->terminal_) {
-      this->terminal_->updateSolver(residual, time);
-    }
-    if (this->agent_) {
-      this->agent_->updateSolver(residual, step);
+                    std::fstream& error_finout, const int step) {
+    const Real time_value = static_cast<Real>(step) * this->delta_time_;
+    error_finout << CommandLine::getResidualLine(residual, time_value) << '\n';
+    if (this->command_line_type_ == CommandLineEnum::Open) {
+      this->residual_history_.pop_front();
+      this->residual_history_.push_back(ResidualRecord{time_value, residual});
+      this->solver_progress_bar_ << this->getSolverTable();
+      this->solver_progress_bar_.update();
+    } else if (this->command_line_type_ == CommandLineEnum::Agent) {
+      this->latest_residual_ = residual;
+      this->residual_step_ = step;
+      if (this->isProgressDue()) {
+        this->emitEvent("solver_progress", this->getSolverEventJson(step));
+      }
     }
   }
 
   void reportNonfiniteResidual(const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual,
                                const int step) {
-    if (this->agent_) {
-      this->agent_->reportNonfiniteResidual(residual, step);
+    if (this->command_line_type_ == CommandLineEnum::Agent) {
+      this->emitEvent("error", nlohmann::ordered_json::object({
+                                   {"phase", "solver"},
+                                   {"code", "nonfinite_residual"},
+                                   {"message", "Non-finite residual detected"},
+                                   {"step", step},
+                                   {"variables", CommandLine::getNonfiniteResidualJson(residual)},
+                               }));
     } else {
       this->diagnostic("error", "solver", "nonfinite_residual", std::format("Non-finite residual at step {}", step));
     }
   }
 
   void finalizeSolver(const int step, const bool completed) {
-    if (this->agent_) {
-      this->agent_->finalizeSolver(step, completed);
+    if (this->command_line_type_ == CommandLineEnum::Agent) {
+      nlohmann::ordered_json event_json = this->getSolverEventJson(step);
+      event_json["status"] = completed ? "completed" : "failed";
+      event_json["reason"] = completed ? "reached_end" : "nonfinite_residual";
+      event_json["error_file"] = (this->output_directory_ / "error.txt").string();
+      this->emitEvent("solver_finished", event_json);
     }
   }
 
-  void initializeView(const int count, const std::filesystem::path& directory = {}) {
-    if (this->terminal_) {
-      this->terminal_->initializeView(count);
-    }
-    if (this->agent_) {
-      this->agent_->initializeView(count, directory);
+  void initializeView(const int snapshot_total, const std::filesystem::path& output_directory = {}) {
+    if (this->command_line_type_ == CommandLineEnum::Open) {
+      std::cout << '\n';
+      this->view_progress_bar_.restart();
+      this->view_progress_bar_.initialize(0, snapshot_total);
+    } else if (this->command_line_type_ == CommandLineEnum::Agent) {
+      this->phase_start_ = Clock::now();
+      this->snapshot_total_ = snapshot_total;
+      this->snapshot_completed_ = 0;
+      this->output_directory_ = output_directory;
+      this->emitEvent("view_started", nlohmann::ordered_json::object({
+                                          {"snapshots_total", snapshot_total},
+                                          {"output_directory", output_directory.string()},
+                                      }));
     }
   }
 
   void updateView() {
-    if (this->terminal_) {
-      this->terminal_->updateView();
-    }
-    if (this->agent_) {
-      this->agent_->updateView();
+    if (this->command_line_type_ == CommandLineEnum::Open) {
+      this->view_progress_bar_.update();
+    } else if (this->command_line_type_ == CommandLineEnum::Agent) {
+      this->snapshot_completed_++;
+      if (this->isProgressDue()) {
+        this->emitEvent("view_progress", this->getViewEventJson());
+      }
     }
   }
 
   void finalizeView() {
-    if (this->agent_) {
-      this->agent_->finalizeView();
+    if (this->command_line_type_ == CommandLineEnum::Agent) {
+      nlohmann::ordered_json event_json = this->getViewEventJson();
+      event_json["status"] = "completed";
+      event_json["output_directory"] = this->output_directory_.string();
+      this->emitEvent("view_finished", event_json);
+    }
+  }
+
+  explicit CommandLine(const CommandLineEnum command_line_type) : command_line_type_(command_line_type) {
+    if (this->command_line_type_ == CommandLineEnum::Open) {
+      CommandLine::printGmshInformation();
+    } else if (this->command_line_type_ == CommandLineEnum::Agent) {
+      gmsh::option::setNumber("General.Terminal", 0);
+      gmsh::option::setNumber("General.Verbosity", 2);
+      this->emitEvent("run_started", nlohmann::ordered_json::object({
+                                         {"version", kSubrosaDGVersionString},
+                                         {"build_type", kSubrosaDGBuildType},
+                                         {"precision", std::is_same_v<Real, double> ? "double" : "float"},
+                                         {"device", kDevice.get_info<sycl::info::device::name>()},
+                                     }));
+    } else {
+      gmsh::option::setNumber("General.Terminal", 0);
     }
   }
 };

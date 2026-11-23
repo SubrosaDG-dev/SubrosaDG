@@ -1,6 +1,6 @@
 #[[
 # @file ClangTidy.cmake
-# @brief The cmake file to enable clang-tidy automaticly during compilation.
+# @brief An on-demand clang-tidy target for the development translation unit.
 #
 # @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
 # @date 2023-06-05
@@ -10,16 +10,12 @@
 # SubrosaDG is free software and is distributed under the MIT license.
 #]]
 
-set(CLANG_TIDY_SOURCE_FILES ${SUBROSA_DG_DEVELOP_SOURCES})
-
 add_custom_target(clang-tidy
-    COMMENT "Running clang-tidy to check code static analysis"
+    COMMENT "Running clang-tidy on the develop target"
     COMMAND ${CLANG_TIDY}
-    -p
-    .
+    -p ${CMAKE_BINARY_DIR}
     --use-color
-    --config-file=${PROJECT_SOURCE_DIR}/.clang-tidy
-    --format-style=${PROJECT_SOURCE_DIR}/.clang-format
-    ${CLANG_TIDY_SOURCE_FILES}
+    ${SUBROSA_DG_DEVELOP_SOURCES}
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    VERBATIM
 )

@@ -63,6 +63,7 @@
 #include "View/IOControl.cpp"
 #include "View/Paraview.cpp"
 #include "View/RawBinary.cpp"
+#include "View/ViewSolver.cpp"
 
 // clang-format on
 

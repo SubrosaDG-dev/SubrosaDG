@@ -13,9 +13,11 @@
 #ifndef SUBROSA_DG_ENVIRONMENT_CPP_
 #define SUBROSA_DG_ENVIRONMENT_CPP_
 
-#include <../opt/compiler/include/omp.h>
 #include <gmsh.h>
-#include <oneapi/tbb/global_control.h>
+#include <oneapi/tbb.h>
+
+#include <memory>
+#include <string>
 
 #include "Cmake.cpp"  // IWYU pragma: keep
 

@@ -18,6 +18,13 @@
 #include <Eigen/Core>
 #include <Utils/BasicDataType.cpp>
 #include <Utils/MatrixDevice.cpp>
+#include <cmath>
+#include <cstddef>
+#include <format>
+#include <iostream>
+#include <string>
+#include <string_view>
+#include <sycl/sycl.hpp>
 
 namespace SubrosaDG::Transformation {
 

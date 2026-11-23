@@ -16,8 +16,11 @@
 #include <gmsh.h>
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <format>
+#include <sycl/sycl.hpp>
 #include <vector>
 
 #include "Mesh/Polynomial.cpp"
@@ -118,17 +121,15 @@ struct ElementBasisFunction {
   }
 
   ElementBasisFunction() {
-    std::vector<Real> points{Lagrange<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>::points()};
+    const std::vector<Real> points{Lagrange<ElementTrait::kElementType, ElementTrait::kPolynomialOrder>::points()};
     for (Isize i = 0; i < ElementTrait::kBasicNodeNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kDimension; j++) {
-        this->lagrange_basic_node_coordinate_(j, i) =
-            static_cast<Real>(points[static_cast<Usize>(i * ElementTrait::kDimension + j)]);
+        this->lagrange_basic_node_coordinate_(j, i) = points[static_cast<Usize>(i * ElementTrait::kDimension + j)];
       }
     }
     for (Isize i = 0; i < ElementTrait::kAllNodeNumber; i++) {
       for (Isize j = 0; j < ElementTrait::kDimension; j++) {
-        this->lagrange_node_coordinate_(j, i) =
-            static_cast<Real>(points[static_cast<Usize>(i * ElementTrait::kDimension + j)]);
+        this->lagrange_node_coordinate_(j, i) = points[static_cast<Usize>(i * ElementTrait::kDimension + j)];
       }
     }
     std::vector<Isize> p1_monomials{Lagrange<ElementTrait::kElementType, 1>::monomials()};
@@ -299,8 +300,8 @@ struct VolumeElementBasisFunction : ElementBasisFunction<VolumeElementTrait> {
   Eigen::Matrix<Real, VolumeElementTrait::kDimension * VolumeElementTrait::kQuadratureNumber,
                 VolumeElementTrait::kAllBasisFunctionNumber>
       nodal_gradient_basis_function_;
-  Eigen::Matrix<Real, VolumeElementTrait::kAllAdjacencyQuadratureNumber, VolumeElementTrait::kAllBasisFunctionNumber>
-      nodal_adjacency_basis_function_;
+  // Each face stores a column-major (quadrature points x face nodes) trace block.
+  Eigen::Vector<Real, VolumeElementTrait::kAllAdjacencyBasisValueNumber> nodal_adjacency_basis_function_;
   Eigen::Matrix<Real, VolumeElementTrait::kAllBasisFunctionNumber, VolumeElementTrait::kAllBasisFunctionNumber>
       nodal_least_squares_inverse_;
 
@@ -335,47 +336,6 @@ struct VolumeElementBasisFunction : ElementBasisFunction<VolumeElementTrait> {
         false);
   }
 
-  template <int I>
-  void getVolumeElementAdjacencyBasisFunction(
-      const Eigen::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kBasicNodeNumber>
-          volume_basic_node_coordinate,
-      const int node_column = 0, const int quadrature_column = 0) {
-    if constexpr (I < VolumeElementTrait::kAdjacencyNumber) {
-      constexpr std::array<ElementEnum, VolumeElementTrait::kAdjacencyNumber> kVolumeElementPerAdjacencyElementType{
-          getVolumeElementPerAdjacencyType<VolumeElementTrait::kElementType>()};
-      constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kVolumeElementPerAdjacencyBasicNodeNumber{
-          getVolumeElementPerAdjacencyBasicNodeNumber<VolumeElementTrait::kElementType>()};
-      constexpr std::array<int, VolumeElementTrait::kAllAdjacencyBasicNodeNumber>
-          kVolumeElementPerAdjacencyBasicNodeIndex{
-              getVolumeElementPerAdjacencyBasicNodeIndex<VolumeElementTrait::kElementType>()};
-      constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kVolumeElementPerAdjacencyQuadratureNumber{
-          getVolumeElementPerAdjacencyQuadratureNumber<VolumeElementTrait::kElementType,
-                                                       VolumeElementTrait::kPolynomialOrder>()};
-      Eigen::Matrix<Real, VolumeElementTrait::kDimension,
-                    kVolumeElementPerAdjacencyBasicNodeNumber[static_cast<Usize>(I)]>
-          adjacency_basic_node_coordinate;
-      for (Isize j = 0; j < kVolumeElementPerAdjacencyBasicNodeNumber[static_cast<Usize>(I)]; j++) {
-        adjacency_basic_node_coordinate.col(j) = volume_basic_node_coordinate.col(
-            kVolumeElementPerAdjacencyBasicNodeIndex[static_cast<Usize>(node_column + j)]);
-      }
-      const std::vector<double> nodal_adjacency_basis_functions{
-          this->getVolumeElementPerAdjacencyBasisFunction<AdjacencyElementTrait<
-              kVolumeElementPerAdjacencyElementType[static_cast<Usize>(I)], VolumeElementTrait::kPolynomialOrder>>(
-              adjacency_basic_node_coordinate)};
-      for (Isize j = 0; j < kVolumeElementPerAdjacencyQuadratureNumber[static_cast<Usize>(I)]; j++) {
-        for (Isize k = 0; k < VolumeElementTrait::kAllBasisFunctionNumber; k++) {
-          this->nodal_adjacency_basis_function_(quadrature_column + j, k) = static_cast<Real>(
-              nodal_adjacency_basis_functions[static_cast<Usize>(j * VolumeElementTrait::kAllBasisFunctionNumber + k)]);
-        }
-      }
-      this->getVolumeElementAdjacencyBasisFunction<I + 1>(
-          volume_basic_node_coordinate, node_column + kVolumeElementPerAdjacencyBasicNodeNumber[static_cast<Usize>(I)],
-          quadrature_column + kVolumeElementPerAdjacencyQuadratureNumber[static_cast<Usize>(I)]);
-    } else {
-      return;
-    }
-  }
-
   VolumeElementBasisFunction() {
     const auto& [local_coordinate, weights] =
         getGaussQuadrature<VolumeElementTrait::kElementType, VolumeElementTrait::kQuadratureOrder>();
@@ -402,7 +362,28 @@ struct VolumeElementBasisFunction : ElementBasisFunction<VolumeElementTrait> {
         }
       }
     }
-    this->getVolumeElementAdjacencyBasisFunction<0>(this->lagrange_basic_node_coordinate_);
+    static_for<VolumeElementTrait::kAdjacencyNumber>([this]<Usize I>() {
+      using FaceTrait =
+          AdjacencyElementTrait<VolumeElementTrait::kPerAdjacencyType[I], VolumeElementTrait::kPolynomialOrder>;
+      Eigen::Matrix<Real, VolumeElementTrait::kDimension, FaceTrait::kBasicNodeNumber> adjacency_basic_node_coordinate;
+      for (Isize j = 0; j < FaceTrait::kBasicNodeNumber; j++) {
+        adjacency_basic_node_coordinate.col(j) =
+            this->lagrange_basic_node_coordinate_.col(VolumeElementTrait::kPerAdjacencyNodeIndex[static_cast<Usize>(
+                VolumeElementTrait::kAdjacencyNodeSequence[I] + j)]);
+      }
+      const std::vector<double> nodal_adjacency_basis_function{
+          this->getVolumeElementPerAdjacencyBasisFunction<FaceTrait>(adjacency_basic_node_coordinate)};
+      for (Isize a = 0; a < FaceTrait::kAllBasisFunctionNumber; a++) {
+        const Isize n = VolumeElementTrait::kPerAdjacencyNodeIndex[static_cast<Usize>(
+            VolumeElementTrait::kAdjacencyNodeSequence[I] + a)];
+        for (Isize j = 0; j < FaceTrait::kQuadratureNumber; j++) {
+          this->nodal_adjacency_basis_function_(VolumeElementTrait::kAdjacencyBasisValueSequence[I] +
+                                                a * FaceTrait::kQuadratureNumber + j) =
+              static_cast<Real>(nodal_adjacency_basis_function[static_cast<Usize>(
+                  j * VolumeElementTrait::kAllBasisFunctionNumber + n)]);
+        }
+      }
+    });
   }
 };
 
@@ -413,8 +394,7 @@ struct VolumeElementBasisFunctionDevice : ElementBasisFunctionDevice<VolumeEleme
   Device::Matrix<Real, VolumeElementTrait::kDimension * VolumeElementTrait::kQuadratureNumber,
                  VolumeElementTrait::kAllBasisFunctionNumber>
       nodal_gradient_basis_function_;
-  Device::Matrix<Real, VolumeElementTrait::kAllAdjacencyQuadratureNumber, VolumeElementTrait::kAllBasisFunctionNumber>
-      nodal_adjacency_basis_function_;
+  Device::Vector<Real, VolumeElementTrait::kAllAdjacencyBasisValueNumber> nodal_adjacency_basis_function_;
   Device::Matrix<Real, VolumeElementTrait::kAllBasisFunctionNumber, VolumeElementTrait::kAllBasisFunctionNumber>
       nodal_least_squares_inverse_;
 
@@ -427,9 +407,8 @@ struct VolumeElementBasisFunctionDevice : ElementBasisFunctionDevice<VolumeEleme
     Utils::transferToDevice<Real, VolumeElementTrait::kDimension * VolumeElementTrait::kQuadratureNumber,
                             VolumeElementTrait::kAllBasisFunctionNumber>(
         volume_element_basis_function.nodal_gradient_basis_function_, this->nodal_gradient_basis_function_);
-    Utils::transferToDevice<Real, VolumeElementTrait::kAllAdjacencyQuadratureNumber,
-                            VolumeElementTrait::kAllBasisFunctionNumber>(
-        volume_element_basis_function.nodal_adjacency_basis_function_, this->nodal_adjacency_basis_function_);
+    Utils::transferToDevice(volume_element_basis_function.nodal_adjacency_basis_function_,
+                            this->nodal_adjacency_basis_function_);
     Utils::transferToDevice<Real, VolumeElementTrait::kAllBasisFunctionNumber,
                             VolumeElementTrait::kAllBasisFunctionNumber>(
         volume_element_basis_function.nodal_least_squares_inverse_, this->nodal_least_squares_inverse_);
@@ -452,10 +431,10 @@ struct AdjacencyElementBasisFunction : ElementBasisFunction<AdjacencyElementTrai
       Eigen::Vector<Real, VolumeElementTrait::kDimension>& volume_local_coordinate,
       const Isize adjacency_sequence) const {
     constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kVolumeElementPerAdjacencyBasicNodeNumber{
-        getVolumeElementPerAdjacencyBasicNodeNumber<VolumeElementTrait::kElementType>()};
+        getVolumeElementPerAdjacencyNodeNumber<VolumeElementTrait::kElementType, 1>()};
     constexpr std::array<int, VolumeElementTrait::kAllAdjacencyBasicNodeNumber>
         kVolumeElementPerAdjacencyBasicNodeIndex{
-            getVolumeElementPerAdjacencyBasicNodeIndex<VolumeElementTrait::kElementType>()};
+            getVolumeElementPerAdjacencyNodeIndex<VolumeElementTrait::kElementType, 1>()};
     Eigen::Vector<Real, AdjacencyElementTrait::kP1BasisFunctionNumber> adjacency_p1_basis_function_value;
     this->computeLagrangeP1Value(adjacency_local_coordinate, adjacency_p1_basis_function_value);
     Eigen::Matrix<Real, VolumeElementTrait::kDimension, AdjacencyElementTrait::kBasicNodeNumber>
@@ -514,10 +493,10 @@ struct AdjacencyElementBasisFunctionDevice : ElementBasisFunctionDevice<Adjacenc
       Device::StaticVector<Real, VolumeElementTrait::kDimension>& volume_local_coordinate,
       const Isize adjacency_sequence) const {
     constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kVolumeElementPerAdjacencyBasicNodeNumber{
-        getVolumeElementPerAdjacencyBasicNodeNumber<VolumeElementTrait::kElementType>()};
+        getVolumeElementPerAdjacencyNodeNumber<VolumeElementTrait::kElementType, 1>()};
     constexpr std::array<int, VolumeElementTrait::kAllAdjacencyBasicNodeNumber>
         kVolumeElementPerAdjacencyBasicNodeIndex{
-            getVolumeElementPerAdjacencyBasicNodeIndex<VolumeElementTrait::kElementType>()};
+            getVolumeElementPerAdjacencyNodeIndex<VolumeElementTrait::kElementType, 1>()};
     Device::StaticVector<Real, AdjacencyElementTrait::kP1BasisFunctionNumber> adjacency_p1_basis_function_value;
     this->computeLagrangeP1Value(adjacency_local_coordinate, adjacency_p1_basis_function_value);
     Device::StaticMatrix<Real, VolumeElementTrait::kDimension, AdjacencyElementTrait::kBasicNodeNumber>

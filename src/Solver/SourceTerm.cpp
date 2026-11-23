@@ -1,6 +1,6 @@
 /**
  * @file SourceTerm.cpp
- * @brief
+ * @brief This file contains the implementation of the source term for the governing equations.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
  * @date 2024-05-13
@@ -13,15 +13,14 @@
 #ifndef SUBROSA_DG_SOURCE_TERM_CPP_
 #define SUBROSA_DG_SOURCE_TERM_CPP_
 
+#include <Eigen/Core>
+
 #include "Solver/PhysicalModel.cpp"
 #include "Solver/VariableConvertor.cpp"
 #include "Utils/BasicDataType.cpp"
 #include "Utils/Enum.cpp"
 
 namespace SubrosaDG {
-
-template <typename SimulationControl, SourceTermEnum SourceTermType>
-struct SourceTerm;
 
 template <typename SimulationControl>
 struct SourceTerm<SimulationControl, SourceTermEnum::None> {};
@@ -58,9 +57,6 @@ struct SourceTerm<SimulationControl, SourceTermEnum::Boussinesq> {
     }
   }
 };
-
-template <typename SimulationControl, SourceTermEnum SourceTermType>
-struct SourceTermDevice;
 
 template <typename SimulationControl>
 struct SourceTermDevice<SimulationControl, SourceTermEnum::None> {};

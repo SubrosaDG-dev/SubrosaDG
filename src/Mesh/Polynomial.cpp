@@ -15,7 +15,6 @@
 
 #include <gmsh.h>
 
-#include <Eigen/Core>
 #include <cmath>
 #include <string>
 #include <vector>

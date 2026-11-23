@@ -13,8 +13,11 @@
 #ifndef SUBROSA_DG_VERSION_CPP_
 #define SUBROSA_DG_VERSION_CPP_
 
+// CMake reads these version macros from the source file during configuration.
+// NOLINTBEGIN(modernize-macro-to-enum)
 #define SUBROSA_DG_VERSION_MAJOR 0
 #define SUBROSA_DG_VERSION_MINOR 1
 #define SUBROSA_DG_VERSION_PATCH 0
+// NOLINTEND(modernize-macro-to-enum)
 
 #endif  // SUBROSA_DG_VERSION_CPP_

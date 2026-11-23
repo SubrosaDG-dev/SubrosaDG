@@ -20,7 +20,7 @@
 
 namespace SubrosaDG {
 
-struct PhysicalModelData;
+struct PhysicalModelData;  // IWYU pragma: keep
 
 template <typename PhysicalModelData, EquationOfStateEnum EquationOfStateType>
 struct EquationOfState;

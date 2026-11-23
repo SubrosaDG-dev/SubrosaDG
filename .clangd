@@ -9,20 +9,15 @@ CompileFlags:
   ]
 Diagnostics:
   ClangTidy:
-    Remove: [
-      clang-*,
-      clang-diagnostic-*,
-      clang-analyzer-*,
-      performance-*,
-      modernize-*,
-      readability-*,
-      mpi-*,
-      openmp-*,
-    ]
+    Remove: '*'
 
 ---
 
 CompileFlags:
+  # clangd parses the source without generating device binaries.
   Remove: [
     -fsycl-targets=*,
   ]
+Completion:
+  ArgumentLists: Delimiters
+  HeaderInsertion: Never

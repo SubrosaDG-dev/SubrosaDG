@@ -13,8 +13,11 @@
 #ifndef SUBROSA_DG_BOUNDARY_CONDITION_CPP_
 #define SUBROSA_DG_BOUNDARY_CONDITION_CPP_
 
+#include <oneapi/tbb.h>
+
 #include <Eigen/Core>
 #include <cmath>
+#include <sycl/sycl.hpp>
 
 #include "Mesh/ReadControl.cpp"
 #include "Solver/PhysicalModel.cpp"
@@ -28,7 +31,6 @@ namespace SubrosaDG {
 
 template <typename SimulationControl, BoundaryConditionEnum BoundaryConditionType>
 struct BoundaryConditionImpl;
-
 template <typename SimulationControl, BoundaryConditionEnum BoundaryConditionType>
 struct BoundaryConditionDeviceImpl;
 
@@ -1301,8 +1303,7 @@ struct BoundaryConditionDevice {
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementBoundaryVariable(
-    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const TimeIntegration<SimulationControl>& time_integration, const int rk_step) {
+    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh, [[maybe_unused]] const Real time) {
   tbb::parallel_for(
       tbb::blocked_range<Isize>(0, this->boundary_number_), [&](const tbb::blocked_range<Isize>& range) -> void {
         for (Isize i = range.begin(); i != range.end(); i++) {
@@ -1311,12 +1312,15 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::up
           Eigen::Vector<Real, SimulationControl::kPrimitiveVariableNumber> boundary_primitive_variable;
           Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> boundary_computational_variable;
           for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
-            BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
-                adjacency_element_mesh.quadrature_node_coordinate_(element_index).col(j), boundary_primitive_variable,
-                (static_cast<Real>(time_integration.iteration_) +
-                 TimeIntegration<SimulationControl>::kButcherCoefficients[static_cast<Usize>(rk_step)]) *
-                    time_integration.delta_time_,
-                gmsh_physical_index);
+            if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::Steady) {
+              BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
+                  adjacency_element_mesh.quadrature_node_coordinate_(element_index).col(j), boundary_primitive_variable,
+                  gmsh_physical_index);
+            } else if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::TimeVarying) {
+              BoundaryCondition<SimulationControl>::computePrimitiveFromCoordinate(
+                  adjacency_element_mesh.quadrature_node_coordinate_(element_index).col(j), boundary_primitive_variable,
+                  time, gmsh_physical_index);
+            }
             Variable<SimulationControl>::convertComputationalFromPrimitive(boundary_primitive_variable,
                                                                            boundary_computational_variable);
             this->boundary_dummy_right_computational_variable_(i).col(j) = boundary_computational_variable;
@@ -1326,19 +1330,17 @@ inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::up
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl>::updateBoundaryVariable(
-    const Mesh<SimulationControl>& mesh, const TimeIntegration<SimulationControl>& time_integration,
-    const int rk_step) {
+inline void Solver<SimulationControl>::updateBoundaryVariable(const Mesh<SimulationControl>& mesh, const Real time) {
   if constexpr (SimulationControl::kDimension == 1) {
-    this->point_.updateAdjacencyElementBoundaryVariable(mesh.point_, time_integration, rk_step);
+    this->point_.updateAdjacencyElementBoundaryVariable(mesh.point_, time);
   } else if constexpr (SimulationControl::kDimension == 2) {
-    this->line_.updateAdjacencyElementBoundaryVariable(mesh.line_, time_integration, rk_step);
+    this->line_.updateAdjacencyElementBoundaryVariable(mesh.line_, time);
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.updateAdjacencyElementBoundaryVariable(mesh.triangle_, time_integration, rk_step);
+      this->triangle_.updateAdjacencyElementBoundaryVariable(mesh.triangle_, time);
     }
     if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.updateAdjacencyElementBoundaryVariable(mesh.quadrangle_, time_integration, rk_step);
+      this->quadrangle_.updateAdjacencyElementBoundaryVariable(mesh.quadrangle_, time);
     }
   }
 }

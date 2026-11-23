@@ -1,0 +1,19 @@
+[
+    # Eigen's export pragmas do not cover all Core declarations and plugin files.
+    { "include": ["@<Eigen/src/Core/.*>", "private", "<Eigen/Core>", "public"] },
+    { "include": ["@<Eigen/src/plugins/.*>", "private", "<Eigen/Core>", "public"] },
+    # Map the SYCL components used by SubrosaDG to the standard SYCL header.
+    { "include": [
+        "@<sycl/(detail/builtins/.*|detail/abi_neutral[.]hpp|info/device[.]hpp)>",
+        "private", "<sycl/sycl.hpp>", "public"
+    ] },
+    { "include": [
+        "@<sycl/(device(_selector)?|functional|handler|nd_(item|range)|queue|range|reduction|stream|sycl_span|usm)[.]hpp>",
+        "private", "<sycl/sycl.hpp>", "public"
+    ] },
+    { "include": ["<sycl/detail/iostream_proxy.hpp>", "private", "<iostream>", "public"] },
+    { "include": ["@<(oneapi/)?tbb/.*>", "private", "<oneapi/tbb.h>", "public"] },
+    { "symbol": ["abs", "private", "<cmath>", "public"] },
+    { "symbol": ["EXIT_SUCCESS", "private", "<cstdlib>", "public"] },
+    { "symbol": ["EXIT_FAILURE", "private", "<cstdlib>", "public"] },
+]

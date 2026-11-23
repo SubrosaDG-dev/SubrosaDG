@@ -13,8 +13,13 @@
 #ifndef SUBROSA_DG_TIME_INTEGRATION_CPP_
 #define SUBROSA_DG_TIME_INTEGRATION_CPP_
 
+#include <oneapi/tbb.h>
+
 #include <Eigen/Core>
+#include <algorithm>
 #include <array>
+#include <ios>
+#include <sycl/sycl.hpp>
 
 #include "Mesh/ReadControl.cpp"
 #include "Solver/PhysicalModel.cpp"
@@ -35,9 +40,6 @@ struct TimeIntegrationBase {
   Real courant_friedrichs_lewy_number_;
   Real delta_time_{0.0};
 };
-
-template <typename SimulationControl, TimeIntegrationEnum TimeIntegrationType>
-struct TimeIntegration;
 
 template <typename SimulationControl>
 struct TimeIntegration<SimulationControl, TimeIntegrationEnum::ForwardEuler> : TimeIntegrationBase {
@@ -151,10 +153,14 @@ template <typename VolumeElementTrait, typename SimulationControl>
 inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeVolumeElementDeltaTime(
     const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh, const Real courant_friedrichs_lewy_number,
     Real& delta_time) {
-  tbb::combinable<Real> min_delta_time_combinable(kRealMax);
+  tbb::combinable<Real> delta_time_combinable(kRealMax);
   tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
     for (Isize i = range.begin(); i != range.end(); i++) {
-      Eigen::Vector<Real, VolumeElementTrait::kQuadratureNumber> quadrature_node_delta_time;
+      const Real inverse_convective_scale = (SimulationControl::kPolynomialOrder + 1) *
+                                            (SimulationControl::kPolynomialOrder + 1) /
+                                            volume_element_mesh.characteristic_length_(i);
+      Real max_spectral_radius = 0.0_r;
+      Real max_diffusivity = 0.0_r;
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> quadrature_node_conserved_variable;
       Eigen::Vector<Real, SimulationControl::kComputationalVariableNumber> quadrature_node_computational_variable;
       Eigen::Vector<Real, SimulationControl::kDimension> quadrature_node_rotation_velocity;
@@ -177,16 +183,34 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeV
              quadrature_node_rotation_velocity)
                 .norm() +
             sound_speed;
-        // NOTE: https://arxiv.org/pdf/2008.12044
-        quadrature_node_delta_time(j) = courant_friedrichs_lewy_number * volume_element_mesh.minimum_edge_(i) /
-                                        (spectral_radius * (SimulationControl::kPolynomialOrder + 1.0_r) *
-                                         (SimulationControl::kPolynomialOrder + 1.0_r));
+        max_spectral_radius = std::max(max_spectral_radius, spectral_radius);
+        if constexpr (IsNS<SimulationControl::kEquationModel>) {
+          const Real density = Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::Density>(
+              quadrature_node_computational_variable);
+          const Real temperature =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeTemperatureFromInternalEnergy(
+                  Variable<SimulationControl>::template getScalar<ComputationalVariableEnum::InternalEnergy>(
+                      quadrature_node_computational_variable));
+          const Real momentum_diffusivity =
+              4.0_r / 3.0_r *
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeDynamicViscosity(temperature) / density;
+          // The energy variable uses e = c_v*T, so its thermal diffusion scale is kappa/(rho*c_v).
+          const Real thermal_diffusivity =
+              PhysicalModel<SimulationControl, PhysicalModelData>::computeThermalConductivity(temperature) /
+              (density * ThermodynamicModel<PhysicalModelData,
+                                            SimulationControl::kThermodynamicModel>::kSpecificHeatConstantVolume);
+          max_diffusivity = std::max({max_diffusivity, momentum_diffusivity, thermal_diffusivity});
+        }
       }
-      min_delta_time_combinable.local() =
-          std::min(min_delta_time_combinable.local(), quadrature_node_delta_time.minCoeff());
+      // Kloeckner et al., arXiv:1102.3190, Eq. (2.1): dt ~ 1/(lambda*N^2/h + nu*N^4/h^2), N = p.
+      const Real inverse_delta_time = max_spectral_radius * inverse_convective_scale +
+                                      max_diffusivity * inverse_convective_scale * inverse_convective_scale;
+      delta_time_combinable.local() =
+          std::min(delta_time_combinable.local(), courant_friedrichs_lewy_number / inverse_delta_time);
     }
   });
-  delta_time = min_delta_time_combinable.combine([](const Real a, const Real b) { return std::min(a, b); });
+  delta_time =
+      std::min(delta_time, delta_time_combinable.combine([](const Real a, const Real b) { return std::min(a, b); }));
 }
 
 template <typename SimulationControl>
@@ -232,8 +256,35 @@ template <typename VolumeElementTrait, typename SimulationControl>
 inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::updateVolumeElementBasisFunctionCoefficient(
     const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
     const TimeIntegration<SimulationControl>& time_integration, const int rk_step) {
+  constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kAdjacencyNodeNumber{
+      getVolumeElementPerAdjacencyNodeNumber<VolumeElementTrait::kElementType, VolumeElementTrait::kPolynomialOrder>()};
+  constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kAdjacencyQuadratureNumber{
+      getVolumeElementPerAdjacencyQuadratureNumber<VolumeElementTrait::kElementType,
+                                                   VolumeElementTrait::kPolynomialOrder>()};
   tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
     for (Isize i = range.begin(); i != range.end(); i++) {
+      Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kAllBasisFunctionNumber>&
+          variable_residual = this->variable_residual_(i);
+      variable_residual.noalias() = this->variable_quadrature_(i) * volume_element_mesh.nodal_gradient_basis_function_;
+      static_for<VolumeElementTrait::kAdjacencyNumber>([&]<Usize I>() {
+        const Eigen::Map<const Eigen::Matrix<Real, kAdjacencyQuadratureNumber[I], kAdjacencyNodeNumber[I]>>
+            nodal_adjacency_basis_function(volume_element_mesh.nodal_adjacency_basis_function_.data() +
+                                           VolumeElementTrait::kAdjacencyBasisValueSequence[I]);
+        Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, kAdjacencyNodeNumber[I]> projection;
+        projection.noalias() =
+            this->variable_adjacency_quadrature_(i)(
+                Eigen::placeholders::all, Eigen::seqN(Eigen::fix<VolumeElementTrait::kAdjacencyQuadratureSequence[I]>,
+                                                      Eigen::fix<kAdjacencyQuadratureNumber[I]>)) *
+            nodal_adjacency_basis_function;
+        for (Isize a = 0; a < kAdjacencyNodeNumber[I]; a++) {
+          const Isize n = VolumeElementTrait::kPerAdjacencyNodeIndex[static_cast<Usize>(
+              VolumeElementTrait::kAdjacencyNodeSequence[I] + a)];
+          variable_residual.col(n) -= projection.col(a);
+        }
+      });
+      if constexpr (SimulationControl::kSourceTerm != SourceTermEnum::None) {
+        variable_residual.noalias() += this->variable_source_quadrature_(i) * volume_element_mesh.nodal_basis_function_;
+      }
       // NOTE: Here we split the calculation to trigger eigen's noalias to avoid intermediate variables.
       this->variable_basis_function_coefficient_(i) *=
           TimeIntegration<SimulationControl>::kStepCoefficients[static_cast<Usize>(rk_step)][1];
@@ -242,8 +293,7 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::updateVo
           this->variable_basis_function_coefficient_last_(i);
       this->variable_basis_function_coefficient_(i).noalias() +=
           TimeIntegration<SimulationControl>::kStepCoefficients[static_cast<Usize>(rk_step)][2] *
-          time_integration.delta_time_ * this->variable_residual_(i) *
-          volume_element_mesh.local_mass_matrix_inverse_(i);
+          time_integration.delta_time_ * variable_residual * volume_element_mesh.local_mass_matrix_inverse_(i);
     }
   });
 }
@@ -279,6 +329,11 @@ inline void
 VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::updateVolumeElementBasisFunctionCoefficient(
     const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
     const TimeIntegration<SimulationControl>& time_integration, const int rk_step) {
+  constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kAdjacencyNodeNumber{
+      getVolumeElementPerAdjacencyNodeNumber<VolumeElementTrait::kElementType, VolumeElementTrait::kPolynomialOrder>()};
+  constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kAdjacencyQuadratureNumber{
+      getVolumeElementPerAdjacencyQuadratureNumber<VolumeElementTrait::kElementType,
+                                                   VolumeElementTrait::kPolynomialOrder>()};
   queue.submit([&](sycl::handler& cgh) -> void {
     cgh.parallel_for(getNdRange(this->number_), [=, this](sycl::nd_item<1> index) -> void {
       const auto i = static_cast<Isize>(index.get_global_id(0));
@@ -286,6 +341,56 @@ VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::updateVolumeEl
         return;
       }
       const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>* self = this;
+      const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                                              VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension>>
+          variable_quadrature = self->variable_quadrature_.view(i, this->number_);
+      const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                                              VolumeElementTrait::kAllAdjacencyQuadratureNumber>>
+          variable_adjacency_quadrature = self->variable_adjacency_quadrature_.view(i, this->number_);
+      Device::View<Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                                  VolumeElementTrait::kAllBasisFunctionNumber>>
+          variable_residual = this->variable_residual_.view(i, this->number_);
+      for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+        for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+          Real sum = 0.0_r;
+          for (Isize k = 0; k < VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension; k++) {
+            sum += variable_quadrature(m, k) * volume_element_mesh.nodal_gradient_basis_function_(k, n);
+          }
+          variable_residual(m, n) = sum;
+        }
+      }
+      for (Usize face = 0; face < VolumeElementTrait::kAdjacencyNumber; face++) {
+        const Isize quadrature_start = VolumeElementTrait::kAdjacencyQuadratureSequence[face];
+        const Isize quadrature_number = kAdjacencyQuadratureNumber[face];
+        const Isize basis_start = VolumeElementTrait::kAdjacencyBasisValueSequence[face];
+        const Isize node_start = VolumeElementTrait::kAdjacencyNodeSequence[face];
+        for (Isize a = 0; a < kAdjacencyNodeNumber[face]; a++) {
+          const Isize n = VolumeElementTrait::kPerAdjacencyNodeIndex[static_cast<Usize>(node_start + a)];
+          const Isize value_start = basis_start + a * quadrature_number;
+          for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+            Real sum = 0.0_r;
+            for (Isize q = 0; q < quadrature_number; q++) {
+              sum += variable_adjacency_quadrature(m, quadrature_start + q) *
+                     volume_element_mesh.nodal_adjacency_basis_function_(value_start + q);
+            }
+            variable_residual(m, n) -= sum;
+          }
+        }
+      }
+      if constexpr (SimulationControl::kSourceTerm != SourceTermEnum::None) {
+        const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                                                VolumeElementTrait::kQuadratureNumber>>
+            variable_source_quadrature = self->variable_source_quadrature_.view(i, this->number_);
+        for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+          for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+            Real sum = 0.0_r;
+            for (Isize k = 0; k < VolumeElementTrait::kQuadratureNumber; k++) {
+              sum += variable_source_quadrature(m, k) * volume_element_mesh.nodal_basis_function_(k, n);
+            }
+            variable_residual(m, n) += sum;
+          }
+        }
+      }
       Device::View<Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
                                   VolumeElementTrait::kAllBasisFunctionNumber>>
           variable_basis_function_coefficient = this->variable_basis_function_coefficient_.view(i, this->number_);
@@ -306,9 +411,6 @@ VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::updateVolumeEl
               variable_basis_function_coefficient_last(m, n);
         }
       }
-      const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                                              VolumeElementTrait::kAllBasisFunctionNumber>>
-          variable_residual = self->variable_residual_.view(i, this->number_);
       const Device::View<const Device::Matrix<Real, VolumeElementTrait::kAllBasisFunctionNumber,
                                               VolumeElementTrait::kAllBasisFunctionNumber>>
           local_mass_matrix_inverse = volume_element_mesh.local_mass_matrix_inverse_.view(i, this->number_);
@@ -358,34 +460,97 @@ template <typename VolumeElementTrait, typename SimulationControl>
 inline void
 VolumeElementSolver<VolumeElementTrait, SimulationControl>::updateVolumeElementGradientBasisFunctionCoefficient(
     const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh) {
+  constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kAdjacencyNodeNumber{
+      getVolumeElementPerAdjacencyNodeNumber<VolumeElementTrait::kElementType, VolumeElementTrait::kPolynomialOrder>()};
+  constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kAdjacencyQuadratureNumber{
+      getVolumeElementPerAdjacencyQuadratureNumber<VolumeElementTrait::kElementType,
+                                                   VolumeElementTrait::kPolynomialOrder>()};
   tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
     for (Isize i = range.begin(); i != range.end(); i++) {
+      const Eigen::Matrix<Real, VolumeElementTrait::kAllBasisFunctionNumber,
+                          VolumeElementTrait::kAllBasisFunctionNumber>& mass_inverse =
+          volume_element_mesh.local_mass_matrix_inverse_(i);
+      // Project and lift while the residual is local to the element.
+      Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                    VolumeElementTrait::kAllBasisFunctionNumber>
+          variable_gradient_residual;
+      variable_gradient_residual.setZero();
+      static_for<VolumeElementTrait::kAdjacencyNumber>([&]<Usize I>() {
+        const Eigen::Map<const Eigen::Matrix<Real, kAdjacencyQuadratureNumber[I], kAdjacencyNodeNumber[I]>>
+            nodal_adjacency_basis_function(volume_element_mesh.nodal_adjacency_basis_function_.data() +
+                                           VolumeElementTrait::kAdjacencyBasisValueSequence[I]);
+        Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                      kAdjacencyNodeNumber[I]>
+            projection;
+        projection.noalias() =
+            this->variable_volume_gradient_adjacency_quadrature_(i)(
+                Eigen::placeholders::all, Eigen::seqN(Eigen::fix<VolumeElementTrait::kAdjacencyQuadratureSequence[I]>,
+                                                      Eigen::fix<kAdjacencyQuadratureNumber[I]>)) *
+            nodal_adjacency_basis_function;
+        for (Isize a = 0; a < kAdjacencyNodeNumber[I]; a++) {
+          const Isize n = VolumeElementTrait::kPerAdjacencyNodeIndex[static_cast<Usize>(
+              VolumeElementTrait::kAdjacencyNodeSequence[I] + a)];
+          variable_gradient_residual.col(n) += projection.col(a);
+        }
+      });
+      variable_gradient_residual.noalias() -=
+          this->variable_volume_gradient_quadrature_(i) * volume_element_mesh.nodal_gradient_basis_function_;
       this->variable_volume_gradient_basis_function_coefficient_(i).noalias() =
-          this->variable_volume_gradient_residual_(i) * volume_element_mesh.local_mass_matrix_inverse_(i);
+          variable_gradient_residual * mass_inverse;
       if constexpr (IsNS<SimulationControl::kEquationModel>) {
         this->variable_gradient_basis_function_coefficient_(i).noalias() =
             this->variable_volume_gradient_basis_function_coefficient_(i);
         if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
+          variable_gradient_residual.setZero();
+          static_for<VolumeElementTrait::kAdjacencyNumber>([&]<Usize I>() {
+            const Eigen::Map<const Eigen::Matrix<Real, kAdjacencyQuadratureNumber[I], kAdjacencyNodeNumber[I]>>
+                nodal_adjacency_basis_function(volume_element_mesh.nodal_adjacency_basis_function_.data() +
+                                               VolumeElementTrait::kAdjacencyBasisValueSequence[I]);
+            Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                          kAdjacencyNodeNumber[I]>
+                projection;
+            projection.noalias() = this->variable_interface_gradient_adjacency_quadrature_(i)(
+                                       Eigen::placeholders::all,
+                                       Eigen::seqN(Eigen::fix<VolumeElementTrait::kAdjacencyQuadratureSequence[I]>,
+                                                   Eigen::fix<kAdjacencyQuadratureNumber[I]>)) *
+                                   nodal_adjacency_basis_function;
+            for (Isize a = 0; a < kAdjacencyNodeNumber[I]; a++) {
+              const Isize n = VolumeElementTrait::kPerAdjacencyNodeIndex[static_cast<Usize>(
+                  VolumeElementTrait::kAdjacencyNodeSequence[I] + a)];
+              variable_gradient_residual.col(n) += projection.col(a);
+            }
+          });
           this->variable_interface_gradient_basis_function_coefficient_(i).noalias() =
-              this->variable_interface_gradient_residual_(i) * volume_element_mesh.local_mass_matrix_inverse_(i);
+              variable_gradient_residual * mass_inverse;
           this->variable_gradient_basis_function_coefficient_(i).noalias() +=
               this->variable_interface_gradient_basis_function_coefficient_(i);
         } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
-          for (Isize j = 0; j < VolumeElementTrait::kAdjacencyNumber; j++) {
+          static_for<VolumeElementTrait::kAdjacencyNumber>([&]<Usize I>() {
+            const Eigen::Map<const Eigen::Matrix<Real, kAdjacencyQuadratureNumber[I], kAdjacencyNodeNumber[I]>>
+                nodal_adjacency_basis_function(volume_element_mesh.nodal_adjacency_basis_function_.data() +
+                                               VolumeElementTrait::kAdjacencyBasisValueSequence[I]);
+            Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                          kAdjacencyNodeNumber[I]>
+                projection;
+            projection.noalias() = this->variable_interface_gradient_adjacency_quadrature_(i)(
+                                       Eigen::placeholders::all,
+                                       Eigen::seqN(Eigen::fix<VolumeElementTrait::kAdjacencyQuadratureSequence[I]>,
+                                                   Eigen::fix<kAdjacencyQuadratureNumber[I]>)) *
+                                   nodal_adjacency_basis_function;
+            const Eigen::Map<const Eigen::Vector<Isize, kAdjacencyNodeNumber[I]>> node_index(
+                VolumeElementTrait::kPerAdjacencyNodeIndex.data() + VolumeElementTrait::kAdjacencyNodeSequence[I]);
             Eigen::Ref<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                                      VolumeElementTrait::kAllBasisFunctionNumber>>
                 variable_interface_gradient_basis_function_coefficient =
                     this->variable_interface_gradient_basis_function_coefficient_(i)(
-                        Eigen::placeholders::all, Eigen::seqN(j * VolumeElementTrait::kAllBasisFunctionNumber,
-                                                              Eigen::fix<VolumeElementTrait::kAllBasisFunctionNumber>));
+                        Eigen::placeholders::all,
+                        Eigen::seqN(Eigen::fix<I * VolumeElementTrait::kAllBasisFunctionNumber>,
+                                    Eigen::fix<VolumeElementTrait::kAllBasisFunctionNumber>));
             variable_interface_gradient_basis_function_coefficient.noalias() =
-                this->variable_interface_gradient_residual_(i)(
-                    Eigen::placeholders::all, Eigen::seqN(j * VolumeElementTrait::kAllBasisFunctionNumber,
-                                                          Eigen::fix<VolumeElementTrait::kAllBasisFunctionNumber>)) *
-                volume_element_mesh.local_mass_matrix_inverse_(i);
-            this->variable_gradient_basis_function_coefficient_(i).noalias() +=
+                projection * mass_inverse(node_index, Eigen::placeholders::all);
+            this->variable_gradient_basis_function_coefficient_(i) +=
                 variable_interface_gradient_basis_function_coefficient;
-          }
+          });
         }
       }
     }
@@ -420,6 +585,12 @@ template <typename VolumeElementTrait, typename SimulationControl>
 inline void
 VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::updateVolumeElementGradientBasisFunctionCoefficient(
     const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh) {
+  constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kAdjacencyNodeNumber{
+      getVolumeElementPerAdjacencyNodeNumber<VolumeElementTrait::kElementType, VolumeElementTrait::kPolynomialOrder>()};
+  constexpr std::array<int, VolumeElementTrait::kAdjacencyNumber> kAdjacencyQuadratureNumber{
+      getVolumeElementPerAdjacencyQuadratureNumber<VolumeElementTrait::kElementType,
+                                                   VolumeElementTrait::kPolynomialOrder>()};
+  constexpr int kMaxAdjacencyNodeNumber = *std::max_element(kAdjacencyNodeNumber.begin(), kAdjacencyNodeNumber.end());
   queue.submit([&](sycl::handler& cgh) -> void {
     cgh.parallel_for(getNdRange(this->number_), [=, this](sycl::nd_item<1> index) -> void {
       const auto i = static_cast<Isize>(index.get_global_id(0));
@@ -429,8 +600,13 @@ VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::updateVolumeEl
       const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>* self = this;
       const Device::View<
           const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kAllBasisFunctionNumber>>
-          variable_volume_gradient_residual = self->variable_volume_gradient_residual_.view(i, this->number_);
+                               VolumeElementTrait::kAllAdjacencyQuadratureNumber>>
+          volume_gradient_adjacency_quadrature =
+              self->variable_volume_gradient_adjacency_quadrature_.view(i, this->number_);
+      const Device::View<
+          const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                               VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension>>
+          volume_gradient_quadrature = self->variable_volume_gradient_quadrature_.view(i, this->number_);
       const Device::View<const Device::Matrix<Real, VolumeElementTrait::kAllBasisFunctionNumber,
                                               VolumeElementTrait::kAllBasisFunctionNumber>>
           local_mass_matrix_inverse = volume_element_mesh.local_mass_matrix_inverse_.view(i, this->number_);
@@ -438,11 +614,39 @@ VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::updateVolumeEl
                                   VolumeElementTrait::kAllBasisFunctionNumber>>
           variable_volume_gradient_basis_function_coefficient =
               this->variable_volume_gradient_basis_function_coefficient_.view(i, this->number_);
+      // A volume gradient or BR1 lifting still needs a full residual row.
+      Device::StaticVector<Real, VolumeElementTrait::kAllBasisFunctionNumber> variable_gradient_residual;
       for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+        for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+          variable_gradient_residual(n) = 0.0_r;
+        }
+        for (Usize face = 0; face < VolumeElementTrait::kAdjacencyNumber; face++) {
+          const Isize quadrature_start = VolumeElementTrait::kAdjacencyQuadratureSequence[face];
+          const Isize quadrature_number = kAdjacencyQuadratureNumber[face];
+          const Isize basis_start = VolumeElementTrait::kAdjacencyBasisValueSequence[face];
+          const Isize node_start = VolumeElementTrait::kAdjacencyNodeSequence[face];
+          for (Isize a = 0; a < kAdjacencyNodeNumber[face]; a++) {
+            const Isize n = VolumeElementTrait::kPerAdjacencyNodeIndex[static_cast<Usize>(node_start + a)];
+            const Isize value_start = basis_start + a * quadrature_number;
+            Real sum = 0.0_r;
+            for (Isize q = 0; q < quadrature_number; q++) {
+              sum += volume_gradient_adjacency_quadrature(m, quadrature_start + q) *
+                     volume_element_mesh.nodal_adjacency_basis_function_(value_start + q);
+            }
+            variable_gradient_residual(n) += sum;
+          }
+        }
+        for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+          Real volume_sum = 0.0_r;
+          for (Isize k = 0; k < VolumeElementTrait::kQuadratureNumber * SimulationControl::kDimension; k++) {
+            volume_sum += volume_gradient_quadrature(m, k) * volume_element_mesh.nodal_gradient_basis_function_(k, n);
+          }
+          variable_gradient_residual(n) -= volume_sum;
+        }
         for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
           Real sum = 0.0_r;
           for (Isize k = 0; k < VolumeElementTrait::kAllBasisFunctionNumber; k++) {
-            sum += variable_volume_gradient_residual(m, k) * local_mass_matrix_inverse(k, n);
+            sum += variable_gradient_residual(k) * local_mass_matrix_inverse(k, n);
           }
           variable_volume_gradient_basis_function_coefficient(m, n) = sum;
         }
@@ -461,32 +665,54 @@ VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::updateVolumeEl
         if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR1) {
           const Device::View<
               const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                                   VolumeElementTrait::kAllBasisFunctionNumber>>
-              variable_interface_gradient_residual = self->variable_interface_gradient_residual_.view(i, this->number_);
+                                   VolumeElementTrait::kAllAdjacencyQuadratureNumber>>
+              variable_interface_gradient_adjacency_quadrature =
+                  self->variable_interface_gradient_adjacency_quadrature_.view(i, this->number_);
           Device::View<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                                       VolumeElementTrait::kAllBasisFunctionNumber>>
               variable_interface_gradient_basis_function_coefficient =
                   this->variable_interface_gradient_basis_function_coefficient_.view(i, this->number_);
           for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
             for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+              variable_gradient_residual(n) = 0.0_r;
+            }
+            for (Usize face = 0; face < VolumeElementTrait::kAdjacencyNumber; face++) {
+              const Isize quadrature_start = VolumeElementTrait::kAdjacencyQuadratureSequence[face];
+              const Isize quadrature_number = kAdjacencyQuadratureNumber[face];
+              const Isize basis_start = VolumeElementTrait::kAdjacencyBasisValueSequence[face];
+              const Isize node_start = VolumeElementTrait::kAdjacencyNodeSequence[face];
+              for (Isize a = 0; a < kAdjacencyNodeNumber[face]; a++) {
+                const Isize n = VolumeElementTrait::kPerAdjacencyNodeIndex[static_cast<Usize>(node_start + a)];
+                const Isize value_start = basis_start + a * quadrature_number;
+                Real sum = 0.0_r;
+                for (Isize q = 0; q < quadrature_number; q++) {
+                  sum += variable_interface_gradient_adjacency_quadrature(m, quadrature_start + q) *
+                         volume_element_mesh.nodal_adjacency_basis_function_(value_start + q);
+                }
+                variable_gradient_residual(n) += sum;
+              }
+            }
+            for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
               Real sum = 0.0_r;
               for (Isize k = 0; k < VolumeElementTrait::kAllBasisFunctionNumber; k++) {
-                sum += variable_interface_gradient_residual(m, k) * local_mass_matrix_inverse(k, n);
+                sum += variable_gradient_residual(k) * local_mass_matrix_inverse(k, n);
               }
               variable_interface_gradient_basis_function_coefficient(m, n) = sum;
               variable_gradient_basis_function_coefficient(m, n) += sum;
             }
           }
         } else if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
-          for (Isize j = 0; j < VolumeElementTrait::kAdjacencyNumber; j++) {
-            const Device::View<
-                const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                                     VolumeElementTrait::kAllBasisFunctionNumber>>
-                variable_interface_gradient_residual = self->variable_interface_gradient_residual_.slice(
-                    i, this->number_,
-                    Device::Slice<SimulationControl::kConservedVariableNumber * SimulationControl::kDimension>::all(),
-                    Device::Slice<VolumeElementTrait::kAllBasisFunctionNumber>::seqN(
-                        j * VolumeElementTrait::kAllBasisFunctionNumber));
+          const Device::View<
+              const Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
+                                   VolumeElementTrait::kAllAdjacencyQuadratureNumber>>
+              variable_interface_gradient_adjacency_quadrature =
+                  self->variable_interface_gradient_adjacency_quadrature_.view(i, this->number_);
+          for (Usize face = 0; face < VolumeElementTrait::kAdjacencyNumber; face++) {
+            const Isize quadrature_start = VolumeElementTrait::kAdjacencyQuadratureSequence[face];
+            const Isize quadrature_number = kAdjacencyQuadratureNumber[face];
+            const Isize basis_start = VolumeElementTrait::kAdjacencyBasisValueSequence[face];
+            const Isize node_start = VolumeElementTrait::kAdjacencyNodeSequence[face];
+            const Isize node_number = kAdjacencyNodeNumber[face];
             Device::View<
                 Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
                                VolumeElementTrait::kAllBasisFunctionNumber>>
@@ -496,12 +722,23 @@ VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::updateVolumeEl
                         Device::Slice<SimulationControl::kConservedVariableNumber *
                                       SimulationControl::kDimension>::all(),
                         Device::Slice<VolumeElementTrait::kAllBasisFunctionNumber>::seqN(
-                            j * VolumeElementTrait::kAllBasisFunctionNumber));
+                            static_cast<Isize>(face) * VolumeElementTrait::kAllBasisFunctionNumber));
             for (Isize m = 0; m < SimulationControl::kConservedVariableNumber * SimulationControl::kDimension; m++) {
+              Device::StaticVector<Real, kMaxAdjacencyNodeNumber> projection;
+              for (Isize a = 0; a < node_number; a++) {
+                const Isize value_start = basis_start + a * quadrature_number;
+                Real sum = 0.0_r;
+                for (Isize q = 0; q < quadrature_number; q++) {
+                  sum += variable_interface_gradient_adjacency_quadrature(m, quadrature_start + q) *
+                         volume_element_mesh.nodal_adjacency_basis_function_(value_start + q);
+                }
+                projection(a) = sum;
+              }
               for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
                 Real sum = 0.0_r;
-                for (Isize k = 0; k < VolumeElementTrait::kAllBasisFunctionNumber; k++) {
-                  sum += variable_interface_gradient_residual(m, k) * local_mass_matrix_inverse(k, n);
+                for (Isize a = 0; a < node_number; a++) {
+                  const Isize row = VolumeElementTrait::kPerAdjacencyNodeIndex[static_cast<Usize>(node_start + a)];
+                  sum += projection(a) * local_mass_matrix_inverse(row, n);
                 }
                 variable_interface_gradient_basis_function_coefficient(m, n) = sum;
                 variable_gradient_basis_function_coefficient(m, n) += sum;
@@ -541,89 +778,110 @@ inline void SolverDevice<SimulationControl>::updateGradientBasisFunctionCoeffici
 }
 
 template <typename VolumeElementTrait, typename SimulationControl>
-inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeVolumeElementRelativeError(
+inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::computeVolumeElementMeanAbsoluteResidual(
     const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
-    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error) {
-  tbb::combinable<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> relative_error_combinable(
+    Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual) {
+  tbb::combinable<Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>> residual_combinable(
       Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>::Zero());
   tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
     for (Isize i = range.begin(); i != range.end(); i++) {
+      const Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                          VolumeElementTrait::kAllBasisFunctionNumber>
+          derivative = this->variable_residual_(i) * volume_element_mesh.local_mass_matrix_inverse_(i);
       const Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kQuadratureNumber>
-          quadrature_node_residual =
-              this->variable_residual_(i) * volume_element_mesh.nodal_basis_function_.transpose();
-      relative_error_combinable.local().array() += quadrature_node_residual.array().abs().rowwise().mean();
+          quadrature_node_residual = derivative * volume_element_mesh.nodal_basis_function_.transpose();
+      const Eigen::Vector<Real, VolumeElementTrait::kQuadratureNumber>& weights =
+          volume_element_mesh.jacobian_determinant_multiply_weight_(i);
+      residual_combinable.local().noalias() += (quadrature_node_residual.cwiseAbs() * weights) / weights.sum();
     }
   });
-  relative_error = relative_error_combinable.combine(
+  residual += residual_combinable.combine(
       [](const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& a,
          const Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& b) { return a + b; });
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl>::computeRelativeError(const Mesh<SimulationControl>& mesh) {
-  this->relative_error_.setZero();
+inline void Solver<SimulationControl>::computeMeanAbsoluteResidual(const Mesh<SimulationControl>& mesh) {
+  this->residual_.setZero();
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.computeVolumeElementRelativeError(mesh.line_, this->relative_error_);
+    this->line_.computeVolumeElementMeanAbsoluteResidual(mesh.line_, this->residual_);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.computeVolumeElementRelativeError(mesh.triangle_, this->relative_error_);
+      this->triangle_.computeVolumeElementMeanAbsoluteResidual(mesh.triangle_, this->residual_);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.computeVolumeElementRelativeError(mesh.quadrangle_, this->relative_error_);
+      this->quadrangle_.computeVolumeElementMeanAbsoluteResidual(mesh.quadrangle_, this->residual_);
     }
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-      this->tetrahedron_.computeVolumeElementRelativeError(mesh.tetrahedron_, this->relative_error_);
+      this->tetrahedron_.computeVolumeElementMeanAbsoluteResidual(mesh.tetrahedron_, this->residual_);
     }
     if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-      this->pyramid_.computeVolumeElementRelativeError(mesh.pyramid_, this->relative_error_);
+      this->pyramid_.computeVolumeElementMeanAbsoluteResidual(mesh.pyramid_, this->residual_);
     }
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-      this->hexahedron_.computeVolumeElementRelativeError(mesh.hexahedron_, this->relative_error_);
+      this->hexahedron_.computeVolumeElementMeanAbsoluteResidual(mesh.hexahedron_, this->residual_);
     }
   }
-  this->relative_error_ = this->relative_error_ / static_cast<Real>(mesh.volume_element_number_);
+  this->residual_ = this->residual_ / static_cast<Real>(mesh.volume_element_number_);
 }
 
 template <typename VolumeElementTrait, typename SimulationControl>
-inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::computeVolumeElementRelativeError(
+inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::computeVolumeElementMeanAbsoluteResidual(
     const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
-    Device::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error) {
+    Device::Vector<Real, SimulationControl::kConservedVariableNumber>& residual) {
   queue
       .submit([&](sycl::handler& cgh) -> void {
-        cgh.parallel_for(getNdRange(this->number_),
-                         sycl::reduction(sycl::span<Real, SimulationControl::kConservedVariableNumber>(
-                                             relative_error.data(), SimulationControl::kConservedVariableNumber),
-                                         sycl::plus<Real>{}),
-                         [=, this](sycl::nd_item<1> index, auto& sum) -> void {
-                           const auto i = static_cast<Isize>(index.get_global_id(0));
-                           if (i >= this->number_) {
-                             return;
-                           }
-                           const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>* self = this;
-                           const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
-                                                                   VolumeElementTrait::kAllBasisFunctionNumber>>
-                               variable_residual = self->variable_residual_.view(i, this->number_);
-                           for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
-                             Real mean_absolute_residual = 0.0_r;
-                             for (Isize n = 0; n < VolumeElementTrait::kQuadratureNumber; n++) {
-                               Real inner_sum = 0.0_r;
-                               for (Isize k = 0; k < VolumeElementTrait::kAllBasisFunctionNumber; k++) {
-                                 inner_sum += variable_residual(m, k) * volume_element_mesh.nodal_basis_function_(n, k);
-                               }
-                               mean_absolute_residual += sycl::fabs(inner_sum);
-                             }
-                             mean_absolute_residual /= static_cast<Real>(VolumeElementTrait::kQuadratureNumber);
-                             sum[static_cast<Usize>(m)].combine(mean_absolute_residual);
-                           }
-                         });
+        cgh.parallel_for(
+            getNdRange(this->number_),
+            sycl::reduction(sycl::span<Real, SimulationControl::kConservedVariableNumber>(
+                                residual.data(), SimulationControl::kConservedVariableNumber),
+                            sycl::plus<Real>{}),
+            [=, this](sycl::nd_item<1> index, auto& sum) -> void {
+              const auto i = static_cast<Isize>(index.get_global_id(0));
+              if (i >= this->number_) {
+                return;
+              }
+              const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>* self = this;
+              const Device::View<const Device::Matrix<Real, SimulationControl::kConservedVariableNumber,
+                                                      VolumeElementTrait::kAllBasisFunctionNumber>>
+                  variable_residual = self->variable_residual_.view(i, this->number_);
+              const Device::View<const Device::Matrix<Real, VolumeElementTrait::kAllBasisFunctionNumber,
+                                                      VolumeElementTrait::kAllBasisFunctionNumber>>
+                  local_mass_matrix_inverse = volume_element_mesh.local_mass_matrix_inverse_.view(i, this->number_);
+              const Device::View<const Device::Vector<Real, VolumeElementTrait::kQuadratureNumber>> weights =
+                  volume_element_mesh.jacobian_determinant_multiply_weight_.view(i, this->number_);
+              Real element_volume = 0.0_r;
+              for (Isize q = 0; q < VolumeElementTrait::kQuadratureNumber; q++) {
+                element_volume += weights(q);
+              }
+              for (Isize m = 0; m < SimulationControl::kConservedVariableNumber; m++) {
+                Device::StaticVector<Real, VolumeElementTrait::kAllBasisFunctionNumber> derivative;
+                for (Isize n = 0; n < VolumeElementTrait::kAllBasisFunctionNumber; n++) {
+                  Real coefficient = 0.0_r;
+                  for (Isize k = 0; k < VolumeElementTrait::kAllBasisFunctionNumber; k++) {
+                    coefficient += variable_residual(m, k) * local_mass_matrix_inverse(k, n);
+                  }
+                  derivative(n) = coefficient;
+                }
+                Real integral = 0.0_r;
+                for (Isize q = 0; q < VolumeElementTrait::kQuadratureNumber; q++) {
+                  Real value = 0.0_r;
+                  for (Isize k = 0; k < VolumeElementTrait::kAllBasisFunctionNumber; k++) {
+                    value += derivative(k) * volume_element_mesh.nodal_basis_function_(q, k);
+                  }
+                  integral += weights(q) * sycl::fabs(value);
+                }
+                sum[static_cast<Usize>(m)].combine(integral / element_volume);
+              }
+            });
       })
       .wait();
 }
 
 template <typename SimulationControl>
-inline void SolverDevice<SimulationControl>::computeRelativeError(const MeshDevice<SimulationControl>& mesh,
-                                                                  Solver<SimulationControl>& solver) {
+inline void SolverDevice<SimulationControl>::computeMeanAbsoluteResidual(const MeshDevice<SimulationControl>& mesh,
+                                                                         Solver<SimulationControl>& solver) {
   queue
       .submit([&](sycl::handler& cgh) -> void {
         cgh.parallel_for(getNdRange(SimulationControl::kConservedVariableNumber),
@@ -632,97 +890,81 @@ inline void SolverDevice<SimulationControl>::computeRelativeError(const MeshDevi
                            if (i >= SimulationControl::kConservedVariableNumber) {
                              return;
                            }
-                           this->relative_error_(i) = 0.0_r;
+                           this->residual_(i) = 0.0_r;
                          });
       })
       .wait();
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.computeVolumeElementRelativeError(mesh.line_, this->relative_error_);
+    this->line_.computeVolumeElementMeanAbsoluteResidual(mesh.line_, this->residual_);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.computeVolumeElementRelativeError(mesh.triangle_, this->relative_error_);
+      this->triangle_.computeVolumeElementMeanAbsoluteResidual(mesh.triangle_, this->residual_);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.computeVolumeElementRelativeError(mesh.quadrangle_, this->relative_error_);
+      this->quadrangle_.computeVolumeElementMeanAbsoluteResidual(mesh.quadrangle_, this->residual_);
     }
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-      this->tetrahedron_.computeVolumeElementRelativeError(mesh.tetrahedron_, this->relative_error_);
+      this->tetrahedron_.computeVolumeElementMeanAbsoluteResidual(mesh.tetrahedron_, this->residual_);
     }
     if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-      this->pyramid_.computeVolumeElementRelativeError(mesh.pyramid_, this->relative_error_);
+      this->pyramid_.computeVolumeElementMeanAbsoluteResidual(mesh.pyramid_, this->residual_);
     }
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-      this->hexahedron_.computeVolumeElementRelativeError(mesh.hexahedron_, this->relative_error_);
+      this->hexahedron_.computeVolumeElementMeanAbsoluteResidual(mesh.hexahedron_, this->residual_);
     }
   }
   queue
       .submit([&](sycl::handler& cgh) -> void {
-        cgh.parallel_for(
-            getNdRange(SimulationControl::kConservedVariableNumber), [=, this](sycl::nd_item<1> index) -> void {
-              const auto i = static_cast<Isize>(index.get_global_id(0));
-              if (i >= SimulationControl::kConservedVariableNumber) {
-                return;
-              }
-              this->relative_error_(i) = this->relative_error_(i) / static_cast<Real>(mesh.volume_element_number_);
-            });
+        cgh.parallel_for(getNdRange(SimulationControl::kConservedVariableNumber),
+                         [=, this](sycl::nd_item<1> index) -> void {
+                           const auto i = static_cast<Isize>(index.get_global_id(0));
+                           if (i >= SimulationControl::kConservedVariableNumber) {
+                             return;
+                           }
+                           this->residual_(i) = this->residual_(i) / static_cast<Real>(mesh.volume_element_number_);
+                         });
       })
       .wait();
-  Utils::transferToHost<Real, SimulationControl::kConservedVariableNumber>(this->relative_error_,
-                                                                           solver.relative_error_);
+  Utils::transferToHost<Real, SimulationControl::kConservedVariableNumber>(this->residual_, solver.residual_);
 }
 
 template <typename VolumeElementTrait, typename SimulationControl>
-inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::transferVolumeElementSolverToHost(
+inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::transferVolumeElementCoefficientToHost(
     VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver) {
   Utils::transferToHost<Real, SimulationControl::kConservedVariableNumber, VolumeElementTrait::kAllBasisFunctionNumber>(
       this->variable_basis_function_coefficient_, volume_element_solver.variable_basis_function_coefficient_);
-  if constexpr (IsEuler<SimulationControl::kEquationModel>) {
-    Utils::transferToHost<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                          VolumeElementTrait::kAllBasisFunctionNumber>(
-        this->variable_volume_gradient_basis_function_coefficient_,
-        volume_element_solver.variable_volume_gradient_basis_function_coefficient_);
-  }
-  if constexpr (IsNS<SimulationControl::kEquationModel>) {
-    Utils::transferToHost<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                          VolumeElementTrait::kAllBasisFunctionNumber>(
-        this->variable_gradient_basis_function_coefficient_,
-        volume_element_solver.variable_gradient_basis_function_coefficient_);
-    if constexpr (SimulationControl::kViscousFlux == ViscousFluxEnum::BR2) {
-      Utils::transferToHost<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                            VolumeElementTrait::kAllBasisFunctionNumber>(
-          this->variable_volume_gradient_basis_function_coefficient_,
-          volume_element_solver.variable_volume_gradient_basis_function_coefficient_);
-      Utils::transferToHost<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                            VolumeElementTrait::kAllBasisFunctionNumber * VolumeElementTrait::kAdjacencyNumber>(
-          this->variable_interface_gradient_basis_function_coefficient_,
-          volume_element_solver.variable_interface_gradient_basis_function_coefficient_);
+}
+
+template <typename SimulationControl>
+inline void SolverDevice<SimulationControl>::transferCoefficientToHost(Solver<SimulationControl>& solver) {
+  if constexpr (SimulationControl::kDimension == 1) {
+    this->line_.transferVolumeElementCoefficientToHost(solver.line_);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      this->triangle_.transferVolumeElementCoefficientToHost(solver.triangle_);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      this->quadrangle_.transferVolumeElementCoefficientToHost(solver.quadrangle_);
+    }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      this->tetrahedron_.transferVolumeElementCoefficientToHost(solver.tetrahedron_);
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      this->pyramid_.transferVolumeElementCoefficientToHost(solver.pyramid_);
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      this->hexahedron_.transferVolumeElementCoefficientToHost(solver.hexahedron_);
     }
   }
 }
 
 template <typename SimulationControl>
-inline void SolverDevice<SimulationControl>::transferSolverToHost(Solver<SimulationControl>& solver) {
-  if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.transferVolumeElementSolverToHost(solver.line_);
-  } else if constexpr (SimulationControl::kDimension == 2) {
-    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.transferVolumeElementSolverToHost(solver.triangle_);
-    }
-    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.transferVolumeElementSolverToHost(solver.quadrangle_);
-    }
-  } else if constexpr (SimulationControl::kDimension == 3) {
-    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-      this->tetrahedron_.transferVolumeElementSolverToHost(solver.tetrahedron_);
-    }
-    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-      this->pyramid_.transferVolumeElementSolverToHost(solver.pyramid_);
-    }
-    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-      this->hexahedron_.transferVolumeElementSolverToHost(solver.hexahedron_);
-    }
-  }
+[[nodiscard]] inline Real getStageTime(const TimeIntegration<SimulationControl>& time_integration, const int rk_step) {
+  return (static_cast<Real>(time_integration.iteration_) +
+          TimeIntegration<SimulationControl>::kButcherCoefficients[static_cast<Usize>(rk_step)]) *
+         time_integration.delta_time_;
 }
 
 template <typename SimulationControl>
@@ -731,21 +973,20 @@ inline void Solver<SimulationControl>::stepSolver(Mesh<SimulationControl>& mesh,
                                                   const TimeIntegration<SimulationControl>& time_integration) {
   this->copyBasisFunctionCoefficient();
   for (int i = 0; i < TimeIntegration<SimulationControl>::kStep; i++) {
+    const Real stage_time = getStageTime(time_integration, i);
     if constexpr (SimulationControl::kBoundaryTime == BoundaryTimeEnum::TimeVarying) {
-      this->updateBoundaryVariable(mesh, time_integration, i);
+      this->updateBoundaryVariable(mesh, stage_time);
     }
-    this->rotateMesh(mesh, time_integration, i);
+    this->rotateMesh(mesh, stage_time);
     this->updateInterfaceVariable(mesh);
     this->computeVolumeGradientQuadrature(mesh);
     this->computeAdjacencyGradientQuadrature(mesh);
-    this->computeGradientResidual(mesh);
     this->updateGradientBasisFunctionCoefficient(mesh);
     if constexpr (IsNS<SimulationControl::kEquationModel>) {
       this->updateInterfaceVariableGradient(mesh);
     }
     this->computeVolumeQuadrature(mesh, source_term);
     this->computeAdjacencyQuadrature(mesh);
-    this->computeResidual(mesh);
     this->updateBasisFunctionCoefficient(mesh, time_integration, i);
   }
 }
@@ -756,18 +997,17 @@ inline void SolverDevice<SimulationControl>::stepSolver(MeshDevice<SimulationCon
                                                         const TimeIntegration<SimulationControl>& time_integration) {
   this->copyBasisFunctionCoefficient();
   for (int i = 0; i < TimeIntegration<SimulationControl>::kStep; i++) {
-    this->rotateMesh(mesh, time_integration, i);
+    const Real stage_time = getStageTime(time_integration, i);
+    this->rotateMesh(mesh, stage_time);
     this->updateInterfaceVariable(mesh);
     this->computeVolumeGradientQuadrature(mesh);
     this->computeAdjacencyGradientQuadrature(mesh);
-    this->computeGradientResidual(mesh);
     this->updateGradientBasisFunctionCoefficient(mesh);
     if constexpr (IsNS<SimulationControl::kEquationModel>) {
       this->updateInterfaceVariableGradient(mesh);
     }
     this->computeVolumeQuadrature(mesh, source_term);
     this->computeAdjacencyQuadrature(mesh);
-    this->computeResidual(mesh);
     this->updateBasisFunctionCoefficient(mesh, time_integration, i);
   }
 }

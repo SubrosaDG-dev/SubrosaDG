@@ -13,6 +13,7 @@
 #ifndef SUBROSA_DG_ENUM_CPP_
 #define SUBROSA_DG_ENUM_CPP_
 
+#include <cstdint>
 #include <magic_enum/magic_enum.hpp>
 
 using namespace magic_enum::bitwise_operators;

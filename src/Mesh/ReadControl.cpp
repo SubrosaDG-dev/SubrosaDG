@@ -135,6 +135,45 @@ struct AdjacencyElementMeshSupplemental {
   inline void getAdjacencyElementMeshSupplemental(const MeshPhysical& physical);
 };
 
+template <typename AdjacencyElementTrait>
+struct AdjacencyElementMesh;
+
+struct InterfaceElementRange {
+  bool is_endcap_;
+  Real surface_coordinate_;
+  Real element_bound_lower_;
+  Real element_bound_upper_;
+  Real quadrature_bound_lower_;
+  Real quadrature_bound_upper_;
+};
+
+template <typename AdjacencyElementTrait>
+struct AdjacencyElementInterfaceCandidateCache {
+  std::vector<InterfaceElementRange> element_range_;
+  std::vector<std::vector<Isize>> surface_static_interface_index_;
+
+  template <int PointNumber>
+  [[nodiscard]] inline static Real computeMinimumRadius(
+      const Eigen::Matrix<Real, 2, PointNumber>& projected_control_coordinate);
+
+  [[nodiscard]] inline static Eigen::Matrix<Real, AdjacencyElementTrait::kAllNodeNumber,
+                                            AdjacencyElementTrait::kAllNodeNumber>
+  computeBernsteinInverse(const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension,
+                                              AdjacencyElementTrait::kAllNodeNumber>& lagrange_node_coordinate);
+
+  inline void computeElementRange(const AdjacencyElementMesh<AdjacencyElementTrait>& mesh,
+                                  const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& rotation_center,
+                                  const Eigen::Vector<Real, 3>& rotation_axis);
+
+  inline void groupInterfaceSurface(const AdjacencyElementMesh<AdjacencyElementTrait>& mesh);
+
+  inline void buildCandidateCache(AdjacencyElementMesh<AdjacencyElementTrait>& mesh);
+
+  inline void compute(AdjacencyElementMesh<AdjacencyElementTrait>& mesh,
+                      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& rotation_center,
+                      const Eigen::Vector<Real, 3>& rotation_axis);
+};
+
 template <typename ElementTrait>
 struct ElementMesh {
   Isize number_{0};
@@ -194,7 +233,7 @@ struct VolumeElementMesh : ElementMesh<VolumeElementTrait>,
                              VolumeElementTrait::kDimension * VolumeElementTrait::kQuadratureNumber>,
                Eigen::Dynamic, 1>
       jacobian_transpose_inverse_multiply_determinate_and_weight_;
-  Eigen::Array<Real, Eigen::Dynamic, 1> minimum_edge_;
+  Eigen::Array<Real, Eigen::Dynamic, 1> characteristic_length_;
 
   Eigen::Array<Eigen::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kAllNodeNumber>, Eigen::Dynamic,
                1>
@@ -204,7 +243,8 @@ struct VolumeElementMesh : ElementMesh<VolumeElementTrait>,
       const Eigen::Matrix<Real, VolumeElementTrait::kDimension, Eigen::Dynamic>& node_coordinate,
       MeshPhysical& physical);
 
-  inline void getVolumeElementQuality();
+  template <typename... AdjacencyElementMesh>
+  inline void computeVolumeElementCharacteristicLength(const AdjacencyElementMesh&... adjacency_element_mesh);
 
   inline void computeVolumeElementQuadratureNodeCoordinate();
 
@@ -234,7 +274,7 @@ struct VolumeElementMeshDevice : ElementMeshDevice<VolumeElementTrait>,
                                VolumeElementTrait::kDimension * VolumeElementTrait::kQuadratureNumber>,
                 Device::Dynamic, 1>
       jacobian_transpose_inverse_multiply_determinate_and_weight_;
-  Device::Array<Real, Device::Dynamic, 1> minimum_edge_;
+  Device::Array<Real, Device::Dynamic, 1> characteristic_length_;
 
   Device::Array<Device::Matrix<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kAllNodeNumber>,
                 Device::Dynamic, 1>
@@ -266,8 +306,9 @@ struct VolumeElementMeshDevice : ElementMeshDevice<VolumeElementTrait>,
                             VolumeElementTrait::kDimension * VolumeElementTrait::kQuadratureNumber>(
         volume_element_mesh.jacobian_transpose_inverse_multiply_determinate_and_weight_,
         this->jacobian_transpose_inverse_multiply_determinate_and_weight_);
-    this->minimum_edge_.resize(volume_element_mesh.number_);
-    Utils::transferToDevice<Real, Eigen::Dynamic, 1>(volume_element_mesh.minimum_edge_, this->minimum_edge_);
+    this->characteristic_length_.resize(volume_element_mesh.number_);
+    Utils::transferToDevice<Real, Eigen::Dynamic, 1>(volume_element_mesh.characteristic_length_,
+                                                     this->characteristic_length_);
     this->node_coordinate_initial_.resize(volume_element_mesh.number_);
     Utils::transferToDevice<Real, VolumeElementTrait::kDimension, VolumeElementTrait::kAllNodeNumber>(
         volume_element_mesh.node_coordinate_initial_, this->node_coordinate_initial_);
@@ -358,7 +399,7 @@ struct AdjacencyElementMesh : ElementMesh<AdjacencyElementTrait>,
 
   inline void computeAdjacencyElementInterfaceSelectionGeometry();
 
-  inline void initializeInterfaceCandidateCache(
+  inline void computeAdjacencyElementInterfaceCandidateCache(
       const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& rotation_center,
       const Eigen::Vector<Real, 3>& rotation_axis);
 
@@ -670,6 +711,7 @@ struct Mesh : MeshData<SimulationControl> {
       this->volume_element_number_ += this->line_.number_;
       this->point_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
                                                                                    this->physical_);
+      this->line_.computeVolumeElementCharacteristicLength(this->point_);
       this->adjacency_element_number_ += this->point_.interior_number_ + this->point_.boundary_number_;
     } else if constexpr (SimulationControl::kDimension == 2) {
       if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
@@ -683,8 +725,14 @@ struct Mesh : MeshData<SimulationControl> {
       gmsh::model::mesh::createEdges();
       this->line_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
                                                                                   this->physical_);
+      if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+        this->triangle_.computeVolumeElementCharacteristicLength(this->line_);
+      }
+      if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+        this->quadrangle_.computeVolumeElementCharacteristicLength(this->line_);
+      }
       this->adjacency_element_number_ += this->line_.number_;
-      this->line_.initializeInterfaceCandidateCache(rotation_center, rotation_axis);
+      this->line_.computeAdjacencyElementInterfaceCandidateCache(rotation_center, rotation_axis);
     } else if constexpr (SimulationControl::kDimension == 3) {
       if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
         this->tetrahedron_.getVolumeElementMesh(this->node_coordinate_, this->physical_);
@@ -708,38 +756,26 @@ struct Mesh : MeshData<SimulationControl> {
         this->quadrangle_.template getAdjacencyElementMesh<SimulationControl::kMeshModel>(this->node_coordinate_,
                                                                                           this->physical_);
         this->adjacency_element_number_ += this->quadrangle_.number_;
-        this->quadrangle_.initializeInterfaceCandidateCache(rotation_center, rotation_axis);
+        this->quadrangle_.computeAdjacencyElementInterfaceCandidateCache(rotation_center, rotation_axis);
       }
-    }
-  }
-
-  void resetMesh() {
-    if constexpr (SimulationControl::kDimension == 2) {
-      if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-        this->triangle_.node_coordinate_ = this->triangle_.node_coordinate_initial_;
-      }
-      if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-        this->quadrangle_.node_coordinate_ = this->quadrangle_.node_coordinate_initial_;
-      }
-      this->line_.node_coordinate_ = this->line_.node_coordinate_initial_;
-      this->line_.computeAdjacencyElementNormalVector();
-    } else if constexpr (SimulationControl::kDimension == 3) {
+      const auto compute_characteristic_length = [&](auto& volume_element_mesh) {
+        if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel> &&
+                      HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
+          volume_element_mesh.computeVolumeElementCharacteristicLength(this->triangle_, this->quadrangle_);
+        } else if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
+          volume_element_mesh.computeVolumeElementCharacteristicLength(this->triangle_);
+        } else {
+          volume_element_mesh.computeVolumeElementCharacteristicLength(this->quadrangle_);
+        }
+      };
       if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-        this->tetrahedron_.node_coordinate_ = this->tetrahedron_.node_coordinate_initial_;
+        compute_characteristic_length(this->tetrahedron_);
       }
       if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-        this->pyramid_.node_coordinate_ = this->pyramid_.node_coordinate_initial_;
+        compute_characteristic_length(this->pyramid_);
       }
       if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-        this->hexahedron_.node_coordinate_ = this->hexahedron_.node_coordinate_initial_;
-      }
-      if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
-        this->triangle_.node_coordinate_ = this->triangle_.node_coordinate_initial_;
-        this->triangle_.computeAdjacencyElementNormalVector();
-      }
-      if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
-        this->quadrangle_.node_coordinate_ = this->quadrangle_.node_coordinate_initial_;
-        this->quadrangle_.computeAdjacencyElementNormalVector();
+        compute_characteristic_length(this->hexahedron_);
       }
     }
   }

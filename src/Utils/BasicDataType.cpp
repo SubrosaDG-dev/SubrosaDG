@@ -13,12 +13,12 @@
 #ifndef SUBROSA_DG_BASIC_DATA_TYPE_CPP_
 #define SUBROSA_DG_BASIC_DATA_TYPE_CPP_
 
-#include <dbg-macro/dbg.h>
-
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <functional>
-#include <iostream>  // IWYU pragma: keep
+#include <string_view>
+#include <utility>
 
 namespace SubrosaDG {
 
@@ -40,6 +40,13 @@ consteval Real operator""_r(long double x) { return static_cast<Real>(x); }
 }  // namespace SubrosaDG
 
 // NOLINTBEGIN(readability-identifier-naming)
+
+template <std::size_t N, typename F>
+constexpr void static_for(F&& f) {
+  [&f]<std::size_t... I>(std::integer_sequence<std::size_t, I...>) {
+    (f.template operator()<I>(), ...);
+  }(std::make_integer_sequence<std::size_t, N>{});
+}
 
 template <typename T, std::size_t N>
 struct unordered_array : std::array<T, N> {};

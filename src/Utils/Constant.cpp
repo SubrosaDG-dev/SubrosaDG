@@ -13,6 +13,8 @@
 #ifndef SUBROSA_DG_CONSTANT_CPP_
 #define SUBROSA_DG_CONSTANT_CPP_
 
+#include <cstddef>
+#include <iosfwd>
 #include <limits>
 #include <numbers>
 #include <sycl/sycl.hpp>

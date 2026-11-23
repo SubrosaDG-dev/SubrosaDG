@@ -61,4 +61,4 @@ USER user
 
 RUN git clone --depth 1 https://github.com/microsoft/vcpkg /home/user/vcpkg && \
 /home/user/vcpkg/bootstrap-vcpkg.sh && \
-/home/user/vcpkg/vcpkg install dbg-macro fmt magic-enum zlib
+/home/user/vcpkg/vcpkg install fmt magic-enum zlib

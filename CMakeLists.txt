@@ -112,6 +112,14 @@ set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "cmake --verbose on" FORCE)
 configure_file(${PROJECT_SOURCE_DIR}/cmake/debuginit/.gdbinit.in
     ${PROJECT_SOURCE_DIR}/utils/gdb-pretty-print/.gdbinit @ONLY)
 
+# use clangd for intellisense
+find_program(CLANGD NAMES clangd PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
+if(NOT CLANGD)
+    set(CLANGD clangd)
+endif()
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile commands" FORCE)
+message(STATUS "Use clangd from ${CLANGD}")
+
 # create vscode launch.json and settings.json
 file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/.vscode)
 configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/launch.json.in
@@ -119,20 +127,29 @@ configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/launch.json.in
 configure_file(${PROJECT_SOURCE_DIR}/utils/vscode-setting/settings.json.in
     ${PROJECT_SOURCE_DIR}/.vscode/settings.json @ONLY)
 
+# use iwyu to check header includes
+find_program(IWYU NAMES include-what-you-use iwyu)
+find_program(IWYU_TOOL NAMES iwyu_tool.py)
+find_program(IWYU_FIX_TOOL NAMES fix_includes.py)
+if(IWYU AND IWYU_TOOL)
+    find_package(Python3 QUIET COMPONENTS Interpreter)
+    if(Python3_Interpreter_FOUND)
+        include(${PROJECT_SOURCE_DIR}/cmake/Iwyu.cmake)
+        message(STATUS "Enable IWYU in ${IWYU}")
+    endif()
+endif()
+
 # use clang-tidy to check file
 find_program(CLANG_TIDY NAMES clang-tidy PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
-include(${PROJECT_SOURCE_DIR}/cmake/ClangTidy.cmake)
-message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
+if(CLANG_TIDY AND SUBROSA_DG_DEVELOP)
+    include(${PROJECT_SOURCE_DIR}/cmake/ClangTidy.cmake)
+    message(STATUS "Enable clang-tidy in ${CLANG_TIDY}")
+endif()
 
 # use clang-format to format file
 find_program(CLANG_FORMAT NAMES clang-format PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
 include(${PROJECT_SOURCE_DIR}/cmake/ClangFormat.cmake)
 message(STATUS "Enable clang-format in ${CLANG_FORMAT}")
-
-# use clangd for intellisense
-find_program(CLANGD NAMES clangd PATHS ${COMPILER_PATH} NO_DEFAULT_PATH)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile commands" FORCE)
-message(STATUS "Enable clangd in ${CLANGD}")
 
 # use ccache to speed up compilation
 find_program(CCACHE NAMES ccache)
@@ -226,10 +243,6 @@ list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${TQDM_DIR})
 find_path(VTU11_DIR NAMES vtu11-cpp17.hpp PATHS ${PROJECT_SOURCE_DIR}/libs/vtu11)
 list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${VTU11_DIR})
 
-# find dbg-macro
-find_path(DBG_MACRO_DIR NAMES dbg-macro/dbg.h)
-list(APPEND SUBROSA_DG_INCLUDE_SYSTEM_DIRS ${DBG_MACRO_DIR})
-
 # find eigen3
 find_package(Eigen3 CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES Eigen3::Eigen)
@@ -245,6 +258,10 @@ list(APPEND SUBROSA_DG_LINK_LIBRARIES gmsh::lib)
 # find magic_enum
 find_package(magic_enum CONFIG REQUIRED)
 list(APPEND SUBROSA_DG_LINK_LIBRARIES magic_enum::magic_enum)
+
+# find nlohmann_json
+find_package(nlohmann_json CONFIG REQUIRED)
+list(APPEND SUBROSA_DG_LINK_LIBRARIES nlohmann_json::nlohmann_json)
 
 # find zlib
 find_package(ZLIB REQUIRED)

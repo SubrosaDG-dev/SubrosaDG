@@ -127,6 +127,7 @@ __pycache__/
 .stignore
 .stfolder
 
+.agent
 /.idea
 *.DS_Store
 [Dd]evelop/

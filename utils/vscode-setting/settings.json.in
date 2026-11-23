@@ -32,15 +32,12 @@
     "C_Cpp.intelliSenseEngine": "disabled",
 
     // clangd
-    "clangd.path": "/opt/intel/oneapi/compiler/latest/bin/compiler/clangd",
+    "clangd.path": "@CLANGD@",
     "clangd.arguments": [
-        "--all-scopes-completion",
         "--background-index",
         "--clang-tidy",
         "--completion-style=detailed",
         "--enable-config",
-        "--function-arg-placeholders=0",
-        "--header-insertion=never",
         "--j=@NUMBER_OF_PHYSICAL_CORES@",
         "--pch-storage=memory"
     ],

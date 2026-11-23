@@ -13,17 +13,19 @@
 #ifndef SUBROSA_DG_GEOMETRY_CPP_
 #define SUBROSA_DG_GEOMETRY_CPP_
 
-#include <gmsh.h>
+#include <oneapi/tbb.h>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <Eigen/LU>
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <cmath>
+#include <format>
+#include <iterator>
 #include <map>
-#include <numeric>
+#include <stdexcept>
+#include <sycl/sycl.hpp>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -36,16 +38,32 @@
 namespace SubrosaDG {
 
 template <typename VolumeElementTrait>
-inline void VolumeElementMesh<VolumeElementTrait>::getVolumeElementQuality() {
-  std::vector<std::size_t> element_tags(static_cast<std::size_t>(this->number_));
-  for (Usize i = 0; i < static_cast<Usize>(this->number_); i++) {
-    element_tags[i] = static_cast<std::size_t>(this->gmsh_tag_(i));
-  }
-  std::vector<double> element_min_edge;
-  gmsh::model::mesh::getElementQualities(element_tags, element_min_edge, "minEdge");
-  for (Usize i = 0; i < static_cast<Usize>(this->number_); i++) {
-    this->minimum_edge_(i) = static_cast<Real>(element_min_edge[i]);
-  }
+template <typename... AdjacencyElementMesh>
+inline void VolumeElementMesh<VolumeElementTrait>::computeVolumeElementCharacteristicLength(
+    const AdjacencyElementMesh&... adjacency_element_mesh) {
+  this->characteristic_length_.setZero();
+  const auto add_boundary_measure = [&](const auto& adjacency_mesh) {
+    for (Isize i = 0; i < adjacency_mesh.number_; i++) {
+      const Real measure = adjacency_mesh.jacobian_determinant_multiply_weight_(i).sum();
+      if (adjacency_mesh.left_parent_gmsh_type_number_(i) == VolumeElementTrait::kGmshTypeNumber) {
+        this->characteristic_length_(adjacency_mesh.left_parent_index_each_type_(i)) += measure;
+      }
+      if (i < adjacency_mesh.interior_number_ &&
+          adjacency_mesh.right_parent_gmsh_type_number_(i) == VolumeElementTrait::kGmshTypeNumber) {
+        this->characteristic_length_(adjacency_mesh.right_parent_index_each_type_(i)) += measure;
+      }
+    }
+  };
+  (add_boundary_measure(adjacency_element_mesh), ...);
+  tbb::parallel_for(tbb::blocked_range<Isize>(0, this->number_), [&](const tbb::blocked_range<Isize>& range) -> void {
+    for (Isize i = range.begin(); i != range.end(); i++) {
+      const Real volume = this->jacobian_determinant_multiply_weight_(i).sum();
+      const Real boundary_measure = this->characteristic_length_(i);
+      // h = 2*d*V/S is an equivalent diameter, not a general polyhedron's exact insphere diameter.
+      // In 1D the two endpoint measures sum to 2. Rigid rotation preserves V, S, and h.
+      this->characteristic_length_(i) = 2.0_r * VolumeElementTrait::kDimension * volume / boundary_measure;
+    }
+  });
 }
 
 template <typename VolumeElementTrait>
@@ -404,64 +422,278 @@ inline void AdjacencyElementMeshDevice<AdjacencyElementTrait>::computeAdjacencyE
   });
 }
 
-struct InterfaceRange {
-  bool is_endcap_;
-  Real surface_coordinate_;
-  Real lower_;
-  Real upper_;
-  Real query_lower_;
-  Real query_upper_;
-};
-
 template <typename AdjacencyElementTrait>
-[[nodiscard]] inline Real getInterfaceMinimumRadius(
-    std::vector<std::array<Real, AdjacencyElementTrait::kDimension>> points) {
-  std::ranges::sort(points);
-  points.erase(std::ranges::unique(points).begin(), points.end());
-  std::vector<Eigen::Vector<Real, AdjacencyElementTrait::kDimension>> hull;
-  hull.reserve(2 * points.size());
-  // Build the lower and upper chains of the convex hull in opposite directions.
-  for (const auto& coordinates : points) {
-    const Eigen::Vector<Real, AdjacencyElementTrait::kDimension> point{coordinates[0], coordinates[1]};
-    while (hull.size() >= 2) {
-      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension> a = hull.back() - hull[hull.size() - 2];
-      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension> b = point - hull.back();
-      if (a.x() * b.y() - a.y() * b.x() > 0.0_r) {
+template <int PointNumber>
+[[nodiscard]] inline Real AdjacencyElementInterfaceCandidateCache<AdjacencyElementTrait>::computeMinimumRadius(
+    const Eigen::Matrix<Real, 2, PointNumber>& projected_control_coordinate) {
+  std::array<Eigen::Vector<Real, 2>, PointNumber> sorted_point;
+  for (Isize i = 0; i < PointNumber; i++) {
+    sorted_point[static_cast<Usize>(i)] = projected_control_coordinate.col(i);
+  }
+  const auto lexicographical_less = [](const Eigen::Vector<Real, 2>& lhs, const Eigen::Vector<Real, 2>& rhs) -> bool {
+    return lhs(0) < rhs(0) || (lhs(0) == rhs(0) && lhs(1) < rhs(1));
+  };
+  const auto cross_2d = [](const Eigen::Vector<Real, 2>& lhs, const Eigen::Vector<Real, 2>& rhs) -> Real {
+    return lhs(0) * rhs(1) - lhs(1) * rhs(0);
+  };
+  std::ranges::sort(sorted_point, lexicographical_less);
+  const Isize point_number =
+      static_cast<Isize>(std::distance(sorted_point.begin(), std::ranges::unique(sorted_point).begin()));
+  if (point_number == 1) {
+    return sorted_point[0].norm();
+  }
+
+  // Build the lower and upper chains of the 2D convex hull in counter-clockwise order.
+  std::array<Eigen::Vector<Real, 2>, 2 * PointNumber> hull;
+  Isize hull_size = 0;
+  const auto append_hull_point = [&](const Eigen::Vector<Real, 2>& point, const Isize minimum_size) -> void {
+    while (hull_size > minimum_size) {
+      const Eigen::Vector<Real, 2> previous_edge =
+          hull[static_cast<Usize>(hull_size - 1)] - hull[static_cast<Usize>(hull_size - 2)];
+      const Eigen::Vector<Real, 2> current_edge = point - hull[static_cast<Usize>(hull_size - 1)];
+      if (cross_2d(previous_edge, current_edge) > 0.0_r) {
         break;
       }
-      hull.pop_back();
+      hull_size--;
     }
-    hull.push_back(point);
+    hull[static_cast<Usize>(hull_size)] = point;
+    hull_size++;
+  };
+  for (Isize i = 0; i < point_number; i++) {
+    append_hull_point(sorted_point[static_cast<Usize>(i)], 1);
   }
-  const std::size_t lower_size = hull.size();
-  for (Isize i = static_cast<Isize>(points.size()) - 2; i >= 0; i--) {
-    const auto& coordinates = points[static_cast<Usize>(i)];
-    const Eigen::Vector<Real, AdjacencyElementTrait::kDimension> point{coordinates[0], coordinates[1]};
-    while (hull.size() > lower_size) {
-      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension> a = hull.back() - hull[hull.size() - 2];
-      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension> b = point - hull.back();
-      if (a.x() * b.y() - a.y() * b.x() > 0.0_r) {
-        break;
-      }
-      hull.pop_back();
-    }
-    hull.push_back(point);
+  const Isize lower_size = hull_size;
+  for (Isize i = point_number - 2; i >= 0; i--) {
+    append_hull_point(sorted_point[static_cast<Usize>(i)], lower_size);
   }
-  hull.pop_back();
-  bool contains_origin = true;
-  Real distance_squared = kRealMax;
-  for (Usize i = 0; i < hull.size(); i++) {
-    const auto& a = hull[i];
-    const Eigen::Vector<Real, AdjacencyElementTrait::kDimension> edge = hull[(i + 1) % hull.size()] - a;
-    contains_origin = contains_origin && edge.x() * (-a.y()) - edge.y() * (-a.x()) >= 0.0_r;
-    const Real parameter = std::clamp(-a.dot(edge) / edge.squaredNorm(), 0.0_r, 1.0_r);
-    distance_squared = std::min(distance_squared, (a + parameter * edge).squaredNorm());
+  hull_size--;
+
+  bool contains_origin = hull_size >= 3;
+  Real minimum_distance_squared = kRealMax;
+  for (Isize i = 0; i < hull_size; i++) {
+    const Eigen::Vector<Real, 2>& vertex = hull[static_cast<Usize>(i)];
+    const Eigen::Vector<Real, 2> edge = hull[static_cast<Usize>((i + 1) % hull_size)] - vertex;
+    contains_origin = contains_origin && cross_2d(edge, -vertex) >= 0.0_r;
+    const Real projection_parameter = std::clamp(-vertex.dot(edge) / edge.squaredNorm(), 0.0_r, 1.0_r);
+    minimum_distance_squared = std::min(minimum_distance_squared, (vertex + projection_parameter * edge).squaredNorm());
   }
-  return contains_origin ? 0.0_r : std::sqrt(distance_squared);
+  return contains_origin ? 0.0_r : std::sqrt(minimum_distance_squared);
 }
 
 template <typename AdjacencyElementTrait>
-inline void AdjacencyElementMesh<AdjacencyElementTrait>::initializeInterfaceCandidateCache(
+[[nodiscard]] inline Eigen::Matrix<Real, AdjacencyElementTrait::kAllNodeNumber, AdjacencyElementTrait::kAllNodeNumber>
+AdjacencyElementInterfaceCandidateCache<AdjacencyElementTrait>::computeBernsteinInverse(
+    const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension, AdjacencyElementTrait::kAllNodeNumber>&
+        lagrange_node_coordinate) {
+  // A tensor Bernstein control net bounds the entire high-order face, not just its nodes.
+  Eigen::Matrix<Real, AdjacencyElementTrait::kAllNodeNumber, AdjacencyElementTrait::kAllNodeNumber> bernstein_matrix;
+  for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
+    const Real local_u = (lagrange_node_coordinate(0, i) + 1.0_r) / 2.0_r;
+    const Real local_v = (lagrange_node_coordinate(1, i) + 1.0_r) / 2.0_r;
+    for (Isize j = 0; j <= AdjacencyElementTrait::kPolynomialOrder; j++) {
+      for (Isize k = 0; k <= AdjacencyElementTrait::kPolynomialOrder; k++) {
+        bernstein_matrix(i, j * (AdjacencyElementTrait::kPolynomialOrder + 1) + k) =
+            Bernstein<AdjacencyElementTrait::kPolynomialOrder>::value(j, local_u) *
+            Bernstein<AdjacencyElementTrait::kPolynomialOrder>::value(k, local_v);
+      }
+    }
+  }
+  return bernstein_matrix.inverse();
+}
+
+template <typename AdjacencyElementTrait>
+inline void AdjacencyElementInterfaceCandidateCache<AdjacencyElementTrait>::computeElementRange(
+    const AdjacencyElementMesh<AdjacencyElementTrait>& mesh,
+    const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& rotation_center,
+    const Eigen::Vector<Real, 3>& rotation_axis) {
+  const Eigen::Vector<Real, 3> transverse_x = rotation_axis.unitOrthogonal();
+  const Eigen::Vector<Real, 3> transverse_y = rotation_axis.cross(transverse_x);
+  Eigen::Matrix<Real, 2, 3> transverse_basis;
+  transverse_basis.row(0) = transverse_x.transpose();
+  transverse_basis.row(1) = transverse_y.transpose();
+  const Eigen::Matrix<Real, AdjacencyElementTrait::kAllNodeNumber, AdjacencyElementTrait::kAllNodeNumber>
+      bernstein_inverse = computeBernsteinInverse(mesh.lagrange_node_coordinate_);
+  const Isize interface_begin_index = mesh.interior_number_ + mesh.boundary_number_;
+  this->element_range_.resize(static_cast<Usize>(2 * mesh.interface_number_));
+  tbb::parallel_for(
+      tbb::blocked_range<Isize>(0, 2 * mesh.interface_number_), [&](const tbb::blocked_range<Isize>& range) -> void {
+        for (Isize i = range.begin(); i != range.end(); i++) {
+          const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>
+              relative_node_coordinate =
+                  mesh.node_coordinate_initial_(interface_begin_index + i).colwise() - rotation_center;
+          const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kAllNodeNumber> node_height =
+              rotation_axis.transpose() * relative_node_coordinate;
+          const bool is_endcap = node_height.maxCoeff() - node_height.minCoeff() <= kRealTolerance;
+          const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>
+              control_node_coordinate = relative_node_coordinate * bernstein_inverse.transpose();
+          // Only quadrature points query the opposite side. Their axial coordinate and radius are rotation invariant.
+          const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>
+              relative_quadrature_coordinate = relative_node_coordinate * mesh.nodal_basis_function_.transpose();
+          const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kQuadratureNumber> quadrature_height =
+              rotation_axis.transpose() * relative_quadrature_coordinate;
+          InterfaceElementRange& current_range = this->element_range_[static_cast<Usize>(i)];
+          current_range.is_endcap_ = is_endcap;
+          if (is_endcap) {
+            current_range.surface_coordinate_ = node_height.mean();
+            // The control-net convex hull bounds the whole face, including its interior radial minimum.
+            const Eigen::Matrix<Real, 2, AdjacencyElementTrait::kAllNodeNumber> transverse_control_coordinate =
+                transverse_basis * control_node_coordinate;
+            current_range.element_bound_lower_ =
+                computeMinimumRadius<AdjacencyElementTrait::kAllNodeNumber>(transverse_control_coordinate);
+            current_range.element_bound_upper_ = transverse_control_coordinate.colwise().norm().maxCoeff();
+            const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kQuadratureNumber> quadrature_radius =
+                (relative_quadrature_coordinate - rotation_axis * quadrature_height).colwise().norm();
+            current_range.quadrature_bound_lower_ = quadrature_radius.minCoeff();
+            current_range.quadrature_bound_upper_ = quadrature_radius.maxCoeff();
+          } else {
+            const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kAllNodeNumber> node_radius =
+                (relative_node_coordinate - rotation_axis * node_height).colwise().norm();
+            current_range.surface_coordinate_ = node_radius.mean();
+            const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kAllNodeNumber> control_height =
+                rotation_axis.transpose() * control_node_coordinate;
+            current_range.element_bound_lower_ = control_height.minCoeff();
+            current_range.element_bound_upper_ = control_height.maxCoeff();
+            current_range.quadrature_bound_lower_ = quadrature_height.minCoeff();
+            current_range.quadrature_bound_upper_ = quadrature_height.maxCoeff();
+          }
+        }
+      });
+}
+
+template <typename AdjacencyElementTrait>
+inline void AdjacencyElementInterfaceCandidateCache<AdjacencyElementTrait>::groupInterfaceSurface(
+    const AdjacencyElementMesh<AdjacencyElementTrait>& mesh) {
+  // The mesh reader creates static i and rotate i from the same original interface face.
+  Eigen::Array<Isize, Eigen::Dynamic, 1> surface_parent(mesh.interface_number_);
+  for (Isize i = 0; i < mesh.interface_number_; i++) {
+    surface_parent(i) = i;
+  }
+  const auto find_surface_root = [&](Isize interface_index) -> Isize {
+    while (surface_parent(interface_index) != interface_index) {
+      surface_parent(interface_index) = surface_parent(surface_parent(interface_index));
+      interface_index = surface_parent(interface_index);
+    }
+    return interface_index;
+  };
+  const Isize interface_begin_index = mesh.interior_number_ + mesh.boundary_number_;
+  std::unordered_map<unordered_array<Isize, 2>, std::vector<Isize>> edge_interface_map;
+  for (Isize i = 0; i < mesh.interface_number_; i++) {
+    const Eigen::Vector<Isize, AdjacencyElementTrait::kAllNodeNumber>& node_tag =
+        mesh.node_tag_(interface_begin_index + i);
+    const InterfaceElementRange& current_range = this->element_range_[static_cast<Usize>(i)];
+    for (Isize edge = 0; edge < AdjacencyElementTrait::kAdjacencyNumber; edge++) {
+      unordered_array<Isize, 2> edge_node_tag;
+      edge_node_tag[0] = node_tag(edge);
+      edge_node_tag[1] = node_tag((edge + 1) % AdjacencyElementTrait::kAdjacencyNumber);
+      std::vector<Isize>& neighbor_interface_index = edge_interface_map[edge_node_tag];
+      for (const Isize neighbor_index : neighbor_interface_index) {
+        const InterfaceElementRange& neighbor_range = this->element_range_[static_cast<Usize>(neighbor_index)];
+        if (current_range.is_endcap_ == neighbor_range.is_endcap_ &&
+            std::abs(current_range.surface_coordinate_ - neighbor_range.surface_coordinate_) <= kRealTolerance) {
+          surface_parent(find_surface_root(i)) = find_surface_root(neighbor_index);
+        }
+      }
+      neighbor_interface_index.emplace_back(i);
+    }
+  }
+  Eigen::Array<Isize, Eigen::Dynamic, 1> surface_index =
+      Eigen::Array<Isize, Eigen::Dynamic, 1>::Constant(mesh.interface_number_, -1);
+  this->surface_static_interface_index_.clear();
+  for (Isize i = 0; i < mesh.interface_number_; i++) {
+    const Isize root_index = find_surface_root(i);
+    if (surface_index(root_index) < 0) {
+      surface_index(root_index) = static_cast<Isize>(this->surface_static_interface_index_.size());
+      this->surface_static_interface_index_.emplace_back();
+    }
+    this->surface_static_interface_index_[static_cast<Usize>(surface_index(root_index))].emplace_back(i);
+  }
+}
+
+template <typename AdjacencyElementTrait>
+inline void AdjacencyElementInterfaceCandidateCache<AdjacencyElementTrait>::buildCandidateCache(
+    AdjacencyElementMesh<AdjacencyElementTrait>& mesh) {
+  const Isize interface_begin_index = mesh.interior_number_ + mesh.boundary_number_;
+  const auto element_bound_lower = [&](const Isize interface_local_index) -> Real {
+    return this->element_range_[static_cast<Usize>(interface_local_index)].element_bound_lower_;
+  };
+  std::vector<Isize> candidate_offset{0};
+  std::vector<Isize> candidate_index;
+  for (const std::vector<Isize>& static_interface_index : this->surface_static_interface_index_) {
+    std::array<std::vector<Isize>, 2> side_interface_index;
+    side_interface_index[0] = static_interface_index;
+    side_interface_index[1].reserve(static_interface_index.size());
+    for (const Isize static_index : static_interface_index) {
+      side_interface_index[1].emplace_back(static_index + mesh.interface_number_);
+    }
+    std::array<std::vector<Real>, 2> side_upper_prefix;
+    for (Usize side = 0; side < side_interface_index.size(); side++) {
+      std::vector<Isize>& current_side_index = side_interface_index[side];
+      std::ranges::sort(current_side_index, {}, element_bound_lower);
+      side_upper_prefix[side].reserve(current_side_index.size());
+      Real running_upper = -kRealMax;
+      for (const Isize interface_local_index : current_side_index) {
+        running_upper = std::max(running_upper,
+                                 this->element_range_[static_cast<Usize>(interface_local_index)].element_bound_upper_);
+        side_upper_prefix[side].emplace_back(running_upper);
+      }
+    }
+    std::map<std::vector<Isize>, Isize> cache_group_map;
+    for (Usize side = 0; side < 2; side++) {
+      const Usize target_side = 1 - side;
+      const std::vector<Isize>& target_side_index = side_interface_index[target_side];
+      const std::vector<Real>& target_side_upper_prefix = side_upper_prefix[target_side];
+      for (const Isize interface_local_index : side_interface_index[side]) {
+        const InterfaceElementRange& query_range = this->element_range_[static_cast<Usize>(interface_local_index)];
+        const Real query_lower = query_range.quadrature_bound_lower_ - kRealTolerance;
+        const Real query_upper = query_range.quadrature_bound_upper_ + kRealTolerance;
+        // Search actual interval overlaps; sharing a coarse bin does not imply geometric overlap.
+        const Isize begin = static_cast<Isize>(std::distance(
+            target_side_upper_prefix.begin(), std::ranges::lower_bound(target_side_upper_prefix, query_lower)));
+        const Isize end = static_cast<Isize>(
+            std::distance(target_side_index.begin(),
+                          std::ranges::upper_bound(target_side_index, query_upper, {}, element_bound_lower)));
+        std::vector<Isize> matched_element_index;
+        for (Isize j = begin; j < end; j++) {
+          const Isize candidate_local_index = target_side_index[static_cast<Usize>(j)];
+          if (this->element_range_[static_cast<Usize>(candidate_local_index)].element_bound_upper_ >= query_lower) {
+            matched_element_index.emplace_back(interface_begin_index + candidate_local_index);
+          }
+        }
+        // The paired original face always covers this face's quadrature points at initialization.
+        if (matched_element_index.empty()) [[unlikely]] {
+          throw std::runtime_error(std::format("Cannot find interface candidate element for interface local index {}.",
+                                               interface_local_index));
+        }
+        std::ranges::sort(matched_element_index);
+        const Isize cache_id = static_cast<Isize>(candidate_offset.size()) - 1;
+        const auto [group_iterator, is_inserted] =
+            cache_group_map.try_emplace(std::move(matched_element_index), cache_id);
+        mesh.interface_candidate_group_(interface_local_index) = group_iterator->second;
+        if (is_inserted) {
+          candidate_index.insert(candidate_index.end(), group_iterator->first.begin(), group_iterator->first.end());
+          candidate_offset.emplace_back(static_cast<Isize>(candidate_index.size()));
+        }
+      }
+    }
+  }
+  mesh.interface_candidate_offset_.resize(static_cast<Isize>(candidate_offset.size()));
+  mesh.interface_candidate_index_.resize(static_cast<Isize>(candidate_index.size()));
+  std::ranges::copy(candidate_offset, mesh.interface_candidate_offset_.data());
+  std::ranges::copy(candidate_index, mesh.interface_candidate_index_.data());
+}
+
+template <typename AdjacencyElementTrait>
+inline void AdjacencyElementInterfaceCandidateCache<AdjacencyElementTrait>::compute(
+    AdjacencyElementMesh<AdjacencyElementTrait>& mesh,
+    const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& rotation_center,
+    const Eigen::Vector<Real, 3>& rotation_axis) {
+  this->computeElementRange(mesh, rotation_center, rotation_axis);
+  this->groupInterfaceSurface(mesh);
+  this->buildCandidateCache(mesh);
+}
+
+template <typename AdjacencyElementTrait>
+inline void AdjacencyElementMesh<AdjacencyElementTrait>::computeAdjacencyElementInterfaceCandidateCache(
     [[maybe_unused]] const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& rotation_center,
     [[maybe_unused]] const Eigen::Vector<Real, 3>& rotation_axis) {
   if (this->interface_number_ == 0) {
@@ -469,163 +701,19 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::initializeInterfaceCand
   }
   this->interface_candidate_group_.resize(2 * this->interface_number_);
   if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
+    const Isize interface_begin_index = this->interior_number_ + this->boundary_number_;
     this->interface_candidate_offset_.resize(3);
     this->interface_candidate_offset_ << 0, this->interface_number_, 2 * this->interface_number_;
     this->interface_candidate_index_.resize(2 * this->interface_number_);
     for (Isize i = 0; i < this->interface_number_; i++) {
       this->interface_candidate_group_(i) = 0;
       this->interface_candidate_group_(i + this->interface_number_) = 1;
-      this->interface_candidate_index_(i) =
-          this->interior_number_ + this->boundary_number_ + this->interface_number_ + i;
-      this->interface_candidate_index_(i + this->interface_number_) =
-          this->interior_number_ + this->boundary_number_ + i;
+      this->interface_candidate_index_(i) = interface_begin_index + this->interface_number_ + i;
+      this->interface_candidate_index_(i + this->interface_number_) = interface_begin_index + i;
     }
   } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
-    const Eigen::Vector<Real, 3> transverse_x = rotation_axis.unitOrthogonal();
-    const Eigen::Vector<Real, 3> transverse_y = rotation_axis.cross(transverse_x);
-    // A tensor Bernstein control net bounds the entire high-order face, not just its nodes.
-    Eigen::Matrix<Real, AdjacencyElementTrait::kAllNodeNumber, AdjacencyElementTrait::kAllNodeNumber> bernstein_matrix;
-    for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
-      const Real u = (this->lagrange_node_coordinate_(0, i) + 1.0_r) / 2.0_r;
-      const Real v = (this->lagrange_node_coordinate_(1, i) + 1.0_r) / 2.0_r;
-      for (Isize j = 0; j <= AdjacencyElementTrait::kPolynomialOrder; j++) {
-        for (Isize k = 0; k <= AdjacencyElementTrait::kPolynomialOrder; k++) {
-          bernstein_matrix(i, j * (AdjacencyElementTrait::kPolynomialOrder + 1) + k) =
-              Bernstein<AdjacencyElementTrait::kPolynomialOrder>::value(j, u) *
-              Bernstein<AdjacencyElementTrait::kPolynomialOrder>::value(k, v);
-        }
-      }
-    }
-    const Eigen::Matrix<Real, AdjacencyElementTrait::kAllNodeNumber, AdjacencyElementTrait::kAllNodeNumber>
-        bernstein_inverse = bernstein_matrix.inverse();
-    std::vector<InterfaceRange> ranges(static_cast<Usize>(2 * this->interface_number_));
-    for (Isize i = 0; i < 2 * this->interface_number_; i++) {
-      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>
-          coordinates = this->node_coordinate_initial_(this->interior_number_ + this->boundary_number_ + i).colwise() -
-                        rotation_center;
-      const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kAllNodeNumber> heights =
-          rotation_axis.transpose() * coordinates;
-      const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kAllNodeNumber> radii =
-          (coordinates - rotation_axis * heights).colwise().norm();
-      const bool is_endcap = heights.maxCoeff() - heights.minCoeff() <= kRealTolerance;
-      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber> control =
-          coordinates * bernstein_inverse.transpose();
-      // Only quadrature points query the opposite side. Their axial coordinate and radius are rotation invariant.
-      const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>
-          query_coordinates = coordinates * this->nodal_basis_function_.transpose();
-      const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kQuadratureNumber> query_heights =
-          rotation_axis.transpose() * query_coordinates;
-      InterfaceRange& range = ranges[static_cast<Usize>(i)];
-      range.is_endcap_ = is_endcap;
-      range.surface_coordinate_ = is_endcap ? heights.mean() : radii.mean();
-      if (is_endcap) {
-        // The control-net convex hull bounds the whole face, including its interior radial minimum.
-        const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kAllNodeNumber> x = transverse_x.transpose() * control;
-        const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kAllNodeNumber> y = transverse_y.transpose() * control;
-        std::vector<std::array<Real, AdjacencyElementTrait::kDimension>> points;
-        points.reserve(AdjacencyElementTrait::kAllNodeNumber);
-        for (Isize j = 0; j < AdjacencyElementTrait::kAllNodeNumber; j++) {
-          points.push_back({x(j), y(j)});
-        }
-        range.lower_ = getInterfaceMinimumRadius<AdjacencyElementTrait>(std::move(points));
-        range.upper_ = (x.array().square() + y.array().square()).sqrt().maxCoeff();
-        const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kQuadratureNumber> query_radii =
-            (query_coordinates - rotation_axis * query_heights).colwise().norm();
-        range.query_lower_ = query_radii.minCoeff();
-        range.query_upper_ = query_radii.maxCoeff();
-      } else {
-        const Eigen::Matrix<Real, 1, AdjacencyElementTrait::kAllNodeNumber> z = rotation_axis.transpose() * control;
-        range.lower_ = z.minCoeff();
-        range.upper_ = z.maxCoeff();
-        range.query_lower_ = query_heights.minCoeff();
-        range.query_upper_ = query_heights.maxCoeff();
-      }
-    }
-    // The mesh reader creates static i and rotate i from the same original interface face.
-    std::vector<Isize> parents(static_cast<Usize>(this->interface_number_));
-    std::ranges::iota(parents, 0);
-    const auto root = [&](Isize i) -> Isize {
-      while (parents[static_cast<Usize>(i)] != i) {
-        parents[static_cast<Usize>(i)] = parents[static_cast<Usize>(parents[static_cast<Usize>(i)])];
-        i = parents[static_cast<Usize>(i)];
-      }
-      return i;
-    };
-    std::map<std::pair<Isize, Isize>, std::vector<Isize>> edge_faces;
-    for (Isize i = 0; i < this->interface_number_; i++) {
-      for (Isize edge = 0; edge < AdjacencyElementTrait::kAdjacencyNumber; edge++) {
-        const Isize a = this->node_tag_(this->interior_number_ + this->boundary_number_ + i)(edge);
-        const Isize b = this->node_tag_(this->interior_number_ + this->boundary_number_ +
-                                        i)((edge + 1) % AdjacencyElementTrait::kAdjacencyNumber);
-        auto& neighbors = edge_faces[{std::min(a, b), std::max(a, b)}];
-        for (const Isize neighbor : neighbors) {
-          const InterfaceRange& face_range = ranges[static_cast<Usize>(i)];
-          const InterfaceRange& neighbor_range = ranges[static_cast<Usize>(neighbor)];
-          if (face_range.is_endcap_ == neighbor_range.is_endcap_ &&
-              std::abs(face_range.surface_coordinate_ - neighbor_range.surface_coordinate_) <= kRealTolerance) {
-            parents[static_cast<Usize>(root(i))] = root(neighbor);
-          }
-        }
-        neighbors.push_back(i);
-      }
-    }
-    std::map<Isize, std::vector<Isize>> surface_faces;
-    for (Isize i = 0; i < this->interface_number_; i++) {
-      surface_faces[root(i)].push_back(i);
-      surface_faces[root(i)].push_back(i + this->interface_number_);
-    }
-    const auto lower_coordinate = [&](const Isize index) -> Real { return ranges[static_cast<Usize>(index)].lower_; };
-    std::vector<Isize> offsets{0};
-    std::vector<Isize> candidates;
-    for (const auto& [surface, faces] : surface_faces) {
-      std::array<std::vector<Isize>, 2> side_faces;
-      std::array<std::vector<Real>, 2> upper_prefix;
-      for (const Isize i : faces) {
-        side_faces[i < this->interface_number_ ? 0 : 1].push_back(i);
-      }
-      for (Usize side = 0; side < side_faces.size(); side++) {
-        auto& entries = side_faces[side];
-        std::ranges::sort(entries, {}, lower_coordinate);
-        Real upper = -kRealMax;
-        for (const Isize i : entries) {
-          upper = std::max(upper, ranges[static_cast<Usize>(i)].upper_);
-          upper_prefix[side].push_back(upper);
-        }
-      }
-      std::map<std::vector<Isize>, Isize> cache_groups;
-      for (const Isize i : faces) {
-        const InterfaceRange& query = ranges[static_cast<Usize>(i)];
-        const Usize target_side = i < this->interface_number_ ? 1 : 0;
-        const auto& entries = side_faces[target_side];
-        const auto& prefix = upper_prefix[target_side];
-        const Real lower = query.query_lower_ - kRealTolerance;
-        const Real upper = query.query_upper_ + kRealTolerance;
-        // Search actual interval overlaps; sharing a coarse bin does not imply geometric overlap.
-        const auto begin = std::ranges::lower_bound(prefix, lower) - prefix.begin();
-        const auto end = std::ranges::upper_bound(entries, upper, {}, lower_coordinate) - entries.begin();
-        std::vector<Isize> matched;
-        for (auto j = begin; j < end; j++) {
-          const Isize index = entries[static_cast<Usize>(j)];
-          if (ranges[static_cast<Usize>(index)].upper_ >= lower) {
-            matched.push_back(this->interior_number_ + this->boundary_number_ + index);
-          }
-        }
-        // The paired original face always covers this face's quadrature points at initialization.
-        assert(!matched.empty());
-        std::ranges::sort(matched);
-        const auto cache_id = static_cast<Isize>(offsets.size() - 1);
-        const auto [group, inserted] = cache_groups.try_emplace(matched, cache_id);
-        this->interface_candidate_group_(i) = group->second;
-        if (inserted) {
-          candidates.insert(candidates.end(), matched.begin(), matched.end());
-          offsets.push_back(static_cast<Isize>(candidates.size()));
-        }
-      }
-    }
-    this->interface_candidate_offset_.resize(static_cast<Isize>(offsets.size()));
-    this->interface_candidate_index_.resize(static_cast<Isize>(candidates.size()));
-    std::ranges::copy(offsets, this->interface_candidate_offset_.data());
-    std::ranges::copy(candidates, this->interface_candidate_index_.data());
+    AdjacencyElementInterfaceCandidateCache<AdjacencyElementTrait> interface_candidate_cache;
+    interface_candidate_cache.compute(*this, rotation_center, rotation_axis);
   }
 }
 
@@ -658,14 +746,15 @@ inline void AdjacencyElementMesh<AdjacencyElementTrait>::computeAdjacencyElement
 }
 
 template <typename AdjacencyElementTrait>
-[[nodiscard]] inline Isize AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyOppositeElementIndexFromGlobalCoordinate(
+[[nodiscard]] inline Isize
+AdjacencyElementMesh<AdjacencyElementTrait>::getAdjacencyOppositeElementIndexFromGlobalCoordinate(
     const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& rotation_center,
     const Eigen::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kDimension + 1>&
         rotation_matrix,
     const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1>& global_coordinate,
     const Isize interface_local_index) const {
   Isize result_element_index = -1;
-  Real minimum_distance = kRealMax;
+  Real minimum_distance_squared = kRealMax;
   const Isize cache_id = this->interface_candidate_group_(interface_local_index);
   const Isize begin = this->interface_candidate_offset_(cache_id);
   const Isize end = this->interface_candidate_offset_(cache_id + 1);
@@ -679,10 +768,10 @@ template <typename AdjacencyElementTrait>
     selection_coordinate = global_coordinate;
   }
   for (Isize i = begin; i < end; i++) {
-    Real distance = 0.0_r;
+    Real distance_squared = 0.0_r;
     const Isize interface_element_index = this->interface_candidate_index_(i);
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
-      distance =
+      distance_squared =
           (this->center_node_coordinate_(interface_element_index - this->interior_number_ - this->boundary_number_)
                .array() -
            selection_coordinate.array())
@@ -700,19 +789,41 @@ template <typename AdjacencyElementTrait>
       const Real height = vertical_vector.transpose() * (selection_coordinate - basic_node_coordinate.col(0));
       const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> projected_coordinate =
           selection_coordinate - height * vertical_vector;
-      distance = height * height;
+      distance_squared = height * height;
       for (Isize j = 0; j < AdjacencyElementTrait::kAdjacencyNumber; j++) {
-        const Real signed_distance =
+        const Real signed_distance_squared =
             edge_normal_vector.col(j).transpose() * (projected_coordinate - basic_node_coordinate.col(j));
-        if (signed_distance < -kRealTolerance) {
-          distance = kRealMax;
+        if (signed_distance_squared < -kRealTolerance) {
+          distance_squared = kRealMax;
           break;
         }
       }
     }
-    if (distance < minimum_distance) {
-      minimum_distance = distance;
+    if (distance_squared < minimum_distance_squared) {
+      minimum_distance_squared = distance_squared;
       result_element_index = interface_element_index;
+    }
+  }
+  if (result_element_index < 0) {
+    Real minimum_projection_distance_squared = kRealMax;
+    const Real reference_tolerance = kRealTolerance;  // Dimensionless reference-domain tolerance.
+    for (Isize k = begin; k < end; k++) {
+      const Isize candidate = this->interface_candidate_index_(k);
+      Eigen::Vector<Real, AdjacencyElementTrait::kDimension> local_coordinate;
+      // The inverse map reads current nodes, so use the original current query, not selection_coordinate.
+      this->computeAdjacencyElementLocalCoordinateFromGlobalCoordinate(global_coordinate, local_coordinate, candidate);
+      if ((local_coordinate.array().abs() > 1.0_r + reference_tolerance).any()) {
+        continue;
+      }
+      Eigen::Vector<Real, AdjacencyElementTrait::kAllBasisFunctionNumber> basis_function_value;
+      this->computeLagrangeValue(local_coordinate, basis_function_value);
+      const Eigen::Vector<Real, AdjacencyElementTrait::kDimension + 1> projected_coordinate =
+          this->node_coordinate_(candidate) * basis_function_value;
+      const Real distance_squared = (projected_coordinate - global_coordinate).squaredNorm();
+      if (distance_squared < minimum_projection_distance_squared) {
+        minimum_projection_distance_squared = distance_squared;
+        result_element_index = candidate;
+      }
     }
   }
   return result_element_index;
@@ -727,7 +838,7 @@ AdjacencyElementMeshDevice<AdjacencyElementTrait>::getAdjacencyOppositeElementIn
     const Device::StaticVector<Real, AdjacencyElementTrait::kDimension + 1>& global_coordinate,
     const Isize interface_local_index) const {
   Isize result_element_index = -1;
-  Real minimum_distance = kRealMax;
+  Real minimum_distance_squared = kRealMax;
   const Isize cache_id = this->interface_candidate_group_(interface_local_index);
   const Isize begin = this->interface_candidate_offset_(cache_id);
   const Isize end = this->interface_candidate_offset_(cache_id + 1);
@@ -749,15 +860,15 @@ AdjacencyElementMeshDevice<AdjacencyElementTrait>::getAdjacencyOppositeElementIn
     }
   }
   for (Isize i = begin; i < end; i++) {
-    Real distance = 0.0_r;
+    Real distance_squared = 0.0_r;
     const Isize interface_element_index = this->interface_candidate_index_(i);
     if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Line) {
       const Device::View<const Device::Vector<Real, AdjacencyElementTrait::kDimension + 1>> center_node_coordinate =
           self->center_node_coordinate_.view(interface_element_index - this->interior_number_ - this->boundary_number_,
                                              2 * this->interface_number_);
       for (Isize m = 0; m < AdjacencyElementTrait::kDimension + 1; m++) {
-        distance += (center_node_coordinate(m) - selection_coordinate(m)) *
-                    (center_node_coordinate(m) - selection_coordinate(m));
+        distance_squared += (center_node_coordinate(m) - selection_coordinate(m)) *
+                            (center_node_coordinate(m) - selection_coordinate(m));
       }
     } else if constexpr (AdjacencyElementTrait::kElementType == ElementEnum::Quadrangle) {
       Device::StaticVector<Real, AdjacencyElementTrait::kDimension + 1> projected_coordinate;
@@ -780,21 +891,59 @@ AdjacencyElementMeshDevice<AdjacencyElementTrait>::getAdjacencyOppositeElementIn
       for (Isize m = 0; m < AdjacencyElementTrait::kDimension + 1; m++) {
         projected_coordinate(m) = selection_coordinate(m) - height * vertical_vector(m);
       }
-      distance = height * height;
+      distance_squared = height * height;
       for (Isize j = 0; j < AdjacencyElementTrait::kAdjacencyNumber; j++) {
-        Real signed_distance = 0.0_r;
+        Real signed_distance_squared = 0.0_r;
         for (Isize m = 0; m < AdjacencyElementTrait::kDimension + 1; m++) {
-          signed_distance += edge_normal_vector(m, j) * (projected_coordinate(m) - basic_node_coordinate(m, j));
+          signed_distance_squared += edge_normal_vector(m, j) * (projected_coordinate(m) - basic_node_coordinate(m, j));
         }
-        if (signed_distance < -kRealTolerance) {
-          distance = kRealMax;
+        if (signed_distance_squared < -kRealTolerance) {
+          distance_squared = kRealMax;
           break;
         }
       }
     }
-    if (distance < minimum_distance) {
-      minimum_distance = distance;
+    if (distance_squared < minimum_distance_squared) {
+      minimum_distance_squared = distance_squared;
       result_element_index = interface_element_index;
+    }
+  }
+  if (result_element_index < 0) {
+    Real minimum_projection_distance_squared = kRealMax;
+    const Real reference_tolerance = kRealTolerance;  // Dimensionless reference-domain tolerance.
+    for (Isize k = begin; k < end; k++) {
+      const Isize candidate = this->interface_candidate_index_(k);
+      Device::StaticVector<Real, AdjacencyElementTrait::kDimension> local_coordinate;
+      // Match the current query to current nodes, as in the host fallback.
+      this->computeAdjacencyElementLocalCoordinateFromGlobalCoordinate(global_coordinate, local_coordinate, candidate);
+      bool valid_local_coordinate = true;
+      for (Isize m = 0; m < AdjacencyElementTrait::kDimension; m++) {
+        if (sycl::fabs(local_coordinate(m)) > 1.0_r + reference_tolerance) {
+          valid_local_coordinate = false;
+          break;
+        }
+      }
+      if (!valid_local_coordinate) {
+        continue;
+      }
+      Device::StaticVector<Real, AdjacencyElementTrait::kAllBasisFunctionNumber> basis_function_value;
+      this->computeLagrangeValue(local_coordinate, basis_function_value);
+      const Device::View<
+          const Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kAllNodeNumber>>
+          node_coordinate = this->node_coordinate_.view(candidate, this->number_);
+      Real distance_squared = 0.0_r;
+      for (Isize m = 0; m < AdjacencyElementTrait::kDimension + 1; m++) {
+        Real projected_coordinate = 0.0_r;
+        for (Isize n = 0; n < AdjacencyElementTrait::kAllNodeNumber; n++) {
+          projected_coordinate += node_coordinate(m, n) * basis_function_value(n);
+        }
+        const Real difference = projected_coordinate - global_coordinate(m);
+        distance_squared += difference * difference;
+      }
+      if (distance_squared < minimum_projection_distance_squared) {
+        minimum_projection_distance_squared = distance_squared;
+        result_element_index = candidate;
+      }
     }
   }
   return result_element_index;

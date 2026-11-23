@@ -13,8 +13,11 @@
 #ifndef SUBROSA_DG_INITIAL_CONDITION_CPP_
 #define SUBROSA_DG_INITIAL_CONDITION_CPP_
 
+#include <oneapi/tbb.h>
+
 #include <Eigen/Core>
 #include <sstream>
+#include <vector>
 
 #include "Mesh/ReadControl.cpp"
 #include "Solver/BoundaryCondition.cpp"
@@ -70,9 +73,6 @@ struct InitialCondition {
         raw_binary_ss.read(
             reinterpret_cast<char*>(variable_basis_function_coefficient(i).data()),
             SimulationControl::kConservedVariableNumber * VolumeElementTrait::kAllBasisFunctionNumber * kRealSize);
-        raw_binary_ss.seekg(SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                                VolumeElementTrait::kAllBasisFunctionNumber * kRealSize,
-                            std::ios::cur);
       }
     } else if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LowOrder) {
       constexpr int kLowOrderBasisFunctionNumber{
@@ -95,9 +95,6 @@ struct InitialCondition {
       for (Isize i = 0; i < volume_element_mesh.number_; i++) {
         raw_binary_ss.read(reinterpret_cast<char*>(initial_variable_basis_function_coefficient.data()),
                            SimulationControl::kConservedVariableNumber * kLowOrderBasisFunctionNumber * kRealSize);
-        raw_binary_ss.seekg(SimulationControl::kConservedVariableNumber * SimulationControl::kDimension *
-                                kLowOrderBasisFunctionNumber * kRealSize,
-                            std::ios::cur);
         variable_basis_function_coefficient(i).noalias() =
             initial_variable_basis_function_coefficient * low_order_nodal_basis_function.transpose() *
             volume_element_mesh.nodal_basis_function_ * volume_element_mesh.nodal_least_squares_inverse_;
@@ -108,8 +105,7 @@ struct InitialCondition {
 
 template <typename VolumeElementTrait, typename SimulationControl>
 inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::initializeVolumeElementSolver(
-    const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
-    [[maybe_unused]] std::stringstream& raw_binary_ss) {
+    const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh) {
   this->number_ = volume_element_mesh.number_;
   this->static_number_ = volume_element_mesh.static_number_;
   this->rotate_number_ = volume_element_mesh.rotate_number_;
@@ -127,18 +123,14 @@ inline void VolumeElementSolver<VolumeElementTrait, SimulationControl>::initiali
   this->variable_volume_gradient_basis_function_coefficient_.resize(this->number_);
   this->variable_volume_gradient_quadrature_.resize(this->number_);
   this->variable_volume_gradient_adjacency_quadrature_.resize(this->number_);
-  this->variable_volume_gradient_residual_.resize(this->number_);
   if constexpr (IsNS<SimulationControl::kEquationModel>) {
     this->variable_interface_gradient_basis_function_coefficient_.resize(this->number_);
     this->variable_interface_gradient_adjacency_quadrature_.resize(this->number_);
-    this->variable_interface_gradient_residual_.resize(this->number_);
   }
   // VolumeElementSourceSolver
   if constexpr (SimulationControl::kSourceTerm == SourceTermEnum::Boussinesq) {
     this->variable_source_quadrature_.resize(this->number_);
   }
-  InitialCondition<SimulationControl>::getVariableBasisFunctionCoefficient(
-      volume_element_mesh, this->variable_basis_function_coefficient_, raw_binary_ss);
   for (Isize i = 0; i < this->number_; i++) {
     this->variable_rotation_velocity_coefficient_(i).setZero();
   }
@@ -164,11 +156,9 @@ inline void VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>::tr
   this->variable_volume_gradient_basis_function_coefficient_.resize(this->number_);
   this->variable_volume_gradient_quadrature_.resize(this->number_);
   this->variable_volume_gradient_adjacency_quadrature_.resize(this->number_);
-  this->variable_volume_gradient_residual_.resize(this->number_);
   if constexpr (IsNS<SimulationControl::kEquationModel>) {
     this->variable_interface_gradient_basis_function_coefficient_.resize(this->number_);
     this->variable_interface_gradient_adjacency_quadrature_.resize(this->number_);
-    this->variable_interface_gradient_residual_.resize(this->number_);
   }
   // VolumeElementSourceSolver
   if constexpr (SimulationControl::kSourceTerm == SourceTermEnum::Boussinesq) {
@@ -257,33 +247,63 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::transfer
 
 template <typename SimulationControl>
 inline void Solver<SimulationControl>::initializeSolver(const Mesh<SimulationControl>& mesh) {
-  this->raw_binary_ss_.seekg(kRealSize, std::ios::beg);
   if constexpr (SimulationControl::kDimension == 1) {
-    this->line_.initializeVolumeElementSolver(mesh.line_, this->raw_binary_ss_);
+    this->line_.initializeVolumeElementSolver(mesh.line_);
     this->point_.initializeAdjacencyElementSolver(mesh.point_);
   } else if constexpr (SimulationControl::kDimension == 2) {
     if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
-      this->triangle_.initializeVolumeElementSolver(mesh.triangle_, this->raw_binary_ss_);
+      this->triangle_.initializeVolumeElementSolver(mesh.triangle_);
     }
     if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
-      this->quadrangle_.initializeVolumeElementSolver(mesh.quadrangle_, this->raw_binary_ss_);
+      this->quadrangle_.initializeVolumeElementSolver(mesh.quadrangle_);
     }
     this->line_.initializeAdjacencyElementSolver(mesh.line_);
   } else if constexpr (SimulationControl::kDimension == 3) {
     if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
-      this->tetrahedron_.initializeVolumeElementSolver(mesh.tetrahedron_, this->raw_binary_ss_);
+      this->tetrahedron_.initializeVolumeElementSolver(mesh.tetrahedron_);
     }
     if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
-      this->pyramid_.initializeVolumeElementSolver(mesh.pyramid_, this->raw_binary_ss_);
+      this->pyramid_.initializeVolumeElementSolver(mesh.pyramid_);
     }
     if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
-      this->hexahedron_.initializeVolumeElementSolver(mesh.hexahedron_, this->raw_binary_ss_);
+      this->hexahedron_.initializeVolumeElementSolver(mesh.hexahedron_);
     }
     if constexpr (HasAdjacencyTriangle<SimulationControl::kMeshModel>) {
       this->triangle_.initializeAdjacencyElementSolver(mesh.triangle_);
     }
     if constexpr (HasAdjacencyQuadrangle<SimulationControl::kMeshModel>) {
       this->quadrangle_.initializeAdjacencyElementSolver(mesh.quadrangle_);
+    }
+  }
+}
+
+template <typename SimulationControl>
+inline void Solver<SimulationControl>::initializeBasisFunctionCoefficient(const Mesh<SimulationControl>& mesh) {
+  this->raw_binary_ss_.seekg(kRealSize, std::ios::beg);
+  if constexpr (SimulationControl::kDimension == 1) {
+    InitialCondition<SimulationControl>::getVariableBasisFunctionCoefficient(
+        mesh.line_, this->line_.variable_basis_function_coefficient_, this->raw_binary_ss_);
+  } else if constexpr (SimulationControl::kDimension == 2) {
+    if constexpr (HasTriangle<SimulationControl::kMeshModel>) {
+      InitialCondition<SimulationControl>::getVariableBasisFunctionCoefficient(
+          mesh.triangle_, this->triangle_.variable_basis_function_coefficient_, this->raw_binary_ss_);
+    }
+    if constexpr (HasQuadrangle<SimulationControl::kMeshModel>) {
+      InitialCondition<SimulationControl>::getVariableBasisFunctionCoefficient(
+          mesh.quadrangle_, this->quadrangle_.variable_basis_function_coefficient_, this->raw_binary_ss_);
+    }
+  } else if constexpr (SimulationControl::kDimension == 3) {
+    if constexpr (HasTetrahedron<SimulationControl::kMeshModel>) {
+      InitialCondition<SimulationControl>::getVariableBasisFunctionCoefficient(
+          mesh.tetrahedron_, this->tetrahedron_.variable_basis_function_coefficient_, this->raw_binary_ss_);
+    }
+    if constexpr (HasPyramid<SimulationControl::kMeshModel>) {
+      InitialCondition<SimulationControl>::getVariableBasisFunctionCoefficient(
+          mesh.pyramid_, this->pyramid_.variable_basis_function_coefficient_, this->raw_binary_ss_);
+    }
+    if constexpr (HasHexahedron<SimulationControl::kMeshModel>) {
+      InitialCondition<SimulationControl>::getVariableBasisFunctionCoefficient(
+          mesh.hexahedron_, this->hexahedron_.variable_basis_function_coefficient_, this->raw_binary_ss_);
     }
   }
 }

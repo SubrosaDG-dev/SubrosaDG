@@ -15,6 +15,7 @@
 
 #include <Eigen/Core>
 #include <array>
+#include <filesystem>
 #include <format>
 #include <magic_enum/magic_enum.hpp>
 #include <string>
@@ -25,7 +26,6 @@
 
 #include "Mesh/ReadControl.cpp"
 #include "Solver/SimulationControl.cpp"
-#include "Solver/VariableConvertor.cpp"
 #include "Utils/BasicDataType.cpp"
 #include "Utils/Concept.cpp"
 #include "Utils/Enum.cpp"
@@ -57,7 +57,7 @@ inline void View<SimulationControl>::getDataSetInformation(std::vector<vtu11::Da
 
 template <typename SimulationControl>
 template <typename VolumeElementTrait>
-inline void View<SimulationControl>::computeViewVariable(
+inline void View<SimulationControl>::accumulateNodeVariable(
     const ViewVariable<VolumeElementTrait, SimulationControl>& view_variable,
     Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable, const Isize node_index,
     const Isize column) {
@@ -92,30 +92,13 @@ inline void View<SimulationControl>::computeViewVariable(
 }
 
 template <typename SimulationControl>
-template <typename AdjacencyElementTrait, typename VolumeElementTrait>
-inline void View<SimulationControl>::computeAdjacencyForce(
-    const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-    const ViewVariable<VolumeElementTrait, SimulationControl>& view_variable,
-    const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& rotation_matrix,
-    Eigen::Vector<Real, SimulationControl::kDimension>& force, const Isize element_index, const Isize column) {
-  Eigen::Matrix<Real, SimulationControl::kDimension, 1> normal_vector;
-  if (adjacency_element_mesh.interior_condition_type_(element_index) == InteriorConditionEnum::Static) {
-    normal_vector = adjacency_element_mesh.normal_vector_(element_index).col(column);
-  } else {
-    normal_vector = rotation_matrix * adjacency_element_mesh.normal_vector_(element_index).col(column);
-  }
-  force += view_variable.getForce(normal_vector, column) *
-           adjacency_element_mesh.jacobian_determinant_multiply_weight_(element_index)(column);
-}
-
-template <typename SimulationControl>
 template <typename VolumeElementTrait>
 inline void View<SimulationControl>::writeVolumeElement(
     const MeshPhysical& mesh_physical, const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
     const ViewSolver<SimulationControl>& view_solver, ViewSupplemental<SimulationControl>& view_supplemental,
     const Isize physical_index, const Isize element_index) {
   const VolumeElementViewSolver<VolumeElementTrait, SimulationControl>& volume_element_view_solver =
-      view_solver.*(ViewSolver<SimulationControl>::template getVolumeElement<VolumeElementTrait>());
+      view_solver.*ViewSolver<SimulationControl>::template getVolumeElement<VolumeElementTrait>();
   constexpr std::array<int, VolumeElementTrait::kVtkElementNumber> kVtkTypeNumber{
       getElementVtkTypeNumber<VolumeElementTrait::kElementType>()};
   constexpr std::array<int, VolumeElementTrait::kVtkElementNumber> kVtkPerNodeNumber{
@@ -127,19 +110,11 @@ inline void View<SimulationControl>::writeVolumeElement(
   const Isize element_index_per_type =
       mesh_physical.gmsh_tag_to_element_physical_information_.at(element_gmsh_tag).element_index_;
   for (Isize i = 0; i < VolumeElementTrait::kAllNodeNumber; i++) {
-    if (volume_element_mesh.interior_condition_type_(element_index_per_type) == InteriorConditionEnum::Static) {
-      view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
-                                         view_supplemental.node_index_ + i) =
-          volume_element_mesh.node_coordinate_initial_(element_index_per_type).col(i);
-    } else {
-      view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
-                                         view_supplemental.node_index_ + i) =
-          view_solver.rotation_center_ +
-          view_solver.rotation_matrix_ * (volume_element_mesh.node_coordinate_initial_(element_index_per_type).col(i) -
-                                          view_solver.rotation_center_);
-    }
-    this->computeViewVariable(volume_element_view_solver.view_variable_(element_index_per_type),
-                              view_supplemental.node_variable_, view_supplemental.node_index_ + i, i);
+    view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
+                                       view_supplemental.node_index_ + i) =
+        volume_element_mesh.node_coordinate_(element_index_per_type).col(i);
+    this->accumulateNodeVariable(volume_element_view_solver.view_variable_(element_index_per_type),
+                                 view_supplemental.node_variable_, view_supplemental.node_index_ + i, i);
   }
   for (Isize i = 0; i < VolumeElementTrait::kVtkAllNodeNumber; i++) {
     view_supplemental.element_connectivity_(view_supplemental.vtk_node_index_ + i) =
@@ -161,7 +136,7 @@ inline void View<SimulationControl>::writeAdjacencyElement(
     const ViewSolver<SimulationControl>& view_solver, ViewSupplemental<SimulationControl>& view_supplemental,
     const Isize physical_index, const Isize element_index) {
   const AdjacencyElementViewSolver<AdjacencyElementTrait, SimulationControl>& adjacency_element_view_solver =
-      view_solver.*(ViewSolver<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
+      view_solver.*ViewSolver<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>();
   constexpr std::array<int, AdjacencyElementTrait::kVtkElementNumber> kVtkTypeNumber{
       getElementVtkTypeNumber<AdjacencyElementTrait::kElementType>()};
   constexpr std::array<int, AdjacencyElementTrait::kVtkElementNumber> kVtkPerNodeNumber{
@@ -173,26 +148,15 @@ inline void View<SimulationControl>::writeAdjacencyElement(
   const Isize element_index_per_type =
       mesh_physical.gmsh_tag_to_element_physical_information_.at(element_gmsh_tag).element_index_;
   for (Isize i = 0; i < AdjacencyElementTrait::kAllNodeNumber; i++) {
-    if (adjacency_element_mesh.interior_condition_type_(element_index_per_type) == InteriorConditionEnum::Static) {
-      view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
-                                         view_supplemental.node_index_ + i) =
-          adjacency_element_mesh.node_coordinate_initial_(element_index_per_type).col(i);
-    } else {
-      view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
-                                         view_supplemental.node_index_ + i) =
-          view_solver.rotation_center_ +
-          view_solver.rotation_matrix_ *
-              (adjacency_element_mesh.node_coordinate_initial_(element_index_per_type).col(i) -
-               view_solver.rotation_center_);
-    }
-    this->computeViewVariable(
+    view_supplemental.node_coordinate_(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>),
+                                       view_supplemental.node_index_ + i) =
+        adjacency_element_mesh.node_coordinate_(element_index_per_type).col(i);
+    this->accumulateNodeVariable(
         adjacency_element_view_solver.view_variable_(element_index_per_type - adjacency_element_mesh.interior_number_),
         view_supplemental.node_variable_, view_supplemental.node_index_ + i, i);
-    this->computeAdjacencyForce(
-        adjacency_element_mesh,
-        adjacency_element_view_solver.view_variable_(element_index_per_type - adjacency_element_mesh.interior_number_),
-        view_solver.rotation_matrix_, view_supplemental.force_, element_index_per_type, i);
   }
+  view_supplemental.force_ +=
+      adjacency_element_view_solver.force_.col(element_index_per_type - adjacency_element_mesh.interior_number_);
   for (Isize i = 0; i < AdjacencyElementTrait::kVtkAllNodeNumber; i++) {
     view_supplemental.element_connectivity_(view_supplemental.vtk_node_index_ + i) =
         kVtkConnectivity[static_cast<Usize>(i)] + view_supplemental.node_index_;
@@ -279,7 +243,7 @@ inline void View<SimulationControl>::writeView(const Mesh<SimulationControl>& me
       {view_supplemental.element_type_.data(),
        view_supplemental.element_type_.data() + view_supplemental.element_type_.size()}};
   view_supplemental.data_set_data_[0].emplace_back(step);
-  view_supplemental.data_set_data_[1].emplace_back(view_solver.time_value_);
+  view_supplemental.data_set_data_[1].emplace_back(view_solver.time_);
   Eigen::Vector<Real, 3> force{Eigen::Vector<Real, 3>::Zero()};
   force(Eigen::seqN(Eigen::fix<0>, Eigen::fix<SimulationControl::kDimension>)) = view_supplemental.force_;
   for (Isize i = 0; i < 3; i++) {
@@ -295,10 +259,10 @@ inline void View<SimulationControl>::writeView(const Mesh<SimulationControl>& me
 }
 
 template <typename SimulationControl>
-inline void View<SimulationControl>::stepView(const Mesh<SimulationControl>& mesh,
+inline void View<SimulationControl>::stepView(Mesh<SimulationControl>& mesh, Solver<SimulationControl>& solver,
                                               ViewSolver<SimulationControl>& view_solver, const int step) {
-  view_solver.computeViewVariable(mesh);
-  view_solver.computeRotationMatrix();
+  solver.stepView(mesh, view_solver,
+                  this->output_directory_ / std::format("raw/{}_{}.zst", this->output_file_name_prefix_, step));
   std::vector<Isize> volume_physical_indices;
   std::vector<Isize> adjacency_physical_indices;
   for (Isize i = 0; i < mesh.physical_.number_; i++) {

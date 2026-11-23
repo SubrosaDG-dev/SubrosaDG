@@ -8,11 +8,11 @@
     "homepage": "https://github.com/SubrosaDG-dev/SubrosaDG",
     "license": "MIT",
     "dependencies": [
-        "dbg-macro",
         "eigen3",
         "fmt",
         "gmsh",
         "magic-enum",
+        "nlohmann-json",
         "zlib",
         "zstd"
     ],

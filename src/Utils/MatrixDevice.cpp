@@ -34,7 +34,7 @@ struct ScalarOf {
 
 template <typename T>
 struct ScalarOf<T, std::void_t<typename T::Scalar>> {
-  using Type = typename T::Scalar;
+  using Type = T::Scalar;
 };
 
 template <typename T>
@@ -56,7 +56,7 @@ struct Slice {
 
 template <typename T>
 struct View {
-  using Scalar = typename T::Scalar;
+  using Scalar = T::Scalar;
   static constexpr int Rows = T::Rows;
   static constexpr int Cols = T::Cols;
 
@@ -233,7 +233,7 @@ using Vector = Matrix<Scalar_, Rows_, 1>;
 
 template <typename T, int Rows_, int Cols_>
 struct Array {
-  using Scalar = typename ScalarOf<T>::Type;
+  using Scalar = ScalarOf<T>::Type;
 
   Scalar* data_;
 
@@ -306,7 +306,7 @@ struct Array {
 
 template <typename T, typename U, typename V, bool TransposeA = NoTranspose>
 inline void gemv(const T& a, const U& b, V& c) {
-  using Scalar = typename T::Scalar;
+  using Scalar = T::Scalar;
   constexpr Isize m = TransposeA ? a.cols() : a.rows();
   constexpr Isize n = TransposeA ? a.rows() : a.cols();
   for (Isize i = 0; i < m; i++) {
@@ -324,7 +324,7 @@ inline void gemv(const T& a, const U& b, V& c) {
 
 template <typename T, typename U, typename V, bool TransposeA = NoTranspose, bool TransposeB = NoTranspose>
 inline void gemm(const T& a, const U& b, V& c) {
-  using Scalar = typename T::Scalar;
+  using Scalar = T::Scalar;
   constexpr Isize m = TransposeA ? a.cols() : a.rows();
   constexpr Isize k = TransposeA ? a.rows() : a.cols();
   constexpr Isize n = TransposeB ? b.cols() : b.rows();

@@ -1,5 +1,5 @@
 /**
- * @file square_2d_cns.cpp
+ * @file rotatingsquare_2d_cns.cpp
  * @brief The 2D square flow example with Navier-Stokes equations.
  *
  * @author Yufei.Liu, Calm.Liu@outlook.com | Chenyu.Bao, bcynuaa@163.com
@@ -31,7 +31,7 @@ struct PhysicalModelData {
 
 #include "SubrosaDG.cpp"
 
-inline const std::string kExampleName{"square_2d_cns"};
+inline const std::string kExampleName{"rotatingsquare_2d_cns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
@@ -109,7 +109,7 @@ void generateMesh(const std::filesystem::path& mesh_file_path) {
   Eigen::Array<int, 3, 1> curve_loop_tag;
   Eigen::Array<int, 2, 1> plane_surface_tag;
   std::array<std::vector<int>, 4> physical_group_tag;
-  gmsh::model::add("square_2d");
+  gmsh::model::add("rotatingsquare_2d_");
   const int center_point_tag = gmsh::model::geo::addPoint(0.0, 0.0, 0.0);
   for (int i = 0; i < 4; i++) {
     point_tag(i, 0) = gmsh::model::geo::addPoint(farfield_point_coordinate(i, 0), farfield_point_coordinate(i, 1),

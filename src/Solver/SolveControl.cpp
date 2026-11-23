@@ -36,6 +36,8 @@ template <typename SimulationControl>
 struct Solver;
 template <typename SimulationControl>
 struct SolverDevice;
+template <typename SimulationControl>
+struct ViewSolver;
 
 template <typename VolumeElementTrait, typename SimulationControl,
           EquationModelEnum EquationModelType = SimulationControl::kEquationModel>
@@ -142,11 +144,6 @@ struct VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, Viscou
                              VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
                Eigen::Dynamic, 1>
       variable_volume_gradient_adjacency_quadrature_;
-
-  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             VolumeElementTrait::kAllBasisFunctionNumber>,
-               Eigen::Dynamic, 1>
-      variable_volume_gradient_residual_;
 };
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -161,11 +158,6 @@ struct VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, Viscou
                              VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
                Eigen::Dynamic, 1>
       variable_interface_gradient_adjacency_quadrature_;
-
-  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             VolumeElementTrait::kAllBasisFunctionNumber>,
-               Eigen::Dynamic, 1>
-      variable_interface_gradient_residual_;
 };
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -180,11 +172,6 @@ struct VolumeElementGradientSolver<VolumeElementTrait, SimulationControl, Viscou
                              VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
                Eigen::Dynamic, 1>
       variable_interface_gradient_adjacency_quadrature_;
-
-  Eigen::Array<Eigen::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                             VolumeElementTrait::kAllBasisFunctionNumber * VolumeElementTrait::kAdjacencyNumber>,
-               Eigen::Dynamic, 1>
-      variable_interface_gradient_residual_;
 };
 
 template <typename VolumeElementTrait, typename SimulationControl,
@@ -206,11 +193,6 @@ struct VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, 
                                VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
                 Device::Dynamic, 1>
       variable_volume_gradient_adjacency_quadrature_;
-
-  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kAllBasisFunctionNumber>,
-                Device::Dynamic, 1>
-      variable_volume_gradient_residual_;
 };
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -225,11 +207,6 @@ struct VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, 
                                VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
                 Device::Dynamic, 1>
       variable_interface_gradient_adjacency_quadrature_;
-
-  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kAllBasisFunctionNumber>,
-                Device::Dynamic, 1>
-      variable_interface_gradient_residual_;
 };
 
 template <typename VolumeElementTrait, typename SimulationControl>
@@ -244,11 +221,6 @@ struct VolumeElementGradientSolverDevice<VolumeElementTrait, SimulationControl, 
                                VolumeElementTrait::kAllAdjacencyQuadratureNumber>,
                 Device::Dynamic, 1>
       variable_interface_gradient_adjacency_quadrature_;
-
-  Device::Array<Device::Matrix<Real, SimulationControl::kConservedVariableNumber * SimulationControl::kDimension,
-                               VolumeElementTrait::kAllBasisFunctionNumber * VolumeElementTrait::kAdjacencyNumber>,
-                Device::Dynamic, 1>
-      variable_interface_gradient_residual_;
 };
 
 template <typename VolumeElementTrait, typename SimulationControl,
@@ -343,8 +315,7 @@ struct VolumeElementSolver : VolumeElementSolverData<VolumeElementTrait, Simulat
   Isize static_number_{0};
   Isize rotate_number_{0};
 
-  inline void initializeVolumeElementSolver(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
-                                            [[maybe_unused]] std::stringstream& raw_binary_ss);
+  inline void initializeVolumeElementSolver(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh);
 
   inline void copyVolumeElementBasisFunctionCoefficient();
 
@@ -362,10 +333,6 @@ struct VolumeElementSolver : VolumeElementSolverData<VolumeElementTrait, Simulat
 
   inline void computeVolumeElementGradientQuadrature(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh);
 
-  inline void computeVolumeElementResidual(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh);
-
-  inline void computeVolumeElementGradientResidual(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh);
-
   inline void updateVolumeElementBasisFunctionCoefficient(
       const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
       const TimeIntegration<SimulationControl>& time_integration, /*const*/ int rk_step);
@@ -373,9 +340,11 @@ struct VolumeElementSolver : VolumeElementSolverData<VolumeElementTrait, Simulat
   inline void updateVolumeElementGradientBasisFunctionCoefficient(
       const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh);
 
-  inline void computeVolumeElementRelativeError(
+  inline void computeVolumeElementMeanAbsoluteResidual(
       const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
-      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error);
+      Eigen::Vector<Real, SimulationControl::kConservedVariableNumber>& residual);
+
+  inline void readVolumeElementRawBinary(std::stringstream& raw_binary_ss);
 
   inline void writeVolumeElementRawBinary(std::stringstream& raw_binary_ss) const;
 };
@@ -404,11 +373,6 @@ struct VolumeElementSolverDevice : VolumeElementSolverDataDevice<VolumeElementTr
   inline void computeVolumeElementGradientQuadrature(
       const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh);
 
-  inline void computeVolumeElementResidual(const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh);
-
-  inline void computeVolumeElementGradientResidual(
-      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh);
-
   inline void updateVolumeElementBasisFunctionCoefficient(
       const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
       const TimeIntegration<SimulationControl>& time_integration, /*const*/ int rk_step);
@@ -416,11 +380,11 @@ struct VolumeElementSolverDevice : VolumeElementSolverDataDevice<VolumeElementTr
   inline void updateVolumeElementGradientBasisFunctionCoefficient(
       const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh);
 
-  inline void computeVolumeElementRelativeError(
+  inline void computeVolumeElementMeanAbsoluteResidual(
       const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
-      Device::Vector<Real, SimulationControl::kConservedVariableNumber>& relative_error);
+      Device::Vector<Real, SimulationControl::kConservedVariableNumber>& residual);
 
-  inline void transferVolumeElementSolverToHost(
+  inline void transferVolumeElementCoefficientToHost(
       VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver);
 };
 
@@ -567,8 +531,7 @@ struct AdjacencyElementSolver : AdjacencyElementSolverData<AdjacencyElementTrait
       const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh);
 
   inline void updateAdjacencyElementBoundaryVariable(
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const TimeIntegration<SimulationControl>& time_integration, /*const*/ int rk_step);
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh, /*const*/ Real time);
 
   inline void updateAdjacencyElementInterfaceVariable(Mesh<SimulationControl>& mesh,
                                                       const Solver<SimulationControl>& solver);
@@ -617,16 +580,6 @@ struct AdjacencyElementSolver : AdjacencyElementSolverData<AdjacencyElementTrait
 
   inline void computeInterfaceAdjacencyElementGradientQuadrature(const Mesh<SimulationControl>& mesh,
                                                                  Solver<SimulationControl>& solver);
-
-  template <typename VolumeElementTrait>
-  inline void writeBoundaryAdjacencyPerElementRawBinary(
-      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
-      std::stringstream& raw_binary_ss, /*const*/ Isize parent_index_each_type,
-      [[maybe_unused]] /*const*/ Isize adjacency_sequence_in_parent) const;
-
-  inline void writeBoundaryAdjacencyElementRawBinary(
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
-      const Solver<SimulationControl>& solver, std::stringstream& raw_binary_ss) const;
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
@@ -710,11 +663,11 @@ struct SolverBase {
   std::future<void> write_raw_binary_future_;
 
   Eigen::Vector<Real, SimulationControl::kDimension> rotation_center_;
-  Eigen::Vector<Real, 3> rotation_axis_;
-  Real rotation_angular_velocity_{0.0};
+  Eigen::Vector<Real, 3> rotation_axis_{0.0_r, 0.0_r, 1.0_r};
+  Real rotation_angular_velocity_{0.0_r};
   Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> rotation_matrix_;
 
-  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
+  Eigen::Vector<Real, SimulationControl::kConservedVariableNumber> residual_;
 };
 
 template <typename SimulationControl>
@@ -724,7 +677,7 @@ struct SolverDeviceBase {
   Real rotation_angular_velocity_{0.0};
   Device::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> rotation_matrix_;
 
-  Device::Vector<Real, SimulationControl::kConservedVariableNumber> relative_error_;
+  Device::Vector<Real, SimulationControl::kConservedVariableNumber> residual_;
 };
 
 template <typename SimulationControl, int Dimension = SimulationControl::kDimension>
@@ -828,8 +781,9 @@ struct Solver : SolverData<SimulationControl> {
 
   inline void initializeSolver(const Mesh<SimulationControl>& mesh);
 
-  inline void updateBoundaryVariable(const Mesh<SimulationControl>& mesh,
-                                     const TimeIntegration<SimulationControl>& time_integration, /*const*/ int rk_step);
+  inline void initializeBasisFunctionCoefficient(const Mesh<SimulationControl>& mesh);
+
+  inline void updateBoundaryVariable(const Mesh<SimulationControl>& mesh, /*const*/ Real time);
 
   inline void updateInterfaceVariable(Mesh<SimulationControl>& mesh);
 
@@ -840,8 +794,7 @@ struct Solver : SolverData<SimulationControl> {
   inline void computeDeltaTime(const Mesh<SimulationControl>& mesh,
                                TimeIntegration<SimulationControl>& time_integration);
 
-  inline void rotateMesh(Mesh<SimulationControl>& mesh, const TimeIntegration<SimulationControl>& time_integration,
-                         /*const*/ int rk_step);
+  inline void rotateMesh(Mesh<SimulationControl>& mesh, /*const*/ Real time);
 
   inline void computeVolumeQuadrature(const Mesh<SimulationControl>& mesh,
                                       const SourceTerm<SimulationControl>& source_term);
@@ -852,10 +805,6 @@ struct Solver : SolverData<SimulationControl> {
 
   inline void computeAdjacencyGradientQuadrature(const Mesh<SimulationControl>& mesh);
 
-  inline void computeResidual(const Mesh<SimulationControl>& mesh);
-
-  inline void computeGradientResidual(const Mesh<SimulationControl>& mesh);
-
   inline void updateBasisFunctionCoefficient(const Mesh<SimulationControl>& mesh,
                                              const TimeIntegration<SimulationControl>& time_integration,
                                              /*const*/ int rk_step);
@@ -865,11 +814,14 @@ struct Solver : SolverData<SimulationControl> {
   inline void stepSolver(Mesh<SimulationControl>& mesh, const SourceTerm<SimulationControl>& source_term,
                          const TimeIntegration<SimulationControl>& time_integration);
 
-  inline void computeRelativeError(const Mesh<SimulationControl>& mesh);
+  inline void stepView(Mesh<SimulationControl>& mesh, ViewSolver<SimulationControl>& view_solver,
+                       const std::filesystem::path& raw_binary_path);
 
-  inline void writeRawBinary(const Mesh<SimulationControl>& mesh,
-                             const TimeIntegration<SimulationControl>& time_integration,
-                             const std::filesystem::path& raw_binary_path);
+  inline void computeMeanAbsoluteResidual(const Mesh<SimulationControl>& mesh);
+
+  inline void readRawBinary(const std::filesystem::path& raw_binary_path, Real& time);
+
+  inline void writeRawBinary(const std::filesystem::path& raw_binary_path, /*const*/ Real time);
 };
 
 template <typename SimulationControl>
@@ -926,9 +878,7 @@ struct SolverDevice : SolverDataDevice<SimulationControl> {
 
   inline void copyBasisFunctionCoefficient();
 
-  inline void rotateMesh(MeshDevice<SimulationControl>& mesh,
-                         const TimeIntegration<SimulationControl>& time_integration,
-                         /*const*/ int rk_step);
+  inline void rotateMesh(MeshDevice<SimulationControl>& mesh, /*const*/ Real time);
 
   inline void computeVolumeQuadrature(const MeshDevice<SimulationControl>& mesh,
                                       [[maybe_unused]] const SourceTermDevice<SimulationControl>& source_term);
@@ -939,10 +889,6 @@ struct SolverDevice : SolverDataDevice<SimulationControl> {
 
   inline void computeAdjacencyGradientQuadrature(const MeshDevice<SimulationControl>& mesh);
 
-  inline void computeResidual(const MeshDevice<SimulationControl>& mesh);
-
-  inline void computeGradientResidual(const MeshDevice<SimulationControl>& mesh);
-
   inline void updateBasisFunctionCoefficient(const MeshDevice<SimulationControl>& mesh,
                                              const TimeIntegration<SimulationControl>& time_integration,
                                              /*const*/ int rk_step);
@@ -952,9 +898,9 @@ struct SolverDevice : SolverDataDevice<SimulationControl> {
   inline void stepSolver(MeshDevice<SimulationControl>& mesh, const SourceTermDevice<SimulationControl>& source_term,
                          const TimeIntegration<SimulationControl>& time_integration);
 
-  inline void computeRelativeError(const MeshDevice<SimulationControl>& mesh, Solver<SimulationControl>& solver);
+  inline void computeMeanAbsoluteResidual(const MeshDevice<SimulationControl>& mesh, Solver<SimulationControl>& solver);
 
-  inline void transferSolverToHost(Solver<SimulationControl>& solver);
+  inline void transferCoefficientToHost(Solver<SimulationControl>& solver);
 };
 
 }  // namespace SubrosaDG

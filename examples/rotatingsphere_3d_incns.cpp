@@ -22,7 +22,7 @@ struct PhysicalModelData {
   static constexpr double kSpecificHeatConstantVolume = 1.0;
 
   // TransportModel
-  static constexpr double kReynoldsNumber = 122.18;
+  static constexpr double kReynoldsNumber = 300.0;
   static constexpr double kDynamicViscosity = 1.0 * 1.0 * 1.0 / kReynoldsNumber;
   static constexpr double kPrandtlNumber = 0.71;
   static constexpr double kThermalConductivity = kSpecificHeatConstantPressure * kDynamicViscosity / kPrandtlNumber;
@@ -36,8 +36,15 @@ inline const std::string kExampleName{"rotatingsphere_3d_incns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
 
+inline constexpr double kSphereRadius = 0.5;
+inline constexpr SubrosaDG::Real kInflowVelocity = 1.0_r;
+// Kim and Choi (2002) define the rotation rate as the equatorial wall speed divided by the inflow speed.
+inline constexpr SubrosaDG::Real kRotationRate = 0.6_r;
+inline constexpr SubrosaDG::Real kAngularVelocity =
+    kRotationRate * kInflowVelocity / static_cast<SubrosaDG::Real>(kSphereRadius);
+
 using SimulationControl = SubrosaDG::SimulationControl<
-    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P1,
+    SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D3, SubrosaDG::PolynomialOrderEnum::P3,
                             SubrosaDG::BoundaryTimeEnum::Steady, SubrosaDG::SourceTermEnum::None>,
     SubrosaDG::NumericalControl<SubrosaDG::MeshModelEnum::Hexahedron, SubrosaDG::InitialConditionEnum::Function,
                                 SubrosaDG::TimeIntegrationEnum::SSPRK3>,
@@ -50,7 +57,7 @@ template <typename SimulationControl>
 inline void SubrosaDG::InitialCondition<SimulationControl>::computePrimitiveFromCoordinate(
     [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
     Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>& initial_primitive_variable) {
-  initial_primitive_variable = {1.0_r, 0.0_r, 1.0_r, 0.0_r, 1.0_r};
+  initial_primitive_variable = {1.0_r, 0.0_r, 0.0_r, kInflowVelocity, 1.0_r};
 }
 
 template <typename SimulationControl>
@@ -59,7 +66,7 @@ inline void SubrosaDG::BoundaryCondition<SimulationControl>::computePrimitiveFro
     Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
     const SubrosaDG::Isize gmsh_physical_index) {
   if (gmsh_physical_index == 1) {
-    boundary_primitive_variable = {1.0_r, 0.0_r, 1.0_r, 0.0_r, 1.0_r};
+    boundary_primitive_variable = {1.0_r, 0.0_r, 0.0_r, kInflowVelocity, 1.0_r};
   } else if (gmsh_physical_index == 2) {
     boundary_primitive_variable = {1.0_r, 0.0_r, 0.0_r, 0.0_r, 1.0_r};
   }
@@ -69,12 +76,12 @@ int main(int argc, char* argv[]) {
   SubrosaDG::System<SimulationControl> system;
   system.setMesh(kExampleDirectory / std::format("{}.msh", kExampleName), generateMesh);
   system.setRotation(Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>{0.0_r, 0.0_r, 0.0_r},
-                     Eigen::Vector<SubrosaDG::Real, 3>{0.0_r, 0.0_r, 0.1_r * 1.37_r / 0.5_r});
+                     Eigen::Vector<SubrosaDG::Real, 3>{0.0_r, 0.0_r, kAngularVelocity});
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::RiemannFarfield>(1);
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(2);
   system.template addVolumeCondition<SubrosaDG::InteriorConditionEnum::Static>(3);
   system.template addVolumeCondition<SubrosaDG::InteriorConditionEnum::Rotate>(4);
-  system.setTimeIntegration(0.8_r);
+  system.setTimeIntegration(0.6_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Temperature,
@@ -86,7 +93,6 @@ int main(int argc, char* argv[]) {
 }
 
 void generateMesh(const std::filesystem::path& mesh_file_path) {
-  constexpr double kSphereRadius = 0.5;
   constexpr double kInterfaceRadius = 1.2;
   constexpr double kInterfaceHalfLength = 0.75;
   constexpr double kFarfieldHalfWidth = 5.0;

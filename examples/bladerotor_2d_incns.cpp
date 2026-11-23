@@ -15,14 +15,14 @@ namespace SubrosaDG {
 struct PhysicalModelData {
   // EquationOfState
   static constexpr double kReferenceSoundSpeed = 10.0;
-  static constexpr double kReferenceDensity = 1000.0;
+  static constexpr double kReferenceDensity = 1.0;
 
   // ThermodynamicModel
   static constexpr double kSpecificHeatConstantPressure = 1.0;
   static constexpr double kSpecificHeatConstantVolume = 1.0;
 
   // TransportModel
-  static constexpr double kDynamicViscosity = 0.001;
+  static constexpr double kDynamicViscosity = kReferenceDensity * 5.0e-5;
   static constexpr double kPrandtlNumber = 0.71;
   static constexpr double kThermalConductivity = kSpecificHeatConstantPressure * kDynamicViscosity / kPrandtlNumber;
 };
@@ -34,6 +34,10 @@ struct PhysicalModelData {
 inline const std::string kExampleName{"bladerotor_2d_incns"};
 
 inline const std::filesystem::path kExampleDirectory{SubrosaDG::kProjectSourceDirectory / "build/out" / kExampleName};
+
+// The weakly compressible equation of state gives zero pressure at 0.99 * reference density.
+inline constexpr SubrosaDG::Real kZeroPressureDensity =
+    static_cast<SubrosaDG::Real>(0.99 * SubrosaDG::PhysicalModelData::kReferenceDensity);
 
 using SimulationControl = SubrosaDG::SimulationControl<
     SubrosaDG::SolveControl<SubrosaDG::DimensionEnum::D2, SubrosaDG::PolynomialOrderEnum::P1,
@@ -49,7 +53,7 @@ template <typename SimulationControl>
 inline void SubrosaDG::InitialCondition<SimulationControl>::computePrimitiveFromCoordinate(
     [[maybe_unused]] const Eigen::Vector<SubrosaDG::Real, SimulationControl::kDimension>& coordinate,
     Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>& initial_primitive_variable) {
-  initial_primitive_variable = {1.0_r, 0.0_r, 0.0_r, 1.0_r};
+  initial_primitive_variable = {kZeroPressureDensity, 0.0_r, 0.0_r, 1.0_r};
 }
 
 template <typename SimulationControl>
@@ -58,9 +62,9 @@ inline void SubrosaDG::BoundaryCondition<SimulationControl>::computePrimitiveFro
     Eigen::Vector<SubrosaDG::Real, SimulationControl::kPrimitiveVariableNumber>& boundary_primitive_variable,
     const SubrosaDG::Isize gmsh_physical_index) {
   if (gmsh_physical_index == 1) {
-    boundary_primitive_variable = {1.0_r, 0.0_r, 0.0_r, 1.0_r};
+    boundary_primitive_variable = {kZeroPressureDensity, 0.0_r, 0.0_r, 1.0_r};
   } else if (gmsh_physical_index == 2) {
-    boundary_primitive_variable = {1.0_r, 0.0_r, 0.0_r, 1.0_r};
+    boundary_primitive_variable = {kZeroPressureDensity, 0.0_r, 0.0_r, 1.0_r};
   }
 }
 
@@ -75,7 +79,7 @@ int main(int argc, char* argv[]) {
   system.template addBoundaryCondition<SubrosaDG::BoundaryConditionEnum::AdiabaticNonSlipWall>(2);
   system.template addVolumeCondition<SubrosaDG::InteriorConditionEnum::Static>(3);
   system.template addVolumeCondition<SubrosaDG::InteriorConditionEnum::Rotate>(4);
-  system.setTimeIntegration(0.2_r);
+  system.setTimeIntegration(0.5_r);
   system.setViewConfig(kExampleDirectory, kExampleName);
   system.addViewVariable({SubrosaDG::ViewVariableEnum::Density, SubrosaDG::ViewVariableEnum::Velocity,
                           SubrosaDG::ViewVariableEnum::Pressure, SubrosaDG::ViewVariableEnum::Vorticity});

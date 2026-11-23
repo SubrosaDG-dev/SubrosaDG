@@ -17,6 +17,8 @@ SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (dG) 
 - [x] Periodic boundary condition(change mesh topology)
 - [x] Binary VTU output(use vtu11)
 - [x] Terminal tui residual visualization(use tqdm-cpp)
+- [x] Add Agent command-line mode(report progress and residuals as JSON Lines)
+- [ ] Plot residual history in the terminal
 - [x] Add DG method discretization documentation
 - [ ] Documentation for variable storage
 - [x] Curvilinear mesh support(Isoparametric element mapping)
@@ -26,9 +28,10 @@ SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (dG) 
 - [x] Compress RawBinary output(use zstd and async io)
 - [x] Add Source-term (e.g. Boussinesq approximation)
 - [x] 3D Euler/Navier-Stokes equation
-- [x] Add cl/cd computation module(Paraview FieldData)
+- [x] Output the integrated force on each wall group in VTU FieldData (`Force`)
 - [x] Time dependent boundary condition
-- [x] ~~Add Modal basis function(Lobatto function)~~
+- [x] ~~Add modal basis function(Lobatto function)~~
+- [x] Use nodal Lagrange basis function
 - [x] ~~Add Shock-capturing method(Artificial Viscosity)~~
 - [ ] Local Time Stepping(Time Gaussian integration)
 - [x] Add Dockerfile and devcontainer.json
@@ -50,6 +53,8 @@ SubrosaDG is a CFD project that uses the high-order discontinuous Galerkin (dG) 
 - [x] Arbitrary Lagrangian-Eulerian Method(ALE)
 - [x] Modify convective flux in ALE framework(Lax-Friedrichs scheme and HLLC scheme)
 - [x] Rotating mesh simulation(in ALE framework)
+- [x] Cache sliding-interface donor candidates
+- [x] Optimize performance(use face nodes for state interpolation and surface residual projection)
 - [ ] Inviscid Magneto-hydrodynamics Equation(HLLD scheme)
 - [ ] Local Divergence-free Projector
 - [ ] ~~Change Shock-capturing method(DG/FV hybrid method)~~

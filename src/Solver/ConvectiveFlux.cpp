@@ -16,6 +16,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
+#include <sycl/sycl.hpp>
 
 #include "Solver/BoundaryCondition.cpp"
 #include "Solver/PhysicalModel.cpp"
@@ -906,8 +907,8 @@ struct ConvectiveFluxDevice {
         (left_sqrt_density * left_total_enthalpy + right_sqrt_density * right_total_enthalpy) /
         (left_sqrt_density + right_sqrt_density);
     const Real specific_heat_ratio = PhysicalModel<SimulationControl, PhysicalModelData>::getSpecificHeatRatio();
-    const Real roe_sound_speed = sycl::sqrt((specific_heat_ratio - 1.0_r) *
-                                            (roe_total_enthalpy - roe_normal_velocity * roe_normal_velocity / 2.0_r));
+    const Real roe_sound_speed =
+        sycl::sqrt((specific_heat_ratio - 1.0_r) * (roe_total_enthalpy - roe_velocity * roe_velocity / 2.0_r));
     Device::StaticVector<Real, SimulationControl::kDimension> left_relative_velocity;
     Device::StaticVector<Real, SimulationControl::kDimension> right_relative_velocity;
     for (Isize m = 0; m < SimulationControl::kDimension; m++) {

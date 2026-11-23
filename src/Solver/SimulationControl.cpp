@@ -119,64 +119,216 @@ consteval std::array<ElementEnum, getVolumeElementAdjacencyNumber<ElementType>()
   }
 }
 
-template <ElementEnum ElementType>
-consteval std::array<int, getVolumeElementAdjacencyNumber<ElementType>()>
-getVolumeElementPerAdjacencyBasicNodeNumber() {
+template <ElementEnum ElementType, int PolynomialOrder>
+consteval std::array<int, getVolumeElementAdjacencyNumber<ElementType>()> getVolumeElementPerAdjacencyNodeNumber() {
   if constexpr (ElementType == ElementEnum::Line) {
-    return {1, 1};
+    return {getElementNodeNumber<ElementEnum::Point, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Point, PolynomialOrder>()};
   } else if constexpr (ElementType == ElementEnum::Triangle) {
-    return {2, 2, 2};
+    return {getElementNodeNumber<ElementEnum::Line, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Line, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Line, PolynomialOrder>()};
   } else if constexpr (ElementType == ElementEnum::Quadrangle) {
-    return {2, 2, 2, 2};
+    return {getElementNodeNumber<ElementEnum::Line, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Line, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Line, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Line, PolynomialOrder>()};
   } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
-    return {3, 3, 3, 3};
+    return {getElementNodeNumber<ElementEnum::Triangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Triangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Triangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Triangle, PolynomialOrder>()};
   } else if constexpr (ElementType == ElementEnum::Pyramid) {
-    return {3, 3, 3, 3, 4};
+    return {getElementNodeNumber<ElementEnum::Triangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Triangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Triangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Triangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Quadrangle, PolynomialOrder>()};
   } else if constexpr (ElementType == ElementEnum::Hexahedron) {
-    return {4, 4, 4, 4, 4, 4};
+    return {getElementNodeNumber<ElementEnum::Quadrangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Quadrangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Quadrangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Quadrangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Quadrangle, PolynomialOrder>(),
+            getElementNodeNumber<ElementEnum::Quadrangle, PolynomialOrder>()};
   }
 }
 
-template <ElementEnum ElementType>
-consteval int getVolumeElementAllAdjacencyBasicNodeNumber() {
-  constexpr std::array<int, getVolumeElementAdjacencyNumber<ElementType>()> kElementPerAdjacencyBasicNodeNumber{
-      getVolumeElementPerAdjacencyBasicNodeNumber<ElementType>()};
-  return std::accumulate(kElementPerAdjacencyBasicNodeNumber.begin(), kElementPerAdjacencyBasicNodeNumber.end(), 0);
+template <ElementEnum ElementType, int PolynomialOrder>
+consteval int getVolumeElementAllAdjacencyNodeNumber() {
+  constexpr std::array<int, getVolumeElementAdjacencyNumber<ElementType>()> kElementPerAdjacencyNodeNumber{
+      getVolumeElementPerAdjacencyNodeNumber<ElementType, PolynomialOrder>()};
+  return std::accumulate(kElementPerAdjacencyNodeNumber.begin(), kElementPerAdjacencyNodeNumber.end(), 0);
 }
 
-template <ElementEnum ElementType>
-consteval std::array<int, getVolumeElementAllAdjacencyBasicNodeNumber<ElementType>()>
-getVolumeElementPerAdjacencyBasicNodeIndex() {
+template <ElementEnum ElementType, int PolynomialOrder>
+consteval std::array<int, getVolumeElementAdjacencyNumber<ElementType>() + 1> getVolumeElementAdjacencyNodeSequence() {
+  constexpr std::array<int, getVolumeElementAdjacencyNumber<ElementType>()> kNodeNumbers{
+      getVolumeElementPerAdjacencyNodeNumber<ElementType, PolynomialOrder>()};
+  std::array<int, getVolumeElementAdjacencyNumber<ElementType>() + 1> node_sequence{};
+  std::partial_sum(kNodeNumbers.begin(), kNodeNumbers.end(), node_sequence.begin() + 1);
+  return node_sequence;
+}
+
+template <ElementEnum ElementType, int PolynomialOrder>
+consteval std::array<int, getVolumeElementAllAdjacencyNodeNumber<ElementType, PolynomialOrder>()>
+getVolumeElementPerAdjacencyNodeIndex() {
   // clang-format off
   if constexpr (ElementType == ElementEnum::Line) {
-    return {0, 1};
+    return {0,
+            1};
   } else if constexpr (ElementType == ElementEnum::Triangle) {
-    return {0, 1,
-            1, 2,
-            2, 0};
+    if constexpr (PolynomialOrder == 1) {
+      return {0, 1,
+              1, 2,
+              2, 0};
+    } else if constexpr (PolynomialOrder == 2) {
+      return {0, 1, 3,
+              1, 2, 4,
+              2, 0, 5};
+    } else if constexpr (PolynomialOrder == 3) {
+      return {0, 1, 3, 4,
+              1, 2, 5, 6,
+              2, 0, 7, 8};
+    } else if constexpr (PolynomialOrder == 4) {
+      return {0, 1, 3, 4,  5,
+              1, 2, 6, 7,  8,
+              2, 0, 9, 10, 11};
+    } else {
+      return {0, 1, 3,  4,  5,  6,
+              1, 2, 7,  8,  9,  10,
+              2, 0, 11, 12, 13, 14};
+    }
   } else if constexpr (ElementType == ElementEnum::Quadrangle) {
-    return {0, 1,
-            1, 2,
-            2, 3,
-            3, 0};
+    if constexpr (PolynomialOrder == 1) {
+      return {0, 1,
+              1, 2,
+              2, 3,
+              3, 0};
+    } else if constexpr (PolynomialOrder == 2) {
+      return {0, 1, 4,
+              1, 2, 5,
+              2, 3, 6,
+              3, 0, 7};
+    } else if constexpr (PolynomialOrder == 3) {
+      return {0, 1, 4,  5,
+              1, 2, 6,  7,
+              2, 3, 8,  9,
+              3, 0, 10, 11};
+    } else if constexpr (PolynomialOrder == 4) {
+      return {0, 1, 4,  5,  6,
+              1, 2, 7,  8,  9,
+              2, 3, 10, 11, 12,
+              3, 0, 13, 14, 15};
+    } else {
+      return {0, 1, 4,  5,  6,  7,
+              1, 2, 8,  9,  10, 11,
+              2, 3, 12, 13, 14, 15,
+              3, 0, 16, 17, 18, 19};
+    }
   } else if constexpr (ElementType == ElementEnum::Tetrahedron) {
-    return {0, 2, 1,
-            0, 1, 3,
-            0, 3, 2,
-            3, 1, 2};
+    if constexpr (PolynomialOrder == 1) {
+      return {0, 2, 1,
+              0, 1, 3,
+              0, 3, 2,
+              3, 1, 2};
+    } else if constexpr (PolynomialOrder == 2) {
+      return {0, 2, 1, 6, 5, 4,
+              0, 1, 3, 4, 9, 7,
+              0, 3, 2, 7, 8, 6,
+              3, 1, 2, 9, 5, 8};
+    } else if constexpr (PolynomialOrder == 3) {
+      return {0, 2, 1, 9,  8,  7,  6,  5,  4,  16,
+              0, 1, 3, 4,  5,  15, 14, 10, 11, 17,
+              0, 3, 2, 11, 10, 12, 13, 8,  9,  18,
+              3, 1, 2, 14, 15, 6,  7,  13, 12, 19};
+    } else if constexpr (PolynomialOrder == 4) {
+      return {0, 2, 1, 12, 11, 10, 9,  8,  7,  6,  5,  4,  22, 23, 24,
+              0, 1, 3, 4,  5,  6,  21, 20, 19, 13, 14, 15, 25, 26, 27,
+              0, 3, 2, 15, 14, 13, 16, 17, 18, 10, 11, 12, 28, 29, 30,
+              3, 1, 2, 19, 20, 21, 7,  8,  9,  18, 17, 16, 31, 32, 33};
+    } else {
+      return {0, 2, 1, 15, 14, 13, 12, 11, 10, 9,  8,  7,  6,  5,  4,  28, 29, 30, 31, 32, 33,
+              0, 1, 3, 4,  5,  6,  7,  27, 26, 25, 24, 16, 17, 18, 19, 34, 35, 36, 37, 38, 39,
+              0, 3, 2, 19, 18, 17, 16, 20, 21, 22, 23, 12, 13, 14, 15, 40, 41, 42, 43, 44, 45,
+              3, 1, 2, 24, 25, 26, 27, 8,  9,  10, 11, 23, 22, 21, 20, 46, 47, 48, 49, 50, 51};
+    }
   } else if constexpr (ElementType == ElementEnum::Pyramid) {
-    return {0, 1, 4,
-            3, 0, 4,
-            1, 2, 4,
-            2, 3, 4,
-            0, 3, 2, 1};
+    if constexpr (PolynomialOrder == 1) {
+      return {0, 1, 4,
+              3, 0, 4,
+              1, 2, 4,
+              2, 3, 4,
+              0, 3, 2, 1};
+    } else if constexpr (PolynomialOrder == 2) {
+      return {0, 1, 4, 5,  9,  7,
+              3, 0, 4, 6,  7,  12,
+              1, 2, 4, 8,  11, 9,
+              2, 3, 4, 10, 12, 11,
+              0, 3, 2, 1,  6,  10, 8, 5, 13};
+    } else if constexpr (PolynomialOrder == 3) {
+      return {0, 1, 4, 5,  6,  13, 14, 10, 9,  21,
+              3, 0, 4, 8,  7,  9,  10, 20, 19, 22,
+              1, 2, 4, 11, 12, 17, 18, 14, 13, 23,
+              2, 3, 4, 15, 16, 19, 20, 18, 17, 24,
+              0, 3, 2, 1,  7,  8,  16, 15, 12, 11, 6, 5, 25, 26, 27, 28};
+    } else if constexpr (PolynomialOrder == 4) {
+      return {0, 1, 4, 5,  6,  7,  17, 18, 19, 13, 12, 11, 29, 30, 31,
+              3, 0, 4, 10, 9,  8,  11, 12, 13, 28, 27, 26, 32, 33, 34,
+              1, 2, 4, 14, 15, 16, 23, 24, 25, 19, 18, 17, 35, 36, 37,
+              2, 3, 4, 20, 21, 22, 26, 27, 28, 25, 24, 23, 38, 39, 40,
+              0, 3, 2, 1,  8,  9,  10, 22, 21, 20, 16, 15, 14, 7,  6,  5, 41, 42, 43, 44, 45, 46, 47, 48, 49};
+    } else {
+      return {0,  1,  4,  5,  6,  7,  8,  21, 22, 23, 24, 16, 15, 14, 13, 37, 38, 39, 40, 41, 42,
+              3,  0,  4,  12, 11, 10, 9,  13, 14, 15, 16, 36, 35, 34, 33, 43, 44, 45, 46, 47, 48,
+              1,  2,  4,  17, 18, 19, 20, 29, 30, 31, 32, 24, 23, 22, 21, 49, 50, 51, 52, 53, 54,
+              2,  3,  4,  25, 26, 27, 28, 33, 34, 35, 36, 32, 31, 30, 29, 55, 56, 57, 58, 59, 60,
+              0,  3,  2,  1,  9,  10, 11, 12, 28, 27, 26, 25, 20, 19, 18, 17, 8,  7,  6,  5,  61, 62, 63, 64, 65, 66,
+                  67, 68, 69, 70, 71, 72, 73, 74, 75, 76};
+    }
   } else if constexpr (ElementType == ElementEnum::Hexahedron) {
-    return {0, 3, 2, 1,
-            0, 1, 5, 4,
-            0, 4, 7, 3,
-            1, 2, 6, 5,
-            2, 3, 7, 6,
-            4, 5, 6, 7};
+    if constexpr (PolynomialOrder == 1) {
+      return {0, 3, 2, 1,
+              0, 1, 5, 4,
+              0, 4, 7, 3,
+              1, 2, 6, 5,
+              2, 3, 7, 6,
+              4, 5, 6, 7};
+    } else if constexpr (PolynomialOrder == 2) {
+      return {0, 3, 2, 1, 9,  13, 11, 8,  20,
+              0, 1, 5, 4, 8,  12, 16, 10, 21,
+              0, 4, 7, 3, 10, 17, 15, 9,  22,
+              1, 2, 6, 5, 11, 14, 18, 12, 23,
+              2, 3, 7, 6, 13, 15, 19, 14, 24,
+              4, 5, 6, 7, 16, 18, 19, 17, 25};
+    } else if constexpr (PolynomialOrder == 3) {
+      return {0, 3, 2, 1, 10, 11, 19, 18, 15, 14, 9,  8,  32, 33, 34, 35,
+              0, 1, 5, 4, 8,  9,  16, 17, 25, 24, 13, 12, 36, 37, 38, 39,
+              0, 4, 7, 3, 12, 13, 26, 27, 23, 22, 11, 10, 40, 41, 42, 43,
+              1, 2, 6, 5, 14, 15, 20, 21, 29, 28, 17, 16, 44, 45, 46, 47,
+              2, 3, 7, 6, 18, 19, 22, 23, 31, 30, 21, 20, 48, 49, 50, 51,
+              4, 5, 6, 7, 24, 25, 28, 29, 30, 31, 27, 26, 52, 53, 54, 55};
+    } else if constexpr (PolynomialOrder == 4) {
+      return {0, 3, 2, 1, 11, 12, 13, 25, 24, 23, 19, 18, 17, 10, 9,  8,  44, 45, 46, 47, 48, 49, 50, 51, 52,
+              0, 1, 5, 4, 8,  9,  10, 20, 21, 22, 34, 33, 32, 16, 15, 14, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+              0, 4, 7, 3, 14, 15, 16, 35, 36, 37, 31, 30, 29, 13, 12, 11, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+              1, 2, 6, 5, 17, 18, 19, 26, 27, 28, 40, 39, 38, 22, 21, 20, 71, 72, 73, 74, 75, 76, 77, 78, 79,
+              2, 3, 7, 6, 23, 24, 25, 29, 30, 31, 43, 42, 41, 28, 27, 26, 80, 81, 82, 83, 84, 85, 86, 87, 88,
+              4, 5, 6, 7, 32, 33, 34, 38, 39, 40, 41, 42, 43, 37, 36, 35, 89, 90, 91, 92, 93, 94, 95, 96, 97};
+    } else {
+      return {0,  3,   2,   1,   12,  13,  14,  15,  31,  30,  29,  28,  23,  22,  21,  20,  11,  10, 9,  8,  56,  57,
+                  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69,  70,  71,
+              0,  1,   5,   4,   8,   9,   10,  11,  24,  25,  26,  27,  43,  42,  41,  40,  19,  18, 17, 16, 72,  73,
+                  74,  75,  76,  77,  78,  79,  80,  81,  82,  83,  84,  85,  86,  87,
+              0,  4,   7,   3,   16,  17,  18,  19,  44,  45,  46,  47,  39,  38,  37,  36,  15,  14, 13, 12, 88,  89,
+                  90,  91,  92,  93,  94,  95,  96,  97,  98,  99,  100, 101, 102, 103,
+              1,  2,   6,   5,   20,  21,  22,  23,  32,  33,  34,  35,  51,  50,  49,  48,  27,  26, 25, 24, 104, 105,
+                  106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119,
+              2,  3,   7,   6,   28,  29,  30,  31,  36,  37,  38,  39,  55,  54,  53,  52,  35,  34, 33, 32, 120, 121,
+                  122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135,
+              4,  5,   6,   7,   40,  41,  42,  43,  48,  49,  50,  51,  52,  53,  54,  55,  47,  46, 45, 44, 136, 137,
+                  138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151};
+    }
   }
   // clang-format on
 }
@@ -306,6 +458,30 @@ getVolumeElementAdjacencyQuadratureSequence() {
         getVolumeElementPerAdjacencyQuadratureNumber<ElementType, PolynomialOrder>()[static_cast<Usize>(i)];
   }
   return accumulate_adjacency_quadrature_number;
+}
+
+template <ElementEnum ElementType, int PolynomialOrder>
+consteval int getVolumeElementAllAdjacencyBasisValueNumber() {
+  constexpr std::array<int, getVolumeElementAdjacencyNumber<ElementType>()> kVolumeElementPerAdjacencyNodeNumber{
+      getVolumeElementPerAdjacencyNodeNumber<ElementType, PolynomialOrder>()};
+  constexpr std::array<int, getVolumeElementAdjacencyNumber<ElementType>()> kVolumeElementPerAdjacencyQuadratureNumber{
+      getVolumeElementPerAdjacencyQuadratureNumber<ElementType, PolynomialOrder>()};
+  return std::inner_product(kVolumeElementPerAdjacencyNodeNumber.begin(), kVolumeElementPerAdjacencyNodeNumber.end(),
+                            kVolumeElementPerAdjacencyQuadratureNumber.begin(), 0);
+}
+
+template <ElementEnum ElementType, int PolynomialOrder>
+consteval std::array<int, getVolumeElementAdjacencyNumber<ElementType>() + 1>
+getVolumeElementAdjacencyBasisValueSequence() {
+  std::array<int, getVolumeElementAdjacencyNumber<ElementType>() + 1> accumulate_adjacency_basis_value_number{};
+  accumulate_adjacency_basis_value_number[0] = 0;
+  for (int i = 0; i < getVolumeElementAdjacencyNumber<ElementType>(); i++) {
+    accumulate_adjacency_basis_value_number[static_cast<Usize>(i + 1)] =
+        accumulate_adjacency_basis_value_number[static_cast<Usize>(i)] +
+        getVolumeElementPerAdjacencyNodeNumber<ElementType, PolynomialOrder>()[static_cast<Usize>(i)] *
+            getVolumeElementPerAdjacencyQuadratureNumber<ElementType, PolynomialOrder>()[static_cast<Usize>(i)];
+  }
+  return accumulate_adjacency_basis_value_number;
 }
 
 template <ElementEnum ElementType, int PolynomialOrder>
@@ -1239,9 +1415,22 @@ struct VolumeElementTrait : ElementTrait<ElementType, PolynomialOrder> {
   static constexpr int kQuadratureOrder{getVolumeElementQuadratureOrder<PolynomialOrder>()};
   static constexpr int kQuadratureNumber{getVolumeElementQuadratureNumber<ElementType, PolynomialOrder>()};
   static constexpr int kAdjacencyNumber{getVolumeElementAdjacencyNumber<ElementType>()};
-  static constexpr int kAllAdjacencyBasicNodeNumber{getVolumeElementAllAdjacencyBasicNodeNumber<ElementType>()};
+  static constexpr int kAllAdjacencyBasicNodeNumber{getVolumeElementAllAdjacencyNodeNumber<ElementType, 1>()};
+  static constexpr int kAllAdjacencyNodeNumber{getVolumeElementAllAdjacencyNodeNumber<ElementType, PolynomialOrder>()};
   static constexpr int kAllAdjacencyQuadratureNumber{
       getVolumeElementAllAdjacencyQuadratureNumber<ElementType, PolynomialOrder>()};
+  static constexpr int kAllAdjacencyBasisValueNumber{
+      getVolumeElementAllAdjacencyBasisValueNumber<ElementType, PolynomialOrder>()};
+  static constexpr std::array<ElementEnum, kAdjacencyNumber> kPerAdjacencyType{
+      getVolumeElementPerAdjacencyType<ElementType>()};
+  static constexpr std::array<Isize, kAllAdjacencyNodeNumber> kPerAdjacencyNodeIndex{
+      getVolumeElementPerAdjacencyNodeIndex<ElementType, PolynomialOrder>()};
+  static constexpr std::array<int, kAdjacencyNumber + 1> kAdjacencyNodeSequence{
+      getVolumeElementAdjacencyNodeSequence<ElementType, PolynomialOrder>()};
+  static constexpr std::array<int, kAdjacencyNumber + 1> kAdjacencyQuadratureSequence{
+      getVolumeElementAdjacencyQuadratureSequence<ElementType, PolynomialOrder>()};
+  static constexpr std::array<int, kAdjacencyNumber + 1> kAdjacencyBasisValueSequence{
+      getVolumeElementAdjacencyBasisValueSequence<ElementType, PolynomialOrder>()};
 };
 
 template <ElementEnum ElementType, int PolynomialOrder>

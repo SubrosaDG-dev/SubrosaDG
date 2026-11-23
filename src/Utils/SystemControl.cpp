@@ -14,6 +14,8 @@
 #define SUBROSA_DG_SYSTEM_CONTROL_CPP_
 
 #include <Eigen/Core>
+#include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <functional>
@@ -108,6 +110,11 @@ struct System {
   void setTimeIntegration(const Real courant_friedrichs_lewy_number, const std::pair<int, int> iteration_range = {0, 0},
                           const Real delta_time = 0.0_r) {
     if (iteration_range.first == 0 && iteration_range.second == 0) {
+      if (this->command_line_.command_line_type_ == CommandLineEnum::Agent) {
+        this->command_line_.diagnostic("error", "configuration", "missing_parameter",
+                                       "Agent mode requires an explicit iteration_range in setTimeIntegration().");
+        std::exit(EXIT_FAILURE);
+      }
       std::cout << "\nSet time integration end number: ";
       std::cin >> this->time_integration_.iteration_end_;
     } else {
@@ -122,6 +129,11 @@ struct System {
   void setViewConfig(const std::filesystem::path& output_directory, const std::string_view output_file_name_prefix,
                      const int io_interval = 0) {
     if (io_interval == 0) {
+      if (this->command_line_.command_line_type_ == CommandLineEnum::Agent) {
+        this->command_line_.diagnostic("error", "configuration", "missing_parameter",
+                                       "Agent mode requires an explicit io_interval in setViewConfig().");
+        std::exit(EXIT_FAILURE);
+      }
       std::cout << "\nSet view interval: ";
       std::cin >> this->view_.io_interval_;
       if (this->view_.io_interval_ == -1) {
@@ -146,13 +158,12 @@ struct System {
 #ifdef SUBROSA_DG_GPU
     this->mesh_device_.transferMeshToDevice(this->mesh_);
 #endif  // SUBROSA_DG_GPU
-    if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LowOrder) {
-      RawBinaryCompress::read(this->solver_.raw_binary_path_, this->solver_.raw_binary_ss_);
-    }
     if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LastStep) {
       this->solver_.raw_binary_path_ =
           this->view_.output_directory_ /
           std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, this->time_integration_.iteration_start_);
+      RawBinaryCompress::read(this->solver_.raw_binary_path_, this->solver_.raw_binary_ss_);
+    } else if constexpr (SimulationControl::kInitialCondition == InitialConditionEnum::LowOrder) {
       RawBinaryCompress::read(this->solver_.raw_binary_path_, this->solver_.raw_binary_ss_);
     }
     this->command_line_.finalizeMesh(this->mesh_.node_number_, this->mesh_.volume_element_number_);
@@ -161,22 +172,21 @@ struct System {
 
   void solve(const bool delete_dir = true) {
     bool diverged = false;
-    this->view_.initializeSolverFinout(this->solver_.error_finout_, delete_dir);
     this->solver_.initializeSolver(this->mesh_);
+    this->solver_.initializeBasisFunctionCoefficient(this->mesh_);
+    this->view_.initializeSolverFinout(this->solver_.error_finout_, delete_dir);
 #ifdef SUBROSA_DG_GPU
     this->solver_device_.transferSolverToDevice(this->solver_);
 #endif  // SUBROSA_DG_GPU
     if (this->time_integration_.delta_time_ == 0.0_r) {
-      this->solver_.rotateMesh(this->mesh_, this->time_integration_, 0);
+      this->solver_.rotateMesh(this->mesh_, 0.0_r);
       this->solver_.computeDeltaTime(this->mesh_, this->time_integration_);
     }
-    this->solver_.raw_binary_ss_ = std::stringstream();
+    this->solver_.raw_binary_ss_.str("");
+    this->solver_.write_raw_binary_future_ = std::async(std::launch::async, []() {});
     if constexpr (SimulationControl::kInitialCondition != InitialConditionEnum::LastStep) {
       this->solver_.writeRawBinary(
-          this->mesh_, this->time_integration_,
-          this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, 0));
-    } else {
-      this->solver_.write_raw_binary_future_ = std::async(std::launch::async, []() {});
+          this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, 0), 0.0_r);
     }
     this->command_line_.initializeSolver(this->time_integration_, this->solver_.error_finout_,
                                          this->solver_.error_output_interval_, this->view_.output_directory_);
@@ -189,26 +199,26 @@ struct System {
       this->time_integration_.iteration_ = i;
       if (i % this->solver_.error_output_interval_ == 0) {
 #ifndef SUBROSA_DG_GPU
-        this->solver_.computeRelativeError(this->mesh_);
+        this->solver_.computeMeanAbsoluteResidual(this->mesh_);
 #else   // SUBROSA_DG_GPU
-        this->solver_device_.computeRelativeError(this->mesh_device_, this->solver_);
+        this->solver_device_.computeMeanAbsoluteResidual(this->mesh_device_, this->solver_);
 #endif  // SUBROSA_DG_GPU
-        this->command_line_.updateSolver(this->solver_.relative_error_, this->solver_.error_finout_, i);
+        this->command_line_.updateSolver(this->solver_.residual_, this->solver_.error_finout_, i);
         // Check only a freshly computed sample; any NaN or infinity stops this run.
-        if (!this->solver_.relative_error_.allFinite()) [[unlikely]] {
-          this->command_line_.reportNonfiniteResidual(this->solver_.relative_error_, i);
+        if (!this->solver_.residual_.allFinite()) [[unlikely]] {
+          this->command_line_.reportNonfiniteResidual(this->solver_.residual_, i);
           diverged = true;
           break;
         }
       }
       if (i % this->view_.io_interval_ == 0) [[unlikely]] {
-        this->solver_.write_raw_binary_future_.get();
 #ifdef SUBROSA_DG_GPU
-        this->solver_device_.transferSolverToHost(this->solver_);
+        this->solver_device_.transferCoefficientToHost(this->solver_);
 #endif  // SUBROSA_DG_GPU
+        const Real time = static_cast<Real>(i) * this->time_integration_.delta_time_;
         this->solver_.writeRawBinary(
-            this->mesh_, this->time_integration_,
-            this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, i));
+            this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, i),
+            time);
       }
     }
     this->solver_.write_raw_binary_future_.get();
@@ -226,29 +236,15 @@ struct System {
     // Count the exact multiples visited by the loop, including zero when present.
     const int snapshots = end / interval - (start == 0 ? -1 : (start - 1) / interval);
     this->command_line_.initializeView(snapshots, this->view_.output_directory_ / "vtu");
-    this->mesh_.resetMesh();
     this->view_.initializeViewFout(delete_dir);
-    oneapi::tbb::global_control global_limit(oneapi::tbb::global_control::max_allowed_parallelism,
-                                             kNumberOfPhysicalCores / 2);
-    tbb::spin_mutex mtx;
-    tbb::enumerable_thread_specific<ViewSolver<SimulationControl>> thread_view_solver(
-        [&] { return ViewSolver<SimulationControl>(this->mesh_, this->solver_); });
-    tbb::parallel_for(
-        tbb::blocked_range<Isize>(this->time_integration_.iteration_start_, this->time_integration_.iteration_end_ + 1),
-        [&](const tbb::blocked_range<Isize>& range) -> void {
-          ViewSolver<SimulationControl>& view_solver = thread_view_solver.local();
-          for (Isize i = range.begin(); i != range.end(); i++) {
-            if (i % this->view_.io_interval_ == 0) {
-              view_solver.raw_binary_path_ =
-                  this->view_.output_directory_ / std::format("raw/{}_{}.zst", this->view_.output_file_name_prefix_, i);
-              this->view_.stepView(this->mesh_, view_solver, i);
-              {
-                tbb::spin_mutex::scoped_lock lock(mtx);
-                this->command_line_.updateView();
-              }
-            }
-          }
-        });
+    this->solver_.initializeSolver(this->mesh_);
+    ViewSolver<SimulationControl> view_solver(this->mesh_);
+    for (int i = start; i <= end; i++) {
+      if (i % interval == 0) {
+        this->view_.stepView(this->mesh_, this->solver_, view_solver, i);
+        this->command_line_.updateView();
+      }
+    }
     this->command_line_.finalizeView();
   }
 

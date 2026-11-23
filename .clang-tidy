@@ -1,4 +1,5 @@
-Checks: ' -*
+Checks: >-
+  -*,
   clang-diagnostic-*,
   clang-analyzer-*,
   performance-*,
@@ -8,21 +9,26 @@ Checks: ' -*
   openmp-*,
   -modernize-use-trailing-return-type,
   -modernize-avoid-c-arrays,
+  -modernize-use-auto,
   -readability-magic-numbers,
   -readability-identifier-length,
   -readability-function-cognitive-complexity,
   -readability-static-accessed-through-instance,
-  -readability-math-missing-parentheses'
+  -readability-math-missing-parentheses,
+  -readability-trailing-comma
 
-WarningsAsErrors: false
+WarningsAsErrors: ''
 
-HeaderFilterRegex: 'SubrosaDG\/(src|examples)\/.*?\.cpp$'
+# Implementation files under src are included by the compiled translation units.
+HeaderFilterRegex: '(^|/)src/.*\.cpp$'
 
 FormatStyle: file
 
 CheckOptions:
   - key: readability-identifier-naming.MacroDefinitionCase
     value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
+    value: '^SUBROSA_DG_([A-Z0-9]+_)*CPP_$'
 
   - key: readability-identifier-naming.NamespaceCase
     value: CamelCase

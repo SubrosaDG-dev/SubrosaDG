@@ -13,11 +13,13 @@
 #ifndef SUBROSA_DG_ROTATING_INTERFACE_CPP_
 #define SUBROSA_DG_ROTATING_INTERFACE_CPP_
 
+#include <oneapi/tbb.h>
+
 #include <Eigen/Core>
+#include <sycl/sycl.hpp>
 
 #include "Mesh/ReadControl.cpp"
 #include "Solver/SolveControl.cpp"
-#include "Solver/TimeIntegration.cpp"
 
 namespace SubrosaDG {
 
@@ -169,12 +171,8 @@ inline void AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationContro
 }
 
 template <typename SimulationControl>
-inline void Solver<SimulationControl>::rotateMesh(Mesh<SimulationControl>& mesh,
-                                                  const TimeIntegration<SimulationControl>& time_integration,
-                                                  const int rk_step) {
-  const Real angle = (static_cast<Real>(time_integration.iteration_) +
-                      TimeIntegration<SimulationControl>::kButcherCoefficients[static_cast<Usize>(rk_step)]) *
-                     time_integration.delta_time_ * this->rotation_angular_velocity_;
+inline void Solver<SimulationControl>::rotateMesh(Mesh<SimulationControl>& mesh, const Real time) {
+  const Real angle = time * this->rotation_angular_velocity_;
   if constexpr (SimulationControl::kDimension == 2) {
     Transformation::Rotation::getMatrix(angle, this->rotation_matrix_);
   } else if constexpr (SimulationControl::kDimension == 3) {
@@ -224,9 +222,7 @@ inline void Solver<SimulationControl>::rotateMesh(Mesh<SimulationControl>& mesh,
 }
 
 template <typename SimulationControl>
-inline void SolverDevice<SimulationControl>::rotateMesh(MeshDevice<SimulationControl>& mesh,
-                                                        const TimeIntegration<SimulationControl>& time_integration,
-                                                        const int rk_step) {
+inline void SolverDevice<SimulationControl>::rotateMesh(MeshDevice<SimulationControl>& mesh, const Real time) {
   queue
       .submit([&](sycl::handler& cgh) -> void {
         cgh.parallel_for(getNdRange(1), [=, this](sycl::nd_item<1> index) -> void {
@@ -234,9 +230,7 @@ inline void SolverDevice<SimulationControl>::rotateMesh(MeshDevice<SimulationCon
           if (i >= 1) {
             return;
           }
-          const Real angle = (static_cast<Real>(time_integration.iteration_) +
-                              TimeIntegration<SimulationControl>::kButcherCoefficients[static_cast<Usize>(rk_step)]) *
-                             time_integration.delta_time_ * this->rotation_angular_velocity_;
+          const Real angle = time * this->rotation_angular_velocity_;
           if constexpr (SimulationControl::kDimension == 2) {
             Transformation::RotationDevice::getMatrix(angle, this->rotation_matrix_);
           } else if constexpr (SimulationControl::kDimension == 3) {
@@ -311,7 +305,7 @@ template <typename AdjacencyElementTrait, typename SimulationControl>
 inline void AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementInterfaceVariable(
     Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver) {
   AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
-      mesh.*(Mesh<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
+      mesh.*Mesh<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>();
   auto compute = [&]<typename VolumeElementTrait>(
                      const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
                      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
@@ -385,7 +379,7 @@ inline void
 AdjacencyElementSolver<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementInterfaceVariableGradient(
     const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver) {
   const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh =
-      mesh.*(Mesh<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
+      mesh.*Mesh<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>();
   auto compute = [&]<typename VolumeElementTrait>(
                      const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
                      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver,
@@ -461,7 +455,7 @@ inline void
 AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementInterfaceVariable(
     MeshDevice<SimulationControl>& mesh, const SolverDevice<SimulationControl>& solver) {
   AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh =
-      mesh.*(MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
+      mesh.*MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>();
   auto compute = [=, this]<typename VolumeElementTrait>(
                      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
                      const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>& volume_element_solver,
@@ -474,7 +468,8 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::updateAd
         adjacency_sequence_in_parent);
     Device::View<Device::Matrix<Real, AdjacencyElementTrait::kDimension + 1, AdjacencyElementTrait::kQuadratureNumber>>
         interface_volume_local_coordinate =
-            adjacency_element_mesh.interface_volume_local_coordinate_.view(i, 2 * this->interface_number_);
+            const_cast<AdjacencyElementMeshDevice<AdjacencyElementTrait>&>(adjacency_element_mesh)
+                .interface_volume_local_coordinate_.view(i, 2 * this->interface_number_);
     for (Isize m = 0; m < VolumeElementTrait::kDimension; m++) {
       interface_volume_local_coordinate(m, j) = volume_local_coordinate(m);
     }
@@ -510,7 +505,8 @@ AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::updateAd
           quadrature_node_coordinate =
               adjacency_element_mesh.quadrature_node_coordinate_.view(element_index, this->number_);
       Device::View<Device::Vector<Isize, AdjacencyElementTrait::kQuadratureNumber>> interface_opposite_element_index =
-          adjacency_element_mesh.interface_opposite_element_index_.view(i, 2 * this->interface_number_);
+          const_cast<AdjacencyElementMeshDevice<AdjacencyElementTrait>&>(adjacency_element_mesh)
+              .interface_opposite_element_index_.view(i, 2 * this->interface_number_);
       for (Isize j = 0; j < AdjacencyElementTrait::kQuadratureNumber; j++) {
         for (Isize m = 0; m < AdjacencyElementTrait::kDimension + 1; m++) {
           adjacency_quadrature_node_coordinate(m) = quadrature_node_coordinate(m, j);
@@ -562,7 +558,7 @@ inline void
 AdjacencyElementSolverDevice<AdjacencyElementTrait, SimulationControl>::updateAdjacencyElementInterfaceVariableGradient(
     const MeshDevice<SimulationControl>& mesh, const SolverDevice<SimulationControl>& solver) {
   const AdjacencyElementMeshDevice<AdjacencyElementTrait>& adjacency_element_mesh =
-      mesh.*(MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>());
+      mesh.*MeshDevice<SimulationControl>::template getAdjacencyElement<AdjacencyElementTrait>();
   auto compute = [=, this]<typename VolumeElementTrait>(
                      const VolumeElementMeshDevice<VolumeElementTrait>& volume_element_mesh,
                      const VolumeElementSolverDevice<VolumeElementTrait, SimulationControl>& volume_element_solver,

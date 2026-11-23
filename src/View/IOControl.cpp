@@ -16,7 +16,6 @@
 #include <Eigen/Core>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -24,33 +23,36 @@
 
 #include "Mesh/ReadControl.cpp"
 #include "Solver/SimulationControl.cpp"
-#include "Solver/VariableConvertor.cpp"
+#include "Solver/SolveControl.cpp"
 #include "Utils/BasicDataType.cpp"
 #include "Utils/Enum.cpp"
 
 namespace SubrosaDG {
 
-template <typename SimulationControl>
-struct ViewSolver;
+template <typename ElementTrait, typename SimulationControl>
+struct ViewVariable;
 
 template <typename VolumeElementTrait, typename SimulationControl>
 struct VolumeElementViewSolver {
   Eigen::Array<ViewVariable<VolumeElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
 
-  inline void computeVolumeElementViewVariable(const VolumeElementMesh<VolumeElementTrait>& volume_element_mesh,
-                                               std::stringstream& raw_binary_ss);
+  inline void computeVolumeElementViewVariable(
+      const VolumeElementSolver<VolumeElementTrait, SimulationControl>& volume_element_solver);
 };
 
 template <typename AdjacencyElementTrait, typename SimulationControl>
 struct AdjacencyElementViewSolver {
   Eigen::Array<ViewVariable<AdjacencyElementTrait, SimulationControl>, Eigen::Dynamic, 1> view_variable_;
+  Eigen::Matrix<Real, SimulationControl::kDimension, Eigen::Dynamic> force_;
 
   template <typename VolumeElementTrait>
-  inline void computeAdjacencyPerElementViewVariable(std::stringstream& raw_binary_ss, Isize parent_gmsh_type_number,
-                                                     Isize adjacency_sequence_in_parent, Isize element_local_index);
+  inline void computeAdjacencyPerElementViewVariable(
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+      const Solver<SimulationControl>& solver, Isize element_local_index);
 
   inline void computeAdjacencyElementViewVariable(
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh, std::stringstream& raw_binary_ss);
+      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+      const Solver<SimulationControl>& solver);
 };
 
 template <typename SimulationControl, int Dimension>
@@ -81,14 +83,7 @@ struct ViewSolverData<SimulationControl, 3> {
 
 template <typename SimulationControl>
 struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimension> {
-  std::filesystem::path raw_binary_path_;
-  std::stringstream raw_binary_ss_;
-
-  Real time_value_{0.0};
-  Eigen::Vector<Real, SimulationControl::kDimension> rotation_center_;
-  Eigen::Vector<Real, 3> rotation_axis_;
-  Real rotation_angular_velocity_{0.0};
-  Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension> rotation_matrix_;
+  Real time_;
 
   template <typename VolumeElementTrait>
   static VolumeElementViewSolver<VolumeElementTrait, SimulationControl> ViewSolver::* getVolumeElement() {
@@ -133,14 +128,9 @@ struct ViewSolver : ViewSolverData<SimulationControl, SimulationControl::kDimens
     }
   }
 
-  inline void computeViewVariable(const Mesh<SimulationControl>& mesh);
+  inline void computeViewVariable(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver);
 
-  inline void computeRotationMatrix();
-
-  ViewSolver(const Mesh<SimulationControl>& mesh, const Solver<SimulationControl>& solver) {
-    this->rotation_center_ = solver.rotation_center_;
-    this->rotation_axis_ = solver.rotation_axis_;
-    this->rotation_angular_velocity_ = solver.rotation_angular_velocity_;
+  ViewSolver(const Mesh<SimulationControl>& mesh) {
     if constexpr (SimulationControl::kDimension == 1) {
       this->line_.view_variable_.resize(mesh.line_.number_);
       this->point_.view_variable_.resize(mesh.point_.boundary_number_);
@@ -230,18 +220,10 @@ struct View {
   inline void getDataSetInformation(std::vector<vtu11::DataSetInfo>& data_set_information);
 
   template <typename VolumeElementTrait>
-  inline void computeViewVariable(const ViewVariable<VolumeElementTrait, SimulationControl>& view_variable,
-                                  Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
-                                  /*const*/ Isize node_index, /*const*/ Isize column);
-
-  template <typename AdjacencyElementTrait, typename VolumeElementTrait>
-  inline void computeAdjacencyForce(
-      const AdjacencyElementMesh<AdjacencyElementTrait>& adjacency_element_mesh,
+  inline void accumulateNodeVariable(
       const ViewVariable<VolumeElementTrait, SimulationControl>& view_variable,
-      const Eigen::Matrix<Real, SimulationControl::kDimension, SimulationControl::kDimension>& rotation_matrix,
-      Eigen::Vector<Real, SimulationControl::kDimension>& force,
-      /*const*/ Isize element_index,
-      /*const*/ Isize column);
+      Eigen::Array<Eigen::Vector<Real, Eigen::Dynamic>, Eigen::Dynamic, 1>& node_variable,
+      /*const*/ Isize node_index, /*const*/ Isize column);
 
   template <typename VolumeElementTrait>
   inline void writeVolumeElement(const MeshPhysical& mesh_physical,
@@ -266,7 +248,8 @@ struct View {
   inline void writeView(const Mesh<SimulationControl>& mesh, const ViewSolver<SimulationControl>& view_solver,
                         const std::vector<Isize>& physical_indices, const std::string& base_name, /*const*/ int step);
 
-  inline void stepView(const Mesh<SimulationControl>& mesh, ViewSolver<SimulationControl>& view_solver,
+  inline void stepView(Mesh<SimulationControl>& mesh, Solver<SimulationControl>& solver,
+                       ViewSolver<SimulationControl>& view_solver,
                        /*const*/ int step);
 
   void initializeSolverFinout(std::fstream& error_finout, const bool delete_dir) {
